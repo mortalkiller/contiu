@@ -1,0 +1,243 @@
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+@source '../../../../app/Filament/**/*';
+@source '../../../../resources/views/filament/**/*';
+@source '../../../../vendor/mortalkiller/filament-page-header/resources/**/*.blade.php';
+@source '../../../../vendor/mortalkiller/filament-complete-user-profile/resources/**/*.blade.php';
+
+/*
+ * Pressiu site tokens (printee/resources/css/app.css). Filament's own primary/gray scales come
+ * from App\Filament\Support\BrandPalette; these names are for custom views and mocks
+ * (e.g. bg-paper, text-ink, border-line, bg-moss-tint).
+ */
+@theme {
+    --color-paper: #f5f1e8;
+    --color-surface: #fbf9f4;
+    --color-ink: #111111;
+    --color-body: #4f4b45;
+    --color-muted: #68645d;
+    --color-echo: #8a8478;
+    --color-line: #e2dcd0;
+    --color-ink-line: #3a3835;
+    --color-ink-body: #cdc7bb;
+    --color-sage: #9db9a3;
+    --color-moss: #637c69;
+    --color-moss-ink: #4f6655;
+    --color-moss-deep: #3b5442;
+    --color-moss-tint: #e3ece4;
+    --color-clay: #c9a98e;
+
+    --shadow-soft: 0 24px 80px rgba(30, 24, 18, 0.1);
+    --shadow-lifted: 0 18px 48px rgba(30, 24, 18, 0.14);
+}
+
+/*
+ * Light mode content: white background with a soft shade under the topbar (sampled from the
+ * reference, made neutral: #f4f4f4 fading to white over ~80px); cards, tables and sections stay white.
+ */
+:root:not(.dark) .fi-body {
+    background-color: #ffffff;
+}
+
+:root:not(.dark) .fi-main-ctn {
+    background-color: #ffffff;
+    background-image: linear-gradient(
+        to bottom,
+        #f4f4f4 0,
+        #f7f7f7 20px,
+        #fbfbfb 40px,
+        #fefefe 60px,
+        #ffffff 80px
+    );
+    background-repeat: no-repeat;
+}
+
+/*
+ * Brand chrome: sidebar and topbar in the Pressiu green (primary-600 in light mode,
+ * primary-900 in dark mode), with near-white neutral text and translucent white states.
+ */
+:root {
+    --chrome-bg: var(--primary-600);
+    --chrome-text: #fafafa;
+    --chrome-text-muted: rgb(250 250 250 / 0.68);
+    --chrome-hover: rgb(255 255 255 / 0.08);
+    --chrome-active: rgb(255 255 255 / 0.15);
+    --chrome-ring: rgb(255 255 255 / 0.12);
+}
+
+:root.dark {
+    --chrome-bg: var(--primary-900);
+}
+
+/* Topbar */
+.fi-topbar {
+    background-color: var(--chrome-bg);
+    --tw-ring-color: var(--chrome-ring);
+}
+
+.fi-topbar .fi-logo,
+.fi-sidebar .fi-logo {
+    color: var(--chrome-text);
+}
+
+.fi-topbar .fi-icon-btn,
+.fi-topbar-item-btn > .fi-icon {
+    color: var(--chrome-text-muted);
+}
+
+.fi-topbar .fi-icon-btn:hover,
+.fi-topbar .fi-icon-btn:focus-visible {
+    color: var(--chrome-text);
+    background-color: var(--chrome-hover);
+}
+
+.fi-topbar-item-label {
+    color: var(--chrome-text);
+}
+
+.fi-topbar-item-btn:hover,
+.fi-topbar-item-btn:focus-visible {
+    background-color: var(--chrome-hover);
+}
+
+.fi-topbar-item.fi-active .fi-topbar-item-btn {
+    background-color: var(--chrome-active);
+}
+
+.fi-topbar-item.fi-active .fi-topbar-item-btn > .fi-icon,
+.fi-topbar-item.fi-active .fi-topbar-item-label {
+    color: #ffffff;
+}
+
+/* Global search field on the green topbar */
+.fi-topbar .fi-global-search-field .fi-input-wrp {
+    background-color: rgb(255 255 255 / 0.1);
+    --tw-ring-color: rgb(255 255 255 / 0.18);
+}
+
+.fi-topbar .fi-global-search-field .fi-input-wrp .fi-icon {
+    color: var(--chrome-text-muted);
+}
+
+.fi-topbar .fi-global-search-field input {
+    color: var(--chrome-text);
+}
+
+.fi-topbar .fi-global-search-field input::placeholder {
+    color: var(--chrome-text-muted);
+}
+
+/* Sidebar */
+.fi-sidebar,
+.fi-body-has-topbar .fi-sidebar-header {
+    background-color: var(--chrome-bg);
+}
+
+.fi-body-has-topbar .fi-sidebar-header {
+    --tw-ring-color: var(--chrome-ring);
+}
+
+.fi-sidebar-group-label {
+    color: var(--chrome-text-muted);
+}
+
+.fi-sidebar-group-btn .fi-icon,
+.fi-sidebar-group-dropdown-trigger-btn .fi-icon,
+.fi-sidebar-item-btn > .fi-icon,
+.fi-sidebar-database-notifications-btn > .fi-icon,
+.fi-sidebar .fi-icon-btn {
+    color: var(--chrome-text-muted);
+}
+
+.fi-sidebar-item-label,
+.fi-sidebar-database-notifications-btn-label {
+    color: var(--chrome-text);
+}
+
+.fi-sidebar-item.fi-sidebar-item-has-url > .fi-sidebar-item-btn:hover,
+.fi-sidebar-item.fi-sidebar-item-has-url > .fi-sidebar-item-btn:focus-visible,
+.fi-sidebar-group-dropdown-trigger-btn:hover,
+.fi-sidebar-database-notifications-btn:hover,
+.fi-sidebar .fi-icon-btn:hover {
+    background-color: var(--chrome-hover);
+}
+
+.fi-sidebar-item.fi-active > .fi-sidebar-item-btn {
+    background-color: var(--chrome-active);
+}
+
+.fi-sidebar-item.fi-active > .fi-sidebar-item-btn > .fi-icon,
+.fi-sidebar-item.fi-active > .fi-sidebar-item-btn > .fi-sidebar-item-label,
+.fi-sidebar-group.fi-active .fi-sidebar-group-dropdown-trigger-btn .fi-icon {
+    color: #ffffff;
+}
+
+.fi-sidebar-item-grouped-border-part,
+.fi-sidebar-item.fi-active > .fi-sidebar-item-btn > .fi-sidebar-item-grouped-border > .fi-sidebar-item-grouped-border-part {
+    background-color: var(--chrome-text-muted);
+}
+
+.fi-sidebar-item-grouped-border-part-not-first,
+.fi-sidebar-item-grouped-border-part-not-last {
+    background-color: var(--chrome-ring);
+}
+
+.fi-sidebar-footer {
+    border-color: var(--chrome-ring);
+}
+
+.fi-sidebar .fi-user-menu-trigger-text {
+    color: var(--chrome-text);
+}
+
+/*
+ * Page header summary (Total, Recebido, Em aberto…): keep each money value on one line.
+ * Columns size to their content and wrap as whole items instead of breaking "2 400,00 €".
+ */
+.fi-body .fph-root .fph-summary .fi-in-text-item {
+    white-space: nowrap;
+}
+
+.fi-body .fph-root .fph-summary > .fi-sc > .fi-grid-col {
+    flex: 1 0 auto;
+}
+
+/*
+ * The sticky-table-header plugin caps every table at the viewport height with an inner scroll.
+ * Dashboard and "Fecho do mês" widget tables are short, so they show in full instead.
+ */
+.fi-wi-table .fi-ta-content-ctn {
+    max-height: none;
+}
+
+/*
+ * Top navigation on one line: tighter spacing between menus and a narrower search field, so the
+ * menus fit next to the logo, "+ Novo", the bell and the avatar on a 1280–1440px screen.
+ */
+@media (min-width: 1024px) {
+    .fi-topbar-nav-groups {
+        column-gap: 0.125rem;
+        margin-inline: 0.75rem;
+        flex-wrap: nowrap;
+    }
+
+    .fi-topbar-item-btn {
+        padding-inline: 0.5rem;
+        column-gap: 0.375rem;
+    }
+
+    .fi-topbar-end {
+        column-gap: 0.75rem;
+    }
+
+    .fi-topbar .fi-global-search-field {
+        width: 11rem;
+    }
+}
+
+@media (min-width: 1024px) and (max-width: 1439px) {
+    /* Ungrouped items (Painel, Fecho do mês) keep their label; the icon is redundant there. */
+    .fi-topbar-nav-groups > .fi-topbar-item > .fi-topbar-item-btn > .fi-icon {
+        display: none;
+    }
+}

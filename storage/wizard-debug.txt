@@ -1,0 +1,3 @@
+after1 errors: []
+after2 errors: []
+data: {"client_id":1,"code":"X1","status":"approved","title":"T","quoted_on":"2026-03-10","net_amount":1000,"vat_rate":"0.0000","receivables":{"9d00f463-657c-4e17-92f8-740c75957afe":{"description":"Pagamento \u00fanico","amount":null,"due_on":null}}}
