@@ -26,6 +26,8 @@ use App\Support\BankCsvResult;
 use App\Support\BankSuggestion;
 use App\Support\FinanceSettings;
 use App\Support\Money;
+use App\Support\TransferCover;
+use App\Support\TransferCoverage;
 use BackedEnum;
 use DomainException;
 use Filament\Actions\Action;
@@ -528,9 +530,21 @@ class BankStatementImport extends Page implements HasTable
             try {
                 $label = $best->label();
                 $apply->accept($line, $best);
-                $plan['done'][] = [...$row, 'target' => $label];
+                $plan['done'][] = [...$row, 'id' => $line->getKey(), 'target' => $label, 'own' => $best->type === 'own_transfer'];
             } catch (DomainException) {
                 $plan['left'][] = $row;
+            }
+        }
+
+        // What each transfer covers, worked out with every line of this run already treated.
+        $coverage = new TransferCoverage;
+
+        foreach ($plan['done'] as $index => $row) {
+            if ($row['own']) {
+                $plan['done'][$index]['covers'] = array_map(
+                    fn (TransferCover $cover) => $cover->label(),
+                    $coverage->for(BankTransaction::findOrFail($row['id'])),
+                );
             }
         }
 
@@ -548,9 +562,17 @@ class BankStatementImport extends Page implements HasTable
     }
 
     /** @return string|array<int, string> */
+    private ?TransferCoverage $transferCoverage = null;
+
     private function describe(BankTransaction $record): string|array
     {
         if ($record->status !== BankTransactionStatus::Pending) {
+            if ($record->status === BankTransactionStatus::OwnTransfer) {
+                $covers = array_map(fn (TransferCover $cover) => 'Cobre: '.$cover->label(), ($this->transferCoverage ??= new TransferCoverage)->for($record));
+
+                return [$record->status->getLabel(), ...$covers];
+            }
+
             if ($record->status !== BankTransactionStatus::Matched) {
                 return $record->status->getLabel();
             }

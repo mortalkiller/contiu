@@ -91,6 +91,27 @@ it('previews what the automatic reconciliation will do without changing anything
         ->and(Payment::count())->toBe(0);
 });
 
+it('shows in the preview which payments each transfer covers', function () {
+    app(FinanceSettings::class)->set(['account_names' => 'Pedro Monteiro']);
+    screenLine('2026-11-01', 0, 0);
+    $receivable = Receivable::factory()->for(Project::factory()->create(['code' => 'PRESSIU OC-9']), 'billable')->create(['amount' => 65500, 'description' => 'Pagamento único']);
+    Payment::factory()->for($receivable)->create(['amount' => 65500, 'paid_on' => '2026-11-04']); // received outside the company account
+    screenLine('2026-11-06', 65500, 65500, 'pending', 'TRF DE PEDRO MONTEIRO');
+
+    Livewire::test(BankStatementImport::class)
+        ->mountAction('autoReconcile')
+        ->assertMountedActionModalSee(['Transferência minha', 'Cobre:', 'Recebimento PRESSIU OC-9 · Pagamento único · 04/11/2026']);
+});
+
+it('says when a transfer covers nothing still to reconcile', function () {
+    app(FinanceSettings::class)->set(['account_names' => 'Ordenado']);
+    screenLine('2026-10-06', -15100, 0, 'pending', 'TRF P/ Ordenado');
+
+    Livewire::test(BankStatementImport::class)
+        ->mountAction('autoReconcile')
+        ->assertMountedActionModalSee('Não cobre nenhum recebimento ou despesa por reconciliar');
+});
+
 it('says when there is nothing it can reconcile', function () {
     screenLine('2026-10-24', 432, 432, 'pending', 'STRIPE TECHNOLOGY EUROPE');
 
@@ -106,4 +127,16 @@ it('links from the company account card to what is still to reconcile', function
 
     Livewire::test(CompanyAccountStats::class)
         ->assertSee('Ver o que falta reconciliar');
+});
+
+it('shows in the treated tab what a transfer covered', function () {
+    screenLine('2026-11-01', 0, 0);
+    $receivable = Receivable::factory()->for(Project::factory()->create(['code' => 'PRESSIU OC-9']), 'billable')->create(['amount' => 65500, 'description' => 'Pagamento único']);
+    Payment::factory()->for($receivable)->create(['amount' => 65500, 'paid_on' => '2026-11-04']);
+    screenLine('2026-11-06', 65500, 65500, 'own_transfer', 'TRF DE PEDRO MONTEIRO');
+
+    Livewire::test(BankStatementImport::class)
+        ->set('activeTab', 'done')
+        ->loadTable()
+        ->assertSee('Recebimento PRESSIU OC-9 · Pagamento único · 04/11/2026');
 });

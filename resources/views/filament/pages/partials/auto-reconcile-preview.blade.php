@@ -1,5 +1,5 @@
 @php
-    /** @var array{done: list<array{date: string, description: string, amount: string, target: string}>, left: list<array{date: string, description: string, amount: string}>} $plan */
+    /** @var array{done: list<array{date: string, description: string, amount: string, target: string, own: bool, covers?: list<string>}>, left: list<array{date: string, description: string, amount: string}>} $plan */
     $done = $plan['done'];
     $left = $plan['left'];
 @endphp
@@ -27,7 +27,21 @@
                                 <span class="text-xs text-gray-500 dark:text-gray-400">{{ $row['date'] }}</span>
                             </td>
                             <td class="whitespace-nowrap px-3 py-2 text-end tabular-nums">{{ $row['amount'] }}</td>
-                            <td class="px-3 py-2 text-gray-700 dark:text-gray-300">{{ $row['target'] }}</td>
+                            <td class="px-3 py-2 text-gray-700 dark:text-gray-300">
+                                {{ $row['target'] }}
+                                @if ($row['own'] ?? false)
+                                    @if (($row['covers'] ?? []) === [])
+                                        <span class="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">Não cobre nenhum recebimento ou despesa por reconciliar.</span>
+                                    @else
+                                        <span class="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">Cobre:</span>
+                                        <ul class="list-disc ps-4 text-xs text-gray-600 dark:text-gray-400">
+                                            @foreach ($row['covers'] as $cover)
+                                                <li>{{ $cover }}</li>
+                                            @endforeach
+                                        </ul>
+                                    @endif
+                                @endif
+                            </td>
                         </tr>
                     @endforeach
                 </tbody>
