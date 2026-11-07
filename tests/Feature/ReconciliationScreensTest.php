@@ -11,6 +11,7 @@ use App\Models\Payment;
 use App\Models\Project;
 use App\Models\Receivable;
 use App\Support\FinanceSettings;
+use App\Support\Money;
 use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 
@@ -129,14 +130,37 @@ it('links from the company account card to what is still to reconcile', function
         ->assertSee('Ver o que falta reconciliar');
 });
 
-it('shows in the treated tab what a transfer covered', function () {
+it('sums up in the treated tab what a transfer covered, with the details one click away', function () {
     screenLine('2026-11-01', 0, 0);
-    $receivable = Receivable::factory()->for(Project::factory()->create(['code' => 'PRESSIU OC-9']), 'billable')->create(['amount' => 65500, 'description' => 'Pagamento único']);
+    $project = Project::factory()->for(Client::factory()->create(['name' => 'Gonçalo Pimenta']))->create(['code' => 'PRESSIU OC-9']);
+    $receivable = Receivable::factory()->for($project, 'billable')->create(['amount' => 65500, 'description' => 'Pagamento único']);
     Payment::factory()->for($receivable)->create(['amount' => 65500, 'paid_on' => '2026-11-04']);
-    screenLine('2026-11-06', 65500, 65500, 'own_transfer', 'TRF DE PEDRO MONTEIRO');
+    $transfer = screenLine('2026-11-06', 70000, 70000, 'own_transfer', 'TRF DE PEDRO MONTEIRO');
 
     Livewire::test(BankStatementImport::class)
         ->set('activeTab', 'done')
         ->loadTable()
-        ->assertSee('Recebimento PRESSIU OC-9 · Pagamento único · 04/11/2026');
+        ->assertSee('Cobre 1 recebimento')
+        ->assertDontSee('Recebimento PRESSIU OC-9 · Pagamento único · 04/11/2026')
+        ->assertTableActionVisible('details', $transfer)
+        ->mountTableAction('details', $transfer)
+        ->assertMountedActionModalSee([
+            'TRF DE PEDRO MONTEIRO', Money::format(70000),
+            'Recebimento', 'PRESSIU OC-9 · Pagamento único', 'Gonçalo Pimenta', '04/11/2026', Money::format(65500), 'Completo',
+            'Sobram '.Money::format(4500),
+        ]);
+});
+
+it('shows the details of a line linked to records', function () {
+    $project = Project::factory()->for(Client::factory()->create(['name' => 'Mariana Moreira']))->create(['code' => 'MINFRA']);
+    $receivable = Receivable::factory()->for($project, 'billable')->create(['amount' => 2000, 'description' => 'Nov 2026']);
+    $payment = Payment::factory()->for($receivable)->create(['amount' => 2000, 'paid_on' => '2026-11-04']);
+    $line = screenLine('2026-11-04', 2000, 2000, 'matched', 'MBWAY MARIANA');
+    $line->links()->create(['linkable_type' => $payment->getMorphClass(), 'linkable_id' => $payment->id]);
+
+    Livewire::test(BankStatementImport::class)
+        ->set('activeTab', 'done')
+        ->loadTable()
+        ->mountTableAction('details', $line)
+        ->assertMountedActionModalSee(['MINFRA · Nov 2026', 'Mariana Moreira', 'Completo']);
 });

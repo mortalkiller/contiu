@@ -290,6 +290,18 @@ class BankStatementImport extends Page implements HasTable
                     ->tooltip('Transferência minha: dinheiro entre as tuas contas, não é receita nem despesa')
                     ->visible(fn (BankTransaction $record) => $record->status === BankTransactionStatus::Pending)
                     ->action(fn (BankTransaction $record) => $this->apply(fn (ApplyBankTransaction $apply) => $apply->markOwnTransfer($record))),
+                Action::make('details')
+                    ->label('Ver detalhes')
+                    ->icon(Phosphor::Eye)
+                    ->color('gray')
+                    ->iconButton()
+                    ->tooltip('Ver detalhes')
+                    ->visible(fn (BankTransaction $record) => in_array($record->status, [BankTransactionStatus::Matched, BankTransactionStatus::OwnTransfer], true))
+                    ->modalHeading('Detalhes da linha do extrato')
+                    ->modalWidth(Width::ThreeExtraLarge)
+                    ->modalContent(fn (BankTransaction $record) => view('filament.pages.partials.bank-line-details', ['details' => $this->lineDetails($record)]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Fechar'),
                 Action::make('undo')
                     ->label('Voltar a tratar')
                     ->icon(Phosphor::ArrowCounterClockwise)
@@ -564,13 +576,86 @@ class BankStatementImport extends Page implements HasTable
     /** @return string|array<int, string> */
     private ?TransferCoverage $transferCoverage = null;
 
+    /** "Cobre 2 recebimentos e 1 despesa" for the column; the list is in "Ver detalhes". */
+    private function coverSummary(array $covers): string
+    {
+        $payments = count(array_filter($covers, fn (TransferCover $cover) => $cover->record instanceof Payment));
+        $expenses = count($covers) - $payments;
+
+        $parts = array_filter([
+            $payments === 0 ? null : ($payments === 1 ? '1 recebimento' : $payments.' recebimentos'),
+            $expenses === 0 ? null : ($expenses === 1 ? '1 despesa' : $expenses.' despesas'),
+        ]);
+
+        return $parts === [] ? 'Não cobre nenhum registo por reconciliar' : 'Cobre '.implode(' e ', $parts);
+    }
+
+    /**
+     * What "Ver detalhes" shows: every record the line stands for (or a transfer covers), with
+     * how much of it and in what situation.
+     *
+     * @return array<string, mixed>
+     */
+    private function lineDetails(BankTransaction $line): array
+    {
+        $row = function (Payment|Expense $record, int $covered, int $total, string $situation, string $color): array {
+            return [
+                'type' => $record instanceof Payment ? 'Recebimento' : 'Despesa',
+                'reference' => $record instanceof Payment ? (string) $record->receivable?->label : (string) $record->description,
+                'party' => $record instanceof Payment ? $record->receivable?->client?->name : $record->supplier?->name,
+                'date' => ($record instanceof Payment ? $record->paid_on : ($record->paid_on ?? $record->spent_on))?->format('d/m/Y') ?? '—',
+                'covered' => Money::format($covered),
+                'total' => $covered < $total ? Money::format($total) : null,
+                'situation' => $situation,
+                'color' => $color,
+            ];
+        };
+
+        if ($line->status === BankTransactionStatus::OwnTransfer) {
+            $covers = (new TransferCoverage)->for($line);
+            $rows = array_map(fn (TransferCover $cover) => $row(
+                $cover->record,
+                $cover->amount,
+                $cover->total,
+                match (true) {
+                    $cover->record instanceof Expense => $cover->deducted ? 'Descontada' : 'Devolvida',
+                    $cover->amount < $cover->total => 'Em parte',
+                    default => 'Completo',
+                },
+                $cover->record instanceof Expense ? 'gray' : ($cover->amount < $cover->total ? 'warning' : 'success'),
+            ), $covers);
+
+            $used = (int) collect($covers)->sum(fn (TransferCover $cover) => $cover->record instanceof Payment === $line->is_credit ? $cover->amount : -$cover->amount);
+            $leftover = $line->absolute_amount - $used;
+
+            return [
+                'line' => $line,
+                'kind' => 'Transferência entre as tuas contas',
+                'rows' => $rows,
+                'leftover' => $leftover > 0 ? 'Sobram '.Money::format($leftover).' que não cobrem nenhum registo por reconciliar.' : null,
+                'difference' => null,
+            ];
+        }
+
+        $rows = $line->links()->with('linkable')->get()->pluck('linkable')->filter()
+            ->map(fn (Payment|Expense $record) => $row($record, $record instanceof Payment ? $record->amount : $record->total, $record instanceof Payment ? $record->amount : $record->total, 'Completo', 'success'))
+            ->values()->all();
+        $difference = $line->difference();
+
+        return [
+            'line' => $line,
+            'kind' => 'Registado',
+            'rows' => $rows,
+            'leftover' => null,
+            'difference' => $difference === 0 ? null : 'Diferença de '.Money::format(abs($difference)).' entre a linha e os registos: fica no quadro "Conta da empresa".',
+        ];
+    }
+
     private function describe(BankTransaction $record): string|array
     {
         if ($record->status !== BankTransactionStatus::Pending) {
             if ($record->status === BankTransactionStatus::OwnTransfer) {
-                $covers = array_map(fn (TransferCover $cover) => 'Cobre: '.$cover->label(), ($this->transferCoverage ??= new TransferCoverage)->for($record));
-
-                return [$record->status->getLabel(), ...$covers];
+                return [$record->status->getLabel(), $this->coverSummary(($this->transferCoverage ??= new TransferCoverage)->for($record))];
             }
 
             if ($record->status !== BankTransactionStatus::Matched) {
