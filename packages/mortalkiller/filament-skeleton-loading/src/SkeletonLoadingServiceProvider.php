@@ -17,6 +17,7 @@ final class SkeletonLoadingServiceProvider extends PackageServiceProvider
         $package
             ->name('filament-skeleton-loading')
             ->hasConfigFile()
+            ->hasTranslations()
             ->hasViews();
     }
 

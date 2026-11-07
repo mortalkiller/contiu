@@ -54,3 +54,21 @@ it('renders a view symbol as markup instead of escaping it', function () {
     expect($html)->toContain('<path class="fsl-loader-piece"/>')
         ->not->toContain('&lt;svg');
 });
+
+it('falls back to three dots when the app gives no symbol', function () {
+    $html = SkeletonLoadingPlugin::make()->pageLoader()->renderPageLoader();
+
+    expect(substr_count($html, '<circle class="fsl-loader-piece"'))->toBe(3)
+        ->and($html)->toContain('fsl-loader-symbol--generic');
+});
+
+it('says loading in the app language when no label is given', function (string $locale, string $label) {
+    app()->setLocale($locale);
+
+    expect(SkeletonLoadingPlugin::make()->pageLoader()->renderPageLoader())->toContain($label);
+})->with([
+    ['en', 'Loading…'],
+    ['pt', 'A carregar…'],
+    ['pt_PT', 'A carregar…'],
+    ['pt_BR', 'Carregando…'],
+]);

@@ -128,7 +128,7 @@ final class SkeletonLoadingPlugin implements Plugin
         return view('filament-skeleton-loading::page-loader', [
             'symbol' => $symbol,
             'delay' => $this->pageLoaderDelay,
-            'label' => value($this->pageLoaderLabel) ?? __('filament::components/loading-section.label'),
+            'label' => value($this->pageLoaderLabel) ?? __('filament-skeleton-loading::loader.label'),
         ])->render();
     }
 

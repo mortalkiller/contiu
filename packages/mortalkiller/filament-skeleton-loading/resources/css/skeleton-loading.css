@@ -259,6 +259,18 @@
 #fsl-page-loader .fsl-loader-piece:nth-of-type(5) { animation-delay: 0.64s; }
 #fsl-page-loader .fsl-loader-piece:nth-of-type(6) { animation-delay: 0.8s; }
 
+/* Generic dots: a quicker rise-and-fall instead of the brand sequence */
+#fsl-page-loader .fsl-loader-symbol--generic .fsl-loader-piece {
+    animation-name: fsl-loader-dot;
+    animation-duration: 1.2s;
+    animation-timing-function: ease-in-out;
+}
+
+@keyframes fsl-loader-dot {
+    0%, 70%, 100% { opacity: 0.3; transform: none; }
+    35% { opacity: 1; transform: translateY(-10px); }
+}
+
 @keyframes fsl-loader-piece {
     0% { opacity: 0; transform: translateY(36px); }
     18%, 62% { opacity: 1; transform: none; }

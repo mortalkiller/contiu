@@ -117,9 +117,9 @@ Off by default. When on, leaving for another page of the panel (a link or a plai
 ```php
 SkeletonLoadingPlugin::make()
     ->pageLoader()                                         // ->pageLoader(false) turns it off
-    ->pageLoaderSymbol(fn () => view('brand.loader-symbol')) // optional; a generic symbol otherwise
+    ->pageLoaderSymbol(fn () => view('brand.loader-symbol')) // optional; three dots otherwise
     ->pageLoaderDelay(300)                                 // milliseconds before it shows
-    ->pageLoaderLabel('Loading…');                         // optional; Filament's "Loading" label otherwise
+    ->pageLoaderLabel('Loading…');                         // optional; translated "Loading…" otherwise
 ```
 
 The symbol is any markup (a string, an `Htmlable`, a view or a closure returning one). Give the elements that should come in one after the other the class `fsl-loader-piece` (up to six, animated in document order); they take the panel's primary colour, white in dark mode:
@@ -146,9 +146,9 @@ Plugin methods, per panel:
 |---|---|---|
 | `shimmer(bool $condition = true)` | on | Light sweeping across the skeleton. |
 | `pageLoader(bool $condition = true)` | off | Full-screen loader between pages (see [Page loader](#page-loader)). |
-| `pageLoaderSymbol(string\|Htmlable\|Closure $symbol)` | generic bars | Brand symbol of the page loader. |
+| `pageLoaderSymbol(string\|Htmlable\|Closure $symbol)` | three dots | Brand symbol of the page loader. |
 | `pageLoaderDelay(int $milliseconds)` | `300` | How long a page may take before the loader shows. |
-| `pageLoaderLabel(string\|Closure $label)` | Filament's "Loading" | Text under the symbol, also read by screen readers. |
+| `pageLoaderLabel(string\|Closure $label)` | "Loading…" (en, pt, pt_PT, pt_BR) | Text under the symbol, also read by screen readers. |
 | `deferTables(bool\|Closure $condition = true)` | the `defer_tables` setting | Calls `deferLoading()` on the panel's tables; a closure decides per table. |
 
 Turning `defer_tables` on in an app with Livewire table tests means calling `->loadTable()` in those tests; pin the setting in `phpunit.xml` to keep tests independent of `.env`.

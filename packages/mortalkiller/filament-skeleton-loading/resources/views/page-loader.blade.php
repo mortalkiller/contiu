@@ -6,17 +6,20 @@
     The symbol's elements with class `fsl-loader-piece` come in one after the other.
 --}}
 <div id="fsl-page-loader" class="fsl-page-loader" role="status" aria-live="polite" aria-hidden="true" style="--fsl-loader-delay: {{ $delay }}ms">
-    <div class="fsl-loader-symbol" aria-hidden="true">
-        @if (filled($symbol))
+    @if (filled($symbol))
+        <div class="fsl-loader-symbol" aria-hidden="true">
             {{ $symbol }}
-        @else
-            <svg viewBox="0 0 120 96" width="64" height="52" fill="currentColor" focusable="false">
-                <rect class="fsl-loader-piece" x="0" y="0" width="120" height="20" rx="10"/>
-                <rect class="fsl-loader-piece" x="0" y="38" width="88" height="20" rx="10"/>
-                <rect class="fsl-loader-piece" x="0" y="76" width="56" height="20" rx="10"/>
+        </div>
+    @else
+        {{-- Generic symbol when the app gives none: three dots rising one after the other. --}}
+        <div class="fsl-loader-symbol fsl-loader-symbol--generic" aria-hidden="true">
+            <svg viewBox="0 0 120 32" width="60" height="16" fill="currentColor" focusable="false">
+                <circle class="fsl-loader-piece" cx="16" cy="16" r="12"/>
+                <circle class="fsl-loader-piece" cx="60" cy="16" r="12"/>
+                <circle class="fsl-loader-piece" cx="104" cy="16" r="12"/>
             </svg>
-        @endif
-    </div>
+        </div>
+    @endif
     <span class="fsl-loader-label">{{ $label }}</span>
 </div>
 
