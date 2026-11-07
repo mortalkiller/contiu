@@ -183,8 +183,10 @@ class ExpensesTable
 
     protected static function monthExpression(): string
     {
-        return DB::connection()->getDriverName() === 'sqlite'
-            ? "strftime('%Y-%m', spent_on)"
-            : "DATE_FORMAT(spent_on, '%Y-%m')";
+        return match (DB::connection()->getDriverName()) {
+            'sqlite' => "strftime('%Y-%m', spent_on)",
+            'pgsql' => "to_char(spent_on, 'YYYY-MM')",
+            default => "DATE_FORMAT(spent_on, '%Y-%m')",
+        };
     }
 }
