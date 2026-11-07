@@ -69,6 +69,36 @@ it('reconciles every safe line with one click and leaves the rest', function () 
         ->and($unknown->fresh()->status->value)->toBe('pending');
 });
 
+it('previews what the automatic reconciliation will do without changing anything', function () {
+    app(FinanceSettings::class)->set(['account_names' => 'Ordenado']);
+    $project = Project::factory()->for(Client::factory()->create(['name' => 'Gonçalo Pimenta']))->create(['code' => 'PRESSIU OC-7']);
+    Receivable::factory()->for($project, 'billable')->create(['amount' => 73000, 'due_on' => '2026-10-31', 'description' => 'Pagamento único']);
+    $own = screenLine('2026-10-06', -15100, 0, 'pending', 'TRF P/ Ordenado');
+    $client = screenLine('2026-10-23', 73000, 73000, 'pending', 'TRF GONCALO PIMENTA');
+    screenLine('2026-10-24', 432, 73432, 'pending', 'STRIPE TECHNOLOGY EUROPE');
+
+    Livewire::test(BankStatementImport::class)
+        ->mountAction('autoReconcile')
+        ->assertMountedActionModalSee([
+            'Vai tratar 2 linhas',
+            'TRF P/ Ordenado', 'Transferência minha',
+            'TRF GONCALO PIMENTA', 'Recebimento · PRESSIU OC-7 · Pagamento único',
+            'Fica por tratar (1)', 'STRIPE TECHNOLOGY EUROPE',
+        ]);
+
+    expect($own->fresh()->status->value)->toBe('pending')
+        ->and($client->fresh()->status->value)->toBe('pending')
+        ->and(Payment::count())->toBe(0);
+});
+
+it('says when there is nothing it can reconcile', function () {
+    screenLine('2026-10-24', 432, 432, 'pending', 'STRIPE TECHNOLOGY EUROPE');
+
+    Livewire::test(BankStatementImport::class)
+        ->mountAction('autoReconcile')
+        ->assertMountedActionModalSee('Nenhuma linha tem uma sugestão segura');
+});
+
 it('links from the company account card to what is still to reconcile', function () {
     screenLine('2026-11-01', 0, 0);
     Payment::factory()->create(['amount' => 20000, 'paid_on' => '2026-11-03']);

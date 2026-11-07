@@ -43,12 +43,14 @@ use Filament\Schemas\Components\EmbeddedTable;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 use UnitEnum;
@@ -134,10 +136,14 @@ class BankStatementImport extends Page implements HasTable
                 ->icon(Phosphor::MagicWand)
                 ->color('gray')
                 ->visible(fn () => BankTransaction::pending()->exists())
-                ->requiresConfirmation()
-                ->modalHeading('Reconciliar automaticamente?')
-                ->modalDescription('Trata todas as linhas por tratar que têm uma sugestão segura: valor igual a um registo, nome do cliente ou fornecedor, despesa recorrente ou transferência entre as tuas contas. As outras ficam para ti. Podes desfazer cada linha com "Voltar a tratar".')
-                ->modalSubmitActionLabel('Reconciliar')
+                ->modalHeading('Reconciliar automaticamente')
+                ->modalIcon(Phosphor::MagicWand)
+                ->modalWidth(Width::TwoExtraLarge)
+                ->modalContent(fn () => view('filament.pages.partials.auto-reconcile-preview', ['plan' => $this->autoReconcilePlan()]))
+                ->modalSubmitAction(fn (Action $action) => ($count = count($this->autoReconcilePlan()['done'])) === 0
+                    ? false
+                    : $action->label($count === 1 ? 'Reconciliar 1 linha' : 'Reconciliar '.$count.' linhas'))
+                ->modalCancelActionLabel('Fechar')
                 ->action(fn () => $this->autoReconcile()),
             $this->uploadAction(),
         ];
@@ -461,34 +467,32 @@ class BankStatementImport extends Page implements HasTable
         $this->resetTable();
     }
 
-    /**
-     * Every pending line with an unambiguous suggestion, oldest first. Suggestions are worked out
-     * again after each line, since what one line takes is no longer free for the next.
-     */
-    public function autoReconcile(): void
+    /** @var array{done: list<array<string, string>>, left: list<array<string, string>>}|null */
+    private ?array $autoReconcilePreview = null;
+
+    /** What "Reconciliar automaticamente" would do: the real run, rolled back. */
+    public function autoReconcilePlan(): array
     {
-        $matcher = app(MatchBankTransactions::class);
-        $apply = app(ApplyBankTransaction::class);
-        $done = 0;
-        $left = 0;
-
-        foreach (BankTransaction::pending()->orderBy('booked_on')->orderBy('id')->get() as $line) {
-            $best = $matcher->for($line)->best();
-
-            if ($best === null) {
-                $left++;
-
-                continue;
-            }
-
-            try {
-                $apply->accept($line, $best);
-                $done++;
-            } catch (DomainException) {
-                $left++;
-            }
+        if ($this->autoReconcilePreview !== null) {
+            return $this->autoReconcilePreview;
         }
 
+        DB::beginTransaction();
+
+        try {
+            return $this->autoReconcilePreview = $this->runAutoReconcile();
+        } finally {
+            DB::rollBack();
+        }
+    }
+
+    public function autoReconcile(): void
+    {
+        $plan = DB::transaction(fn () => $this->runAutoReconcile());
+        $done = count($plan['done']);
+        $left = count($plan['left']);
+
+        $this->autoReconcilePreview = null;
         $this->suggestions = [];
         $this->resetTable();
 
@@ -497,6 +501,40 @@ class BankStatementImport extends Page implements HasTable
             ->body($left > 0 ? ($left === 1 ? '1 ficou por tratar: não há uma sugestão segura.' : $left.' ficaram por tratar: não há uma sugestão segura.') : 'O extrato está todo tratado.')
             ->success()
             ->send();
+    }
+
+    /**
+     * Every pending line with an unambiguous suggestion, oldest first. Suggestions are worked out
+     * again after each line, since what one line takes is no longer free for the next.
+     *
+     * @return array{done: list<array<string, string>>, left: list<array<string, string>>}
+     */
+    private function runAutoReconcile(): array
+    {
+        $matcher = app(MatchBankTransactions::class);
+        $apply = app(ApplyBankTransaction::class);
+        $plan = ['done' => [], 'left' => []];
+
+        foreach (BankTransaction::pending()->orderBy('booked_on')->orderBy('id')->get() as $line) {
+            $row = ['date' => $line->booked_on->format('d/m/Y'), 'description' => $line->description, 'amount' => Money::format($line->amount)];
+            $best = $matcher->for($line)->best();
+
+            if ($best === null) {
+                $plan['left'][] = $row;
+
+                continue;
+            }
+
+            try {
+                $label = $best->label();
+                $apply->accept($line, $best);
+                $plan['done'][] = [...$row, 'target' => $label];
+            } catch (DomainException) {
+                $plan['left'][] = $row;
+            }
+        }
+
+        return $plan;
     }
 
     private function suggestionFor(BankTransaction $record): BankSuggestion
