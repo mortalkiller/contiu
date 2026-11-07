@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Expenses\Tables;
 
 use App\Enums\ExpenseKind;
 use App\Filament\Resources\Expenses\ExpenseResource;
+use App\Filament\Support\ReconciliationColumns;
 use App\Models\Expense;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -87,6 +88,7 @@ class ExpensesTable
                     ->label('Fatura')
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
+                ReconciliationColumns::expenseColumn(),
             ])
             ->groups([
                 Group::make('spent_on')
@@ -109,6 +111,7 @@ class ExpensesTable
                     ->collapsible(),
             ])
             ->filters([
+                ReconciliationColumns::expenseFilter(),
                 SelectFilter::make('supplier')
                     ->label('Fornecedor')
                     ->relationship('supplier', 'name')

@@ -129,6 +129,16 @@ class BankStatementImport extends Page implements HasTable
                 ->color('gray')
                 ->link()
                 ->url(HelpCentre::getUrl().'#extrato'),
+            Action::make('autoReconcile')
+                ->label('Reconciliar automaticamente')
+                ->icon(Phosphor::MagicWand)
+                ->color('gray')
+                ->visible(fn () => BankTransaction::pending()->exists())
+                ->requiresConfirmation()
+                ->modalHeading('Reconciliar automaticamente?')
+                ->modalDescription('Trata todas as linhas por tratar que têm uma sugestão segura: valor igual a um registo, nome do cliente ou fornecedor, despesa recorrente ou transferência entre as tuas contas. As outras ficam para ti. Podes desfazer cada linha com "Voltar a tratar".')
+                ->modalSubmitActionLabel('Reconciliar')
+                ->action(fn () => $this->autoReconcile()),
             $this->uploadAction(),
         ];
     }
@@ -190,7 +200,7 @@ class BankStatementImport extends Page implements HasTable
                             ->visible(fn (Get $get): bool => $this->plannedDifference($record, $get('targets')) !== 0),
                         Radio::make('explanation')
                             ->label('Registar a diferença como')
-                            ->helperText('Se a diferença passou pela tua conta pessoal, não escolhas nada: aparece no quadro "Conta da empresa" como transferência em falta (ou a devolver).')
+                            ->helperText('Se a diferença não passou por esta conta, não escolhas nada: fica no quadro "Conta da empresa".')
                             ->options(fn (Get $get): array => $this->explanationOptions($record, $get('targets')))
                             ->visible(fn (Get $get): bool => $this->plannedDifference($record, $get('targets')) !== 0 && $this->explanationOptions($record, $get('targets')) !== []),
                     ])
@@ -451,6 +461,44 @@ class BankStatementImport extends Page implements HasTable
         $this->resetTable();
     }
 
+    /**
+     * Every pending line with an unambiguous suggestion, oldest first. Suggestions are worked out
+     * again after each line, since what one line takes is no longer free for the next.
+     */
+    public function autoReconcile(): void
+    {
+        $matcher = app(MatchBankTransactions::class);
+        $apply = app(ApplyBankTransaction::class);
+        $done = 0;
+        $left = 0;
+
+        foreach (BankTransaction::pending()->orderBy('booked_on')->orderBy('id')->get() as $line) {
+            $best = $matcher->for($line)->best();
+
+            if ($best === null) {
+                $left++;
+
+                continue;
+            }
+
+            try {
+                $apply->accept($line, $best);
+                $done++;
+            } catch (DomainException) {
+                $left++;
+            }
+        }
+
+        $this->suggestions = [];
+        $this->resetTable();
+
+        Notification::make()
+            ->title($done === 1 ? '1 linha tratada' : $done.' linhas tratadas')
+            ->body($left > 0 ? ($left === 1 ? '1 ficou por tratar: não há uma sugestão segura.' : $left.' ficaram por tratar: não há uma sugestão segura.') : 'O extrato está todo tratado.')
+            ->success()
+            ->send();
+    }
+
     private function suggestionFor(BankTransaction $record): BankSuggestion
     {
         return $this->suggestions[$record->getKey()] ??= app(MatchBankTransactions::class)->for($record);
@@ -480,7 +528,7 @@ class BankStatementImport extends Page implements HasTable
                 return $records;
             }
 
-            return [...$records, 'Diferença de '.Money::format(abs($difference)).' · passou por outra conta (ver Conta da empresa)'];
+            return [...$records, 'Diferença de '.Money::format(abs($difference)).' · ver Conta da empresa'];
         }
 
         $suggestion = $this->suggestionFor($record);

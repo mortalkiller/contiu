@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Payments;
 use App\Enums\PaymentMethod;
 use App\Filament\Resources\Payments\Pages\ManagePayments;
 use App\Filament\Support\MoneyInput;
+use App\Filament\Support\ReconciliationColumns;
 use App\Models\Client;
 use App\Models\Payment;
 use App\Models\Receivable;
@@ -117,8 +118,10 @@ class PaymentResource extends Resource
                     ->alignEnd()
                     ->weight('medium')
                     ->summarize(Sum::make()->label('Total')->money('EUR', divideBy: 100)),
+                ReconciliationColumns::paymentColumn(),
             ])
             ->filters([
+                ReconciliationColumns::paymentFilter(),
                 SelectFilter::make('method')->label('Método')->options(PaymentMethod::class)->multiple(),
                 SelectFilter::make('client')
                     ->label('Cliente')

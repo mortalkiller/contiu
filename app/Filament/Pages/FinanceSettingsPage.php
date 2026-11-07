@@ -111,14 +111,14 @@ class FinanceSettingsPage extends Page
                             ->required(fn ($get) => (bool) $get('vat_exempt')),
                     ]),
                 Section::make('As tuas contas no banco')
-                    ->description('Para o extrato reconhecer as transferências entre a conta da empresa e a tua conta pessoal ("Transferência minha"). O saldo da conta vem do extrato importado.')
+                    ->description('Para o extrato reconhecer as transferências entre a conta da empresa e as tuas outras contas ("Transferência minha"). O saldo da conta vem do extrato importado.')
                     ->icon(Phosphor::Wallet)
                     ->columnSpanFull()
                     ->schema([
                         Textarea::make('account_names')
                             ->label('Nomes das tuas contas, como aparecem no banco')
                             ->placeholder("PEDRO FILIPE PEREIRA MONTEIRO\nOrdenado")
-                            ->helperText('Um por linha: o nome do titular nas transferências e o nome da tua conta pessoal (ex.: Ordenado).')
+                            ->helperText('Um por linha: o nome do titular nas transferências e os nomes das tuas outras contas (ex.: Ordenado).')
                             ->rows(3),
                     ]),
             ]);

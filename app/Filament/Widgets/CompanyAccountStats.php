@@ -2,7 +2,10 @@
 
 namespace App\Filament\Widgets;
 
+use App\Enums\ReconciliationStatus;
 use App\Filament\Pages\BankStatementImport;
+use App\Filament\Resources\Expenses\ExpenseResource;
+use App\Filament\Resources\Payments\PaymentResource;
 use App\Support\CompanyAccount;
 use App\Support\Money;
 use Filament\Widgets\StatsOverviewWidget;
@@ -35,13 +38,24 @@ class CompanyAccountStats extends StatsOverviewWidget
 
     protected function getDescription(): ?string
     {
-        return 'Saldo do banco comparado com o que registaste na Contiu: a diferença é dinheiro por passar entre a tua conta pessoal e a da empresa.';
+        $pending = (new CompanyAccount($this->until()))->pendingLines();
+
+        return 'Saldo do banco comparado com o que registaste na Contiu.'
+            .match ($pending) {
+                0 => '',
+                1 => ' Há 1 linha do extrato por tratar: os valores ainda podem mudar.',
+                default => ' Há '.$pending.' linhas do extrato por tratar: os valores ainda podem mudar.',
+            };
+    }
+
+    private function until(): ?Carbon
+    {
+        return filled($this->month) ? Carbon::createFromFormat('Y-m-d', $this->month.'-01')->endOfMonth() : null;
     }
 
     protected function getStats(): array
     {
-        $until = filled($this->month) ? Carbon::createFromFormat('Y-m-d', $this->month.'-01')->endOfMonth() : null;
-        $account = new CompanyAccount($until);
+        $account = new CompanyAccount($this->until());
         $bank = $account->bankBalance();
 
         if ($bank === null) {
@@ -55,11 +69,7 @@ class CompanyAccountStats extends StatsOverviewWidget
 
         $difference = (int) $account->difference();
         $pending = $account->pendingLines();
-        $pendingNote = match ($pending) {
-            0 => null,
-            1 => '1 linha do extrato por tratar: o valor ainda pode mudar.',
-            default => $pending.' linhas do extrato por tratar: o valor ainda pode mudar.',
-        };
+        $notReconciled = fn (string $resource) => $resource::getUrl('index', ['tableFilters' => ['reconciliation' => ['value' => ReconciliationStatus::NotReconciled->value]]]);
 
         return [
             Stat::make('Saldo no banco', Money::format($bank))
@@ -71,15 +81,19 @@ class CompanyAccountStats extends StatsOverviewWidget
                 ->icon(Phosphor::Calculator),
             match (true) {
                 $difference < 0 => Stat::make('Falta transferir para a conta da empresa', Money::format(-$difference))
-                    ->description($pendingNote ?? 'Recebeste na conta pessoal dinheiro da empresa.')
+                    ->description('Ver o que falta reconciliar')
+                    ->descriptionIcon(Phosphor::ArrowRight)
+                    ->url($notReconciled(PaymentResource::class))
                     ->color('warning')
                     ->icon(Phosphor::ArrowsLeftRight),
                 $difference > 0 => Stat::make('A empresa deve-te', Money::format($difference))
-                    ->description($pendingNote ?? 'Pagaste despesas da empresa com a conta pessoal.')
+                    ->description('Ver o que falta reconciliar')
+                    ->descriptionIcon(Phosphor::ArrowRight)
+                    ->url($notReconciled(ExpenseResource::class))
                     ->color('info')
                     ->icon(Phosphor::ArrowsLeftRight),
                 default => Stat::make('Diferença', 'Bate certo')
-                    ->description($pendingNote ?? 'O banco tem o que a Contiu diz.')
+                    ->description($pending > 0 ? 'Falta tratar linhas do extrato.' : 'O banco tem o que a Contiu diz.')
                     ->color($pending > 0 ? 'warning' : 'success')
                     ->icon(Phosphor::CheckCircle),
             },

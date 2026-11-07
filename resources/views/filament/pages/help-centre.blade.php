@@ -104,7 +104,7 @@
                     <li>Cada linha traz uma sugestão. Seleciona as linhas e usa <strong>Aceitar sugestões</strong>; só são aceites as sugestões sem dúvidas.</li>
                     <li>Para as restantes:
                         <ul class="mt-1 list-disc space-y-1 ps-5">
-                            <li><strong>Associar…</strong> — escolhe um ou vários registos (ex.: duas faturas pagas numa transferência, ou um recebimento menos uma despesa). Se a soma não bater, a app avisa. Normalmente a diferença passou pela tua conta pessoal e não fazes nada: aparece no quadro <strong>Conta da empresa</strong>. Só dois casos pedem um registo novo, e podes criá-lo ali mesmo:
+                            <li><strong>Associar…</strong> — escolhe um ou vários registos (ex.: duas faturas pagas numa transferência, ou um recebimento menos uma despesa). Se a soma não bater, a app avisa. Normalmente a diferença não passou por esta conta e não fazes nada: fica no quadro <strong>Conta da empresa</strong>. Só dois casos pedem um registo novo, e podes criá-lo ali mesmo:
                                 <ul class="mt-1 list-disc space-y-1 ps-5">
                                     <li><strong>Comissão bancária</strong> — chegou menos do que a fatura (ex.: 995 € de 1 000 €) ou saiu mais do que a despesa: cria a despesa da diferença.</li>
                                     <li><strong>Outra receita</strong> — entrou mais do que a fatura: cria uma receita avulsa da diferença.</li>
@@ -118,12 +118,14 @@
                     <li>Enganaste-te? Em "Tratados" ou "Ignorados" usa <strong>Voltar a tratar</strong>: o que foi criado a partir da linha é apagado, o que já existia fica.</li>
                 </ol>
                 <p class="mt-3">As transferências entre a conta da empresa e a tua são reconhecidas pelos nomes das tuas contas (o nome do titular e o nome da conta pessoal, ex.: "Ordenado"), que defines em {!! $link('settings', 'Definições financeiras') !!}.</p>
-                <p class="mt-3"><strong>Conta da empresa</strong> — no topo do extrato, no painel e no fecho do mês: o <em>saldo no banco</em> (do último extrato), o <em>saldo segundo a Contiu</em> (saldo inicial + recebido − despesas pagas, por qualquer conta) e a diferença:</p>
+                <p class="mt-3"><strong>Reconciliar automaticamente</strong> (no topo do extrato) trata de uma vez todas as linhas com uma sugestão segura; as outras ficam para ti.</p>
+                <p class="mt-3"><strong>Conta da empresa</strong> — no topo do extrato, no painel e no fecho do mês: o <em>saldo no banco</em> (do último extrato), o <em>saldo segundo a Contiu</em> (saldo inicial + recebido − despesas pagas) e a diferença:</p>
                 <ul class="mt-2 list-disc space-y-1 ps-5">
-                    <li><strong>Falta transferir para a conta da empresa</strong> — recebeste dinheiro da empresa na conta pessoal; transfere esse valor.</li>
-                    <li><strong>A empresa deve-te</strong> — pagaste despesas da empresa com a conta pessoal; podes transferir esse valor para ti.</li>
+                    <li><strong>Falta transferir para a conta da empresa</strong> — há recebimentos que ainda não chegaram ao banco; transfere (ou deposita) esse valor.</li>
+                    <li><strong>A empresa deve-te</strong> — há despesas pagas que não saíram desta conta; podes transferir esse valor para ti.</li>
                     <li><strong>Bate certo</strong> — o banco tem exatamente o que a Contiu diz.</li>
                 </ul>
+                <p class="mt-3">Nas listas de <strong>Recebimentos</strong> e <strong>Despesas</strong>, a coluna <strong>Banco</strong> diz se cada um está <strong>Reconciliado</strong> ou <strong>Por reconciliar</strong> (com o filtro do mesmo nome). Está reconciliado quando está ligado a uma linha do extrato, ou quando o dinheiro que entrou depois já o cobre: os mais antigos ficam cobertos primeiro. O que está por reconciliar soma sempre o valor de "Falta transferir"; um parcial mostra quanto falta.</p>
                 <p class="mt-2">O número só é final com o extrato todo tratado: enquanto houver linhas "Por tratar" o quadro avisa.</p>
             </x-filament::section>
 
@@ -143,7 +145,7 @@
                     <li>Cliente pagou na conta pessoal: regista o recebimento com a data em que pagou (não vai aparecer no extrato da atividade).</li>
                     <li>Despesa paga com a conta pessoal: regista a despesa normalmente.</li>
                     <li>Quando passas dinheiro entre contas, no extrato a linha é <strong>Transferência minha</strong>. Não precisas de dizer a que recebimentos ou despesas corresponde: é dinheiro teu a mudar de conta.</li>
-                    <li>Quanto falta passar (ou a empresa te deve) está sempre no quadro <strong>Conta da empresa</strong>: compara o saldo do banco com o que registaste.</li>
+                    <li>Quanto falta transferir (ou a empresa te deve) está sempre no quadro <strong>Conta da empresa</strong>, e os recebimentos e despesas que ainda faltam aparecem como <strong>Por reconciliar</strong>.</li>
                     <li><strong>Exemplo com acerto:</strong> o cliente pagou 730 € na conta pessoal, a conta pessoal pagou o ChatGPT (83,74 €) e passaste só 646,26 €. Regista os dois quando acontecem; no extrato usa <strong>Associar…</strong> com o recebimento e a despesa (730 − 83,74 = 646,26, sem diferença), ou simplesmente <strong>Transferência minha</strong>.</li>
                 </ul>
             </x-filament::section>
