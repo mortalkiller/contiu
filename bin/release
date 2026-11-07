@@ -2,39 +2,42 @@
 #
 # Contiu — release em produção.
 #
-# Corre no servidor, na pasta da app (o código está montado nos containers):
+# Corre no servidor (como um utilizador do grupo docker), a partir de qualquer pasta:
 #
-#   bin/release               faz o deploy do que estiver em origin/main
-#   bin/release --dry-run     mostra o que ia correr, sem mudar nada
-#   bin/release --skip-backup não faz o backup da base de dados antes de migrar
-#   bin/release --skip-build  não compila o tema (CSS/JS)
-#   bin/release --force       faz o deploy mesmo sem commits novos
+#   /opt/webserver/contiu/bin/release               publica o que estiver em origin/main
+#   /opt/webserver/contiu/bin/release --dry-run     mostra o que ia correr, sem mudar nada
+#   /opt/webserver/contiu/bin/release --skip-backup não faz o backup da base de dados antes
+#   /opt/webserver/contiu/bin/release --skip-build  não compila o tema (CSS/JS)
+#   /opt/webserver/contiu/bin/release --force       repete o deploy mesmo sem commits novos
 #
 # Sequência: verificações → manutenção → backup da BD → git pull → composer →
-# build do tema → migrações → caches → reiniciar o worker → sair da manutenção.
+# build do tema → migrações → caches → reiniciar o scheduler → sair da manutenção.
 #
-# Se um passo falhar depois do git pull, o site FICA em manutenção (para ninguém
-# usar código novo com a base de dados antiga, ou o contrário). Corrige e corre
-# `bin/release` outra vez, ou sai da manutenção à mão com o comando que o
-# script mostra. Se falhar antes (verificações, backup), sai da manutenção sozinho.
+# Se um passo falhar depois do git pull, o site FICA em manutenção (para ninguém usar
+# código novo com a base de dados antiga, ou o contrário). Corrige e corre o script outra
+# vez, ou sai da manutenção à mão com o comando que ele mostra. Se falhar antes
+# (verificações, backup), sai da manutenção sozinho.
 #
-# Configuração (variáveis de ambiente, com estes valores por defeito):
-#   COMPOSE="docker compose"   comando do Docker Compose
-#   APP_SERVICE=php            container onde correm php artisan e composer ("" = no próprio servidor)
-#   WORKER_SERVICE=php-work    container do queue:work, reiniciado no fim ("" = não reiniciar)
-#   NPM_SERVICE=""             container onde corre o npm ("" = no próprio servidor)
-#   RESTART_APP=0              1 = reiniciar também o container da app (limpa o OPcache)
-#   REMOTE=origin BRANCH=main  de onde vem o código
+# Onde corre cada coisa (os containers de /opt/docker; o código está em /var/www/contiu):
+#   git, composer, npm   → dockerworker, como ubuntu
+#   php artisan          → php-fpm, como www-data (o mesmo utilizador da app)
+#   scheduler            → php-worker, programa contiu-scheduler do supervisord
+#                          (só esse é reiniciado; os workers das outras apps não são tocados)
+# A Contiu não usa filas, por isso não há queue:work para reiniciar. O OPcache revalida os
+# ficheiros a cada pedido, por isso o php-fpm também não precisa de reiniciar.
 #
-# Exemplo: APP_SERVICE=app RESTART_APP=1 bin/release
+# Variáveis (valores por defeito):
+#   APP_DIR=/var/www/contiu  TOOLS_CONTAINER=dockerworker  APP_CONTAINER=php-fpm
+#   SCHEDULER_CONTAINER=php-worker  SCHEDULER_PROGRAM=contiu-scheduler
+#   REMOTE=origin  BRANCH=main
 
 set -Eeuo pipefail
 
-COMPOSE="${COMPOSE:-docker compose}"
-APP_SERVICE="${APP_SERVICE-php}"
-WORKER_SERVICE="${WORKER_SERVICE-php-work}"
-NPM_SERVICE="${NPM_SERVICE:-}"
-RESTART_APP="${RESTART_APP:-0}"
+APP_DIR="${APP_DIR:-/var/www/contiu}"
+TOOLS_CONTAINER="${TOOLS_CONTAINER:-dockerworker}"
+APP_CONTAINER="${APP_CONTAINER:-php-fpm}"
+SCHEDULER_CONTAINER="${SCHEDULER_CONTAINER:-php-worker}"
+SCHEDULER_PROGRAM="${SCHEDULER_PROGRAM:-contiu-scheduler}"
 REMOTE="${REMOTE:-origin}"
 BRANCH="${BRANCH:-main}"
 
@@ -49,12 +52,13 @@ for arg in "$@"; do
         --skip-backup) SKIP_BACKUP=1 ;;
         --skip-build) SKIP_BUILD=1 ;;
         --force) FORCE=1 ;;
-        -h|--help) sed -n '3,29p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "Opção desconhecida: $arg (vê bin/release --help)" >&2; exit 2 ;;
     esac
 done
 
-cd "$(dirname "$0")/.."
+# A pasta da app no servidor (onde está este script), para ler o .env.
+HOST_APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 # ── Saída ───────────────────────────────────────────────────────────────────
 
@@ -67,22 +71,20 @@ info() { echo "   $*"; }
 warn() { echo "${YELLOW}   ! $*${RESET}"; }
 fail() { echo "${RED}✗ $*${RESET}" >&2; exit 1; }
 
-# Corre um comando (ou só o mostra em --dry-run).
+# Corre um comando que muda alguma coisa (em --dry-run só o mostra).
 run() {
     echo "   \$ $*"
     [[ $DRY_RUN -eq 1 ]] || "$@"
 }
 
-# Comando dentro do container da app (ou no servidor se APP_SERVICE="").
-in_app() {
-    if [[ -n "$APP_SERVICE" ]]; then run $COMPOSE exec -T "$APP_SERVICE" "$@"; else run "$@"; fi
-}
+# git/composer/npm no dockerworker; artisan no php-fpm.
+tools() { run docker exec -u ubuntu -w "$APP_DIR" "$TOOLS_CONTAINER" "$@"; }
+artisan() { run docker exec -u www-data -w "$APP_DIR" "$APP_CONTAINER" php artisan "$@"; }
 
-artisan() { in_app php artisan "$@"; }
+# Só leitura: corre sempre, também em --dry-run.
+tools_read() { docker exec -u ubuntu -w "$APP_DIR" "$TOOLS_CONTAINER" "$@"; }
 
-in_npm() {
-    if [[ -n "$NPM_SERVICE" ]]; then run $COMPOSE exec -T "$NPM_SERVICE" npm "$@"; else run npm "$@"; fi
-}
+running() { [[ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null)" == "true" ]]; }
 
 # ── Falhas ──────────────────────────────────────────────────────────────────
 
@@ -100,12 +102,8 @@ on_error() {
         artisan up || true
     elif [[ $IN_MAINTENANCE -eq 1 ]]; then
         echo "  O site ficou em MANUTENÇÃO de propósito (código e base de dados podem estar a meio)." >&2
-        echo "  Corrige o problema e corre bin/release outra vez, ou sai da manutenção com:" >&2
-        if [[ -n "$APP_SERVICE" ]]; then
-            echo "    $COMPOSE exec -T $APP_SERVICE php artisan up" >&2
-        else
-            echo "    php artisan up" >&2
-        fi
+        echo "  Corrige o problema e corre o script outra vez, ou sai da manutenção com:" >&2
+        echo "    docker exec -u www-data -w $APP_DIR $APP_CONTAINER php artisan up" >&2
     fi
 
     exit "$status"
@@ -118,26 +116,27 @@ trap on_error ERR
 
 step "Verificações"
 
-[[ -f artisan ]] || fail "Não estou na pasta da app Laravel."
-[[ -f .env ]] || fail "Falta o ficheiro .env."
+command -v docker >/dev/null || fail "Não encontro o docker neste servidor."
+for container in "$TOOLS_CONTAINER" "$APP_CONTAINER" "$SCHEDULER_CONTAINER"; do
+    running "$container" || fail "O container '$container' não está a correr."
+done
 
-app_env="$(grep -E '^APP_ENV=' .env | tail -1 | cut -d= -f2- | tr -d '"'"'"' ')"
-if [[ "$app_env" != "production" ]]; then
-    [[ $DRY_RUN -eq 1 ]] && warn "APP_ENV=$app_env (devia ser production)" || fail "O .env tem APP_ENV=$app_env; isto é para produção."
+[[ -f "$HOST_APP_DIR/artisan" ]] || fail "Não encontro a app Laravel em $HOST_APP_DIR."
+[[ -f "$HOST_APP_DIR/.env" ]] || fail "Falta o ficheiro .env em $HOST_APP_DIR."
+
+app_env="$(grep -E '^APP_ENV=' "$HOST_APP_DIR/.env" | tail -1 | cut -d= -f2- | tr -d '"'"'"' ')"
+app_debug="$(grep -E '^APP_DEBUG=' "$HOST_APP_DIR/.env" | tail -1 | cut -d= -f2- | tr -d '"'"'"' ')"
+[[ "$app_env" == "production" ]] || fail "O .env tem APP_ENV=$app_env; isto é para produção."
+[[ "$app_debug" == "false" ]] || fail "O .env tem APP_DEBUG=$app_debug; em produção tem de ser false."
+
+if [[ -n "$(tools_read git status --porcelain --untracked-files=no)" ]]; then
+    fail "Há alterações por commitar no servidor; o git pull ia falhar. Vê: docker exec -u ubuntu -w $APP_DIR $TOOLS_CONTAINER git status"
 fi
 
-if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
-    [[ $DRY_RUN -eq 1 ]] && warn "Há alterações por commitar no servidor (o git pull ia falhar)." || fail "Há alterações por commitar no servidor; o git pull ia falhar. Vê: git status"
-fi
-
-if [[ -n "$APP_SERVICE" && $DRY_RUN -eq 0 ]]; then
-    $COMPOSE ps --status running --services 2>/dev/null | grep -qx "$APP_SERVICE" || fail "O container '$APP_SERVICE' não está a correr (define APP_SERVICE)."
-fi
-
-git fetch --quiet "$REMOTE" "$BRANCH"
-current="$(git rev-parse --short HEAD)"
-target="$(git rev-parse --short "$REMOTE/$BRANCH")"
-pending="$(git log --oneline "HEAD..$REMOTE/$BRANCH")"
+tools_read git fetch --quiet "$REMOTE" "$BRANCH"
+current="$(tools_read git rev-parse --short HEAD)"
+target="$(tools_read git rev-parse --short "$REMOTE/$BRANCH")"
+pending="$(tools_read git log --oneline "HEAD..$REMOTE/$BRANCH")"
 
 info "Versão atual: $current  →  nova: $target"
 if [[ -z "$pending" ]]; then
@@ -170,17 +169,20 @@ fi
 
 step "Código novo ($REMOTE/$BRANCH)"
 CODE_CHANGED=1
-run git pull --ff-only "$REMOTE" "$BRANCH"
+tools git pull --ff-only "$REMOTE" "$BRANCH"
 
 step "Dependências PHP (composer)"
-in_app composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+# Sem os scripts do composer: os comandos artisan correm a seguir no php-fpm, como www-data.
+tools composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-scripts
+artisan package:discover
+artisan filament:upgrade
 
 step "Tema (npm run build)"
 if [[ $SKIP_BUILD -eq 1 ]]; then
     warn "Saltado (--skip-build)."
 else
-    in_npm ci --no-audit --no-fund
-    in_npm run build
+    tools npm ci --no-audit --no-fund
+    tools npm run build
 fi
 
 # ── 5. Base de dados ────────────────────────────────────────────────────────
@@ -195,19 +197,10 @@ artisan optimize:clear
 artisan optimize
 artisan filament:optimize
 
-# ── 7. Processos ────────────────────────────────────────────────────────────
+# ── 7. Scheduler ────────────────────────────────────────────────────────────
 
-step "Worker das filas"
-if [[ -n "$WORKER_SERVICE" ]]; then
-    run $COMPOSE restart "$WORKER_SERVICE"
-else
-    warn "Sem WORKER_SERVICE: não há worker para reiniciar."
-fi
-
-if [[ "$RESTART_APP" == "1" && -n "$APP_SERVICE" ]]; then
-    step "Reiniciar o container da app (OPcache)"
-    run $COMPOSE restart "$APP_SERVICE"
-fi
+step "Reiniciar o scheduler ($SCHEDULER_PROGRAM, para carregar o código novo)"
+run docker exec "$SCHEDULER_CONTAINER" supervisorctl restart "$SCHEDULER_PROGRAM:*"
 
 # ── 8. Online ───────────────────────────────────────────────────────────────
 
