@@ -20,6 +20,8 @@
         inset: 0;
         z-index: 2147483000;
         display: flex;
+        flex-direction: column;
+        gap: 16px;
         align-items: center;
         justify-content: center;
         background: #ffffff;
@@ -54,15 +56,22 @@
         82%, 100% { opacity: 0; transform: none; }
     }
     #contiu-page-loader .cpl-label {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip: rect(0 0 0 0);
-        white-space: nowrap;
+        font-size: 14px;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+        color: #525252;
+        animation: cpl-label 1.6s ease-in-out infinite alternate;
+        animation-play-state: paused;
+    }
+    #contiu-page-loader.is-visible .cpl-label { animation-play-state: running; }
+    .dark #contiu-page-loader .cpl-label { color: #a3a3a3; }
+    @keyframes cpl-label {
+        from { opacity: 0.55; }
+        to { opacity: 1; }
     }
     @media (prefers-reduced-motion: reduce) {
-        #contiu-page-loader .cpl-piece { animation: none; }
+        #contiu-page-loader .cpl-piece,
+        #contiu-page-loader .cpl-label { animation: none; }
     }
 </style>
 
