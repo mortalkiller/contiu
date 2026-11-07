@@ -6,11 +6,13 @@ use App\Filament\Analysis\Concerns\ForecastsMonths;
 use App\Support\Money;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 class CashForecastStats extends StatsOverviewWidget
 {
     use ForecastsMonths;
+    use HasSkeletonPlaceholder;
 
     protected int|string|array $columnSpan = 'full';
 

@@ -7,10 +7,12 @@ use App\Support\Money;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
+use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 
 class CashForecastTable extends TableWidget
 {
     use ForecastsMonths;
+    use HasSkeletonPlaceholder;
 
     protected int|string|array $columnSpan = 'full';
 

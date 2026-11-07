@@ -12,10 +12,12 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\TextInputColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
+use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 class MonthExpensesTable extends TableWidget
 {
+    use HasSkeletonPlaceholder;
     use ReviewsMonth;
 
     protected int|string|array $columnSpan = 'full';

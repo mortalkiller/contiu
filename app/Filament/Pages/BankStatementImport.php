@@ -134,6 +134,8 @@ class BankStatementImport extends Page implements HasTable
     public function table(Table $table): Table
     {
         return $table
+            // Rows load right after the page; a skeleton shows meanwhile (filament-skeleton-loading).
+            ->deferLoading()
             ->query(fn () => $this->modifyQueryWithActiveTab(BankTransaction::query()->with('links.linkable')))
             ->defaultSort('booked_on', 'desc')
             ->columns([

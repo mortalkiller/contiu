@@ -6,6 +6,7 @@ use App\Filament\Widgets\Concerns\UsesDashboardPeriod;
 use App\Support\Money;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
+use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 
 /**
  * Shown instead of the monthly cash flow chart when a month is chosen: the month next to the
@@ -14,6 +15,7 @@ use Filament\Widgets\ChartWidget;
  */
 class MonthComparisonChart extends ChartWidget
 {
+    use HasSkeletonPlaceholder;
     use UsesDashboardPeriod;
 
     protected static ?int $sort = 2;

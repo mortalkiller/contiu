@@ -2,8 +2,12 @@
 
 namespace App\Filament\Analysis\Widgets;
 
+use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
+
 class MarginsByClientTable extends MarginsTable
 {
+    use HasSkeletonPlaceholder;
+
     protected function heading(): string
     {
         return 'Por cliente';

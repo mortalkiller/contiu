@@ -6,6 +6,7 @@ use App\Filament\Analysis\Concerns\UsesMarginPeriod;
 use App\Support\Money;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
+use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 
 /**
  * Invoiced vs direct costs per business line (bars, the validated cash-flow pair) with the margin
@@ -13,6 +14,7 @@ use Filament\Widgets\ChartWidget;
  */
 class MarginsChart extends ChartWidget
 {
+    use HasSkeletonPlaceholder;
     use UsesMarginPeriod;
 
     protected int|string|array $columnSpan = 'full';

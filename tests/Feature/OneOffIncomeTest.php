@@ -172,7 +172,7 @@ it('shows one-off incomes as such in the receivables list', function () {
     actingAsAdmin();
     donation();
 
-    Livewire::test(ListReceivables::class)
+    Livewire::test(ListReceivables::class)->loadTable()
         ->set('activeTab', 'paid')
         ->assertSee('Receita avulsa')
         ->assertDontSee(RetainerResource::getUrl('view', ['record' => OneOffIncome::sole()->id]), escape: false);

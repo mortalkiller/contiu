@@ -8,12 +8,14 @@ use App\Support\PeriodSummary;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
+use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 
 /**
  * The Excel "Resumo" block for the selected period, next to the previous period.
  */
 class PeriodSummaryTable extends TableWidget
 {
+    use HasSkeletonPlaceholder;
     use UsesDashboardPeriod;
 
     protected static ?int $sort = 6;

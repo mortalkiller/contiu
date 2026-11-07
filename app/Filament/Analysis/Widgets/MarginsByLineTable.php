@@ -2,8 +2,12 @@
 
 namespace App\Filament\Analysis\Widgets;
 
+use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
+
 class MarginsByLineTable extends MarginsTable
 {
+    use HasSkeletonPlaceholder;
+
     protected function heading(): string
     {
         return 'Por linha de negócio';

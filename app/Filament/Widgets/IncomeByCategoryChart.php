@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use App\Filament\Widgets\Concerns\CategoryDoughnut;
 use App\Filament\Widgets\Concerns\UsesDashboardPeriod;
 use Filament\Widgets\ChartWidget;
+use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 
 /**
  * What came in per income category (of the project or retainer) in the selected period.
@@ -12,6 +13,7 @@ use Filament\Widgets\ChartWidget;
 class IncomeByCategoryChart extends ChartWidget
 {
     use CategoryDoughnut;
+    use HasSkeletonPlaceholder;
     use UsesDashboardPeriod;
 
     protected static ?int $sort = 3;

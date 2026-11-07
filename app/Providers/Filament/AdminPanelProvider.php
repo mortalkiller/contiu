@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Mortalkiller\FilamentCompleteUserProfile\CompleteUserProfilePlugin;
 use MortalKiller\FilamentPageHeader\PageHeaderPlugin;
+use MortalKiller\FilamentSkeletonLoading\SkeletonLoadingPlugin;
 use ShuvroRoy\FilamentSpatieLaravelBackup\FilamentSpatieLaravelBackupPlugin;
 use Tapp\FilamentAuditing\FilamentAuditingPlugin;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
@@ -83,6 +84,7 @@ class AdminPanelProvider extends PanelProvider
                 fn (): string => Blade::render('@livewire(\\App\\Livewire\\QuickCreateMenu::class)'),
             )
             ->plugins([
+                SkeletonLoadingPlugin::make(),
                 PageHeaderPlugin::make(),
                 CompleteUserProfilePlugin::make(),
                 FilamentShieldPlugin::make()

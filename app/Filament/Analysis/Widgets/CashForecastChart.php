@@ -6,6 +6,7 @@ use App\Filament\Analysis\Concerns\ForecastsMonths;
 use App\Support\Money;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
+use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 
 /**
  * Inflows vs outflows per month with the running balance as a neutral line, on one € axis.
@@ -14,6 +15,7 @@ use Filament\Widgets\ChartWidget;
 class CashForecastChart extends ChartWidget
 {
     use ForecastsMonths;
+    use HasSkeletonPlaceholder;
 
     protected int|string|array $columnSpan = 'full';
 

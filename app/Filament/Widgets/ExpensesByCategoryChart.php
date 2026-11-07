@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use App\Filament\Widgets\Concerns\CategoryDoughnut;
 use App\Filament\Widgets\Concerns\UsesDashboardPeriod;
 use Filament\Widgets\ChartWidget;
+use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 
 /**
  * Paid expenses per category in the selected period, as a doughnut.
@@ -12,6 +13,7 @@ use Filament\Widgets\ChartWidget;
 class ExpensesByCategoryChart extends ChartWidget
 {
     use CategoryDoughnut;
+    use HasSkeletonPlaceholder;
     use UsesDashboardPeriod;
 
     protected static ?int $sort = 5;

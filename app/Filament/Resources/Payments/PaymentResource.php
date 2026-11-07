@@ -73,6 +73,8 @@ class PaymentResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            // Rows load right after the page; a skeleton shows meanwhile (filament-skeleton-loading).
+            ->deferLoading()
             ->headerActions([
                 ExportAction::make()
                     ->label('Exportar Excel')

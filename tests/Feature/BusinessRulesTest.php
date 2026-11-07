@@ -75,7 +75,7 @@ it('refuses a payment larger than what is still open', function () {
     $receivable = Receivable::factory()->create(['amount' => 30000]);
     Payment::factory()->for($receivable)->create(['amount' => 10000]);
 
-    Livewire::test(ManagePayments::class)
+    Livewire::test(ManagePayments::class)->loadTable()
         ->callAction('recordPayment', data: [
             'receivable_id' => $receivable->id,
             'paid_on' => today()->toDateString(),
@@ -90,7 +90,7 @@ it('refuses a payment larger than what is still open', function () {
 it('records a payment that settles what is open', function () {
     $receivable = Receivable::factory()->create(['amount' => 30000]);
 
-    Livewire::test(ManagePayments::class)
+    Livewire::test(ManagePayments::class)->loadTable()
         ->callAction('recordPayment', data: [
             'receivable_id' => $receivable->id,
             'paid_on' => today()->toDateString(),

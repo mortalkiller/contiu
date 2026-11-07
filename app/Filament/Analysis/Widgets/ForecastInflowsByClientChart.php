@@ -5,11 +5,13 @@ namespace App\Filament\Analysis\Widgets;
 use App\Filament\Analysis\Concerns\ForecastsMonths;
 use App\Filament\Widgets\Concerns\CategoryDoughnut;
 use Filament\Widgets\ChartWidget;
+use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 
 class ForecastInflowsByClientChart extends ChartWidget
 {
     use CategoryDoughnut;
     use ForecastsMonths;
+    use HasSkeletonPlaceholder;
 
     protected int|string|array $columnSpan = 'full';
 

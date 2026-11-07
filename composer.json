@@ -14,6 +14,7 @@
         "laravel/tinker": "^3.0",
         "mortalkiller/filament-complete-user-profile": "^1.2",
         "mortalkiller/filament-page-header": "^2.4",
+        "mortalkiller/filament-skeleton-loading": "@dev",
         "pxlrbt/filament-excel": "^4.1",
         "shuvroroy/filament-spatie-laravel-backup": "^4.1",
         "tapp/filament-auditing": "^4.1",
@@ -96,5 +97,13 @@
         }
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "repositories": [{
+        "name": "skeleton-loading",
+        "type": "path",
+        "url": "packages/mortalkiller/filament-skeleton-loading",
+        "options": {
+            "symlink": true
+        }
+    }]
 }

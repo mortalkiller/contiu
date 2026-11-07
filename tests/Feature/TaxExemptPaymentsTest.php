@@ -21,7 +21,7 @@ it('lets you mark a payment as tax-exempt when recording it', function () {
     actingAsAdmin();
     $receivable = Receivable::factory()->create(['amount' => 25000]);
 
-    Livewire::test(ManagePayments::class)
+    Livewire::test(ManagePayments::class)->loadTable()
         ->callAction('recordPayment', data: [
             'receivable_id' => $receivable->id,
             'paid_on' => today()->toDateString(),
@@ -48,7 +48,7 @@ it('comes ticked when recording a payment for a project', function () {
     actingAsAdmin();
     Receivable::factory()->create(['amount' => 8000]);
 
-    Livewire::test(ManagePayments::class)
+    Livewire::test(ManagePayments::class)->loadTable()
         ->mountAction('recordPayment')
         ->assertActionDataSet(['tax_exempt' => true]);
 });

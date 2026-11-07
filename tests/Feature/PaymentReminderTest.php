@@ -79,13 +79,13 @@ it('cannot remind a client without email', function () {
 });
 
 it('reminds the client from an open amount on the receivables list and shows when', function () {
-    Livewire::test(ListReceivables::class)
+    Livewire::test(ListReceivables::class)->loadTable()
         ->callTableAction('sendPaymentReminder', $this->overdue, data: ['to' => 'goncalo@example.pt'])
         ->assertHasNoTableActionErrors();
 
     Mail::assertSent(PaymentReminder::class, fn (PaymentReminder $mail) => $mail->highlightedId === $this->overdue->id);
 
-    Livewire::test(ListReceivables::class)->assertSee('Lembrete enviado a 06/11');
+    Livewire::test(ListReceivables::class)->loadTable()->assertSee('Lembrete enviado a 06/11');
 });
 
 it('offers the reminder on the statement page too', function () {

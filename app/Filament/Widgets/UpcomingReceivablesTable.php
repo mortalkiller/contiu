@@ -10,12 +10,14 @@ use Filament\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
+use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 
 /**
  * "A receber": open amounts, oldest due first. Overdue rows show in red.
  */
 class UpcomingReceivablesTable extends TableWidget
 {
+    use HasSkeletonPlaceholder;
     use UsesDashboardPeriod;
 
     protected static ?int $sort = 7;

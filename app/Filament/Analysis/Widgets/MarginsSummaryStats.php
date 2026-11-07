@@ -6,6 +6,7 @@ use App\Filament\Analysis\Concerns\UsesMarginPeriod;
 use App\Support\Money;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 /**
@@ -13,6 +14,7 @@ use ToneGabes\Filament\Icons\Enums\Phosphor;
  */
 class MarginsSummaryStats extends StatsOverviewWidget
 {
+    use HasSkeletonPlaceholder;
     use UsesMarginPeriod;
 
     protected int|string|array $columnSpan = 'full';

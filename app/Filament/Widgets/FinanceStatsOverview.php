@@ -8,6 +8,7 @@ use App\Support\Money;
 use App\Support\PeriodSummary;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 /**
@@ -15,6 +16,7 @@ use ToneGabes\Filament\Icons\Enums\Phosphor;
  */
 class FinanceStatsOverview extends StatsOverviewWidget
 {
+    use HasSkeletonPlaceholder;
     use UsesDashboardPeriod;
 
     protected static ?int $sort = 1;

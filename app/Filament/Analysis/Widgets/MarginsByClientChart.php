@@ -5,10 +5,12 @@ namespace App\Filament\Analysis\Widgets;
 use App\Filament\Analysis\Concerns\UsesMarginPeriod;
 use App\Filament\Widgets\Concerns\CategoryDoughnut;
 use Filament\Widgets\ChartWidget;
+use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 
 class MarginsByClientChart extends ChartWidget
 {
     use CategoryDoughnut;
+    use HasSkeletonPlaceholder;
     use UsesMarginPeriod;
 
     protected int|string|array $columnSpan = 'full';

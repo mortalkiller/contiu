@@ -15,7 +15,7 @@ it('groups expenses by month with totals', function () {
     Expense::factory()->create(['spent_on' => '2026-10-03', 'net_amount' => 1000]);
     Expense::factory()->create(['spent_on' => '2026-11-02', 'net_amount' => 2000]);
 
-    Livewire::test(ListExpenses::class)
+    Livewire::test(ListExpenses::class)->loadTable()
         ->set('tableGrouping', 'spent_on:desc')
         ->assertSee('Novembro 2026')
         ->assertSee('Outubro 2026');

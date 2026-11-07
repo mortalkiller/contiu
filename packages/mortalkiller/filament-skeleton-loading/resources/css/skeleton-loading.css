@@ -1,0 +1,180 @@
+/*
+ * mortalkiller/filament-skeleton-loading
+ * Skeletons for lazy widgets and sections, and skeleton rows for deferred tables.
+ * Plain CSS on purpose: no build step in the consuming app.
+ */
+
+.fsl-skeleton {
+    --fsl-bone: rgb(0 0 0 / 0.07);
+    --fsl-shine: rgb(255 255 255 / 0.55);
+    --fsl-border: rgb(0 0 0 / 0.05);
+    position: relative;
+}
+
+.dark .fsl-skeleton {
+    --fsl-bone: rgb(255 255 255 / 0.08);
+    --fsl-shine: rgb(255 255 255 / 0.07);
+    --fsl-border: rgb(255 255 255 / 0.06);
+}
+
+/* Bones and the light sweeping across them */
+.fsl-bone {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    border-radius: 6px;
+    background: var(--fsl-bone);
+}
+
+.fsl-bone::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, var(--fsl-shine), transparent);
+    animation: fsl-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes fsl-shimmer {
+    to { transform: translateX(100%); }
+}
+
+.fsl-line { height: 12px; }
+.fsl-title { height: 16px; width: 40%; }
+.fsl-value { height: 28px; }
+
+.fsl-heading {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.5;
+    opacity: 0.6;
+}
+
+/* Cards */
+.fsl-card {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 24px;
+}
+
+.fsl-card--flush { padding: 0; gap: 0; }
+
+/* Stats */
+.fsl-grid {
+    display: grid;
+    gap: 24px;
+}
+
+.fsl-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 24px;
+}
+
+@media (max-width: 767px) {
+    .fsl-grid { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+/* Charts */
+.fsl-chart-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    height: 200px;
+}
+
+.fsl-chart-bars .fsl-bone {
+    flex: 1 1 0;
+    border-radius: 6px 6px 2px 2px;
+}
+
+.fsl-chart-line {
+    display: block;
+    width: 100%;
+    height: 200px;
+    color: var(--fsl-bone);
+}
+
+.fsl-chart-ring-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.fsl-chart-ring {
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    -webkit-mask: radial-gradient(circle, transparent 54%, #000 55%);
+    mask: radial-gradient(circle, transparent 54%, #000 55%);
+}
+
+.fsl-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+}
+
+/* Table widgets */
+.fsl-table-head { padding: 20px 24px; }
+
+.fsl-row {
+    display: grid;
+    grid-template-columns: 1.2fr 2fr 1fr 0.8fr;
+    align-items: center;
+    gap: 24px;
+    padding: 18px 24px;
+    border-top: 1px solid var(--fsl-border);
+}
+
+/* Deferred tables: Filament renders a spinner here; draw skeleton rows instead */
+.fi-ta-table-loading-ctn {
+    --fsl-bone: rgb(0 0 0 / 0.07);
+    --fsl-shine: rgb(255 255 255 / 0.55);
+    position: relative;
+    display: block !important;
+    /* Filament gives the spinner box a fixed height: let the skeleton rows set it. */
+    height: auto !important;
+    overflow: hidden;
+    padding: 0 !important;
+}
+
+.dark .fi-ta-table-loading-ctn {
+    --fsl-bone: rgb(255 255 255 / 0.08);
+    --fsl-shine: rgb(255 255 255 / 0.07);
+}
+
+.fi-ta-table-loading-ctn > :not(.fi-sr-only) { display: none !important; }
+
+.fi-ta-table-loading-ctn::before {
+    content: "";
+    display: block;
+    height: 392px;
+    margin: 0 24px;
+    background: repeating-linear-gradient(to bottom, transparent 0 21px, var(--fsl-bone) 21px 35px, transparent 35px 56px);
+    -webkit-mask-image: linear-gradient(90deg, #000 0 20%, transparent 20% 26%, #000 26% 58%, transparent 58% 64%, #000 64% 80%, transparent 80% 86%, #000 86% 96%, transparent 96%);
+    mask-image: linear-gradient(90deg, #000 0 20%, transparent 20% 26%, #000 26% 58%, transparent 58% 64%, #000 64% 80%, transparent 80% 86%, #000 86% 96%, transparent 96%);
+}
+
+.fi-ta-table-loading-ctn::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, var(--fsl-shine), transparent);
+    animation: fsl-shimmer 1.4s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fsl-bone::after,
+    .fi-ta-table-loading-ctn::after {
+        display: none;
+        animation: none;
+    }
+}

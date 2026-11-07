@@ -6,10 +6,12 @@ use App\Filament\MonthClose\Concerns\ReviewsMonth;
 use App\Support\Money;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 class MonthCloseStats extends StatsOverviewWidget
 {
+    use HasSkeletonPlaceholder;
     use ReviewsMonth;
 
     protected int|string|array $columnSpan = 'full';

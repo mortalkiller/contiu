@@ -60,7 +60,7 @@ it('shows the history of a payment from the payments list', function () {
     $payment = Payment::factory()->create(['amount' => 12000]);
     $payment->update(['amount' => 15000]);
 
-    Livewire::test(ManagePayments::class)
+    Livewire::test(ManagePayments::class)->loadTable()
         ->assertTableActionVisible('history', $payment)
         ->mountTableAction('history', $payment)
         ->assertMountedActionModalSee(['Alterado', 'Criado'])

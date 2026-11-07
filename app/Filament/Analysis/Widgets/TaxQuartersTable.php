@@ -8,12 +8,15 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Livewire\Attributes\Reactive;
+use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 
 /**
  * Segurança Social per quarter: income, base, monthly contribution and the months it is paid in.
  */
 class TaxQuartersTable extends TableWidget
 {
+    use HasSkeletonPlaceholder;
+
     #[Reactive]
     public ?int $year = null;
 

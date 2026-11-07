@@ -40,7 +40,7 @@ function openReceivableFor(string $name, int $amount): Receivable
 it('uploads a statement and lists its lines with suggestions', function () {
     openReceivableFor('Gonçalo Teixeira', 73000);
 
-    Livewire::test(BankStatementImport::class)
+    Livewire::test(BankStatementImport::class)->loadTable()
         ->callAction('upload', data: ['file' => UploadedFile::fake()->createWithContent('extrato.csv', statementCsv())])
         ->assertHasNoActionErrors()
         ->assertNotified('2 linhas novas do extrato')
@@ -55,7 +55,7 @@ it('accepts a suggestion with one click', function () {
     $receivable = openReceivableFor('Gonçalo Teixeira', 73000);
     $line = BankTransaction::create(['hash' => 'x1', 'booked_on' => '2026-10-23', 'description' => 'TRF GONCALO TEIXEIRA', 'amount' => 73000, 'import_batch' => 'b']);
 
-    Livewire::test(BankStatementImport::class)
+    Livewire::test(BankStatementImport::class)->loadTable()
         ->callTableAction('accept', $line)
         ->assertNotified();
 
@@ -68,7 +68,7 @@ it('lets you choose among the possible matches', function () {
     $beta = openReceivableFor('Cliente Beta', 2000);
     $line = BankTransaction::create(['hash' => 'x2', 'booked_on' => '2026-11-04', 'description' => 'MBWAY 912', 'amount' => 2000, 'import_batch' => 'b']);
 
-    Livewire::test(BankStatementImport::class)
+    Livewire::test(BankStatementImport::class)->loadTable()
         ->assertTableActionHidden('accept', $line)
         ->callTableAction('link', $line, data: ['targets' => ['receivable:'.$beta->id]]);
 
@@ -80,7 +80,7 @@ it('creates an expense from a debit and ignores another line', function () {
     $debit = BankTransaction::create(['hash' => 'x3', 'booked_on' => '2026-10-27', 'description' => 'COMPRA OPENAI', 'amount' => -8374, 'import_batch' => 'b']);
     $transfer = BankTransaction::create(['hash' => 'x4', 'booked_on' => '2026-10-28', 'description' => 'TRF ENTRE CONTAS', 'amount' => -50000, 'import_batch' => 'b']);
 
-    Livewire::test(BankStatementImport::class)
+    Livewire::test(BankStatementImport::class)->loadTable()
         ->callTableAction('createExpense', $debit, data: [
             'supplier_id' => $supplier->id,
             'description' => 'ChatGPT Pro',
@@ -103,7 +103,7 @@ it('accepts every unambiguous suggestion at once', function () {
         BankTransaction::create(['hash' => 'y3', 'booked_on' => '2026-11-05', 'description' => 'TRF DESCONHECIDA', 'amount' => 99900, 'import_batch' => 'b']),
     ]);
 
-    Livewire::test(BankStatementImport::class)
+    Livewire::test(BankStatementImport::class)->loadTable()
         ->callTableBulkAction('acceptSuggestions', $lines);
 
     expect(Payment::count())->toBe(2)
@@ -114,7 +114,7 @@ it('lets you link a line to a registered expense and warns when the amounts diff
     $expense = Expense::factory()->for(Supplier::factory()->create(['name' => 'INPI']))->create(['net_amount' => 15198, 'spent_on' => '2026-10-06', 'paid_on' => '2026-10-06']);
     $line = BankTransaction::create(['hash' => 'z1', 'booked_on' => '2026-10-06', 'description' => 'TRF P/ Ordenado', 'amount' => -15100, 'import_batch' => 'b']);
 
-    Livewire::test(BankStatementImport::class)
+    Livewire::test(BankStatementImport::class)->loadTable()
         ->mountTableAction('link', $line)
         ->fillForm(['targets' => ['paid:'.$expense->id]])
         ->assertSchemaComponentExists('amountDifference', checkComponentUsing: fn ($callout) => ! $callout->isHidden() && str_contains($callout->getDescription(), Money::format(98)))
@@ -133,7 +133,7 @@ it('links a line to two receivables of a client who paid both at once', function
     $second = Receivable::factory()->for($first->billable, 'billable')->create(['amount' => 20000, 'due_on' => '2026-11-30']);
     $line = BankTransaction::create(['hash' => 'w1', 'booked_on' => '2026-11-04', 'description' => 'TRF GONCALO TEIXEIRA', 'amount' => 50000, 'import_batch' => 'b']);
 
-    Livewire::test(BankStatementImport::class)
+    Livewire::test(BankStatementImport::class)->loadTable()
         ->callTableAction('link', $line, data: ['targets' => ['receivable:'.$first->id, 'receivable:'.$second->id]])
         ->assertHasNoTableActionErrors();
 
@@ -148,7 +148,7 @@ it('links a platform payout to a donation and its commission registered before',
     $income = app(RecordOneOffIncome::class)->handle(['received_on' => '2026-10-14', 'title' => 'Donativo', 'category_id' => $category->id, 'gross_amount' => 500, 'commission' => 68, 'commission_supplier_id' => Supplier::factory()->create()->id]);
     $line = BankTransaction::create(['hash' => 'w6', 'booked_on' => '2026-10-15', 'description' => 'STRIPE', 'amount' => 432, 'import_batch' => 'b']);
 
-    Livewire::test(BankStatementImport::class)
+    Livewire::test(BankStatementImport::class)->loadTable()
         ->callTableAction('link', $line, data: ['targets' => ['payment:'.Payment::sole()->id, 'paid:'.$income->commission_expense_id]])
         ->assertHasNoTableActionErrors();
 
@@ -158,7 +158,7 @@ it('links a platform payout to a donation and its commission registered before',
 it('marks a line as own transfer', function () {
     $line = BankTransaction::create(['hash' => 'w2', 'booked_on' => '2026-07-10', 'description' => 'TRF DE PEDRO', 'amount' => 150000, 'import_batch' => 'b']);
 
-    Livewire::test(BankStatementImport::class)->callTableAction('ownTransfer', $line);
+    Livewire::test(BankStatementImport::class)->loadTable()->callTableAction('ownTransfer', $line);
 
     expect($line->fresh()->status)->toBe(BankTransactionStatus::OwnTransfer);
 });
@@ -166,7 +166,7 @@ it('marks a line as own transfer', function () {
 it('creates a one-off income from a credit line', function () {
     $line = BankTransaction::create(['hash' => 'w3', 'booked_on' => '2026-10-14', 'description' => 'STRIPE TECHNOLOGY EUROPE, LIMITED', 'amount' => 432, 'import_batch' => 'b']);
 
-    Livewire::test(BankStatementImport::class)
+    Livewire::test(BankStatementImport::class)->loadTable()
         ->callTableAction('createIncome', $line, data: [
             'title' => 'Donativo Buy Me a Coffee',
             'gross_amount' => 5,
@@ -184,7 +184,7 @@ it('creates a one-off income from a credit line', function () {
 it('fills the commission from the gross amount so the income matches the bank', function () {
     $line = BankTransaction::create(['hash' => 'w5', 'booked_on' => '2026-10-14', 'description' => 'STRIPE', 'amount' => 432, 'import_batch' => 'b']);
 
-    Livewire::test(BankStatementImport::class)
+    Livewire::test(BankStatementImport::class)->loadTable()
         ->mountTableAction('createIncome', $line)
         ->fillForm(['gross_amount' => 5])
         ->assertSchemaStateSet(['commission' => 0.68]);
@@ -193,7 +193,7 @@ it('fills the commission from the gross amount so the income matches the bank', 
 it('puts a treated line back to pending', function () {
     $line = BankTransaction::create(['hash' => 'w4', 'booked_on' => '2026-07-10', 'description' => 'TRF', 'amount' => 1000, 'import_batch' => 'b', 'status' => 'own_transfer']);
 
-    Livewire::test(BankStatementImport::class)
+    Livewire::test(BankStatementImport::class)->loadTable()
         ->set('activeTab', 'done')
         ->callTableAction('undo', $line);
 
@@ -201,7 +201,7 @@ it('puts a treated line back to pending', function () {
 });
 
 it('uploads an Excel statement exported from the bank', function () {
-    Livewire::test(BankStatementImport::class)
+    Livewire::test(BankStatementImport::class)->loadTable()
         ->callAction('upload', data: ['file' => UploadedFile::fake()->createWithContent('movimentos.xlsx', bankStatementWorkbook())])
         ->assertHasNoActionErrors()
         ->assertNotified('2 linhas novas do extrato');
@@ -212,7 +212,7 @@ it('uploads an Excel statement exported from the bank', function () {
 it('asks for the columns when it cannot recognise the file', function () {
     $csv = "x;y;z\n05.10.2026;PAGAMENTO XPTO;-12,50\n";
 
-    Livewire::test(BankStatementImport::class)
+    Livewire::test(BankStatementImport::class)->loadTable()
         ->callAction('upload', data: ['file' => UploadedFile::fake()->createWithContent('estranho.csv', $csv)])
         ->assertActionMounted('mapColumns')
         ->fillForm(['date' => 0, 'description' => 1, 'amount' => 2])

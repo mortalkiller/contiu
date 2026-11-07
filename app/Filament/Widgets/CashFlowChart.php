@@ -6,6 +6,7 @@ use App\Filament\Widgets\Concerns\UsesDashboardPeriod;
 use App\Support\Money;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
+use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 
 /**
  * Monthly received vs paid expenses (grouped bars) with the month's result as a neutral line.
@@ -14,6 +15,7 @@ use Filament\Widgets\ChartWidget;
  */
 class CashFlowChart extends ChartWidget
 {
+    use HasSkeletonPlaceholder;
     use UsesDashboardPeriod;
 
     protected static ?int $sort = 2;

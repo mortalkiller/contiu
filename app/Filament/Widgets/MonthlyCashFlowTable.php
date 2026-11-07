@@ -6,6 +6,7 @@ use App\Filament\Widgets\Concerns\UsesDashboardPeriod;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
+use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 
 /**
  * The Excel "Mês · Recebido · Despesas pagas · Cash flow" table: months of the selected year, or
@@ -13,6 +14,7 @@ use Filament\Widgets\TableWidget;
  */
 class MonthlyCashFlowTable extends TableWidget
 {
+    use HasSkeletonPlaceholder;
     use UsesDashboardPeriod;
 
     protected static ?int $sort = 4;

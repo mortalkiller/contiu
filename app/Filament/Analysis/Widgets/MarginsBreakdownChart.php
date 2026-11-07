@@ -5,6 +5,7 @@ namespace App\Filament\Analysis\Widgets;
 use App\Filament\Analysis\Concerns\UsesMarginPeriod;
 use App\Filament\Widgets\Concerns\CategoryDoughnut;
 use Filament\Widgets\ChartWidget;
+use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 
 /**
  * Part-to-whole of what was invoiced: direct costs, overhead (estrutura) and what is left.
@@ -12,6 +13,7 @@ use Filament\Widgets\ChartWidget;
 class MarginsBreakdownChart extends ChartWidget
 {
     use CategoryDoughnut;
+    use HasSkeletonPlaceholder;
     use UsesMarginPeriod;
 
     protected int|string|array $columnSpan = 'full';
