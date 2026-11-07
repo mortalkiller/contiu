@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 
 it('shows the branded page for a missing page', function () {
-    $this->get('/admin/pagina-que-nao-existe')
+    $this->get('/pagina-que-nao-existe')
         ->assertNotFound()
         ->assertSee('Página não encontrada')
         ->assertSee('brand/contiu/contiu-logo-white.svg', escape: false)

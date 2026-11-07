@@ -138,7 +138,7 @@
 </head>
 <body>
     <header>
-        <a href="{{ url('/admin') }}" aria-label="Contiu — ir para o painel">
+        <a href="{{ url('/') }}" aria-label="Contiu — ir para o painel">
             <img src="{{ asset('brand/contiu/contiu-logo-white.svg') }}" alt="Contiu">
         </a>
     </header>
@@ -153,8 +153,8 @@
                 @hasSection('actions')
                     @yield('actions')
                 @else
-                    <a class="btn btn-primary" href="{{ url('/admin') }}">Voltar ao painel</a>
-                    <button type="button" class="btn" onclick="history.length > 1 ? history.back() : location.assign('{{ url('/admin') }}')">Voltar atrás</button>
+                    <a class="btn btn-primary" href="{{ url('/') }}">Voltar ao painel</a>
+                    <button type="button" class="btn" onclick="history.length > 1 ? history.back() : location.assign('{{ url('/') }}')">Voltar atrás</button>
                 @endif
             </div>
         </div>

@@ -6,5 +6,5 @@
 
 @section('actions')
     <button type="button" class="btn btn-primary" onclick="location.reload()">Recarregar</button>
-    <a class="btn" href="{{ url('/admin') }}">Voltar ao painel</a>
+    <a class="btn" href="{{ url('/') }}">Voltar ao painel</a>
 @endsection
