@@ -57,8 +57,9 @@ for arg in "$@"; do
     esac
 done
 
-# A pasta da app no servidor (onde está este script), para ler o .env.
-HOST_APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+# A pasta da app no servidor, para ler o .env: a do script, ou HOST_APP_DIR quando se corre
+# uma cópia do script tirada de origin/main (ex.: a primeira vez, antes de o script existir lá).
+HOST_APP_DIR="${HOST_APP_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
 
 # ── Saída ───────────────────────────────────────────────────────────────────
 
