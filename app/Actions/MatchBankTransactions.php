@@ -22,8 +22,9 @@ use Illuminate\Support\Str;
  * - debit → unpaid expenses with that total, and paid expenses with that total up to 10 days
  *   apart that no other bank line points at; else a recurring template with that total and its
  *   supplier named in the description; else any supplier named in the description.
- * Any line whose description names the account holder (finance settings) or a user of the app in
- * full ("TRF DE PEDRO FILIPE PEREIRA MONTEIRO") or says "ordenado" can also be money between Pedro's own accounts (own_transfer).
+ * Any line whose description names one of Pedro's accounts (finance settings: the holder's name,
+ * "Ordenado") or a user of the app in full can also be money between Pedro's own accounts
+ * (own_transfer).
  * A credit smaller than what is open on a receivable whose client is named is a partial receipt.
  * Candidates are ranked by how much of the client/supplier name appears in the description, then
  * by how close the dates are.
@@ -89,8 +90,9 @@ class MatchBankTransactions
     }
 
     /**
-     * Every word (3+ letters) of a user's full name in the description, or "ordenado". A single
-     * shared first name is not enough.
+     * Every word (3+ letters) of one of Pedro's account names (finance settings: the holder's name,
+     * "Ordenado"…) in the description, or of a user's full name (two words at least, so a single
+     * shared first name is not enough).
      *
      * @return Collection<int, BankCandidate>
      */
@@ -98,13 +100,14 @@ class MatchBankTransactions
     {
         $words = explode(' ', $description);
 
-        $score = User::query()->pluck('name')
-            ->push(app(FinanceSettings::class)->accountHolderName())
-            ->filter()
-            ->map(fn (string $name) => collect(explode(' ', $this->normalise($name)))->filter(fn (string $token) => strlen($token) >= 3)->unique())
-            ->filter(fn (Collection $tokens) => $tokens->count() >= 2 && $tokens->every(fn (string $token) => in_array($token, $words, true)))
+        $tokens = fn (string $name) => collect(explode(' ', $this->normalise($name)))->filter(fn (string $token) => strlen($token) >= 3)->unique();
+        $matches = fn (Collection $nameTokens) => $nameTokens->isNotEmpty() && $nameTokens->every(fn (string $token) => in_array($token, $words, true));
+
+        $score = collect(app(FinanceSettings::class)->accountNames())->map($tokens)
+            ->concat(User::query()->pluck('name')->map($tokens)->filter(fn (Collection $nameTokens) => $nameTokens->count() >= 2))
+            ->filter($matches)
             ->map->count()
-            ->max() ?? (in_array('ordenado', $words, true) ? 1 : 0);
+            ->max() ?? 0;
 
         return $score > 0 ? collect([new BankCandidate('own_transfer', null, $score, 0)]) : collect();
     }

@@ -259,12 +259,12 @@ it('links a debit to a paid expense even when the amounts differ', function () {
     $expense = Expense::factory()->create(['net_amount' => 15198, 'paid_on' => '2026-10-06']);
     $transaction = BankTransaction::create(['hash' => 'l2', 'booked_on' => '2026-10-06', 'description' => 'TRF', 'amount' => -15100, 'import_batch' => 'x']);
 
-    app(ApplyBankTransaction::class)->linkRecords($transaction, [$expense], DifferenceExplanation::OtherAccount);
+    app(ApplyBankTransaction::class)->linkRecords($transaction, [$expense]);
 
     expect($transaction->fresh()->records()->sole()->is($expense))->toBeTrue()
         ->and($expense->fresh()->total)->toBe(15198)
         ->and($transaction->fresh()->difference())->toBe(98)
-        ->and($transaction->fresh()->difference_explanation)->toBe(DifferenceExplanation::OtherAccount);
+        ->and($transaction->fresh()->difference_explanation)->toBeNull();
 });
 
 it('refuses to link a record twice or in the wrong direction', function () {
@@ -326,10 +326,17 @@ it('suggests own transfer when the description has the user full name', function
         ->and($best->label())->toBe('Transferência minha');
 });
 
-it('suggests own transfer for a salary transfer out', function () {
+it('suggests own transfer to an account named in the settings ("Ordenado" is the personal account)', function () {
+    app(FinanceSettings::class)->set(['account_names' => "Pedro Filipe Pereira Monteiro\nOrdenado"]);
     $transaction = BankTransaction::create(['hash' => 'o2', 'booked_on' => '2026-10-06', 'description' => 'TRF P/ Ordenado', 'amount' => -15100, 'import_batch' => 'x']);
 
     expect(app(MatchBankTransactions::class)->for($transaction)->best()?->type)->toBe('own_transfer');
+});
+
+it('does not treat "ordenado" as special without the setting', function () {
+    $transaction = BankTransaction::create(['hash' => 'o2b', 'booked_on' => '2026-10-06', 'description' => 'TRF P/ Ordenado', 'amount' => -15100, 'import_batch' => 'x']);
+
+    expect(app(MatchBankTransactions::class)->for($transaction)->candidates->pluck('type'))->not->toContain('own_transfer');
 });
 
 it('does not suggest own transfer for a different person with one shared name', function () {
@@ -340,6 +347,7 @@ it('does not suggest own transfer for a different person with one shared name', 
 });
 
 it('marks a line as own transfer when the suggestion is accepted', function () {
+    app(FinanceSettings::class)->set(['account_names' => 'Ordenado']);
     $transaction = BankTransaction::create(['hash' => 'o4', 'booked_on' => '2026-10-06', 'description' => 'TRF P/ Ordenado', 'amount' => -15100, 'import_batch' => 'x']);
 
     app(ApplyBankTransaction::class)->accept($transaction, app(MatchBankTransactions::class)->for($transaction)->best());
@@ -409,7 +417,7 @@ it('undo returns an own transfer or an ignored line to pending', function () {
 });
 
 it('suggests own transfer for the account holder name set in the finance settings', function () {
-    app(FinanceSettings::class)->set(['account_holder_name' => 'Pedro Filipe Pereira Monteiro']);
+    app(FinanceSettings::class)->set(['account_names' => "Pedro Filipe Pereira Monteiro\nOrdenado"]);
     $transaction = BankTransaction::create(['hash' => 'o5', 'booked_on' => '2026-07-10', 'description' => 'TRF DE PEDRO FILIPE PEREIRA MONTEIRO', 'amount' => 150000, 'import_batch' => 'x']);
 
     expect(app(MatchBankTransactions::class)->for($transaction)->best()?->type)->toBe('own_transfer');
@@ -459,13 +467,15 @@ it('matches client names by whole words only', function () {
 
 // Diferenças explicadas ---------------------------------------------------------------------
 
-it('requires an explanation when the records do not add up', function () {
+it('links with a difference without an explanation: the company account balance shows it', function () {
     $expense = Expense::factory()->create(['net_amount' => 15198]);
     $transaction = BankTransaction::create(['hash' => 'x1', 'booked_on' => '2026-10-06', 'description' => 'TRF P/ Ordenado', 'amount' => -15100, 'import_batch' => 'x']);
 
-    expect(fn () => app(ApplyBankTransaction::class)->linkRecords($transaction, [$expense]))->toThrow(DomainException::class, 'diferença')
-        ->and($transaction->fresh()->status)->toBe(BankTransactionStatus::Pending)
-        ->and($transaction->links()->count())->toBe(0);
+    app(ApplyBankTransaction::class)->linkRecords($transaction, [$expense]);
+
+    expect($transaction->fresh()->status)->toBe(BankTransactionStatus::Matched)
+        ->and($transaction->fresh()->difference())->toBe(98)
+        ->and(Expense::count())->toBe(1);
 });
 
 it('rejects an explanation that does not fit the difference', function () {
@@ -533,8 +543,9 @@ it('nets a client payment and an expense paid from the personal account in one t
 });
 
 it('offers only the explanations that fit each case', function () {
-    expect(DifferenceExplanation::optionsFor(credit: true, lineExceeds: true))->toBe([DifferenceExplanation::OwnMoney, DifferenceExplanation::OtherIncome])
-        ->and(DifferenceExplanation::optionsFor(credit: true, lineExceeds: false))->toBe([DifferenceExplanation::BankFee, DifferenceExplanation::OtherAccount, DifferenceExplanation::Adjustment])
-        ->and(DifferenceExplanation::optionsFor(credit: false, lineExceeds: true))->toBe([DifferenceExplanation::BankFee, DifferenceExplanation::OwnMoney])
-        ->and(DifferenceExplanation::optionsFor(credit: false, lineExceeds: false))->toBe([DifferenceExplanation::OtherAccount, DifferenceExplanation::Adjustment]);
+    expect(DifferenceExplanation::optionsFor(credit: true, lineExceeds: true))->toBe([DifferenceExplanation::OtherIncome])
+        ->and(DifferenceExplanation::optionsFor(credit: true, lineExceeds: false))->toBe([DifferenceExplanation::BankFee])
+        ->and(DifferenceExplanation::optionsFor(credit: false, lineExceeds: true))->toBe([DifferenceExplanation::BankFee])
+        ->and(DifferenceExplanation::optionsFor(credit: false, lineExceeds: false))->toBe([]);
+    expect(DifferenceExplanation::cases())->toHaveCount(2);
 });

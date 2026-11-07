@@ -119,9 +119,6 @@ it('lets you link a line to a registered expense and warns when the amounts diff
         ->fillForm(['targets' => ['paid:'.$expense->id]])
         ->assertSchemaComponentExists('amountDifference', checkComponentUsing: fn ($callout) => ! $callout->isHidden() && str_contains($callout->getDescription(), Money::format(98)))
         ->callMountedTableAction()
-        ->assertHasTableActionErrors(['explanation' => 'required'])
-        ->fillForm(['explanation' => 'other_account'])
-        ->callMountedTableAction()
         ->assertHasNoTableActionErrors();
 
     expect($line->fresh()->records()->sole()->is($expense))->toBeTrue()

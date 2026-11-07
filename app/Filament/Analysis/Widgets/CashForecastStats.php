@@ -30,7 +30,7 @@ class CashForecastStats extends StatsOverviewWidget
             Stat::make('Entradas previstas', Money::format($totals['inflows']))->icon(Phosphor::HandCoins),
             Stat::make('Saídas previstas', Money::format($totals['outflows']))->icon(Phosphor::Receipt),
             Stat::make('Saldo no fim', Money::format($totals['endBalance']))
-                ->description($forecast->startsFromBankBalance() ? 'A partir do saldo bancário' : 'A partir de 0 €')
+                ->description($forecast->startsFromBankBalance() ? 'A partir do saldo do extrato' : 'A partir de 0 €')
                 ->color($totals['endBalance'] < 0 ? 'danger' : null)
                 ->icon(Phosphor::Wallet),
             Stat::make('Saldo mais baixo', Money::format($totals['lowestBalance']))

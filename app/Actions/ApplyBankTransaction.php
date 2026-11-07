@@ -307,9 +307,9 @@ class ApplyBankTransaction
     }
 
     /**
-     * No money stays unexplained: when the linked records don't add up to the line, the difference
-     * needs an explanation that fits it. A bank fee or another income is created so the line adds
-     * up; the other explanations only say where the rest went.
+     * When the linked records don't add up to the line, the difference is usually money that went
+     * through another account, and the company account balance shows it. A bank fee or another
+     * income can be recorded instead, so the line adds up on its own.
      */
     private function settleDifference(BankTransaction $transaction, ?DifferenceExplanation $explanation): void
     {
@@ -322,7 +322,10 @@ class ApplyBankTransaction
         }
 
         if ($explanation === null) {
-            throw new DomainException('Os registos não dão o valor da linha: explica a diferença de '.Money::format(abs($difference)).'.');
+            // Money that went through another account: the company account balance shows it.
+            $transaction->update(['difference_explanation' => null]);
+
+            return;
         }
 
         $lineExceeds = ($difference > 0) === $transaction->is_credit;

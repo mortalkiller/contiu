@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Filament\MonthClose\Widgets\MonthCloseStats;
 use App\Filament\MonthClose\Widgets\MonthExpensesTable;
 use App\Filament\MonthClose\Widgets\MonthReceivablesTable;
+use App\Filament\Widgets\CompanyAccountStats;
 use App\Support\MonthReview;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -98,12 +99,13 @@ class MonthClose extends Page
                 default => 'Faltam '.$pending.' itens',
             })
                 ->description(fn (): string => $this->review()->pendingCount() === 0
-                    ? 'Tudo recebido e todas as despesas confirmadas.'
-                    : $this->review()->pendingReceivables().' por receber · '.$this->review()->pendingExpenses().' despesas por pagar')
+                    ? 'Tudo recebido, todas as despesas confirmadas e o extrato tratado.'
+                    : $this->review()->pendingReceivables().' por receber · '.$this->review()->pendingExpenses().' despesas por pagar · '.$this->review()->pendingBankLines().' linhas do extrato por tratar')
                 ->icon(fn () => $this->review()->pendingCount() === 0 ? Phosphor::CheckCircle : Phosphor::ListChecks)
                 ->status(fn (): string => $this->review()->pendingCount() === 0 ? 'success' : 'warning'),
             ...$this->getWidgetsSchemaComponents([
                 MonthCloseStats::class,
+                CompanyAccountStats::class,
                 MonthReceivablesTable::class,
                 MonthExpensesTable::class,
             ]),

@@ -7,6 +7,7 @@ use App\Support\FinanceSettings;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
@@ -51,9 +52,7 @@ class FinanceSettingsPage extends Page
             'vat_exempt' => $settings->vatExempt(),
             'vat_exemption_threshold' => $settings->vatExemptionThreshold(),
             'payments_exempt_by_default' => $settings->paymentsExemptByDefault(),
-            'current_bank_balance' => $settings->currentBankBalance(),
-            'current_bank_balance_on' => $settings->currentBankBalanceOn()?->toDateString(),
-            'account_holder_name' => $settings->accountHolderName(),
+            'account_names' => implode("\n", $settings->accountNames()),
         ]);
     }
 
@@ -111,24 +110,16 @@ class FinanceSettingsPage extends Page
                             ->visible(fn ($get) => (bool) $get('vat_exempt'))
                             ->required(fn ($get) => (bool) $get('vat_exempt')),
                     ]),
-                Section::make('Banco')
-                    ->description('O saldo é o ponto de partida da previsão de tesouraria. O nome do titular serve para o extrato reconhecer as tuas transferências entre contas.')
+                Section::make('As tuas contas no banco')
+                    ->description('Para o extrato reconhecer as transferências entre a conta da empresa e a tua conta pessoal ("Transferência minha"). O saldo da conta vem do extrato importado.')
                     ->icon(Phosphor::Wallet)
-                    ->columns(2)
                     ->columnSpanFull()
                     ->schema([
-                        TextInput::make('account_holder_name')
-                            ->label('Nome do titular (como aparece no banco)')
-                            ->placeholder('Ex.: PEDRO FILIPE PEREIRA MONTEIRO')
-                            ->helperText('Linhas do extrato com este nome são sugeridas como "Transferência minha".')
-                            ->columnSpanFull(),
-                        MoneyInput::make('current_bank_balance')
-                            ->label('Saldo atual'),
-                        DatePicker::make('current_bank_balance_on')
-                            ->label('Em')
-                            ->native(false)
-                            ->displayFormat('d/m/Y')
-                            ->default(today()),
+                        Textarea::make('account_names')
+                            ->label('Nomes das tuas contas, como aparecem no banco')
+                            ->placeholder("PEDRO FILIPE PEREIRA MONTEIRO\nOrdenado")
+                            ->helperText('Um por linha: o nome do titular nas transferências e o nome da tua conta pessoal (ex.: Ordenado).')
+                            ->rows(3),
                     ]),
             ]);
     }
@@ -164,9 +155,7 @@ class FinanceSettingsPage extends Page
             'vat_exempt' => (bool) ($data['vat_exempt'] ?? false),
             'vat_exemption_threshold' => (int) ($data['vat_exemption_threshold'] ?? 0),
             'payments_exempt_by_default' => (bool) ($data['payments_exempt_by_default'] ?? false),
-            'current_bank_balance' => $data['current_bank_balance'] ?? null,
-            'current_bank_balance_on' => $data['current_bank_balance_on'] ?? null,
-            'account_holder_name' => filled($data['account_holder_name'] ?? null) ? trim($data['account_holder_name']) : null,
+            'account_names' => implode("\n", array_filter(array_map('trim', preg_split('/\R/', (string) ($data['account_names'] ?? '')) ?: []))) ?: null,
         ]);
 
         Notification::make()->title('Definições guardadas')->success()->send();

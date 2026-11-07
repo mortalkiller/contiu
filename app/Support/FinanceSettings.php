@@ -19,10 +19,8 @@ final class FinanceSettings
         'ss_rate' => 0.214,
         'ss_relevant_income_share' => 0.70,
         'ss_first_year_exempt' => true,
-        'current_bank_balance' => null,
-        'current_bank_balance_on' => null,
         'payments_exempt_by_default' => true,
-        'account_holder_name' => null,
+        'account_names' => null, // one per line: the holder's name and Pedro's own accounts ("Ordenado")
     ];
 
     /** @var array<string, mixed>|null */
@@ -53,10 +51,19 @@ final class FinanceSettings
         return (bool) $this->all()['payments_exempt_by_default'];
     }
 
-    /** The name the bank shows for Pedro's own transfers ("PEDRO FILIPE PEREIRA MONTEIRO"). */
-    public function accountHolderName(): ?string
+    /**
+     * How the bank names Pedro's own accounts in transfer descriptions: the holder's name
+     * ("PEDRO FILIPE PEREIRA MONTEIRO") and the personal account's name ("Ordenado").
+     *
+     * @return array<int, string>
+     */
+    public function accountNames(): array
     {
-        return filled($this->all()['account_holder_name']) ? (string) $this->all()['account_holder_name'] : null;
+        return collect(preg_split('/\R/', (string) $this->all()['account_names']) ?: [])
+            ->map(fn (string $name) => trim($name))
+            ->filter()
+            ->values()
+            ->all();
     }
 
     public function irsExempt(): bool
@@ -93,19 +100,6 @@ final class FinanceSettings
     public function activityStartedOn(): ?CarbonImmutable
     {
         return $this->date('activity_started_on');
-    }
-
-    /** Cents. */
-    public function currentBankBalance(): ?int
-    {
-        $value = $this->all()['current_bank_balance'];
-
-        return $value === null ? null : (int) $value;
-    }
-
-    public function currentBankBalanceOn(): ?CarbonImmutable
-    {
-        return $this->date('current_bank_balance_on');
     }
 
     private function date(string $key): ?CarbonImmutable

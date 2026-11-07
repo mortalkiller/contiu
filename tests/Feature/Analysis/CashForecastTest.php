@@ -3,6 +3,7 @@
 use App\Actions\GenerateRecurringExpenses;
 use App\Actions\GenerateRetainerPeriods;
 use App\Enums\ProjectStatus;
+use App\Models\BankTransaction;
 use App\Models\Expense;
 use App\Models\Payment;
 use App\Models\Project;
@@ -90,16 +91,20 @@ it('adds the estimated Segurança Social contribution when it is due', function 
         ->and(row($forecast, 0)['outflows'])->toBe(14980);
 });
 
-it('accumulates the balance from the current bank balance, or from zero when it is unknown', function () {
+it('starts from the imported statement plus what was recorded since, or from zero without one', function () {
     Receivable::factory()->create(['amount' => 10000, 'due_on' => '2026-12-10']);
 
     expect(forecast()->startsFromBankBalance())->toBeFalse()
         ->and(array_column(forecast()->months(), 'balance'))->toBe([0, 10000, 10000]);
 
-    app(FinanceSettings::class)->set(['current_bank_balance' => 100000, 'current_bank_balance_on' => '2026-11-05']);
+    BankTransaction::create(['hash' => 's1', 'booked_on' => '2026-11-02', 'description' => 'TRF', 'amount' => 20000, 'balance' => 100000, 'import_batch' => 'b']);
+    // Fully paid receivables, so nothing of them is still expected in the forecast.
+    Payment::factory()->for(Receivable::factory()->create(['amount' => 20000]))->create(['amount' => 20000, 'paid_on' => '2026-11-02']); // that line
+    Payment::factory()->for(Receivable::factory()->create(['amount' => 5000]))->create(['amount' => 5000, 'paid_on' => '2026-11-05']); // after the statement
 
     expect(forecast()->startsFromBankBalance())->toBeTrue()
-        ->and(array_column(forecast()->months(), 'balance'))->toBe([100000, 110000, 110000])
+        ->and(forecast()->startingBalance())->toBe(105000)
+        ->and(array_column(forecast()->months(), 'balance'))->toBe([105000, 115000, 115000])
         ->and(forecast()->totals())->toMatchArray(['inflows' => 10000, 'outflows' => 0, 'net' => 10000]);
 });
 

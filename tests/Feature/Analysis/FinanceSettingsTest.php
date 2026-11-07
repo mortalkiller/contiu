@@ -13,8 +13,8 @@ it('returns the documented defaults when nothing is stored', function () {
         ->and($settings->ssRelevantIncomeShare())->toBe(0.70)
         ->and($settings->ssFirstYearExempt())->toBeTrue()
         ->and($settings->activityStartedOn())->toBeNull()
-        ->and($settings->currentBankBalance())->toBeNull()
-        ->and($settings->currentBankBalanceOn())->toBeNull();
+        ->and($settings->accountNames())->toBe([])
+        ->and($settings->all())->not->toHaveKey('current_bank_balance');
 });
 
 it('stores and reads values back with their types', function () {
@@ -24,8 +24,6 @@ it('stores and reads values back with their types', function () {
         'irs_exempt' => false,
         'vat_exemption_threshold' => '1450050',
         'activity_started_on' => '2026-02-01',
-        'current_bank_balance' => '321040',
-        'current_bank_balance_on' => '2026-11-06',
     ]);
 
     $fresh = app(FinanceSettings::class);
@@ -33,8 +31,6 @@ it('stores and reads values back with their types', function () {
     expect($fresh->irsExempt())->toBeFalse()
         ->and($fresh->vatExemptionThreshold())->toBe(1450050)
         ->and($fresh->activityStartedOn()->toDateString())->toBe('2026-02-01')
-        ->and($fresh->currentBankBalance())->toBe(321040)
-        ->and($fresh->currentBankBalanceOn()->toDateString())->toBe('2026-11-06')
         ->and($fresh->all())->toHaveKey('ss_rate');
 });
 
@@ -47,13 +43,13 @@ it('treats payments as tax-exempt by default, and lets you turn it off on the se
         ->assertSee('Recebimentos isentos por defeito');
 });
 
-it('saves the account holder name used to recognise own transfers', function () {
+it('saves the names of Pedro\'s accounts used to recognise own transfers', function () {
     actingAsAdmin();
 
     Livewire\Livewire::test(FinanceSettingsPage::class)
-        ->fillForm(['account_holder_name' => ' Pedro Filipe Pereira Monteiro '])
+        ->fillForm(['account_names' => " Pedro Filipe Pereira Monteiro \n\nOrdenado "])
         ->call('save')
         ->assertHasNoFormErrors();
 
-    expect(app(FinanceSettings::class)->accountHolderName())->toBe('Pedro Filipe Pereira Monteiro');
+    expect(app(FinanceSettings::class)->accountNames())->toBe(['Pedro Filipe Pereira Monteiro', 'Ordenado']);
 });

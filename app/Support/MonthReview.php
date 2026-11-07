@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\BankTransaction;
 use App\Models\Expense;
 use App\Models\Payment;
 use App\Models\Receivable;
@@ -124,9 +125,15 @@ final class MonthReview
         return $this->expenses()->where('is_paid', false)->count();
     }
 
+    /** Statement lines of the month not treated yet. */
+    public function pendingBankLines(): int
+    {
+        return BankTransaction::query()->pending()->whereBetween('booked_on', $this->range())->count();
+    }
+
     public function pendingCount(): int
     {
-        return $this->pendingReceivables() + $this->pendingExpenses();
+        return $this->pendingReceivables() + $this->pendingExpenses() + $this->pendingBankLines();
     }
 
     public function isClosed(): bool

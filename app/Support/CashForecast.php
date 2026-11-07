@@ -32,15 +32,24 @@ final class CashForecast
         $this->end = $this->start->addMonths(max(1, $monthsAhead) - 1)->endOfMonth();
     }
 
+    /** True once a bank statement with balances was imported. */
     public function startsFromBankBalance(): bool
     {
-        return $this->settings->currentBankBalance() !== null;
+        return $this->account()->openingBalance() !== null;
     }
 
+    /** The statement's balance plus what was recorded since, up to today (cents); 0 without a statement. */
     public function startingBalance(): int
     {
-        return $this->settings->currentBankBalance() ?? 0;
+        return $this->account()->contiuBalanceAt(CarbonImmutable::today()) ?? 0;
     }
+
+    public function account(): CompanyAccount
+    {
+        return $this->account ??= new CompanyAccount;
+    }
+
+    private ?CompanyAccount $account = null;
 
     /**
      * @return array<int, array{month: CarbonImmutable, label: string, inflows: int, overdueInflows: int, projectedInflows: int, outflows: int, overdueOutflows: int, projectedOutflows: int, socialSecurity: int, net: int, balance: int}> (cents)

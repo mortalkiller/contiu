@@ -71,19 +71,19 @@ class CashForecast extends Page
 
         return $schema->components([
             $forecast->startsFromBankBalance()
-                ? Callout::make('Começa no saldo bancário de '.Money::format($forecast->startingBalance()))
-                    ->description('Saldo indicado em '.$settings->currentBankBalanceOn()?->format('d/m/Y').'. Atualiza-o nas Definições fiscais quando mudar.')
+                ? Callout::make('Começa em '.Money::format($forecast->startingBalance()))
+                    ->description('Saldo do extrato até '.$forecast->account()->endsOn()?->format('d/m/Y').', mais o que registaste desde então. Importa o extrato do banco para o manter certo.')
                     ->icon(Phosphor::Wallet)
                     ->status('info')
                 : Callout::make('O saldo acumulado começa em 0 €')
-                    ->description('Para uma previsão real, define o saldo atual da conta nas Definições fiscais.')
+                    ->description('Para uma previsão real, importa o extrato do banco: o saldo da conta vem de lá.')
                     ->icon(Phosphor::Wallet)
                     ->status('warning')
                     ->actions([
-                        Action::make('settings')
-                            ->label('Abrir Definições fiscais')
+                        Action::make('statement')
+                            ->label('Abrir Extrato bancário')
                             ->link()
-                            ->url(FinanceSettingsPage::getUrl()),
+                            ->url(BankStatementImport::getUrl()),
                     ]),
             ...$this->getWidgetsSchemaComponents([CashForecastStats::class]),
             // Two stacked columns: each widget keeps its natural height (no half-empty cards).

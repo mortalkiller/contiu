@@ -29,15 +29,14 @@ it('shows the fiscal settings with their defaults and saves changes', function (
         ->assertSee('confirma os valores com o teu contabilista')
         ->assertSee('Limite anual de isenção de IVA (art. 53.º)')
         ->assertSchemaStateSet(['irs_exempt' => true, 'vat_exempt' => true, 'ss_rate_percent' => 21.4, 'vat_exemption_threshold' => 15000.0], 'form')
-        ->fillForm(['irs_exempt' => false, 'ss_rate_percent' => 21.4, 'current_bank_balance' => 2500, 'current_bank_balance_on' => '2026-11-05'])
+        ->fillForm(['irs_exempt' => false, 'ss_rate_percent' => 21.4])
         ->call('save')
         ->assertHasNoFormErrors();
 
     $settings = app(FinanceSettings::class);
 
     expect($settings->irsExempt())->toBeFalse()
-        ->and($settings->ssRate())->toBe(0.214)
-        ->and($settings->currentBankBalance())->toBe(250000);
+        ->and($settings->ssRate())->toBe(0.214);
 });
 
 // Previsão de tesouraria --------------------------------------------------------------------
@@ -45,7 +44,7 @@ it('shows the fiscal settings with their defaults and saves changes', function (
 it('forecasts 3 months by default and switches to 6', function () {
     Livewire::test(CashForecast::class)
         ->assertSet('months', 3)
-        ->assertSee('define o saldo atual')
+        ->assertSee('importa o extrato do banco')
         ->callAction('sixMonths')
         ->assertSet('months', 6);
 });

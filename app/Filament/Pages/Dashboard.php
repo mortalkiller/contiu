@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Widgets\CashFlowChart;
+use App\Filament\Widgets\CompanyAccountStats;
 use App\Filament\Widgets\ExpensesByCategoryChart;
 use App\Filament\Widgets\FinanceStatsOverview;
 use App\Filament\Widgets\IncomeByCategoryChart;
@@ -116,7 +117,7 @@ class Dashboard extends BaseDashboard
         $only = fn (array $classes): array => array_values(array_filter($this->getWidgets(), fn ($widget) => in_array($widget, $classes, true)));
 
         return Group::make([
-            Grid::make(1)->schema(fn (): array => $this->getWidgetsSchemaComponents($only([FinanceStatsOverview::class]))),
+            Grid::make(1)->schema(fn (): array => $this->getWidgetsSchemaComponents($only([FinanceStatsOverview::class, CompanyAccountStats::class]))),
             Grid::make(['default' => 1, 'xl' => 3])->schema([
                 Grid::make(1)
                     ->columnSpan(['default' => 1, 'xl' => 2])

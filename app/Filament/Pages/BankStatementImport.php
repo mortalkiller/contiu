@@ -10,6 +10,7 @@ use App\Enums\DifferenceExplanation;
 use App\Enums\ExpenseKind;
 use App\Enums\PaymentMethod;
 use App\Filament\Actions\OneOffIncomeAction;
+use App\Filament\Widgets\CompanyAccountStats;
 use App\Models\BankTransaction;
 use App\Models\Category;
 use App\Models\Expense;
@@ -113,6 +114,7 @@ class BankStatementImport extends Page implements HasTable
     public function content(Schema $schema): Schema
     {
         return $schema->components([
+            ...$this->getWidgetsSchemaComponents([CompanyAccountStats::class]),
             $this->getTabsContentComponent(),
             EmbeddedTable::make(),
         ]);
@@ -182,15 +184,15 @@ class BankStatementImport extends Page implements HasTable
                             ->required(),
                         Callout::make('O valor é diferente')
                             ->key('amountDifference')
-                            ->description(fn (Get $get): string => 'O extrato tem '.Money::format($record->amount).'; os registos escolhidos dão uma diferença de '.Money::format(abs($this->plannedDifference($record, $get('targets')))).'. Confirma que é o mesmo movimento e diz o que é a diferença.')
+                            ->description(fn (Get $get): string => 'O extrato tem '.Money::format($record->amount).'; os registos escolhidos dão uma diferença de '.Money::format(abs($this->plannedDifference($record, $get('targets')))).'. Confirma que é o mesmo movimento.')
                             ->status('warning')
                             ->icon(Phosphor::Warning)
                             ->visible(fn (Get $get): bool => $this->plannedDifference($record, $get('targets')) !== 0),
                         Radio::make('explanation')
-                            ->label('Como explicas a diferença?')
+                            ->label('Registar a diferença como')
+                            ->helperText('Se a diferença passou pela tua conta pessoal, não escolhas nada: aparece no quadro "Conta da empresa" como transferência em falta (ou a devolver).')
                             ->options(fn (Get $get): array => $this->explanationOptions($record, $get('targets')))
-                            ->visible(fn (Get $get): bool => $this->plannedDifference($record, $get('targets')) !== 0)
-                            ->required(fn (Get $get): bool => $this->plannedDifference($record, $get('targets')) !== 0),
+                            ->visible(fn (Get $get): bool => $this->plannedDifference($record, $get('targets')) !== 0 && $this->explanationOptions($record, $get('targets')) !== []),
                     ])
                     ->action(fn (BankTransaction $record, array $data) => $this->apply(fn (ApplyBankTransaction $apply) => $apply->applyTargets(
                         $record,
@@ -478,7 +480,7 @@ class BankStatementImport extends Page implements HasTable
                 return $records;
             }
 
-            return [...$records, 'Diferença de '.Money::format(abs($difference)).($record->difference_explanation ? ' · '.$record->difference_explanation->labelFor($record->is_credit) : ' · por explicar')];
+            return [...$records, 'Diferença de '.Money::format(abs($difference)).' · passou por outra conta (ver Conta da empresa)'];
         }
 
         $suggestion = $this->suggestionFor($record);

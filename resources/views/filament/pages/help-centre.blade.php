@@ -104,21 +104,11 @@
                     <li>Cada linha traz uma sugestão. Seleciona as linhas e usa <strong>Aceitar sugestões</strong>; só são aceites as sugestões sem dúvidas.</li>
                     <li>Para as restantes:
                         <ul class="mt-1 list-disc space-y-1 ps-5">
-                            <li><strong>Associar…</strong> — escolhe um ou vários registos (ex.: duas faturas pagas numa transferência, ou um recebimento menos uma despesa). Se a soma não bater, a app pergunta o que é a diferença:
-                                <div class="mt-2 overflow-x-auto rounded-lg ring-1 ring-gray-950/5 dark:ring-white/10">
-                                    <table class="w-full text-left text-sm">
-                                        <thead class="bg-gray-50 text-gray-500 dark:bg-white/5 dark:text-gray-400">
-                                            <tr><th class="px-3 py-2 font-medium">Caso</th><th class="px-3 py-2 font-medium">Exemplo</th><th class="px-3 py-2 font-medium">Opções</th></tr>
-                                        </thead>
-                                        <tbody class="divide-y divide-gray-950/5 dark:divide-white/10">
-                                            <tr><td class="px-3 py-2">Saída menor que os registos</td><td class="px-3 py-2">−151,00 € para a despesa de 151,98 €</td><td class="px-3 py-2">O resto foi pago por outra conta · Desconto ou acerto</td></tr>
-                                            <tr><td class="px-3 py-2">Saída maior que os registos</td><td class="px-3 py-2">−160,00 € para 151,98 €</td><td class="px-3 py-2">Comissão bancária (cria a despesa) · Dinheiro meu (levantamento)</td></tr>
-                                            <tr><td class="px-3 py-2">Entrada menor que os registos</td><td class="px-3 py-2">995 € de uma fatura de 1 000 €</td><td class="px-3 py-2">Comissão bancária (cria a despesa) · O resto entrou noutra conta · Desconto ou acerto</td></tr>
-                                            <tr><td class="px-3 py-2">Entrada maior que os registos</td><td class="px-3 py-2">1 010 € de uma fatura de 1 000 €</td><td class="px-3 py-2">Dinheiro meu · Outra receita (cria uma receita avulsa)</td></tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                                Assim nenhum euro fica por explicar, nas entradas nem nas saídas.
+                            <li><strong>Associar…</strong> — escolhe um ou vários registos (ex.: duas faturas pagas numa transferência, ou um recebimento menos uma despesa). Se a soma não bater, a app avisa. Normalmente a diferença passou pela tua conta pessoal e não fazes nada: aparece no quadro <strong>Conta da empresa</strong>. Só dois casos pedem um registo novo, e podes criá-lo ali mesmo:
+                                <ul class="mt-1 list-disc space-y-1 ps-5">
+                                    <li><strong>Comissão bancária</strong> — chegou menos do que a fatura (ex.: 995 € de 1 000 €) ou saiu mais do que a despesa: cria a despesa da diferença.</li>
+                                    <li><strong>Outra receita</strong> — entrou mais do que a fatura: cria uma receita avulsa da diferença.</li>
+                                </ul>
                             </li>
                             <li><strong>Criar despesa</strong> / <strong>Criar receita</strong> — quando ainda não registaste.</li>
                             <li><strong>Transferência minha</strong> (setas) — dinheiro entre as tuas contas; não é receita nem despesa.</li>
@@ -127,14 +117,22 @@
                     </li>
                     <li>Enganaste-te? Em "Tratados" ou "Ignorados" usa <strong>Voltar a tratar</strong>: o que foi criado a partir da linha é apagado, o que já existia fica.</li>
                 </ol>
-                <p class="mt-3">As transferências da conta pessoal são reconhecidas pelo nome do titular definido em {!! $link('settings', 'Definições financeiras') !!}.</p>
+                <p class="mt-3">As transferências entre a conta da empresa e a tua são reconhecidas pelos nomes das tuas contas (o nome do titular e o nome da conta pessoal, ex.: "Ordenado"), que defines em {!! $link('settings', 'Definições financeiras') !!}.</p>
+                <p class="mt-3"><strong>Conta da empresa</strong> — no topo do extrato, no painel e no fecho do mês: o <em>saldo no banco</em> (do último extrato), o <em>saldo segundo a Contiu</em> (saldo inicial + recebido − despesas pagas, por qualquer conta) e a diferença:</p>
+                <ul class="mt-2 list-disc space-y-1 ps-5">
+                    <li><strong>Falta transferir para a conta da empresa</strong> — recebeste dinheiro da empresa na conta pessoal; transfere esse valor.</li>
+                    <li><strong>A empresa deve-te</strong> — pagaste despesas da empresa com a conta pessoal; podes transferir esse valor para ti.</li>
+                    <li><strong>Bate certo</strong> — o banco tem exatamente o que a Contiu diz.</li>
+                </ul>
+                <p class="mt-2">O número só é final com o extrato todo tratado: enquanto houver linhas "Por tratar" o quadro avisa.</p>
             </x-filament::section>
 
             {{-- Fecho do mês --}}
             <x-filament::section class="scroll-mt-24" id="fecho-do-mes" :icon="$icons['fecho-do-mes']" heading="Fecho do mês">
                 <ul class="list-disc space-y-2 ps-5">
                     <li>Abre {!! $link('monthClose', 'Fecho do mês') !!} (botão no painel). Mostra os valores a receber e as despesas do mês que ainda faltam.</li>
-                    <li>Regista o que entrou, marca as despesas como pagas e acrescenta o n.º da fatura. Quando não falta nada aparece <strong>"Mês fechado"</strong>.</li>
+                    <li>Regista o que entrou, marca as despesas como pagas, acrescenta o n.º da fatura e trata as linhas do extrato desse mês. Quando não falta nada aparece <strong>"Mês fechado"</strong>.</li>
+                    <li>O quadro <strong>Conta da empresa</strong> mostra o saldo no fim do mês: se disser "Falta transferir", faz a transferência para a conta da empresa.</li>
                     <li>Ordem recomendada: importar o extrato → aceitar sugestões → fecho do mês.</li>
                 </ul>
             </x-filament::section>
@@ -145,6 +143,7 @@
                     <li>Cliente pagou na conta pessoal: regista o recebimento com a data em que pagou (não vai aparecer no extrato da atividade).</li>
                     <li>Despesa paga com a conta pessoal: regista a despesa normalmente.</li>
                     <li>Quando passas dinheiro entre contas, no extrato a linha é <strong>Transferência minha</strong>. Não precisas de dizer a que recebimentos ou despesas corresponde: é dinheiro teu a mudar de conta.</li>
+                    <li>Quanto falta passar (ou a empresa te deve) está sempre no quadro <strong>Conta da empresa</strong>: compara o saldo do banco com o que registaste.</li>
                     <li><strong>Exemplo com acerto:</strong> o cliente pagou 730 € na conta pessoal, a conta pessoal pagou o ChatGPT (83,74 €) e passaste só 646,26 €. Regista os dois quando acontecem; no extrato usa <strong>Associar…</strong> com o recebimento e a despesa (730 − 83,74 = 646,26, sem diferença), ou simplesmente <strong>Transferência minha</strong>.</li>
                 </ul>
             </x-filament::section>
