@@ -105,14 +105,18 @@ final class CompanyAccount
         // A statement that starts with the account's opening (balance 0 before it) means the account
         // is new: everything the business received or paid before then went through Pedro's
         // personal account and still counts. Otherwise what came before is already in the opening.
-        $from = $opening === 0 ? '0000-01-01' : $start->toDateString();
-        $range = [$from, Carbon::parse($day)->endOfDay()->toDateTimeString()];
+        // No lower bound in that case (not a far-past date: PostgreSQL has no year 0).
+        $from = $opening === 0 ? null : $start->toDateString();
+        $until = Carbon::parse($day)->endOfDay()->toDateTimeString();
+        $within = fn (Builder $query, string $column) => $from === null
+            ? $query->where($column, '<=', $until)
+            : $query->whereBetween($column, [$from, $until]);
 
-        $received = (int) Payment::query()->whereBetween('paid_on', $range)->sum('amount');
+        $received = (int) $within(Payment::query(), 'paid_on')->sum('amount');
         $paid = (int) Expense::query()
             ->where('is_paid', true)
-            ->where(fn (Builder $query) => $query->whereBetween('paid_on', $range)
-                ->orWhere(fn (Builder $query) => $query->whereNull('paid_on')->whereBetween('spent_on', $range)))
+            ->where(fn (Builder $query) => $within($query, 'paid_on')
+                ->orWhere(fn (Builder $query) => $within($query->whereNull('paid_on'), 'spent_on')))
             ->get()
             ->sum(fn (Expense $expense) => $expense->total);
 
