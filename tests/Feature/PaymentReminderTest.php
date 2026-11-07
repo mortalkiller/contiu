@@ -21,18 +21,18 @@ beforeEach(function () {
     $this->client = Client::factory()->create(['name' => 'Gonçalo Teixeira, Lda', 'email' => 'goncalo@example.pt']);
     $project = Project::factory()->for($this->client)->create(['code' => 'OC-2026-1', 'title' => 'Site']);
 
-    $this->overdue = Receivable::factory()->for($project, 'billable')->create(['description' => 'Prestação 1/2', 'amount' => 500, 'due_on' => '2026-10-01']);
-    $this->upcoming = Receivable::factory()->for($project, 'billable')->create(['description' => 'Prestação 2/2', 'amount' => 300, 'due_on' => '2026-12-15']);
-    $paid = Receivable::factory()->for($project, 'billable')->create(['description' => 'Adjudicação', 'amount' => 100, 'due_on' => '2026-09-01']);
-    Payment::factory()->for($paid)->create(['amount' => 100]);
+    $this->overdue = Receivable::factory()->for($project, 'billable')->create(['description' => 'Prestação 1/2', 'amount' => 50000, 'due_on' => '2026-10-01']);
+    $this->upcoming = Receivable::factory()->for($project, 'billable')->create(['description' => 'Prestação 2/2', 'amount' => 30000, 'due_on' => '2026-12-15']);
+    $paid = Receivable::factory()->for($project, 'billable')->create(['description' => 'Adjudicação', 'amount' => 10000, 'due_on' => '2026-09-01']);
+    Payment::factory()->for($paid)->create(['amount' => 10000]);
 });
 
 it('lists the client open amounts, flags the overdue ones and signs off', function () {
     $mail = new PaymentReminder($this->client, subjectLine: 'Lembrete', body: 'Olá Gonçalo');
 
     expect($mail->items->pluck('description')->all())->toBe(['Prestação 1/2', 'Prestação 2/2'])
-        ->and($mail->totalOpen)->toBe(800.0)
-        ->and($mail->totalOverdue)->toBe(500.0);
+        ->and($mail->totalOpen)->toBe(80000)
+        ->and($mail->totalOverdue)->toBe(50000);
 
     $mail->assertSeeInHtml('OC-2026-1')
         ->assertSeeInHtml('em atraso')

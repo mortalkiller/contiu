@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Shared\RelationManagers;
 
 use App\Filament\Actions\RecordPaymentAction;
+use App\Filament\Support\MoneyInput;
 use App\Models\Project;
 use App\Models\Receivable;
 use Filament\Actions\CreateAction;
@@ -38,7 +39,7 @@ class ReceivablesRelationManager extends RelationManager
     {
         return $schema->components([
             TextInput::make('description')->label('Descrição')->required(),
-            TextInput::make('amount')->label('Valor')->numeric()->step(0.01)->suffix('€')->required(),
+            MoneyInput::make('amount')->label('Valor')->required(),
             DatePicker::make('due_on')->label('Vencimento')->native(false)->displayFormat('d/m/Y')->required(),
         ])->columns(3);
     }
@@ -53,10 +54,10 @@ class ReceivablesRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('description')->label('Descrição'),
                 TextColumn::make('due_on')->label('Vencimento')->date()->sortable(),
-                TextColumn::make('amount')->label('Valor')->money('EUR')->alignEnd()
-                    ->summarize(Sum::make()->label('Total')->money('EUR')),
-                TextColumn::make('received')->label('Recebido')->money('EUR')->alignEnd(),
-                TextColumn::make('outstanding')->label('Em aberto')->money('EUR')->alignEnd()
+                TextColumn::make('amount')->label('Valor')->money('EUR', divideBy: 100)->alignEnd()
+                    ->summarize(Sum::make()->label('Total')->money('EUR', divideBy: 100)),
+                TextColumn::make('received')->label('Recebido')->money('EUR', divideBy: 100)->alignEnd(),
+                TextColumn::make('outstanding')->label('Em aberto')->money('EUR', divideBy: 100)->alignEnd()
                     ->color(fn (float $state) => $state > 0 ? 'warning' : 'gray'),
                 TextColumn::make('status')->label('Estado')->badge(),
                 TextColumn::make('payments.invoice_number')->label('Fatura')->placeholder('—')->listWithLineBreaks()->toggleable(),

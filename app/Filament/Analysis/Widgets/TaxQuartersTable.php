@@ -29,14 +29,14 @@ class TaxQuartersTable extends TableWidget
             ->recordClasses(fn (array $record) => $record['is_total'] ? 'bg-gray-50 dark:bg-white/5' : null)
             ->columns([
                 TextColumn::make('label')->label('Trimestre')->weight(fn (array $record) => $record['is_total'] ? 'bold' : 'medium'),
-                TextColumn::make('income')->label('Rendimento')->money('EUR')->alignEnd(),
-                TextColumn::make('base')->label('Base mensal')->money('EUR')->alignEnd()->placeholder(''),
-                TextColumn::make('monthly')->label('Contribuição mensal')->money('EUR')->alignEnd()->placeholder(''),
+                TextColumn::make('income')->label('Rendimento')->money('EUR', divideBy: 100)->alignEnd(),
+                TextColumn::make('base')->label('Base mensal')->money('EUR', divideBy: 100)->alignEnd()->placeholder(''),
+                TextColumn::make('monthly')->label('Contribuição mensal')->money('EUR', divideBy: 100)->alignEnd()->placeholder(''),
                 TextColumn::make('paidIn')
                     ->label('Pago em')
                     ->description(fn (array $record) => $record['note'])
                     ->placeholder(''),
-                TextColumn::make('total')->label('Total')->money('EUR')->alignEnd()->weight('semibold'),
+                TextColumn::make('total')->label('Total')->money('EUR', divideBy: 100)->alignEnd()->weight('semibold'),
             ]);
     }
 

@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Projects\Schemas;
 
 use App\Enums\ProjectStatus;
 use App\Filament\Support\FinanceFields;
+use App\Filament\Support\MoneyInput;
 use App\Support\Money;
 use Closure;
 use Filament\Forms\Components\DatePicker;
@@ -141,10 +142,7 @@ class ProjectForm
                     TextInput::make('description')
                         ->default('Pagamento único')
                         ->required(),
-                    TextInput::make('amount')
-                        ->numeric()
-                        ->step(0.01)
-                        ->suffix('€')
+                    MoneyInput::make('amount')
                         ->live(onBlur: true)
                         ->required(),
                     DatePicker::make('due_on')
@@ -156,8 +154,8 @@ class ProjectForm
                 ->hiddenLabel()
                 ->state(function (Get $get): HtmlString {
                     $total = static::totalFrom($get);
-                    $planned = round(collect($get('receivables'))->sum(fn ($row) => (float) ($row['amount'] ?? 0)), 2);
-                    $difference = round($total - $planned, 2);
+                    $planned = static::plannedCents($get('receivables'));
+                    $difference = $total - $planned;
 
                     $text = $difference == 0
                         ? 'As prestações somam o total do trabalho.'
@@ -173,9 +171,18 @@ class ProjectForm
         return Textarea::make('notes')->hiddenLabel()->rows(3);
     }
 
-    public static function totalFrom(Get $get): float
+    /** Project total in cents from the form (which holds euros). */
+    public static function totalFrom(Get $get): int
     {
-        return round((float) $get('net_amount') * (1 + (float) $get('vat_rate')), 2);
+        $net = Money::toCents($get('net_amount')) ?? 0;
+
+        return $net + Money::vat($net, (string) ($get('vat_rate') ?? 0));
+    }
+
+    /** Sum of the instalment rows (euros in the form) in cents. */
+    public static function plannedCents(mixed $rows): int
+    {
+        return (int) collect(is_array($rows) ? $rows : [])->sum(fn ($row) => Money::toCents($row['amount'] ?? null) ?? 0);
     }
 
     /**
@@ -186,9 +193,9 @@ class ProjectForm
         return function (string $attribute, mixed $value, Closure $fail) use ($get): void {
             $rows = collect(is_array($value) ? $value : []);
             $total = static::totalFrom($get);
-            $planned = round($rows->sum(fn ($row) => (float) ($row['amount'] ?? 0)), 2);
+            $planned = static::plannedCents($rows->all());
 
-            if (abs($total - $planned) > 0.009) {
+            if ($total !== $planned) {
                 $fail('As prestações somam '.Money::format($planned).', mas o total do trabalho é '.Money::format($total).'.');
             }
 

@@ -26,7 +26,7 @@ it('offers the common shortcuts', function () {
 });
 
 it('records a payment without leaving the current page', function () {
-    $receivable = Receivable::factory()->create(['amount' => 120]);
+    $receivable = Receivable::factory()->create(['amount' => 12000]);
 
     Livewire::test(QuickCreateMenu::class)
         ->callAction('recordPayment', data: [
@@ -37,5 +37,5 @@ it('records a payment without leaving the current page', function () {
         ])
         ->assertHasNoErrors();
 
-    expect($receivable->fresh()->outstanding)->toBe(0.0);
+    expect($receivable->fresh()->outstanding)->toBe(0);
 });

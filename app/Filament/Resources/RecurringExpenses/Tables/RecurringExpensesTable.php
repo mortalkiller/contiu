@@ -36,15 +36,15 @@ class RecurringExpensesTable
                     ->formatStateUsing(fn ($state) => 'Dia '.$state),
                 TextColumn::make('total')
                     ->label('Valor')
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->alignEnd(),
                 TextColumn::make('yearly_cost')
                     ->label('Por ano')
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->summarize(Summarizer::make()
                         ->label('Total anual')
-                        ->money('EUR')
+                        ->money('EUR', divideBy: 100)
                         ->using(fn ($query) => RecurringExpense::query()->whereIn('id', $query->pluck('id'))->where('is_active', true)->get()->sum(fn (RecurringExpense $row) => $row->yearly_cost))),
                 TextColumn::make('next_on')
                     ->label('Próxima')

@@ -3,6 +3,7 @@
 namespace App\Filament\Analysis\Widgets;
 
 use App\Filament\Analysis\Concerns\ForecastsMonths;
+use App\Support\Money;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
 
@@ -35,9 +36,9 @@ class CashForecastChart extends ChartWidget
         return [
             'labels' => array_column($rows, 'label'),
             'datasets' => [
-                ['label' => 'Entradas', 'data' => array_column($rows, 'inflows'), 'order' => 2],
-                ['label' => 'Saídas', 'data' => array_column($rows, 'outflows'), 'order' => 2],
-                ['label' => 'Saldo acumulado', 'data' => array_column($rows, 'balance'), 'type' => 'line', 'order' => 1],
+                ['label' => 'Entradas', 'data' => Money::toEurosList(array_column($rows, 'inflows')), 'order' => 2],
+                ['label' => 'Saídas', 'data' => Money::toEurosList(array_column($rows, 'outflows')), 'order' => 2],
+                ['label' => 'Saldo acumulado', 'data' => Money::toEurosList(array_column($rows, 'balance')), 'type' => 'line', 'order' => 1],
             ],
         ];
     }

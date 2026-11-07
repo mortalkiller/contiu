@@ -27,7 +27,7 @@ it('creates retainers tax-exempt by default while the setting is on', function (
 it('comes ticked when recording a payment for a tax-exempt retainer', function () {
     actingAsAdmin();
     $retainer = Retainer::factory()->create(['tax_exempt' => true]);
-    Receivable::factory()->for($retainer, 'billable')->create(['amount' => 20]);
+    Receivable::factory()->for($retainer, 'billable')->create(['amount' => 2000]);
 
     Livewire::test(ViewRetainer::class, ['record' => $retainer->getRouteKey()])
         ->mountAction('recordPayment')

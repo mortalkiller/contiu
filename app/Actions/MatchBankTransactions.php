@@ -45,7 +45,7 @@ class MatchBankTransactions
             $receivables = Receivable::query()->open()->excludingCancelled()->with(['payments', 'billable.client'])->get();
 
             $exact = $receivables
-                ->filter(fn (Receivable $receivable) => abs($receivable->outstanding - $amount) < 0.01)
+                ->filter(fn (Receivable $receivable) => $receivable->outstanding === $amount)
                 ->map(fn (Receivable $receivable) => new BankCandidate('receivable', $receivable, $this->nameScore($receivable->client?->name, $description), $this->daysApart($transaction, $receivable->due_on)));
 
             $registered = $this->registeredPayments($transaction, $description);
@@ -53,7 +53,7 @@ class MatchBankTransactions
             // A partial receipt is only a fallback: never next to an exact or already registered match
             // (that would invite a duplicate), and only the earliest open instalment of the client.
             $partial = $exact->isNotEmpty() || $registered->isNotEmpty() ? collect() : $receivables
-                ->filter(fn (Receivable $receivable) => $receivable->outstanding > $amount + 0.009)
+                ->filter(fn (Receivable $receivable) => $receivable->outstanding > $amount)
                 ->map(fn (Receivable $receivable) => new BankCandidate('partial', $receivable, $this->nameScore($receivable->client?->name, $description), $this->daysApart($transaction, $receivable->due_on)))
                 ->filter(fn (BankCandidate $candidate) => $candidate->nameScore > 0)
                 ->sortBy([fn (BankCandidate $a, BankCandidate $b) => $b->nameScore <=> $a->nameScore, fn (BankCandidate $a, BankCandidate $b) => $a->model->due_on <=> $b->model->due_on])
@@ -63,7 +63,7 @@ class MatchBankTransactions
         }
 
         $expenses = Expense::query()->where('is_paid', false)->with('supplier')->get()
-            ->filter(fn (Expense $expense) => abs($expense->total - $amount) < 0.01)
+            ->filter(fn (Expense $expense) => $expense->total === $amount)
             ->map(fn (Expense $expense) => new BankCandidate('expense', $expense, $this->nameScore($expense->supplier->name, $description), $this->daysApart($transaction, $expense->spent_on)))
             ->concat($this->registeredExpenses($transaction, $description));
 
@@ -72,7 +72,7 @@ class MatchBankTransactions
         }
 
         $templates = RecurringExpense::query()->where('is_active', true)->with('supplier')->get()
-            ->filter(fn (RecurringExpense $template) => abs($template->total - $amount) < 0.01)
+            ->filter(fn (RecurringExpense $template) => $template->total === $amount)
             ->map(fn (RecurringExpense $template) => new BankCandidate('template', $template, $this->nameScore($template->supplier->name, $description), 0))
             ->filter(fn (BankCandidate $candidate) => $candidate->nameScore > 0);
 
@@ -119,7 +119,7 @@ class MatchBankTransactions
             ->whereBetween('paid_on', [$from, $until])
             ->with('receivable.billable.client')
             ->get()
-            ->filter(fn (Payment $payment) => abs((float) $payment->amount - $transaction->absolute_amount) < 0.01)
+            ->filter(fn (Payment $payment) => $payment->amount === $transaction->absolute_amount)
             ->map(fn (Payment $payment) => new BankCandidate('payment', $payment, $this->nameScore($payment->receivable?->client?->name, $description), $this->daysApart($transaction, $payment->paid_on)))
             ->values();
     }
@@ -136,7 +136,7 @@ class MatchBankTransactions
                 ->orWhere(fn ($query) => $query->whereNull('paid_on')->whereBetween('spent_on', [$from, $until])))
             ->with('supplier')
             ->get()
-            ->filter(fn (Expense $expense) => abs($expense->total - $transaction->absolute_amount) < 0.01)
+            ->filter(fn (Expense $expense) => $expense->total === $transaction->absolute_amount)
             ->map(fn (Expense $expense) => new BankCandidate('paid', $expense, $this->nameScore($expense->supplier->name, $description), $this->daysApart($transaction, $expense->paid_on ?? $expense->spent_on)))
             ->values();
     }

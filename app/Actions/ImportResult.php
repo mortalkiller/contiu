@@ -16,9 +16,9 @@ final class ImportResult
         public array $counts = [],
         public array $warnings = [],
         public array $info = [],
-        public float $contracted = 0,
-        public float $received = 0,
-        public float $expenses = 0,
+        public int $contracted = 0, // cents
+        public int $received = 0,
+        public int $expenses = 0,
         public bool $dryRun = false,
     ) {}
 

@@ -4,9 +4,11 @@ namespace App\Filament\Resources\Payments;
 
 use App\Enums\PaymentMethod;
 use App\Filament\Resources\Payments\Pages\ManagePayments;
+use App\Filament\Support\MoneyInput;
 use App\Models\Client;
 use App\Models\Payment;
 use App\Models\Receivable;
+use App\Support\Money;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -57,7 +59,7 @@ class PaymentResource extends Resource
     {
         return $schema->columns(2)->components([
             DatePicker::make('paid_on')->label('Data')->native(false)->displayFormat('d/m/Y')->required(),
-            TextInput::make('amount')->label('Montante')->numeric()->step(0.01)->suffix('€')->required(),
+            MoneyInput::make('amount')->label('Montante')->required(),
             ToggleButtons::make('method')->label('Método')->options(PaymentMethod::class)->inline()->required()->columnSpanFull(),
             Toggle::make('tax_exempt')
                 ->label('Isento de impostos')
@@ -109,10 +111,10 @@ class PaymentResource extends Resource
                 TextColumn::make('invoice_number')->label('Fatura')->placeholder('—')->searchable(),
                 TextColumn::make('amount')
                     ->label('Valor')
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->weight('medium')
-                    ->summarize(Sum::make()->label('Total')->money('EUR')),
+                    ->summarize(Sum::make()->label('Total')->money('EUR', divideBy: 100)),
             ])
             ->filters([
                 SelectFilter::make('method')->label('Método')->options(PaymentMethod::class)->multiple(),
@@ -175,9 +177,14 @@ class PaymentResource extends Resource
                         'event' => $events[$audit->event] ?? $audit->event,
                         'changes' => collect($audit->new_values)
                             ->except(['created_at', 'updated_at', 'id'])
-                            ->map(fn ($new, $field) => ($labels[$field] ?? $field).': '
-                                .(array_key_exists($field, (array) $audit->old_values) ? ($audit->old_values[$field] ?? '—').' → ' : '')
-                                .($new ?? '—'))
+                            ->map(function ($new, $field) use ($labels, $audit): string {
+                                // Amounts are stored in cents; the history shows euros like the rest of the app.
+                                $show = fn ($value) => $value === null ? '—' : ($field === 'amount' ? Money::format((int) $value) : $value);
+
+                                return ($labels[$field] ?? $field).': '
+                                    .(array_key_exists($field, (array) $audit->old_values) ? $show($audit->old_values[$field] ?? null).' → ' : '')
+                                    .$show($new);
+                            })
                             ->implode("\n"),
                     ])->all())
                     ->schema([

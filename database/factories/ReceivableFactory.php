@@ -15,7 +15,7 @@ class ReceivableFactory extends Factory
             'billable_type' => Project::class,
             'billable_id' => Project::factory(),
             'description' => 'Pagamento único',
-            'amount' => 1000,
+            'amount' => 100000, // cents
             'due_on' => today()->addDays(30),
         ];
     }

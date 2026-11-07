@@ -8,18 +8,18 @@ use App\Support\TaxEstimator;
 use Livewire\Livewire;
 
 it('leaves tax-exempt payments out of the tax estimate', function () {
-    Payment::factory()->create(['paid_on' => '2026-02-10', 'amount' => 1000]);
-    Payment::factory()->create(['paid_on' => '2026-02-11', 'amount' => 400, 'tax_exempt' => true]);
+    Payment::factory()->create(['paid_on' => '2026-02-10', 'amount' => 100000]);
+    Payment::factory()->create(['paid_on' => '2026-02-11', 'amount' => 40000, 'tax_exempt' => true]);
 
     $estimate = new TaxEstimator(app(FinanceSettings::class), 2026);
 
-    expect($estimate->income())->toBe(1000.0)
-        ->and($estimate->quarters()[0]['income'])->toBe(1000.0);
+    expect($estimate->income())->toBe(100000)
+        ->and($estimate->quarters()[0]['income'])->toBe(100000);
 });
 
 it('lets you mark a payment as tax-exempt when recording it', function () {
     actingAsAdmin();
-    $receivable = Receivable::factory()->create(['amount' => 250]);
+    $receivable = Receivable::factory()->create(['amount' => 25000]);
 
     Livewire::test(ManagePayments::class)
         ->callAction('recordPayment', data: [
@@ -46,7 +46,7 @@ it('is not tax-exempt by default once the setting is off', function () {
 
 it('comes ticked when recording a payment for a project', function () {
     actingAsAdmin();
-    Receivable::factory()->create(['amount' => 80]);
+    Receivable::factory()->create(['amount' => 8000]);
 
     Livewire::test(ManagePayments::class)
         ->mountAction('recordPayment')

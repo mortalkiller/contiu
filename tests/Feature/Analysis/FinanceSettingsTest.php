@@ -8,7 +8,7 @@ it('returns the documented defaults when nothing is stored', function () {
 
     expect($settings->irsExempt())->toBeTrue()
         ->and($settings->vatExempt())->toBeTrue()
-        ->and($settings->vatExemptionThreshold())->toBe(15000.0)
+        ->and($settings->vatExemptionThreshold())->toBe(1500000)
         ->and($settings->ssRate())->toBe(0.214)
         ->and($settings->ssRelevantIncomeShare())->toBe(0.70)
         ->and($settings->ssFirstYearExempt())->toBeTrue()
@@ -22,18 +22,18 @@ it('stores and reads values back with their types', function () {
 
     $settings->set([
         'irs_exempt' => false,
-        'vat_exemption_threshold' => '14500.5',
+        'vat_exemption_threshold' => '1450050',
         'activity_started_on' => '2026-02-01',
-        'current_bank_balance' => '3210.40',
+        'current_bank_balance' => '321040',
         'current_bank_balance_on' => '2026-11-06',
     ]);
 
     $fresh = app(FinanceSettings::class);
 
     expect($fresh->irsExempt())->toBeFalse()
-        ->and($fresh->vatExemptionThreshold())->toBe(14500.5)
+        ->and($fresh->vatExemptionThreshold())->toBe(1450050)
         ->and($fresh->activityStartedOn()->toDateString())->toBe('2026-02-01')
-        ->and($fresh->currentBankBalance())->toBe(3210.4)
+        ->and($fresh->currentBankBalance())->toBe(321040)
         ->and($fresh->currentBankBalanceOn()->toDateString())->toBe('2026-11-06')
         ->and($fresh->all())->toHaveKey('ss_rate');
 });

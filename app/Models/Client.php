@@ -79,23 +79,23 @@ class Client extends Model implements AuditableContract
 
     protected function contractedAmount(): Attribute
     {
-        return Attribute::get(fn (): float => round((float) $this->allReceivables()->sum('amount'), 2));
+        return Attribute::get(fn (): int => (int) $this->allReceivables()->sum('amount'));
     }
 
     protected function receivedAmount(): Attribute
     {
-        return Attribute::get(fn (): float => round((float) $this->allReceivables()->sum(fn (Receivable $receivable) => $receivable->received), 2));
+        return Attribute::get(fn (): int => (int) $this->allReceivables()->sum(fn (Receivable $receivable) => $receivable->received));
     }
 
     protected function outstandingAmount(): Attribute
     {
-        return Attribute::get(fn (): float => round((float) $this->allReceivables()->sum(fn (Receivable $receivable) => $receivable->outstanding), 2));
+        return Attribute::get(fn (): int => (int) $this->allReceivables()->sum(fn (Receivable $receivable) => $receivable->outstanding));
     }
 
     protected function overdueAmount(): Attribute
     {
-        return Attribute::get(fn (): float => round((float) $this->allReceivables()
+        return Attribute::get(fn (): int => (int) $this->allReceivables()
             ->filter(fn (Receivable $receivable) => $receivable->status === ReceivableStatus::Overdue)
-            ->sum(fn (Receivable $receivable) => $receivable->outstanding), 2));
+            ->sum(fn (Receivable $receivable) => $receivable->outstanding));
     }
 }

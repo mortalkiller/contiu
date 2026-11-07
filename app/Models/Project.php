@@ -27,7 +27,7 @@ class Project extends Model implements AuditableContract
     {
         return [
             'quoted_on' => 'date',
-            'net_amount' => 'decimal:2',
+            'net_amount' => 'integer',
             'vat_rate' => 'decimal:4',
             'status' => ProjectStatus::class,
         ];

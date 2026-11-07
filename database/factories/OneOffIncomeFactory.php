@@ -14,7 +14,7 @@ class OneOffIncomeFactory extends Factory
             'code' => 'RA-'.fake()->unique()->numerify('########'),
             'title' => 'Donativo',
             'received_on' => today(),
-            'net_amount' => 5,
+            'net_amount' => 500, // cents
         ];
     }
 }

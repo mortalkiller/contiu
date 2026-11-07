@@ -5,6 +5,7 @@ namespace App\Filament\Actions;
 use App\Actions\RecordOneOffIncome;
 use App\Enums\CategoryType;
 use App\Enums\PaymentMethod;
+use App\Filament\Support\MoneyInput;
 use App\Models\Category;
 use App\Models\Supplier;
 use App\Support\FinanceSettings;
@@ -64,7 +65,8 @@ class OneOffIncomeAction extends Action
      *
      * @return array<int, Component>
      */
-    public static function formSchema(bool $withDate = true, ?float $received = null): array
+    /** @param  int|null  $received  cents that reached the bank, when created from a statement line */
+    public static function formSchema(bool $withDate = true, ?int $received = null): array
     {
         return [
             Grid::make($withDate ? 2 : 1)->schema(array_values(array_filter([
@@ -81,22 +83,18 @@ class OneOffIncomeAction extends Action
                 ->placeholder('Ex.: Donativo Buy Me a Coffee')
                 ->required(),
             Grid::make(2)->schema([
-                TextInput::make('gross_amount')
+                MoneyInput::make('gross_amount')
                     ->label('Valor bruto')
                     ->helperText('O valor da fatura-recibo.')
-                    ->numeric()
-                    ->minValue($received ?? 0.01)
-                    ->suffix('€')
+                    ->minValue($received === null ? 0.01 : Money::toEuros($received))
                     ->live(onBlur: true)
                     // From a bank line the commission is what didn't arrive, so the income always matches.
-                    ->afterStateUpdated(fn (Set $set, $state) => $received === null ? null : $set('commission', round(max(0, (float) $state - $received), 2)))
+                    ->afterStateUpdated(fn (Set $set, $state) => $received === null ? null : $set('commission', Money::toEuros(max(0, (int) Money::toCents($state) - $received))))
                     ->required(),
-                TextInput::make('commission')
+                MoneyInput::make('commission')
                     ->label('Comissão da plataforma')
                     ->helperText($received === null ? 'O que a plataforma ficou. Fica como despesa.' : 'Calculada: valor bruto menos o que chegou ao banco ('.Money::format($received).').')
-                    ->numeric()
                     ->minValue(0)
-                    ->suffix('€')
                     ->readOnly($received !== null)
                     ->live(onBlur: true),
             ]),

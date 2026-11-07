@@ -18,7 +18,7 @@ class RecurringExpenseFactory extends Factory
             'supplier_id' => Supplier::factory(),
             'kind' => ExpenseKind::Overhead,
             'description' => 'Subscrição',
-            'net_amount' => 10,
+            'net_amount' => 1000, // cents
             'vat_rate' => 0,
             'frequency' => Frequency::Monthly,
             'day' => 1,

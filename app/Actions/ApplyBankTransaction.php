@@ -87,7 +87,7 @@ class ApplyBankTransaction
      * at most what is still open on it. Returns the plan so the screen can show the difference first.
      *
      * @param  array<int, string>  $targets  keys like "payment:12", "receivable:3", "template:2"
-     * @return array<int, array{type: string, model: Model, amount: float}>
+     * @return array<int, array{type: string, model: Model, amount: int}>
      */
     public function planTargets(BankTransaction $transaction, array $targets): array
     {
@@ -107,22 +107,22 @@ class ApplyBankTransaction
             };
 
             $model instanceof Payment || $model instanceof Expense
-                ? $existing[] = ['type' => $type, 'model' => $model, 'amount' => $model instanceof Payment ? (float) $model->amount : $model->total]
-                : $toCreate[] = ['type' => $type, 'model' => $model, 'amount' => 0.0];
+                ? $existing[] = ['type' => $type, 'model' => $model, 'amount' => $model instanceof Payment ? $model->amount : $model->total]
+                : $toCreate[] = ['type' => $type, 'model' => $model, 'amount' => 0];
         }
 
         $direction = $transaction->is_credit ? 1 : -1;
         $covered = collect($existing)->sum(fn (array $step) => ($step['model'] instanceof Payment ? 1 : -1) * $direction * $step['amount']);
 
         foreach ($toCreate as $index => $step) {
-            $remaining = round($transaction->absolute_amount - $covered, 2);
+            $remaining = $transaction->absolute_amount - $covered;
 
-            if ($remaining < 0.01) {
+            if ($remaining <= 0) {
                 throw new DomainException('Os registos escolhidos já cobrem o valor da linha.');
             }
 
             $amount = $step['model'] instanceof Receivable ? min($remaining, $step['model']->outstanding) : $remaining;
-            $toCreate[$index]['amount'] = round($amount, 2);
+            $toCreate[$index]['amount'] = (int) $amount;
             $covered += $amount;
         }
 
@@ -130,12 +130,12 @@ class ApplyBankTransaction
     }
 
     /** Line amount minus what the planned records add up to — what the screen warns about. */
-    public function plannedDifference(BankTransaction $transaction, array $targets): float
+    public function plannedDifference(BankTransaction $transaction, array $targets): int
     {
         $sum = collect($this->planTargets($transaction, $targets))
             ->sum(fn (array $step) => ($step['model'] instanceof Payment || $step['model'] instanceof Receivable ? 1 : -1) * $step['amount']);
 
-        return round((float) $transaction->amount - $sum, 2);
+        return $transaction->amount - (int) $sum;
     }
 
     /** @param array<int, string> $targets */
@@ -173,7 +173,7 @@ class ApplyBankTransaction
 
         $receivable->loadMissing('payments');
 
-        if ($transaction->absolute_amount > $receivable->outstanding + 0.009) {
+        if ($transaction->absolute_amount > $receivable->outstanding) {
             throw new DomainException('O valor do extrato ('.Money::format($transaction->absolute_amount).') é maior do que o que falta receber ('.Money::format($receivable->outstanding).').');
         }
 
@@ -204,7 +204,7 @@ class ApplyBankTransaction
         ));
     }
 
-    private function createFromTemplate(BankTransaction $transaction, RecurringExpense $template, float $amount): Expense
+    private function createFromTemplate(BankTransaction $transaction, RecurringExpense $template, int $amount): Expense
     {
         $expense = $template->expenses()->create([
             'supplier_id' => $template->supplier_id,
@@ -214,7 +214,7 @@ class ApplyBankTransaction
             'retainer_id' => $template->retainer_id,
             'description' => $template->description,
             'spent_on' => $transaction->booked_on,
-            'net_amount' => $this->net($amount, (float) $template->vat_rate),
+            'net_amount' => Money::netFromGross($amount, (string) $template->vat_rate),
             'vat_rate' => $template->vat_rate,
             'is_paid' => true,
             'paid_on' => $transaction->booked_on,
@@ -240,7 +240,7 @@ class ApplyBankTransaction
     }
 
     /** @param array<string, mixed> $data */
-    private function createExpenseFor(BankTransaction $transaction, array $data, float $amount): Expense
+    private function createExpenseFor(BankTransaction $transaction, array $data, int $amount): Expense
     {
         $vat = (float) ($data['vat_rate'] ?? 0);
         $kind = ExpenseKind::from($data['kind'] ?? ExpenseKind::Overhead->value);
@@ -253,7 +253,7 @@ class ApplyBankTransaction
             'retainer_id' => $kind === ExpenseKind::Direct ? ($data['retainer_id'] ?? null) : null,
             'description' => filled($data['description'] ?? null) ? $data['description'] : (Supplier::find($data['supplier_id'])?->name ?? $transaction->description),
             'spent_on' => $transaction->booked_on,
-            'net_amount' => $this->net($amount, $vat),
+            'net_amount' => Money::netFromGross($amount, $vat),
             'vat_rate' => $vat,
             'is_paid' => true,
             'paid_on' => $transaction->booked_on,
@@ -315,7 +315,7 @@ class ApplyBankTransaction
     {
         $difference = $transaction->difference();
 
-        if (abs($difference) < 0.01) {
+        if ($difference === 0) {
             $transaction->update(['difference_explanation' => null]);
 
             return;
@@ -331,7 +331,7 @@ class ApplyBankTransaction
             throw new DomainException('Essa explicação não serve para esta diferença.');
         }
 
-        $amount = round(abs($difference), 2);
+        $amount = abs($difference);
 
         if ($explanation === DifferenceExplanation::BankFee) {
             $fee = Expense::create([
@@ -387,9 +387,9 @@ class ApplyBankTransaction
             throw new DomainException('Só uma entrada de dinheiro pode ser uma receita.');
         }
 
-        $net = round((float) $data['gross_amount'] - (float) ($data['commission'] ?? 0), 2);
+        $net = (int) $data['gross_amount'] - (int) ($data['commission'] ?? 0);
 
-        if (abs($net - $transaction->absolute_amount) >= 0.01) {
+        if ($net !== $transaction->absolute_amount) {
             throw new DomainException('Valor bruto menos comissão dá '.Money::format($net).', mas chegaram ao banco '.Money::format($transaction->absolute_amount).'.');
         }
 
@@ -417,12 +417,7 @@ class ApplyBankTransaction
         $transaction->update(['status' => BankTransactionStatus::Ignored]);
     }
 
-    private function net(float $amount, float $vat): float
-    {
-        return round($amount / (1 + $vat), 2);
-    }
-
-    private function createPayment(BankTransaction $transaction, Receivable $receivable, float $amount): Payment
+    private function createPayment(BankTransaction $transaction, Receivable $receivable, int $amount): Payment
     {
         $payment = $receivable->payments()->create([
             'paid_on' => $transaction->booked_on,

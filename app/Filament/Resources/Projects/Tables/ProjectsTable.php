@@ -59,14 +59,14 @@ class ProjectsTable
                     ->badge(),
                 TextColumn::make('total')
                     ->label('Total')
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->alignEnd(),
                 ViewColumn::make('progress')
                     ->label('Recebido')
                     ->view('filament.tables.columns.progress'),
                 TextColumn::make('outstanding_amount')
                     ->label('Em aberto')
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->color(fn (float $state) => $state > 0 ? 'warning' : 'gray'),
                 TextColumn::make('payment_status')

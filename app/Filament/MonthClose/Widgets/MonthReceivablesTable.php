@@ -40,8 +40,8 @@ class MonthReceivablesTable extends TableWidget
                     ->label('Referente a')
                     ->description(fn (Receivable $record) => $record->description)
                     ->url(fn (Receivable $record) => $record->billableUrl()),
-                TextColumn::make('amount')->label('Valor')->money('EUR')->alignEnd(),
-                TextColumn::make('outstanding')->label('Em aberto')->money('EUR')->alignEnd()
+                TextColumn::make('amount')->label('Valor')->money('EUR', divideBy: 100)->alignEnd(),
+                TextColumn::make('outstanding')->label('Em aberto')->money('EUR', divideBy: 100)->alignEnd()
                     ->weight('medium')
                     ->color(fn (float $state) => $state > 0 ? 'warning' : 'gray'),
                 TextColumn::make('status')->label('Estado')->badge(),

@@ -38,12 +38,12 @@ class RetainerHeader
                     MetadataEntry::make('next_due_on')->label('Próximo vencimento')->date()->placeholder('—')->fieldIcon(Phosphor::CalendarBlank),
                 ])
                 ->summary([
-                    TextEntry::make('total')->label('Por período')->money('EUR'),
-                    TextEntry::make('yearly_value')->label('Por ano')->money('EUR'),
-                    TextEntry::make('received_amount')->label('Recebido')->money('EUR')->color('success'),
-                    TextEntry::make('outstanding_amount')->label('Em aberto')->money('EUR')
+                    TextEntry::make('total')->label('Por período')->money('EUR', divideBy: 100),
+                    TextEntry::make('yearly_value')->label('Por ano')->money('EUR', divideBy: 100),
+                    TextEntry::make('received_amount')->label('Recebido')->money('EUR', divideBy: 100)->color('success'),
+                    TextEntry::make('outstanding_amount')->label('Em aberto')->money('EUR', divideBy: 100)
                         ->color(fn (float $state) => $state > 0 ? 'warning' : 'gray'),
-                    TextEntry::make('margin')->label('Margem')->money('EUR')
+                    TextEntry::make('margin')->label('Margem')->money('EUR', divideBy: 100)
                         ->color(fn (float $state) => $state < 0 ? 'danger' : null)
                         ->tooltip(fn (Retainer $record) => 'Faturado menos custos diretos ('.Money::format($record->direct_costs).')'),
                 ]),

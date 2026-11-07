@@ -16,7 +16,7 @@ it('creates an unpaid expense on each occurrence up to today, copying the templa
         'starts_on' => '2026-01-01',
         'day' => 27,
         'description' => 'Servidor',
-        'net_amount' => 22.33,
+        'net_amount' => 2233,
         'vat_rate' => 0.23,
         'kind' => ExpenseKind::Direct,
         'retainer_id' => $retainer->id,
@@ -38,7 +38,7 @@ it('creates an unpaid expense on each occurrence up to today, copying the templa
         ->supplier_id->toBe($template->supplier_id)
         ->method->toBe(PaymentMethod::Card)
         ->recurring_expense_id->toBe($template->id)
-        ->and($expenses->first()->total)->toBe(27.47);
+        ->and($expenses->first()->total)->toBe(2747);
 });
 
 it('continues after the latest generated expense without filling older gaps', function () {

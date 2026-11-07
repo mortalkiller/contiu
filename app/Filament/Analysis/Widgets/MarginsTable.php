@@ -34,12 +34,12 @@ abstract class MarginsTable extends TableWidget
                 TextColumn::make('label')
                     ->label($this->groupLabel())
                     ->weight(fn (array $record) => $record['is_total'] ? 'bold' : 'medium'),
-                TextColumn::make('invoiced')->label('Faturado')->money('EUR')->alignEnd(),
-                TextColumn::make('received')->label('Recebido')->money('EUR')->alignEnd(),
-                TextColumn::make('directCosts')->label('Custos diretos')->money('EUR')->alignEnd(),
+                TextColumn::make('invoiced')->label('Faturado')->money('EUR', divideBy: 100)->alignEnd(),
+                TextColumn::make('received')->label('Recebido')->money('EUR', divideBy: 100)->alignEnd(),
+                TextColumn::make('directCosts')->label('Custos diretos')->money('EUR', divideBy: 100)->alignEnd(),
                 TextColumn::make('margin')
                     ->label('Margem')
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->weight('semibold')
                     ->color(fn (float $state) => $state < 0 ? 'danger' : null),

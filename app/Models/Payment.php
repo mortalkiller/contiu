@@ -57,7 +57,7 @@ class Payment extends Model implements AuditableContract
     {
         return [
             'paid_on' => 'date',
-            'amount' => 'decimal:2',
+            'amount' => 'integer',
             'method' => PaymentMethod::class,
             'tax_exempt' => 'boolean',
         ];

@@ -12,8 +12,8 @@ beforeEach(fn () => $this->travelTo(Carbon::parse('2026-11-07')));
 
 it('groups expenses by month with totals', function () {
     actingAsAdmin();
-    Expense::factory()->create(['spent_on' => '2026-10-03', 'net_amount' => 10]);
-    Expense::factory()->create(['spent_on' => '2026-11-02', 'net_amount' => 20]);
+    Expense::factory()->create(['spent_on' => '2026-10-03', 'net_amount' => 1000]);
+    Expense::factory()->create(['spent_on' => '2026-11-02', 'net_amount' => 2000]);
 
     Livewire::test(ListExpenses::class)
         ->set('tableGrouping', 'spent_on:desc')

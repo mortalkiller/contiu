@@ -37,53 +37,53 @@ final class CashForecast
         return $this->settings->currentBankBalance() !== null;
     }
 
-    public function startingBalance(): float
+    public function startingBalance(): int
     {
-        return round($this->settings->currentBankBalance() ?? 0.0, 2);
+        return $this->settings->currentBankBalance() ?? 0;
     }
 
     /**
-     * @return array<int, array{month: CarbonImmutable, label: string, inflows: float, overdueInflows: float, projectedInflows: float, outflows: float, overdueOutflows: float, projectedOutflows: float, socialSecurity: float, net: float, balance: float}>
+     * @return array<int, array{month: CarbonImmutable, label: string, inflows: int, overdueInflows: int, projectedInflows: int, outflows: int, overdueOutflows: int, projectedOutflows: int, socialSecurity: int, net: int, balance: int}> (cents)
      */
     public function months(): array
     {
         return $this->rows ??= $this->build();
     }
 
-    /** @return array{inflows: float, outflows: float, net: float, endBalance: float, lowestBalance: float} */
+    /** @return array{inflows: int, outflows: int, net: int, endBalance: int, lowestBalance: int} (cents) */
     public function totals(): array
     {
         $rows = $this->months();
-        $inflows = round(array_sum(array_column($rows, 'inflows')), 2);
-        $outflows = round(array_sum(array_column($rows, 'outflows')), 2);
+        $inflows = (int) array_sum(array_column($rows, 'inflows'));
+        $outflows = (int) array_sum(array_column($rows, 'outflows'));
 
         return [
             'inflows' => $inflows,
             'outflows' => $outflows,
-            'net' => round($inflows - $outflows, 2),
-            'endBalance' => (float) (end($rows)['balance'] ?? $this->startingBalance()),
-            'lowestBalance' => (float) min(array_column($rows, 'balance') ?: [$this->startingBalance()]),
+            'net' => $inflows - $outflows,
+            'endBalance' => (int) (end($rows)['balance'] ?? $this->startingBalance()),
+            'lowestBalance' => (int) min(array_column($rows, 'balance') ?: [$this->startingBalance()]),
         ];
     }
 
-    /** @return array<string, float> where the expected money comes from, over the whole horizon */
+    /** @return array<string, int> where the expected money (cents) comes from, over the whole horizon */
     public function inflowBreakdown(): array
     {
         $rows = $this->months();
-        $sum = fn (string $field) => round(array_sum(array_column($rows, $field)), 2);
+        $sum = fn (string $field) => (int) array_sum(array_column($rows, $field));
 
         return [
-            'A receber' => round($sum('inflows') - $sum('overdueInflows') - $sum('projectedInflows'), 2),
+            'A receber' => $sum('inflows') - $sum('overdueInflows') - $sum('projectedInflows'),
             'Em atraso' => $sum('overdueInflows'),
             'Avenças por gerar' => $sum('projectedInflows'),
         ];
     }
 
-    /** @return array<string, float> expected money in per client (same rules as the inflows), largest first */
+    /** @return array<string, int> expected money (cents) in per client (same rules as the inflows), largest first */
     public function inflowsByClient(): array
     {
         $byClient = [];
-        $add = function (?string $client, float $amount) use (&$byClient): void {
+        $add = function (?string $client, int $amount) use (&$byClient): void {
             $client ??= '—';
             $byClient[$client] = ($byClient[$client] ?? 0) + $amount;
         };
@@ -103,17 +103,17 @@ final class CashForecast
 
         arsort($byClient);
 
-        return array_map(fn (float $amount) => round($amount, 2), $byClient);
+        return $byClient;
     }
 
-    /** @return array<string, float> where the expected money goes, over the whole horizon */
+    /** @return array<string, int> where the expected money (cents) goes, over the whole horizon */
     public function outflowBreakdown(): array
     {
         $rows = $this->months();
-        $sum = fn (string $field) => round(array_sum(array_column($rows, $field)), 2);
+        $sum = fn (string $field) => (int) array_sum(array_column($rows, $field));
 
         return [
-            'Despesas por pagar' => round($sum('outflows') - $sum('overdueOutflows') - $sum('projectedOutflows') - $sum('socialSecurity'), 2),
+            'Despesas por pagar' => $sum('outflows') - $sum('overdueOutflows') - $sum('projectedOutflows') - $sum('socialSecurity'),
             'Despesas em atraso' => $sum('overdueOutflows'),
             'Recorrentes previstas' => $sum('projectedOutflows'),
             'Segurança Social' => $sum('socialSecurity'),
@@ -129,17 +129,17 @@ final class CashForecast
             $buckets[$month->format('Y-m')] = [
                 'month' => $month,
                 'label' => Period::MONTHS[$month->month - 1].' '.$month->year,
-                'inflows' => 0.0,
-                'overdueInflows' => 0.0,
-                'projectedInflows' => 0.0,
-                'outflows' => 0.0,
-                'overdueOutflows' => 0.0,
-                'projectedOutflows' => 0.0,
-                'socialSecurity' => 0.0,
+                'inflows' => 0,
+                'overdueInflows' => 0,
+                'projectedInflows' => 0,
+                'outflows' => 0,
+                'overdueOutflows' => 0,
+                'projectedOutflows' => 0,
+                'socialSecurity' => 0,
             ];
         }
 
-        $add = function (CarbonImmutable $date, float $amount, string $kind, bool $projected = false) use (&$buckets): void {
+        $add = function (CarbonImmutable $date, int $amount, string $kind, bool $projected = false) use (&$buckets): void {
             $overdue = $date->lt($this->start);
             $key = ($overdue ? $this->start : $date)->format('Y-m');
 
@@ -195,12 +195,8 @@ final class CashForecast
         $rows = [];
 
         foreach ($buckets as $bucket) {
-            foreach (['inflows', 'overdueInflows', 'projectedInflows', 'outflows', 'overdueOutflows', 'projectedOutflows', 'socialSecurity'] as $field) {
-                $bucket[$field] = round($bucket[$field], 2);
-            }
-
-            $bucket['net'] = round($bucket['inflows'] - $bucket['outflows'], 2);
-            $balance = round($balance + $bucket['net'], 2);
+            $bucket['net'] = $bucket['inflows'] - $bucket['outflows'];
+            $balance += $bucket['net'];
             $bucket['balance'] = $balance;
             $rows[] = $bucket;
         }

@@ -37,70 +37,70 @@ it('covers the current month and the following ones', function () {
 });
 
 it('puts open receivables in their month and rolls overdue ones into the current month', function () {
-    $partial = Receivable::factory()->create(['amount' => 500, 'due_on' => '2026-12-15']);
-    Payment::factory()->for($partial)->create(['amount' => 200]);
-    Receivable::factory()->create(['amount' => 100, 'due_on' => '2026-09-01']);
-    Receivable::factory()->create(['amount' => 999, 'due_on' => '2027-03-01']);
+    $partial = Receivable::factory()->create(['amount' => 50000, 'due_on' => '2026-12-15']);
+    Payment::factory()->for($partial)->create(['amount' => 20000]);
+    Receivable::factory()->create(['amount' => 10000, 'due_on' => '2026-09-01']);
+    Receivable::factory()->create(['amount' => 99900, 'due_on' => '2027-03-01']);
     $cancelled = Project::factory()->create(['status' => ProjectStatus::Cancelled]);
-    Receivable::factory()->for($cancelled, 'billable')->create(['amount' => 777, 'due_on' => '2026-12-01']);
+    Receivable::factory()->for($cancelled, 'billable')->create(['amount' => 77700, 'due_on' => '2026-12-01']);
 
     $forecast = forecast();
 
-    expect(row($forecast, 0))->toMatchArray(['inflows' => 100.0, 'overdueInflows' => 100.0])
-        ->and(row($forecast, 1)['inflows'])->toBe(300.0)
-        ->and(row($forecast, 2)['inflows'])->toBe(0.0);
+    expect(row($forecast, 0))->toMatchArray(['inflows' => 10000, 'overdueInflows' => 10000])
+        ->and(row($forecast, 1)['inflows'])->toBe(30000)
+        ->and(row($forecast, 2)['inflows'])->toBe(0);
 });
 
 it('projects retainer periods not generated yet without double counting existing ones', function () {
-    $retainer = Retainer::factory()->create(['starts_on' => '2026-01-01', 'due_day' => 1, 'net_amount' => 20]);
-    $retainer->receivables()->create(['description' => 'Nov 2026', 'amount' => 20, 'due_on' => '2026-11-01']);
+    $retainer = Retainer::factory()->create(['starts_on' => '2026-01-01', 'due_day' => 1, 'net_amount' => 2000]);
+    $retainer->receivables()->create(['description' => 'Nov 2026', 'amount' => 2000, 'due_on' => '2026-11-01']);
 
     $forecast = forecast();
 
-    expect(array_column($forecast->months(), 'inflows'))->toBe([20.0, 20.0, 20.0]);
+    expect(array_column($forecast->months(), 'inflows'))->toBe([2000, 2000, 2000]);
 });
 
 it('stops projecting at the retainer end date and skips inactive retainers', function () {
-    $ending = Retainer::factory()->create(['starts_on' => '2026-11-01', 'due_day' => 1, 'net_amount' => 20, 'ends_on' => '2026-12-31']);
-    Retainer::factory()->create(['starts_on' => '2026-11-01', 'net_amount' => 50, 'is_active' => false]);
+    $ending = Retainer::factory()->create(['starts_on' => '2026-11-01', 'due_day' => 1, 'net_amount' => 2000, 'ends_on' => '2026-12-31']);
+    Retainer::factory()->create(['starts_on' => '2026-11-01', 'net_amount' => 5000, 'is_active' => false]);
 
-    expect(array_column(forecast()->months(), 'inflows'))->toBe([20.0, 20.0, 0.0]);
+    expect(array_column(forecast()->months(), 'inflows'))->toBe([2000, 2000, 0]);
 });
 
 it('counts unpaid expenses and projects recurring ones after the latest generated expense', function () {
-    Expense::factory()->unpaid()->create(['spent_on' => '2026-10-20', 'net_amount' => 50]);
-    $template = RecurringExpense::factory()->create(['starts_on' => '2026-01-01', 'day' => 27, 'net_amount' => 10]);
-    Expense::factory()->create(['recurring_expense_id' => $template->id, 'supplier_id' => $template->supplier_id, 'spent_on' => '2026-10-27', 'net_amount' => 10]);
+    Expense::factory()->unpaid()->create(['spent_on' => '2026-10-20', 'net_amount' => 5000]);
+    $template = RecurringExpense::factory()->create(['starts_on' => '2026-01-01', 'day' => 27, 'net_amount' => 1000]);
+    Expense::factory()->create(['recurring_expense_id' => $template->id, 'supplier_id' => $template->supplier_id, 'spent_on' => '2026-10-27', 'net_amount' => 1000]);
 
     $forecast = forecast();
 
-    expect(row($forecast, 0))->toMatchArray(['outflows' => 60.0, 'overdueOutflows' => 50.0])
-        ->and(row($forecast, 1)['outflows'])->toBe(10.0)
-        ->and(row($forecast, 2)['outflows'])->toBe(10.0);
+    expect(row($forecast, 0))->toMatchArray(['outflows' => 6000, 'overdueOutflows' => 5000])
+        ->and(row($forecast, 1)['outflows'])->toBe(1000)
+        ->and(row($forecast, 2)['outflows'])->toBe(1000);
 });
 
 it('adds the estimated Segurança Social contribution when it is due', function () {
     app(FinanceSettings::class)->set(['ss_first_year_exempt' => false]);
-    $receivable = Receivable::factory()->create(['amount' => 3000, 'due_on' => '2026-08-01']);
-    Payment::factory()->for($receivable)->create(['paid_on' => '2026-08-10', 'amount' => 3000]);
+    $receivable = Receivable::factory()->create(['amount' => 300000, 'due_on' => '2026-08-01']);
+    Payment::factory()->for($receivable)->create(['paid_on' => '2026-08-10', 'amount' => 300000]);
 
     $forecast = forecast();
 
-    expect(array_column($forecast->months(), 'socialSecurity'))->toBe([149.8, 149.8, 0.0])
-        ->and(row($forecast, 0)['outflows'])->toBe(149.8);
+    expect(array_column($forecast->months(), 'socialSecurity'))->toBe([14980, 14980, 0])
+        ->and(row($forecast, 0)['outflows'])->toBe(14980);
 });
 
 it('accumulates the balance from the current bank balance, or from zero when it is unknown', function () {
-    Receivable::factory()->create(['amount' => 100, 'due_on' => '2026-12-10']);
+    Receivable::factory()->create(['amount' => 10000, 'due_on' => '2026-12-10']);
 
     expect(forecast()->startsFromBankBalance())->toBeFalse()
-        ->and(array_column(forecast()->months(), 'balance'))->toBe([0.0, 100.0, 100.0]);
+        ->and(array_column(forecast()->months(), 'balance'))->toBe([0, 10000, 10000]);
 
-    app(FinanceSettings::class)->set(['current_bank_balance' => 1000, 'current_bank_balance_on' => '2026-11-05']);
+    app(FinanceSettings::class)->set(['current_bank_balance' => 100000, 'current_bank_balance_on' => '2026-11-05']);
 
     expect(forecast()->startsFromBankBalance())->toBeTrue()
-        ->and(array_column(forecast()->months(), 'balance'))->toBe([1000.0, 1100.0, 1100.0])
-        ->and(forecast()->totals())->toMatchArray(['inflows' => 100.0, 'outflows' => 0.0, 'net' => 100.0]);
+        ->and(array_column(forecast()->months(), 'balance'))->toBe([100000, 110000, 110000])
+        ->and(forecast()->totals())->toMatchArray(['inflows' => 10000, 'outflows' => 0, 'net' => 10000]);
 });
 
 it('projects the same dates the generators would create', function () {

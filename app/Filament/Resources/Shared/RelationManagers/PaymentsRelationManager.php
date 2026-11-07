@@ -26,8 +26,8 @@ class PaymentsRelationManager extends RelationManager
                 TextColumn::make('receivable.description')->label('Referente a'),
                 TextColumn::make('method')->label('Método')->badge()->color('gray'),
                 TextColumn::make('invoice_number')->label('Fatura')->placeholder('—'),
-                TextColumn::make('amount')->label('Valor')->money('EUR')->alignEnd()
-                    ->summarize(Sum::make()->label('Total')->money('EUR')),
+                TextColumn::make('amount')->label('Valor')->money('EUR', divideBy: 100)->alignEnd()
+                    ->summarize(Sum::make()->label('Total')->money('EUR', divideBy: 100)),
                 TextColumn::make('notes')->label('Notas')->placeholder('—')->limit(40)->toggleable(isToggledHiddenByDefault: true),
             ])
             ->emptyStateHeading('Ainda sem recebimentos');

@@ -30,7 +30,7 @@ function statementCsv(): string
     return "Data mov.;Descrição;Débito;Crédito\n23-10-2026;TRF GONCALO TEIXEIRA;;730,00\n27-10-2026;COMPRA OPENAI CHATGPT;83,74;\n";
 }
 
-function openReceivableFor(string $name, float $amount): Receivable
+function openReceivableFor(string $name, int $amount): Receivable
 {
     $project = Project::factory()->for(Client::factory()->create(['name' => $name]))->create(['net_amount' => $amount]);
 
@@ -38,7 +38,7 @@ function openReceivableFor(string $name, float $amount): Receivable
 }
 
 it('uploads a statement and lists its lines with suggestions', function () {
-    openReceivableFor('Gonçalo Teixeira', 730);
+    openReceivableFor('Gonçalo Teixeira', 73000);
 
     Livewire::test(BankStatementImport::class)
         ->callAction('upload', data: ['file' => UploadedFile::fake()->createWithContent('extrato.csv', statementCsv())])
@@ -52,8 +52,8 @@ it('uploads a statement and lists its lines with suggestions', function () {
 });
 
 it('accepts a suggestion with one click', function () {
-    $receivable = openReceivableFor('Gonçalo Teixeira', 730);
-    $line = BankTransaction::create(['hash' => 'x1', 'booked_on' => '2026-10-23', 'description' => 'TRF GONCALO TEIXEIRA', 'amount' => 730, 'import_batch' => 'b']);
+    $receivable = openReceivableFor('Gonçalo Teixeira', 73000);
+    $line = BankTransaction::create(['hash' => 'x1', 'booked_on' => '2026-10-23', 'description' => 'TRF GONCALO TEIXEIRA', 'amount' => 73000, 'import_batch' => 'b']);
 
     Livewire::test(BankStatementImport::class)
         ->callTableAction('accept', $line)
@@ -64,9 +64,9 @@ it('accepts a suggestion with one click', function () {
 });
 
 it('lets you choose among the possible matches', function () {
-    openReceivableFor('Cliente Alfa', 20);
-    $beta = openReceivableFor('Cliente Beta', 20);
-    $line = BankTransaction::create(['hash' => 'x2', 'booked_on' => '2026-11-04', 'description' => 'MBWAY 912', 'amount' => 20, 'import_batch' => 'b']);
+    openReceivableFor('Cliente Alfa', 2000);
+    $beta = openReceivableFor('Cliente Beta', 2000);
+    $line = BankTransaction::create(['hash' => 'x2', 'booked_on' => '2026-11-04', 'description' => 'MBWAY 912', 'amount' => 2000, 'import_batch' => 'b']);
 
     Livewire::test(BankStatementImport::class)
         ->assertTableActionHidden('accept', $line)
@@ -77,8 +77,8 @@ it('lets you choose among the possible matches', function () {
 
 it('creates an expense from a debit and ignores another line', function () {
     $supplier = Supplier::factory()->create(['name' => 'OpenAI']);
-    $debit = BankTransaction::create(['hash' => 'x3', 'booked_on' => '2026-10-27', 'description' => 'COMPRA OPENAI', 'amount' => -83.74, 'import_batch' => 'b']);
-    $transfer = BankTransaction::create(['hash' => 'x4', 'booked_on' => '2026-10-28', 'description' => 'TRF ENTRE CONTAS', 'amount' => -500, 'import_batch' => 'b']);
+    $debit = BankTransaction::create(['hash' => 'x3', 'booked_on' => '2026-10-27', 'description' => 'COMPRA OPENAI', 'amount' => -8374, 'import_batch' => 'b']);
+    $transfer = BankTransaction::create(['hash' => 'x4', 'booked_on' => '2026-10-28', 'description' => 'TRF ENTRE CONTAS', 'amount' => -50000, 'import_batch' => 'b']);
 
     Livewire::test(BankStatementImport::class)
         ->callTableAction('createExpense', $debit, data: [
@@ -90,17 +90,17 @@ it('creates an expense from a debit and ignores another line', function () {
         ->assertHasNoTableActionErrors()
         ->callTableAction('ignore', $transfer);
 
-    expect(Expense::sole())->description->toBe('ChatGPT Pro')->total->toBe(83.74)
+    expect(Expense::sole())->description->toBe('ChatGPT Pro')->total->toBe(8374)
         ->and($transfer->fresh()->status)->toBe(BankTransactionStatus::Ignored);
 });
 
 it('accepts every unambiguous suggestion at once', function () {
-    openReceivableFor('Gonçalo Teixeira', 730);
-    openReceivableFor('Mariana Sousa', 20);
+    openReceivableFor('Gonçalo Teixeira', 73000);
+    openReceivableFor('Mariana Sousa', 2000);
     $lines = collect([
-        BankTransaction::create(['hash' => 'y1', 'booked_on' => '2026-10-23', 'description' => 'TRF GONCALO TEIXEIRA', 'amount' => 730, 'import_batch' => 'b']),
-        BankTransaction::create(['hash' => 'y2', 'booked_on' => '2026-11-04', 'description' => 'MBWAY MARIANA SOUSA', 'amount' => 20, 'import_batch' => 'b']),
-        BankTransaction::create(['hash' => 'y3', 'booked_on' => '2026-11-05', 'description' => 'TRF DESCONHECIDA', 'amount' => 999, 'import_batch' => 'b']),
+        BankTransaction::create(['hash' => 'y1', 'booked_on' => '2026-10-23', 'description' => 'TRF GONCALO TEIXEIRA', 'amount' => 73000, 'import_batch' => 'b']),
+        BankTransaction::create(['hash' => 'y2', 'booked_on' => '2026-11-04', 'description' => 'MBWAY MARIANA SOUSA', 'amount' => 2000, 'import_batch' => 'b']),
+        BankTransaction::create(['hash' => 'y3', 'booked_on' => '2026-11-05', 'description' => 'TRF DESCONHECIDA', 'amount' => 99900, 'import_batch' => 'b']),
     ]);
 
     Livewire::test(BankStatementImport::class)
@@ -111,13 +111,13 @@ it('accepts every unambiguous suggestion at once', function () {
 });
 
 it('lets you link a line to a registered expense and warns when the amounts differ', function () {
-    $expense = Expense::factory()->for(Supplier::factory()->create(['name' => 'INPI']))->create(['net_amount' => 151.98, 'spent_on' => '2026-10-06', 'paid_on' => '2026-10-06']);
-    $line = BankTransaction::create(['hash' => 'z1', 'booked_on' => '2026-10-06', 'description' => 'TRF P/ Ordenado', 'amount' => -151, 'import_batch' => 'b']);
+    $expense = Expense::factory()->for(Supplier::factory()->create(['name' => 'INPI']))->create(['net_amount' => 15198, 'spent_on' => '2026-10-06', 'paid_on' => '2026-10-06']);
+    $line = BankTransaction::create(['hash' => 'z1', 'booked_on' => '2026-10-06', 'description' => 'TRF P/ Ordenado', 'amount' => -15100, 'import_batch' => 'b']);
 
     Livewire::test(BankStatementImport::class)
         ->mountTableAction('link', $line)
         ->fillForm(['targets' => ['paid:'.$expense->id]])
-        ->assertSchemaComponentExists('amountDifference', checkComponentUsing: fn ($callout) => ! $callout->isHidden() && str_contains($callout->getDescription(), Money::format(0.98)))
+        ->assertSchemaComponentExists('amountDifference', checkComponentUsing: fn ($callout) => ! $callout->isHidden() && str_contains($callout->getDescription(), Money::format(98)))
         ->callMountedTableAction()
         ->assertHasTableActionErrors(['explanation' => 'required'])
         ->fillForm(['explanation' => 'other_account'])
@@ -129,34 +129,34 @@ it('lets you link a line to a registered expense and warns when the amounts diff
 });
 
 it('links a line to two receivables of a client who paid both at once', function () {
-    $first = openReceivableFor('Gonçalo Teixeira', 300);
-    $second = Receivable::factory()->for($first->billable, 'billable')->create(['amount' => 200, 'due_on' => '2026-11-30']);
-    $line = BankTransaction::create(['hash' => 'w1', 'booked_on' => '2026-11-04', 'description' => 'TRF GONCALO TEIXEIRA', 'amount' => 500, 'import_batch' => 'b']);
+    $first = openReceivableFor('Gonçalo Teixeira', 30000);
+    $second = Receivable::factory()->for($first->billable, 'billable')->create(['amount' => 20000, 'due_on' => '2026-11-30']);
+    $line = BankTransaction::create(['hash' => 'w1', 'booked_on' => '2026-11-04', 'description' => 'TRF GONCALO TEIXEIRA', 'amount' => 50000, 'import_batch' => 'b']);
 
     Livewire::test(BankStatementImport::class)
         ->callTableAction('link', $line, data: ['targets' => ['receivable:'.$first->id, 'receivable:'.$second->id]])
         ->assertHasNoTableActionErrors();
 
-    expect($first->fresh()->outstanding)->toBe(0.0)
-        ->and($second->fresh()->outstanding)->toBe(0.0)
-        ->and($line->fresh()->difference())->toBe(0.0)
+    expect($first->fresh()->outstanding)->toBe(0)
+        ->and($second->fresh()->outstanding)->toBe(0)
+        ->and($line->fresh()->difference())->toBe(0)
         ->and($line->links()->count())->toBe(2);
 });
 
 it('links a platform payout to a donation and its commission registered before', function () {
     $category = Category::factory()->create(['type' => 'income']);
-    $income = app(RecordOneOffIncome::class)->handle(['received_on' => '2026-10-14', 'title' => 'Donativo', 'category_id' => $category->id, 'gross_amount' => 5, 'commission' => 0.68, 'commission_supplier_id' => Supplier::factory()->create()->id]);
-    $line = BankTransaction::create(['hash' => 'w6', 'booked_on' => '2026-10-15', 'description' => 'STRIPE', 'amount' => 4.32, 'import_batch' => 'b']);
+    $income = app(RecordOneOffIncome::class)->handle(['received_on' => '2026-10-14', 'title' => 'Donativo', 'category_id' => $category->id, 'gross_amount' => 500, 'commission' => 68, 'commission_supplier_id' => Supplier::factory()->create()->id]);
+    $line = BankTransaction::create(['hash' => 'w6', 'booked_on' => '2026-10-15', 'description' => 'STRIPE', 'amount' => 432, 'import_batch' => 'b']);
 
     Livewire::test(BankStatementImport::class)
         ->callTableAction('link', $line, data: ['targets' => ['payment:'.Payment::sole()->id, 'paid:'.$income->commission_expense_id]])
         ->assertHasNoTableActionErrors();
 
-    expect($line->fresh()->difference())->toBe(0.0);
+    expect($line->fresh()->difference())->toBe(0);
 });
 
 it('marks a line as own transfer', function () {
-    $line = BankTransaction::create(['hash' => 'w2', 'booked_on' => '2026-07-10', 'description' => 'TRF DE PEDRO', 'amount' => 1500, 'import_batch' => 'b']);
+    $line = BankTransaction::create(['hash' => 'w2', 'booked_on' => '2026-07-10', 'description' => 'TRF DE PEDRO', 'amount' => 150000, 'import_batch' => 'b']);
 
     Livewire::test(BankStatementImport::class)->callTableAction('ownTransfer', $line);
 
@@ -164,7 +164,7 @@ it('marks a line as own transfer', function () {
 });
 
 it('creates a one-off income from a credit line', function () {
-    $line = BankTransaction::create(['hash' => 'w3', 'booked_on' => '2026-10-14', 'description' => 'STRIPE TECHNOLOGY EUROPE, LIMITED', 'amount' => 4.32, 'import_batch' => 'b']);
+    $line = BankTransaction::create(['hash' => 'w3', 'booked_on' => '2026-10-14', 'description' => 'STRIPE TECHNOLOGY EUROPE, LIMITED', 'amount' => 432, 'import_batch' => 'b']);
 
     Livewire::test(BankStatementImport::class)
         ->callTableAction('createIncome', $line, data: [
@@ -177,12 +177,12 @@ it('creates a one-off income from a credit line', function () {
         ->assertHasNoTableActionErrors();
 
     expect($line->fresh()->status)->toBe(BankTransactionStatus::Matched)
-        ->and($line->fresh()->difference())->toBe(0.0)
+        ->and($line->fresh()->difference())->toBe(0)
         ->and(OneOffIncome::sole()->received_on->toDateString())->toBe('2026-10-14');
 });
 
 it('fills the commission from the gross amount so the income matches the bank', function () {
-    $line = BankTransaction::create(['hash' => 'w5', 'booked_on' => '2026-10-14', 'description' => 'STRIPE', 'amount' => 4.32, 'import_batch' => 'b']);
+    $line = BankTransaction::create(['hash' => 'w5', 'booked_on' => '2026-10-14', 'description' => 'STRIPE', 'amount' => 432, 'import_batch' => 'b']);
 
     Livewire::test(BankStatementImport::class)
         ->mountTableAction('createIncome', $line)
@@ -191,7 +191,7 @@ it('fills the commission from the gross amount so the income matches the bank', 
 });
 
 it('puts a treated line back to pending', function () {
-    $line = BankTransaction::create(['hash' => 'w4', 'booked_on' => '2026-07-10', 'description' => 'TRF', 'amount' => 10, 'import_batch' => 'b', 'status' => 'own_transfer']);
+    $line = BankTransaction::create(['hash' => 'w4', 'booked_on' => '2026-07-10', 'description' => 'TRF', 'amount' => 1000, 'import_batch' => 'b', 'status' => 'own_transfer']);
 
     Livewire::test(BankStatementImport::class)
         ->set('activeTab', 'done')
@@ -206,7 +206,7 @@ it('uploads an Excel statement exported from the bank', function () {
         ->assertHasNoActionErrors()
         ->assertNotified('2 linhas novas do extrato');
 
-    expect(BankTransaction::orderBy('booked_on')->pluck('amount')->all())->toEqual(['1500.00', '-151.00']);
+    expect(BankTransaction::orderBy('booked_on')->pluck('amount')->all())->toBe([150000, -15100]);
 });
 
 it('asks for the columns when it cannot recognise the file', function () {
@@ -219,7 +219,7 @@ it('asks for the columns when it cannot recognise the file', function () {
         ->callMountedAction()
         ->assertHasNoActionErrors();
 
-    expect(BankTransaction::sole())->amount->toEqual('-12.50');
+    expect(BankTransaction::sole())->amount->toBe(-1250);
 });
 
 it('is reachable from the month close page', function () {

@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Filament\Widgets\Concerns\UsesDashboardPeriod;
+use App\Support\Money;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
 
@@ -43,9 +44,9 @@ class CashFlowChart extends ChartWidget
         return [
             'labels' => array_column($flow, 'label'),
             'datasets' => [
-                ['label' => 'Recebido', 'data' => array_column($flow, 'received'), 'order' => 2],
-                ['label' => 'Despesas pagas', 'data' => array_column($flow, 'paid'), 'order' => 2],
-                ['label' => 'Resultado', 'data' => array_column($flow, 'result'), 'type' => 'line', 'order' => 1],
+                ['label' => 'Recebido', 'data' => Money::toEurosList(array_column($flow, 'received')), 'order' => 2],
+                ['label' => 'Despesas pagas', 'data' => Money::toEurosList(array_column($flow, 'paid')), 'order' => 2],
+                ['label' => 'Resultado', 'data' => Money::toEurosList(array_column($flow, 'result')), 'type' => 'line', 'order' => 1],
             ],
         ];
     }

@@ -86,30 +86,30 @@ final class MonthReview
         return $receivable->due_on->gt($this->end);
     }
 
-    public function received(): float
+    public function received(): int
     {
-        return round((float) Payment::query()->whereBetween('paid_on', $this->range())->sum('amount'), 2);
+        return (int) Payment::query()->whereBetween('paid_on', $this->range())->sum('amount');
     }
 
-    public function paidExpenses(): float
+    public function paidExpenses(): int
     {
-        return round(Expense::query()
+        return (int) Expense::query()
             ->where('is_paid', true)
             ->whereBetween('spent_on', $this->range())
             ->get()
-            ->sum(fn (Expense $expense) => $expense->total), 2);
+            ->sum(fn (Expense $expense) => $expense->total);
     }
 
-    public function result(): float
+    public function result(): int
     {
-        return round($this->received() - $this->paidExpenses(), 2);
+        return $this->received() - $this->paidExpenses();
     }
 
-    public function expected(): float
+    public function expected(): int
     {
-        return round((float) $this->receivables()
+        return (int) $this->receivables()
             ->filter(fn (Receivable $receivable) => ! $this->isCarriedOver($receivable) && ! $this->isDueLater($receivable))
-            ->sum('amount'), 2);
+            ->sum('amount');
     }
 
     public function pendingReceivables(): int

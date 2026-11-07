@@ -16,7 +16,7 @@ class RetainerFactory extends Factory
             'code' => 'AV-'.fake()->unique()->numerify('####'),
             'client_id' => Client::factory(),
             'title' => 'Manutenção',
-            'net_amount' => 20,
+            'net_amount' => 2000, // cents
             'vat_rate' => 0,
             'frequency' => Frequency::Monthly,
             'due_day' => 1,

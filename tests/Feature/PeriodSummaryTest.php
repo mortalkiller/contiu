@@ -36,39 +36,39 @@ it('describes a month and the month before it, across years', function () {
 // Variação ----------------------------------------------------------------------------------
 
 it('computes the change against the previous period', function () {
-    expect(Change::between(150, 100)->percent)->toBe(50.0)
-        ->and(Change::between(50, 100)->percent)->toBe(-50.0)
+    expect(Change::between(15000, 10000)->percent)->toBe(50.0)
+        ->and(Change::between(5000, 10000)->percent)->toBe(-50.0)
         ->and(Change::between(0, 0)->percent)->toBe(0.0)
-        ->and(Change::between(80, 0)->percent)->toBeNull()
-        ->and(Change::between(80, 0)->label())->toBe('sem valor no período anterior')
-        ->and(Change::between(150, 100)->label())->toBe('+50%')
-        ->and(Change::between(-20, 100)->label())->toBe('−120%');
+        ->and(Change::between(8000, 0)->percent)->toBeNull()
+        ->and(Change::between(8000, 0)->label())->toBe('sem valor no período anterior')
+        ->and(Change::between(15000, 10000)->label())->toBe('+50%')
+        ->and(Change::between(-2000, 10000)->label())->toBe('−120%');
 });
 
 // Resumo do período -------------------------------------------------------------------------
 
 function seedPeriodData(): void
 {
-    $project = Project::factory()->create(['quoted_on' => '2026-03-04', 'net_amount' => 1000, 'vat_rate' => 0]);
-    $instalment = Receivable::factory()->for($project, 'billable')->create(['amount' => 1000, 'due_on' => '2026-08-15']);
-    Payment::factory()->for($instalment)->create(['paid_on' => '2026-03-31', 'amount' => 400]);
+    $project = Project::factory()->create(['quoted_on' => '2026-03-04', 'net_amount' => 100000, 'vat_rate' => 0]);
+    $instalment = Receivable::factory()->for($project, 'billable')->create(['amount' => 100000, 'due_on' => '2026-08-15']);
+    Payment::factory()->for($instalment)->create(['paid_on' => '2026-03-31', 'amount' => 40000]);
 
-    $cancelled = Project::factory()->create(['quoted_on' => '2026-05-01', 'net_amount' => 999, 'status' => ProjectStatus::Cancelled]);
-    Receivable::factory()->for($cancelled, 'billable')->create(['amount' => 999, 'due_on' => '2026-06-01']);
+    $cancelled = Project::factory()->create(['quoted_on' => '2026-05-01', 'net_amount' => 99900, 'status' => ProjectStatus::Cancelled]);
+    Receivable::factory()->for($cancelled, 'billable')->create(['amount' => 99900, 'due_on' => '2026-06-01']);
 
-    $nextYearJob = Project::factory()->create(['quoted_on' => '2026-11-01', 'net_amount' => 500]);
-    Receivable::factory()->for($nextYearJob, 'billable')->create(['amount' => 500, 'due_on' => '2027-01-31']);
+    $nextYearJob = Project::factory()->create(['quoted_on' => '2026-11-01', 'net_amount' => 50000]);
+    Receivable::factory()->for($nextYearJob, 'billable')->create(['amount' => 50000, 'due_on' => '2027-01-31']);
 
     $retainer = Retainer::factory()->create();
-    $march = Receivable::factory()->for($retainer, 'billable')->create(['amount' => 20, 'due_on' => '2026-03-01']);
-    Payment::factory()->for($march)->create(['paid_on' => '2026-03-02', 'amount' => 20]);
-    Receivable::factory()->for($retainer, 'billable')->create(['amount' => 20, 'due_on' => '2026-11-01']);
+    $march = Receivable::factory()->for($retainer, 'billable')->create(['amount' => 2000, 'due_on' => '2026-03-01']);
+    Payment::factory()->for($march)->create(['paid_on' => '2026-03-02', 'amount' => 2000]);
+    Receivable::factory()->for($retainer, 'billable')->create(['amount' => 2000, 'due_on' => '2026-11-01']);
 
-    Expense::factory()->create(['spent_on' => '2026-03-10', 'net_amount' => 100, 'vat_rate' => 0.23]);
-    Expense::factory()->unpaid()->create(['spent_on' => '2026-11-02', 'net_amount' => 50]);
-    $lastYear = Project::factory()->create(['quoted_on' => '2025-03-01', 'net_amount' => 200]);
-    $lastYearDue = Receivable::factory()->for($lastYear, 'billable')->create(['amount' => 200, 'due_on' => '2025-03-05']);
-    Payment::factory()->for($lastYearDue)->create(['paid_on' => '2025-03-05', 'amount' => 200]);
+    Expense::factory()->create(['spent_on' => '2026-03-10', 'net_amount' => 10000, 'vat_rate' => 0.23]);
+    Expense::factory()->unpaid()->create(['spent_on' => '2026-11-02', 'net_amount' => 5000]);
+    $lastYear = Project::factory()->create(['quoted_on' => '2025-03-01', 'net_amount' => 20000]);
+    $lastYearDue = Receivable::factory()->for($lastYear, 'billable')->create(['amount' => 20000, 'due_on' => '2025-03-05']);
+    Payment::factory()->for($lastYearDue)->create(['paid_on' => '2025-03-05', 'amount' => 20000]);
 }
 
 it('sums the year like the Excel summary', function () {
@@ -76,14 +76,14 @@ it('sums the year like the Excel summary', function () {
 
     $summary = new PeriodSummary(Period::of(2026));
 
-    expect($summary->contracted())->toBe(1540.0)       // 1000 + 500 (quoted in 2026) + 2 × 20, cancelled excluded
-        ->and($summary->received())->toBe(420.0)
-        ->and($summary->outstanding())->toBe(1120.0)   // 600 + 500 + 20
-        ->and($summary->overdue())->toBe(620.0)        // 600 due 15/08 + retainer period due 01/11 (today 06/11)
-        ->and($summary->paidExpenses())->toBe(123.0)
-        ->and($summary->unpaidExpenses())->toBe(50.0)
-        ->and($summary->cashResult())->toBe(297.0)
-        ->and($summary->forecastResult())->toBe(1367.0); // contracted − (paid + unpaid)
+    expect($summary->contracted())->toBe(154000)       // 1000 + 500 (quoted in 2026) + 2 × 20, cancelled excluded
+        ->and($summary->received())->toBe(42000)
+        ->and($summary->outstanding())->toBe(112000)   // 600 + 500 + 20
+        ->and($summary->overdue())->toBe(62000)        // 600 due 15/08 + retainer period due 01/11 (today 06/11)
+        ->and($summary->paidExpenses())->toBe(12300)
+        ->and($summary->unpaidExpenses())->toBe(5000)
+        ->and($summary->cashResult())->toBe(29700)
+        ->and($summary->forecastResult())->toBe(136700); // contracted − (paid + unpaid)
 });
 
 it('narrows every figure to the selected month', function () {
@@ -91,11 +91,11 @@ it('narrows every figure to the selected month', function () {
 
     $march = new PeriodSummary(Period::of(2026, 3));
 
-    expect($march->contracted())->toBe(1020.0)
-        ->and($march->received())->toBe(420.0)
-        ->and($march->outstanding())->toBe(600.0)
-        ->and($march->paidExpenses())->toBe(123.0)
-        ->and($march->unpaidExpenses())->toBe(0.0);
+    expect($march->contracted())->toBe(102000)
+        ->and($march->received())->toBe(42000)
+        ->and($march->outstanding())->toBe(60000)
+        ->and($march->paidExpenses())->toBe(12300)
+        ->and($march->unpaidExpenses())->toBe(0);
 });
 
 it('breaks cash flow down by month for a year and by day for a month', function () {
@@ -105,10 +105,10 @@ it('breaks cash flow down by month for a year and by day for a month', function 
     $march = (new PeriodSummary(Period::of(2026, 3)))->cashFlow();
 
     expect($year)->toHaveCount(12)
-        ->and($year[2])->toMatchArray(['label' => 'Mar', 'received' => 420.0, 'paid' => 123.0, 'result' => 297.0])
+        ->and($year[2])->toMatchArray(['label' => 'Mar', 'received' => 42000, 'paid' => 12300, 'result' => 29700])
         ->and($march)->toHaveCount(31)
-        ->and($march[1])->toMatchArray(['label' => '2', 'received' => 20.0])
-        ->and($march[30])->toMatchArray(['label' => '31', 'received' => 400.0]);
+        ->and($march[1])->toMatchArray(['label' => '2', 'received' => 2000])
+        ->and($march[30])->toMatchArray(['label' => '31', 'received' => 40000]);
 });
 
 it('compares against the previous period', function () {
@@ -116,6 +116,6 @@ it('compares against the previous period', function () {
 
     $summary = new PeriodSummary(Period::of(2026));
 
-    expect($summary->previous()->received())->toBe(200.0)
+    expect($summary->previous()->received())->toBe(20000)
         ->and($summary->change('received')->percent)->toBe(110.0);
 });

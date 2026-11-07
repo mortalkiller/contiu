@@ -72,11 +72,11 @@ class ReceivablesTable
                     ->toggleable(),
                 TextColumn::make('amount')
                     ->label('Valor')
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->alignEnd(),
                 TextColumn::make('outstanding')
                     ->label('Em aberto')
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->weight('medium')
                     ->color(fn (float $state) => $state > 0 ? 'warning' : 'gray'),

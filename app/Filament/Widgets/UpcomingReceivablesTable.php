@@ -43,7 +43,7 @@ class UpcomingReceivablesTable extends TableWidget
                     ->url(fn (Receivable $record) => $record->billableUrl()),
                 TextColumn::make('outstanding')
                     ->label('Em aberto')
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->weight('medium'),
                 TextColumn::make('status')

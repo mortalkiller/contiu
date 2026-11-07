@@ -15,7 +15,7 @@ final class FinanceSettings
         'activity_started_on' => null,
         'irs_exempt' => true,
         'vat_exempt' => true,
-        'vat_exemption_threshold' => 15000.0,
+        'vat_exemption_threshold' => 1500000, // cents
         'ss_rate' => 0.214,
         'ss_relevant_income_share' => 0.70,
         'ss_first_year_exempt' => true,
@@ -69,9 +69,10 @@ final class FinanceSettings
         return (bool) $this->all()['vat_exempt'];
     }
 
-    public function vatExemptionThreshold(): float
+    /** Cents. */
+    public function vatExemptionThreshold(): int
     {
-        return (float) $this->all()['vat_exemption_threshold'];
+        return (int) $this->all()['vat_exemption_threshold'];
     }
 
     public function ssRate(): float
@@ -94,11 +95,12 @@ final class FinanceSettings
         return $this->date('activity_started_on');
     }
 
-    public function currentBankBalance(): ?float
+    /** Cents. */
+    public function currentBankBalance(): ?int
     {
         $value = $this->all()['current_bank_balance'];
 
-        return $value === null ? null : (float) $value;
+        return $value === null ? null : (int) $value;
     }
 
     public function currentBankBalanceOn(): ?CarbonImmutable

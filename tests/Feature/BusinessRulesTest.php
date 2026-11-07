@@ -44,7 +44,7 @@ it('saves a project whose instalments add up to the total', function () {
         ->call('create')
         ->assertHasNoFormErrors();
 
-    expect(Project::firstWhere('code', 'OC-1')->receivables()->sum('amount'))->toEqual(1000);
+    expect(Project::firstWhere('code', 'OC-1')->receivables()->sum('amount'))->toEqual(100000);
 });
 
 it('refuses instalments that do not add up to the project total', function () {
@@ -72,8 +72,8 @@ it('refuses an instalment due before the quote date', function () {
 // Recebimentos ------------------------------------------------------------------------------
 
 it('refuses a payment larger than what is still open', function () {
-    $receivable = Receivable::factory()->create(['amount' => 300]);
-    Payment::factory()->for($receivable)->create(['amount' => 100]);
+    $receivable = Receivable::factory()->create(['amount' => 30000]);
+    Payment::factory()->for($receivable)->create(['amount' => 10000]);
 
     Livewire::test(ManagePayments::class)
         ->callAction('recordPayment', data: [
@@ -88,7 +88,7 @@ it('refuses a payment larger than what is still open', function () {
 });
 
 it('records a payment that settles what is open', function () {
-    $receivable = Receivable::factory()->create(['amount' => 300]);
+    $receivable = Receivable::factory()->create(['amount' => 30000]);
 
     Livewire::test(ManagePayments::class)
         ->callAction('recordPayment', data: [
@@ -100,7 +100,7 @@ it('records a payment that settles what is open', function () {
         ])
         ->assertHasNoActionErrors();
 
-    expect($receivable->fresh()->outstanding)->toBe(0.0)
+    expect($receivable->fresh()->outstanding)->toBe(0)
         ->and($receivable->payments()->first()->invoice_number)->toBe('FR 2026/1');
 });
 

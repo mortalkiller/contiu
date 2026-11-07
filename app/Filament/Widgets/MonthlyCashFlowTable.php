@@ -36,17 +36,17 @@ class MonthlyCashFlowTable extends TableWidget
                     ->weight(fn (array $record) => $record['is_total'] ? 'bold' : null),
                 TextColumn::make('received')
                     ->label('Recebido')
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->weight(fn (array $record) => $record['is_total'] ? 'bold' : null),
                 TextColumn::make('paid')
                     ->label('Despesas pagas')
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->weight(fn (array $record) => $record['is_total'] ? 'bold' : null),
                 TextColumn::make('result')
                     ->label('Cash flow')
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->weight(fn (array $record) => $record['is_total'] ? 'bold' : 'medium')
                     ->color(fn (float $state) => $state < 0 ? 'danger' : null),

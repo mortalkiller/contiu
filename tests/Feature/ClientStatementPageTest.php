@@ -18,9 +18,9 @@ beforeEach(function () {
 
     $this->client = Client::factory()->create(['name' => 'Cliente Extrato']);
     $project = Project::factory()->for($this->client)->create(['code' => 'OC-9']);
-    $first = Receivable::factory()->for($project, 'billable')->create(['description' => '1/2', 'amount' => 600, 'due_on' => '2026-01-15']);
-    Receivable::factory()->for($project, 'billable')->create(['description' => '2/2', 'amount' => 400, 'due_on' => '2026-04-15']);
-    Payment::factory()->for($first)->create(['paid_on' => '2026-01-20', 'amount' => 600, 'method' => PaymentMethod::Transfer]);
+    $first = Receivable::factory()->for($project, 'billable')->create(['description' => '1/2', 'amount' => 60000, 'due_on' => '2026-01-15']);
+    Receivable::factory()->for($project, 'billable')->create(['description' => '2/2', 'amount' => 40000, 'due_on' => '2026-04-15']);
+    Payment::factory()->for($first)->create(['paid_on' => '2026-01-20', 'amount' => 60000, 'method' => PaymentMethod::Transfer]);
 });
 
 it('shows every movement with the running balance', function () {
@@ -29,8 +29,8 @@ it('shows every movement with the running balance', function () {
         ->assertSee('OC-9 · 1/2')
         ->assertSee('Recebimento · Transferência')
         ->assertSee('OC-9 · 2/2')
-        ->assertSee(Money::format(600))
-        ->assertSee(Money::format(400))
+        ->assertSee(Money::format(60000))
+        ->assertSee(Money::format(40000))
         ->assertSee('a vencer');
 });
 

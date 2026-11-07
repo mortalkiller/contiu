@@ -107,19 +107,19 @@ class ClientStatementPage extends Page implements HasTable
                 TextColumn::make('debit')
                     ->label('Débito')
                     ->alignEnd()
-                    ->formatStateUsing(fn (float $state) => $state > 0 ? Money::format($state) : '')
+                    ->formatStateUsing(fn (int $state) => $state > 0 ? Money::format($state) : '')
                     ->color(fn (array $record) => $record['is_future'] ? 'gray' : null),
                 TextColumn::make('credit')
                     ->label('Crédito')
                     ->alignEnd()
-                    ->formatStateUsing(fn (float $state) => $state > 0 ? Money::format($state) : '')
+                    ->formatStateUsing(fn (int $state) => $state > 0 ? Money::format($state) : '')
                     ->color('success'),
                 TextColumn::make('balance')
                     ->label('Saldo')
                     ->alignEnd()
                     ->weight(FontWeight::Medium)
-                    ->formatStateUsing(fn (float $state) => Money::format($state))
-                    ->color(fn (float $state) => $state > 0.009 ? 'warning' : null),
+                    ->formatStateUsing(fn (int $state) => Money::format($state))
+                    ->color(fn (int $state) => $state > 0 ? 'warning' : null),
             ])
             ->filters([
                 Filter::make('period')

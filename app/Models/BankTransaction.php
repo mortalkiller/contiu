@@ -27,8 +27,8 @@ class BankTransaction extends Model
     {
         return [
             'booked_on' => 'date',
-            'amount' => 'decimal:2',
-            'balance' => 'decimal:2',
+            'amount' => 'integer',
+            'balance' => 'integer',
             'status' => BankTransactionStatus::class,
             'difference_explanation' => DifferenceExplanation::class,
         ];
@@ -47,11 +47,11 @@ class BankTransaction extends Model
     }
 
     /** Line amount minus what the linked records add up to (payments +, expenses −). */
-    public function difference(): float
+    public function difference(): int
     {
-        $linked = $this->records()->sum(fn (Payment|Expense $record) => $record instanceof Payment ? (float) $record->amount : -$record->total);
+        $linked = $this->records()->sum(fn (Payment|Expense $record) => $record instanceof Payment ? $record->amount : -$record->total);
 
-        return round((float) $this->amount - $linked, 2);
+        return (int) $this->amount - (int) $linked;
     }
 
     /** @param Builder<BankTransaction> $query */
@@ -62,11 +62,11 @@ class BankTransaction extends Model
 
     protected function isCredit(): Attribute
     {
-        return Attribute::get(fn (): bool => (float) $this->amount > 0);
+        return Attribute::get(fn (): bool => (int) $this->amount > 0);
     }
 
     protected function absoluteAmount(): Attribute
     {
-        return Attribute::get(fn (): float => round(abs((float) $this->amount), 2));
+        return Attribute::get(fn (): int => abs((int) $this->amount));
     }
 }

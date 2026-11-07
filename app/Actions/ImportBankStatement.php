@@ -15,7 +15,7 @@ use Illuminate\Support\Str;
 class ImportBankStatement
 {
     /**
-     * @param  array<int, array{booked_on: string, description: string, amount: float, balance: ?float}>  $rows
+     * @param  array<int, array{booked_on: string, description: string, amount: int, balance: ?int}>  $rows
      * @return array{created: int, skipped: int}
      */
     public function store(array $rows, ?string $batch = null): array
@@ -26,7 +26,7 @@ class ImportBankStatement
 
         DB::transaction(function () use ($rows, $batch, &$seen, &$created): void {
             foreach ($rows as $row) {
-                $base = implode('|', [$row['booked_on'], number_format((float) $row['amount'], 2, '.', ''), Str::lower(trim($row['description'])), $row['balance'] === null ? '' : number_format((float) $row['balance'], 2, '.', '')]);
+                $base = implode('|', [$row['booked_on'], number_format($row['amount'] / 100, 2, '.', ''), Str::lower(trim($row['description'])), $row['balance'] === null ? '' : number_format($row['balance'] / 100, 2, '.', '')]);
                 $occurrence = $seen[$base] = ($seen[$base] ?? 0) + 1;
                 $hash = sha1($base.'|'.$occurrence);
 

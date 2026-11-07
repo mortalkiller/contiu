@@ -29,8 +29,8 @@ function donation(array $overrides = []): OneOffIncome
         'received_on' => '2026-10-14',
         'title' => 'Buy Me a Coffee',
         'category_id' => Category::firstOrCreate(['type' => CategoryType::Income, 'name' => 'Donativos'])->id,
-        'gross_amount' => 5,
-        'commission' => 0.68,
+        'gross_amount' => 500,
+        'commission' => 68,
         'commission_supplier_id' => (Supplier::firstWhere('name', 'Stripe') ?? Supplier::factory()->create(['name' => 'Stripe']))->id,
         'invoice_number' => 'FR 2026/7',
         'tax_exempt' => false,
@@ -46,9 +46,9 @@ it('records a donation with the platform commission', function () {
 
     expect($income->code)->toBe('RA-20261014-1')
         ->and($income->business_line)->toBe('Receitas avulsas')
-        ->and($payment)->amount->toEqual('5.00')->invoice_number->toBe('FR 2026/7')->tax_exempt->toBeFalse()
+        ->and($payment)->amount->toBe(500)->invoice_number->toBe('FR 2026/7')->tax_exempt->toBeFalse()
         ->and($payment->paid_on->toDateString())->toBe('2026-10-14')
-        ->and($commission)->total->toBe(0.68)->is_paid->toBeTrue()->description->toBe('Comissão · Buy Me a Coffee')
+        ->and($commission)->total->toBe(68)->is_paid->toBeTrue()->description->toBe('Comissão · Buy Me a Coffee')
         ->and($commission->category->name)->toBe('Comissões')
         ->and($commission->supplier->name)->toBe('Stripe')
         ->and($income->commission_expense_id)->toBe($commission->id);
@@ -58,7 +58,7 @@ it('records an income without commission', function () {
     donation(['commission' => null, 'commission_supplier_id' => null]);
 
     expect(Expense::count())->toBe(0)
-        ->and(Payment::sole()->amount)->toEqual('5.00');
+        ->and(Payment::sole()->amount)->toBe(500);
 });
 
 it('counts in received, contracted, income by category, margins and tax estimate', function () {
@@ -68,12 +68,12 @@ it('counts in received, contracted, income by category, margins and tax estimate
     $summary = new PeriodSummary($period);
     $lines = (new MarginReport($period))->byBusinessLine();
 
-    expect($summary->received())->toBe(5.0)
-        ->and($summary->contracted())->toBe(5.0)
+    expect($summary->received())->toBe(500)
+        ->and($summary->contracted())->toBe(500)
         ->and($summary->receivedByCategory())->toHaveKey('Donativos')
         ->and($lines)->toHaveKey('Receitas avulsas')
-        ->and($lines['Receitas avulsas']['received'])->toBe(5.0)
-        ->and((new TaxEstimator(app(FinanceSettings::class), 2026))->income())->toBe(5.0);
+        ->and($lines['Receitas avulsas']['received'])->toBe(500)
+        ->and((new TaxEstimator(app(FinanceSettings::class), 2026))->income())->toBe(500);
 });
 
 it('is never open or overdue', function () {
@@ -84,27 +84,27 @@ it('is never open or overdue', function () {
 });
 
 it('creates the income from a bank line and links payment and commission', function () {
-    $line = BankTransaction::create(['hash' => 'd1', 'booked_on' => '2026-10-14', 'description' => 'STRIPE TECHNOLOGY EUROPE, LIMITED', 'amount' => 4.32, 'import_batch' => 'x']);
+    $line = BankTransaction::create(['hash' => 'd1', 'booked_on' => '2026-10-14', 'description' => 'STRIPE TECHNOLOGY EUROPE, LIMITED', 'amount' => 432, 'import_batch' => 'x']);
 
     app(ApplyBankTransaction::class)->createOneOffIncome($line, [
         'title' => 'Buy Me a Coffee',
         'category_id' => null,
-        'gross_amount' => 5,
-        'commission' => 0.68,
+        'gross_amount' => 500,
+        'commission' => 68,
         'commission_supplier_id' => Supplier::factory()->create()->id,
         'invoice_number' => 'FR 2026/7',
         'tax_exempt' => false,
     ]);
 
-    expect($line->fresh()->difference())->toBe(0.0)
+    expect($line->fresh()->difference())->toBe(0)
         ->and($line->links()->count())->toBe(2)
         ->and($line->links()->where('created_from_line', true)->count())->toBe(2)
         ->and(OneOffIncome::sole()->received_on->toDateString())->toBe('2026-10-14');
 });
 
 it('undoing the line removes income, receivable, payment and commission', function () {
-    $line = BankTransaction::create(['hash' => 'd2', 'booked_on' => '2026-10-14', 'description' => 'STRIPE', 'amount' => 4.32, 'import_batch' => 'x']);
-    app(ApplyBankTransaction::class)->createOneOffIncome($line, ['title' => 'Donativo', 'gross_amount' => 5, 'commission' => 0.68, 'commission_supplier_id' => Supplier::factory()->create()->id]);
+    $line = BankTransaction::create(['hash' => 'd2', 'booked_on' => '2026-10-14', 'description' => 'STRIPE', 'amount' => 432, 'import_batch' => 'x']);
+    app(ApplyBankTransaction::class)->createOneOffIncome($line, ['title' => 'Donativo', 'gross_amount' => 500, 'commission' => 68, 'commission_supplier_id' => Supplier::factory()->create()->id]);
 
     app(ApplyBankTransaction::class)->undo($line);
 
@@ -137,7 +137,7 @@ it('records a one-off income from the quick create menu', function () {
         ->assertHasNoErrors();
 
     expect(OneOffIncome::sole()->title)->toBe('Donativo')
-        ->and(Payment::sole()->amount)->toEqual('10.00');
+        ->and(Payment::sole()->amount)->toBe(1000);
 });
 
 it('deleting the payment of a one-off income removes the whole income', function () {
@@ -153,11 +153,11 @@ it('deleting the payment of a one-off income removes the whole income', function
 it('editing the amount of a one-off income payment keeps the receivable in step', function () {
     $income = donation();
 
-    Payment::sole()->update(['amount' => 7]);
+    Payment::sole()->update(['amount' => 700]);
 
-    expect(Receivable::sole()->amount)->toEqual('7.00')
-        ->and(Receivable::sole()->outstanding)->toBe(0.0)
-        ->and($income->fresh()->net_amount)->toEqual('7.00');
+    expect(Receivable::sole()->amount)->toBe(700)
+        ->and(Receivable::sole()->outstanding)->toBe(0)
+        ->and($income->fresh()->net_amount)->toBe(700);
 });
 
 it('gives a new code after an income of the same day was deleted', function () {

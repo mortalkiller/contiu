@@ -19,12 +19,12 @@ class PaymentReminder extends Mailable
 {
     use Queueable, SerializesModels;
 
-    /** @var Collection<int, array{code: string, description: string, due_on: string, outstanding: float, overdue: bool, highlighted: bool}> */
+    /** @var Collection<int, array{code: string, description: string, due_on: string, outstanding: int, overdue: bool, highlighted: bool}> */
     public Collection $items;
 
-    public float $totalOpen;
+    public int $totalOpen; // cents
 
-    public float $totalOverdue;
+    public int $totalOverdue;
 
     public function __construct(
         public Client $client,
@@ -41,8 +41,8 @@ class PaymentReminder extends Mailable
             'highlighted' => $receivable->getKey() === $highlightedId,
         ])->values();
 
-        $this->totalOpen = round((float) $this->items->sum('outstanding'), 2);
-        $this->totalOverdue = round((float) $this->items->where('overdue', true)->sum('outstanding'), 2);
+        $this->totalOpen = (int) $this->items->sum('outstanding');
+        $this->totalOverdue = (int) $this->items->where('overdue', true)->sum('outstanding');
     }
 
     public function envelope(): Envelope

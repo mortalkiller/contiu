@@ -15,7 +15,7 @@ class PaymentFactory extends Factory
         return [
             'receivable_id' => Receivable::factory(),
             'paid_on' => today(),
-            'amount' => 100,
+            'amount' => 10000, // cents
             'method' => PaymentMethod::Transfer,
             'tax_exempt' => false, // explicit, so tests not about exemptions don't depend on the default
         ];

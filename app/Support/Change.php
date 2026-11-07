@@ -7,13 +7,13 @@ namespace App\Support;
  */
 final class Change
 {
-    private function __construct(public readonly float $current, public readonly float $previous, public readonly ?float $percent) {}
+    private function __construct(public readonly int|float $current, public readonly int|float $previous, public readonly ?float $percent) {}
 
-    public static function between(float $current, float $previous): self
+    public static function between(int|float $current, int|float $previous): self
     {
         $percent = match (true) {
-            abs($previous) < 0.005 && abs($current) < 0.005 => 0.0,
-            abs($previous) < 0.005 => null,
+            $previous == 0 && $current == 0 => 0.0,
+            $previous == 0 => null,
             default => round(($current - $previous) / abs($previous) * 100, 1),
         };
 

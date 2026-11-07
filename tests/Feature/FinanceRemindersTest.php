@@ -21,7 +21,7 @@ function notificationTitles(User $user): array
 }
 
 it('warns once when an open amount falls due within a week', function () {
-    Receivable::factory()->create(['amount' => 100, 'due_on' => '2026-03-15']);
+    Receivable::factory()->create(['amount' => 10000, 'due_on' => '2026-03-15']);
 
     app(SendFinanceReminders::class)->run();
     app(SendFinanceReminders::class)->run();
@@ -31,7 +31,7 @@ it('warns once when an open amount falls due within a week', function () {
 });
 
 it('warns once when an open amount becomes overdue', function () {
-    Receivable::factory()->create(['amount' => 100, 'due_on' => '2026-03-09']);
+    Receivable::factory()->create(['amount' => 10000, 'due_on' => '2026-03-09']);
 
     app(SendFinanceReminders::class)->run();
     app(SendFinanceReminders::class)->run();
@@ -41,8 +41,8 @@ it('warns once when an open amount becomes overdue', function () {
 });
 
 it('does not warn about amounts already paid or due later', function () {
-    $paid = Receivable::factory()->create(['amount' => 100, 'due_on' => '2026-03-09']);
-    Payment::factory()->for($paid)->create(['amount' => 100]);
+    $paid = Receivable::factory()->create(['amount' => 10000, 'due_on' => '2026-03-09']);
+    Payment::factory()->for($paid)->create(['amount' => 10000]);
     Receivable::factory()->create(['due_on' => '2026-04-30']);
 
     app(SendFinanceReminders::class)->run();

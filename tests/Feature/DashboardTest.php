@@ -22,13 +22,13 @@ beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-11-06'));
     actingAsAdmin();
 
-    $job = Project::factory()->create(['quoted_on' => '2026-03-04', 'net_amount' => 1000]);
-    $due = Receivable::factory()->for($job, 'billable')->create(['amount' => 1000, 'due_on' => '2026-12-15']);
-    Payment::factory()->for($due)->create(['paid_on' => '2026-03-31', 'amount' => 300]);
+    $job = Project::factory()->create(['quoted_on' => '2026-03-04', 'net_amount' => 100000]);
+    $due = Receivable::factory()->for($job, 'billable')->create(['amount' => 100000, 'due_on' => '2026-12-15']);
+    Payment::factory()->for($due)->create(['paid_on' => '2026-03-31', 'amount' => 30000]);
 
-    $old = Project::factory()->create(['quoted_on' => '2025-02-01', 'net_amount' => 100]);
-    $oldDue = Receivable::factory()->for($old, 'billable')->create(['amount' => 100, 'due_on' => '2025-02-10']);
-    Payment::factory()->for($oldDue)->create(['paid_on' => '2025-02-10', 'amount' => 100]);
+    $old = Project::factory()->create(['quoted_on' => '2025-02-01', 'net_amount' => 10000]);
+    $oldDue = Receivable::factory()->for($old, 'billable')->create(['amount' => 10000, 'due_on' => '2025-02-10']);
+    Payment::factory()->for($oldDue)->create(['paid_on' => '2025-02-10', 'amount' => 10000]);
 });
 
 it('filters the dashboard by year and, optionally, month', function () {
@@ -40,7 +40,7 @@ it('filters the dashboard by year and, optionally, month', function () {
 it('shows each figure with its change against the previous period', function () {
     Livewire::test(FinanceStatsOverview::class, ['pageFilters' => ['year' => 2026]])
         ->assertSee('Recebido em 2026')
-        ->assertSee(Money::format(300.00))
+        ->assertSee(Money::format(30000))
         ->assertSee('+200% vs 2025');
 
     Livewire::test(FinanceStatsOverview::class, ['pageFilters' => ['year' => 2026, 'month' => 3]])
@@ -50,18 +50,18 @@ it('shows each figure with its change against the previous period', function () 
 
 it('shows the Excel period summary next to the previous period', function () {
     Livewire::test(PeriodSummaryTable::class, ['pageFilters' => ['year' => 2026]])
-        ->assertSeeInOrder(['Total contratado', Money::format(1000.00), Money::format(100.00)])
-        ->assertSeeInOrder(['Total por receber', Money::format(700.00)])
+        ->assertSeeInOrder(['Total contratado', Money::format(100000), Money::format(10000)])
+        ->assertSeeInOrder(['Total por receber', Money::format(70000)])
         ->assertSee('Resultado previsto');
 });
 
 it('shows the monthly cash flow table with a total row', function () {
     Livewire::test(MonthlyCashFlowTable::class, ['pageFilters' => ['year' => 2026]])
-        ->assertSeeInOrder(['Jan', 'Fev', 'Mar', Money::format(300.00), 'Dez', 'Total', Money::format(300.00)]);
+        ->assertSeeInOrder(['Jan', 'Fev', 'Mar', Money::format(30000), 'Dez', 'Total', Money::format(30000)]);
 
     Livewire::test(MonthlyCashFlowTable::class, ['pageFilters' => ['year' => 2026, 'month' => 3]])
         ->assertSee('Dia')
-        ->assertSeeInOrder(['31', Money::format(300.00)]);
+        ->assertSeeInOrder(['31', Money::format(30000)]);
 });
 
 it('renders the charts and the receivables list for a month', function () {
@@ -69,11 +69,11 @@ it('renders the charts and the receivables list for a month', function () {
 
     Livewire::test(CashFlowChart::class, $filters)->assertSee('Março 2026');
     Livewire::test(ExpensesByCategoryChart::class, $filters)->assertSee('Março 2026');
-    Livewire::test(UpcomingReceivablesTable::class, $filters)->assertSee(Money::format(700.00));
+    Livewire::test(UpcomingReceivablesTable::class, $filters)->assertSee(Money::format(70000));
 });
 
 it('says plainly when the previous period had no value', function () {
-    Expense::factory()->create(['spent_on' => '2026-05-05', 'net_amount' => 10]); // none in 2025
+    Expense::factory()->create(['spent_on' => '2026-05-05', 'net_amount' => 1000]); // none in 2025
 
     Livewire::test(FinanceStatsOverview::class, ['pageFilters' => ['year' => 2026]])
         ->assertSee('sem valor em 2025')

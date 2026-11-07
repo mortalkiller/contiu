@@ -245,7 +245,7 @@ class ImportFinanceWorkbook
             'title' => $title,
             'description' => str_contains($description, "\n") ? $description : null,
             'quoted_on' => $quotedOn,
-            'net_amount' => $this->number($row['Valor contratado sem IVA']),
+            'net_amount' => $this->cents($row['Valor contratado sem IVA']),
             'vat_rate' => $this->vat($row['IVA %']),
             'status' => $status,
             'notes' => $this->text($row['Observações'] ?? null) ?: null,
@@ -297,7 +297,7 @@ class ImportFinanceWorkbook
             'category_id' => $this->category(CategoryType::Income, $this->text($row['Categoria']))?->id,
             'business_line' => $this->businessLine($this->text($row['ID Receita/Projeto'])),
             'title' => trim(Str::before($this->text($row['Descrição']), "\n")) ?: $code,
-            'net_amount' => $this->number($row['Valor contratado sem IVA']),
+            'net_amount' => $this->cents($row['Valor contratado sem IVA']),
             'vat_rate' => $this->vat($row['IVA %']),
             'frequency' => $frequency,
             'due_day' => min(28, $dueDay),
@@ -315,7 +315,7 @@ class ImportFinanceWorkbook
         $id = $this->text($row['ID Receita/Projeto']);
         $periodStart = $this->date($row['Data orçamento']) ?? $this->date($row['Data limite pagamento']) ?? today();
         $dueOn = $this->date($row['Data limite pagamento']) ?? $periodStart;
-        $net = $this->number($row['Valor contratado sem IVA']);
+        $net = $this->cents($row['Valor contratado sem IVA']);
 
         // A period cannot fall due before it starts (a typo in the Excel): due on the retainer's
         // due day of the period's own month instead.
@@ -326,13 +326,13 @@ class ImportFinanceWorkbook
             $dueOn = $fixed;
         }
 
-        if (abs($net - (float) $retainer->net_amount) > 0.009) {
+        if ($net !== $retainer->net_amount) {
             $this->warn($row, $id, 'valor diferente dos outros meses da avença '.$retainer->code.'; mantive o valor desta linha.');
         }
 
         $this->receivablesById[$id] = $retainer->receivables()->create([
             'description' => PeriodLabel::for($periodStart, $retainer->frequency),
-            'amount' => round($net * (1 + $this->vat($row['IVA %'])), 2),
+            'amount' => $net + Money::vat($net, $this->vat($row['IVA %'])),
             'due_on' => $dueOn,
             'sort' => $sort,
         ]);
@@ -355,11 +355,11 @@ class ImportFinanceWorkbook
                 continue;
             }
 
-            $amount = $this->number($row['Valor recebido']);
-            $outstanding = round((float) $receivable->amount - (float) $receivable->payments()->sum('amount'), 2);
+            $amount = $this->cents($row['Valor recebido']);
+            $outstanding = $receivable->amount - (int) $receivable->payments()->sum('amount');
 
-            if ($amount > $outstanding + 0.009) {
-                $this->warn($row, $id, 'o recebimento ('.$amount.' €) é maior do que o valor em aberto ('.$outstanding.' €).', 'Pagamentos');
+            if ($amount > $outstanding) {
+                $this->warn($row, $id, 'o recebimento ('.Money::format($amount).') é maior do que o valor em aberto ('.Money::format($outstanding).').', 'Pagamentos');
             }
 
             $receivable->payments()->create([
@@ -401,7 +401,7 @@ class ImportFinanceWorkbook
                 'retainer_id' => $direct && $owner instanceof Retainer ? $owner->id : null,
                 'description' => $this->text($row['Descrição']) ?: '—',
                 'spent_on' => $spentOn,
-                'net_amount' => $this->number($row['Valor sem IVA']),
+                'net_amount' => $this->cents($row['Valor sem IVA']),
                 'vat_rate' => $this->vat($row['IVA %']),
                 'is_paid' => $isPaid,
                 'paid_on' => $isPaid ? $spentOn : null,
@@ -418,7 +418,7 @@ class ImportFinanceWorkbook
     /**
      * Instalment plans made in the app (the Excel only knows a single due date), by project code.
      *
-     * @return array<string, list<array{description: string, amount: float, due_on: string, sort: int}>>
+     * @return array<string, list<array{description: string, amount: int, due_on: string, sort: int}>>
      */
     private function instalmentPlans(): array
     {
@@ -428,7 +428,7 @@ class ImportFinanceWorkbook
             ->mapWithKeys(fn (Project $project) => [$project->code => $project->receivables
                 ->map(fn (Receivable $receivable) => [
                     'description' => $receivable->description,
-                    'amount' => (float) $receivable->amount,
+                    'amount' => $receivable->amount,
                     'due_on' => $receivable->due_on->toDateString(),
                     'sort' => (int) $receivable->sort,
                 ])->values()->all()])
@@ -439,7 +439,7 @@ class ImportFinanceWorkbook
      * Re-creates each kept plan on the imported project and moves its payments onto the instalments,
      * oldest payment to the earliest instalment with money still open.
      *
-     * @param  array<string, list<array{description: string, amount: float, due_on: string, sort: int}>>  $plans
+     * @param  array<string, list<array{description: string, amount: int, due_on: string, sort: int}>>  $plans
      */
     private function restoreInstalmentPlans(array $plans): void
     {
@@ -452,7 +452,7 @@ class ImportFinanceWorkbook
                 continue;
             }
 
-            if (abs(array_sum(array_column($plan, 'amount')) - $project->total) > 0.009) {
+            if (array_sum(array_column($plan, 'amount')) !== $project->total) {
                 $this->result->warnings[] = "Receitas ({$code}): o plano de prestações feito na app já não soma o total importado (".Money::format($project->total).'); ficou um pagamento único.';
 
                 continue;
@@ -464,12 +464,12 @@ class ImportFinanceWorkbook
                 ->map(fn (array $row) => $project->receivables()->create($row))
                 ->values();
 
-            $open = $instalments->mapWithKeys(fn (Receivable $receivable) => [$receivable->id => (float) $receivable->amount])->all();
+            $open = $instalments->mapWithKeys(fn (Receivable $receivable) => [$receivable->id => $receivable->amount])->all();
 
             foreach ($payments as $payment) {
-                $target = collect($open)->filter(fn (float $left) => $left > 0.009)->keys()->first() ?? $instalments->last()->id;
+                $target = collect($open)->filter(fn (int $left) => $left > 0)->keys()->first() ?? $instalments->last()->id;
                 $payment->update(['receivable_id' => $target]);
-                $open[$target] -= (float) $payment->amount;
+                $open[$target] -= $payment->amount;
             }
 
             $single->delete();
@@ -548,9 +548,9 @@ class ImportFinanceWorkbook
 
     private function computeTotals(): void
     {
-        $this->result->contracted = round((float) Receivable::query()->excludingCancelled()->sum('amount'), 2);
-        $this->result->received = round((float) Payment::query()->sum('amount'), 2);
-        $this->result->expenses = round(Expense::query()->get()->sum(fn (Expense $expense) => $expense->total), 2);
+        $this->result->contracted = (int) Receivable::query()->excludingCancelled()->sum('amount');
+        $this->result->received = (int) Payment::query()->sum('amount');
+        $this->result->expenses = (int) Expense::query()->get()->sum(fn (Expense $expense) => $expense->total);
     }
 
     private function client(string $name): Client
@@ -669,6 +669,12 @@ class ImportFinanceWorkbook
     private function text(mixed $value): string
     {
         return trim((string) ($value ?? ''));
+    }
+
+    /** A money cell (number or "1.965,50 €") in cents. */
+    private function cents(mixed $value): int
+    {
+        return Money::toCents($this->number($value)) ?? 0;
     }
 
     private function number(mixed $value): float

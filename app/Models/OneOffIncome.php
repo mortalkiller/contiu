@@ -47,7 +47,7 @@ class OneOffIncome extends Model implements AuditableContract
     {
         return [
             'received_on' => 'date',
-            'net_amount' => 'decimal:2',
+            'net_amount' => 'integer',
             'vat_rate' => 'decimal:4',
         ];
     }

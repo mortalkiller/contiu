@@ -12,7 +12,7 @@ use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
  * and generic ones): finds the header row after
  * any preamble, detects the delimiter, decimal style and date format, and returns signed amounts
  * (credit +, debit −). When the columns can't be recognised, it returns the headers so the user
- * can map them by hand.
+ * can map them by hand. Amounts and balances come out in cents.
  */
 final class BankCsvParser
 {
@@ -132,14 +132,14 @@ final class BankCsvParser
                 $amount = ($credit === null && $debit === null) ? null : abs($credit ?? 0) - abs($debit ?? 0);
             }
 
-            if ($amount === null || abs($amount) < 0.005) {
+            if ($amount === null || $amount === 0) {
                 continue;
             }
 
             $rows[] = [
                 'booked_on' => $date,
                 'description' => preg_replace('/\s+/u', ' ', $cells[$columns['description']] ?? '') ?? '',
-                'amount' => round($amount, 2),
+                'amount' => $amount,
                 'balance' => isset($columns['balance']) ? self::parseNumber($cells[$columns['balance']] ?? '', $decimalComma) : null,
             ];
         }
@@ -238,7 +238,8 @@ final class BankCsvParser
         return false;
     }
 
-    private static function parseNumber(string $value, bool $decimalComma): ?float
+    /** The cell as cents (bank amounts are always to the cent). */
+    private static function parseNumber(string $value, bool $decimalComma): ?int
     {
         $value = preg_replace('/[\s\x{00A0}\x{202F}€]|EUR/u', '', $value) ?? '';
 
@@ -254,7 +255,7 @@ final class BankCsvParser
             return null;
         }
 
-        return ($negative ? -1 : 1) * (float) $value;
+        return ($negative ? -1 : 1) * Money::toCents($value);
     }
 
     private static function parseDate(string $value): ?string

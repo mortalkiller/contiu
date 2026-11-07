@@ -35,13 +35,13 @@ class PeriodSummaryTable extends TableWidget
                     ->wrap(),
                 TextColumn::make('current')
                     ->label(fn () => $this->period()->label())
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->weight('semibold')
                     ->alignEnd()
                     ->color(fn (float $state) => $state < 0 ? 'danger' : null),
                 TextColumn::make('previous')
                     ->label(fn () => $this->period()->previous()->label())
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->color('gray')
                     ->alignEnd()
                     ->placeholder('—'),

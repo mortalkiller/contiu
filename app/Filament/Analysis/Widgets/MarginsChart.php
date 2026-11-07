@@ -3,6 +3,7 @@
 namespace App\Filament\Analysis\Widgets;
 
 use App\Filament\Analysis\Concerns\UsesMarginPeriod;
+use App\Support\Money;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
 
@@ -40,9 +41,9 @@ class MarginsChart extends ChartWidget
         return [
             'labels' => array_column($rows, 'label'),
             'datasets' => [
-                ['label' => 'Faturado', 'data' => array_column($rows, 'invoiced'), 'order' => 2],
-                ['label' => 'Custos diretos', 'data' => array_column($rows, 'directCosts'), 'order' => 2],
-                ['label' => 'Margem', 'data' => array_column($rows, 'margin'), 'type' => 'line', 'order' => 1],
+                ['label' => 'Faturado', 'data' => Money::toEurosList(array_column($rows, 'invoiced')), 'order' => 2],
+                ['label' => 'Custos diretos', 'data' => Money::toEurosList(array_column($rows, 'directCosts')), 'order' => 2],
+                ['label' => 'Margem', 'data' => Money::toEurosList(array_column($rows, 'margin')), 'type' => 'line', 'order' => 1],
             ],
         ];
     }

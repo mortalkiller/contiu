@@ -52,12 +52,9 @@ final class FinanceFields
 
     public static function netAmount(string $label = 'Valor sem IVA'): TextInput
     {
-        return TextInput::make('net_amount')
+        return MoneyInput::make('net_amount')
             ->label($label)
-            ->numeric()
             ->minValue(0)
-            ->step(0.01)
-            ->suffix('€')
             ->live(onBlur: true)
             ->required();
     }
@@ -78,7 +75,11 @@ final class FinanceFields
     {
         return TextEntry::make('total_preview')
             ->label('Total com IVA')
-            ->state(fn (Get $get): string => Money::format(round((float) $get('net_amount') * (1 + (float) $get('vat_rate')), 2)))
+            ->state(function (Get $get): string {
+                $net = Money::toCents($get('net_amount')) ?? 0;
+
+                return Money::format($net + Money::vat($net, (string) ($get('vat_rate') ?? 0)));
+            })
             ->size(TextSize::Large)
             ->weight(FontWeight::Bold);
     }

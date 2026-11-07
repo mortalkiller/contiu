@@ -38,7 +38,7 @@ class SuppliersTable
                 TextColumn::make('total_spent')
                     ->label('Total gasto')
                     ->state(fn (Supplier $record) => $record->expenses->sum(fn (Expense $expense) => $expense->total))
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->alignEnd(),
             ])
             ->recordActions([

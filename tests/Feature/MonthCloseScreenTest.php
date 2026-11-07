@@ -38,7 +38,7 @@ it('says the month is closed when nothing is left', function () {
 });
 
 it('lists the month receivables and lets you record what came in', function () {
-    $receivable = Receivable::factory()->create(['amount' => 200, 'due_on' => '2026-03-05']);
+    $receivable = Receivable::factory()->create(['amount' => 20000, 'due_on' => '2026-03-05']);
 
     Livewire::test(MonthReceivablesTable::class, ['month' => '2026-03'])
         ->assertCanSeeTableRecords([$receivable])
@@ -49,7 +49,7 @@ it('lists the month receivables and lets you record what came in', function () {
         ])
         ->assertHasNoTableActionErrors();
 
-    expect($receivable->fresh()->outstanding)->toBe(0.0);
+    expect($receivable->fresh()->outstanding)->toBe(0);
 });
 
 it('marks an expense as paid and stores its invoice number inline', function () {
@@ -67,7 +67,7 @@ it('marks an expense as paid and stores its invoice number inline', function () 
 });
 
 it('updates the summary when moving from a closed month to one with items left', function () {
-    Receivable::factory()->create(['amount' => 20, 'due_on' => '2026-04-01']);
+    Receivable::factory()->create(['amount' => 2000, 'due_on' => '2026-04-01']);
 
     Livewire::test(MonthClose::class, ['month' => '2026-03'])
         ->assertSee('Mês fechado')

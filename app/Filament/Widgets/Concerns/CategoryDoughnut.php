@@ -23,17 +23,17 @@ trait CategoryDoughnut
 
     protected function getData(): array
     {
-        $values = SliceFolder::fold(array_filter($this->amounts(), fn (float $value) => $value > 0));
+        $values = SliceFolder::fold(array_filter($this->amounts(), fn (int|float $value) => $value > 0));
         $total = array_sum($values);
 
         return [
             'labels' => array_map(
-                fn (string $name, float $value) => $name.' · '.Money::format($value).' ('.($total > 0 ? round($value / $total * 100) : 0).'%)',
+                fn (string $name, int|float $value) => $name.' · '.Money::format($value).' ('.($total > 0 ? round($value / $total * 100) : 0).'%)',
                 array_keys($values),
                 array_values($values),
             ),
             'datasets' => [
-                ['label' => $this->getHeading(), 'data' => array_values($values)],
+                ['label' => $this->getHeading(), 'data' => Money::toEurosList(array_values($values))],
             ],
         ];
     }

@@ -17,9 +17,9 @@ class ProjectInfolist
                     ->columns(4)
                     ->schema([
                         TextEntry::make('category.name')->label('Categoria')->placeholder('—'),
-                        TextEntry::make('net_amount')->label('Valor sem IVA')->money('EUR'),
+                        TextEntry::make('net_amount')->label('Valor sem IVA')->money('EUR', divideBy: 100),
                         TextEntry::make('vat_rate')->label('IVA')->formatStateUsing(fn ($state) => round((float) $state * 100).'%'),
-                        TextEntry::make('direct_costs')->label('Custos diretos')->money('EUR'),
+                        TextEntry::make('direct_costs')->label('Custos diretos')->money('EUR', divideBy: 100),
                         TextEntry::make('description')->label('Descrição')->placeholder('—')->columnSpanFull(),
                         TextEntry::make('notes')->label('Notas')->placeholder('—')->columnSpanFull(),
                     ]),

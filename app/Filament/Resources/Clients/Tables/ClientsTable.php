@@ -44,11 +44,11 @@ class ClientsTable
                     ->sortable(),
                 TextColumn::make('projects_count')->label('Trabalhos')->alignCenter(),
                 TextColumn::make('retainers_count')->label('Avenças')->alignCenter(),
-                TextColumn::make('contracted_amount')->label('Contratado')->money('EUR')->alignEnd(),
-                TextColumn::make('received_amount')->label('Recebido')->money('EUR')->alignEnd(),
-                TextColumn::make('outstanding_amount')->label('Por receber')->money('EUR')->alignEnd()
+                TextColumn::make('contracted_amount')->label('Contratado')->money('EUR', divideBy: 100)->alignEnd(),
+                TextColumn::make('received_amount')->label('Recebido')->money('EUR', divideBy: 100)->alignEnd(),
+                TextColumn::make('outstanding_amount')->label('Por receber')->money('EUR', divideBy: 100)->alignEnd()
                     ->color(fn (float $state) => $state > 0 ? 'warning' : 'gray'),
-                TextColumn::make('overdue_amount')->label('Vencido')->money('EUR')->alignEnd()
+                TextColumn::make('overdue_amount')->label('Vencido')->money('EUR', divideBy: 100)->alignEnd()
                     ->color(fn (float $state) => $state > 0 ? 'danger' : 'gray'),
             ])
             ->recordActions([

@@ -36,7 +36,7 @@ class MonthExpensesTable extends TableWidget
                     ->label('Fornecedor')
                     ->description(fn (Expense $record) => $record->description),
                 TextColumn::make('kind')->label('Tipo')->badge()->toggleable(),
-                TextColumn::make('total')->label('Total')->money('EUR')->alignEnd(),
+                TextColumn::make('total')->label('Total')->money('EUR', divideBy: 100)->alignEnd(),
                 IconColumn::make('is_paid')->label('Paga')->boolean(),
                 TextInputColumn::make('invoice_number')
                     ->label('N.º da fatura')

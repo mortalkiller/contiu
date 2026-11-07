@@ -23,11 +23,11 @@ beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-11-06'));
     actingAsAdmin();
 
-    $printee = Project::factory()->create(['business_line' => 'Printee', 'quoted_on' => '2026-03-01', 'net_amount' => 1000]);
-    Receivable::factory()->for($printee, 'billable')->create(['amount' => 1000, 'due_on' => '2026-12-10']);
-    Receivable::factory()->for(Project::factory()->state(['quoted_on' => '2026-01-01']), 'billable')->create(['amount' => 300, 'due_on' => '2026-10-01']); // overdue
-    Retainer::factory()->create(['starts_on' => '2026-12-01', 'due_day' => 1, 'net_amount' => 20]);
-    Expense::factory()->unpaid()->create(['spent_on' => '2026-11-20', 'net_amount' => 40]);
+    $printee = Project::factory()->create(['business_line' => 'Printee', 'quoted_on' => '2026-03-01', 'net_amount' => 100000]);
+    Receivable::factory()->for($printee, 'billable')->create(['amount' => 100000, 'due_on' => '2026-12-10']);
+    Receivable::factory()->for(Project::factory()->state(['quoted_on' => '2026-01-01']), 'billable')->create(['amount' => 30000, 'due_on' => '2026-10-01']); // overdue
+    Retainer::factory()->create(['starts_on' => '2026-12-01', 'due_day' => 1, 'net_amount' => 2000]);
+    Expense::factory()->unpaid()->create(['spent_on' => '2026-11-20', 'net_amount' => 4000]);
 });
 
 it('splits the forecast inflows and outflows by where they come from', function () {
@@ -36,20 +36,20 @@ it('splits the forecast inflows and outflows by where they come from', function 
     $in = $forecast->inflowBreakdown();
     $out = $forecast->outflowBreakdown();
 
-    expect($in)->toBe(['A receber' => 1000.0, 'Em atraso' => 300.0, 'Avenças por gerar' => 40.0]) // Dec + Jan
+    expect($in)->toBe(['A receber' => 100000, 'Em atraso' => 30000, 'Avenças por gerar' => 4000]) // Dec + Jan
         ->and(array_sum($in))->toBe($forecast->totals()['inflows'])
-        ->and($out['Despesas por pagar'])->toBe(40.0)
-        ->and(round(array_sum($out), 2))->toBe($forecast->totals()['outflows']);
+        ->and($out['Despesas por pagar'])->toBe(4000)
+        ->and(array_sum($out))->toBe($forecast->totals()['outflows']);
 });
 
 it('shows forecast doughnuts for inflows and outflows', function () {
     Livewire::test(ForecastInflowsChart::class, ['months' => 3])
         ->assertSee('Entradas previstas')
-        ->assertSee('A receber · '.Money::format(1000), escape: false);
+        ->assertSee('A receber · '.Money::format(100000), escape: false);
 
     Livewire::test(ForecastOutflowsChart::class, ['months' => 3])
         ->assertSee('Saídas previstas')
-        ->assertSee('Despesas por pagar · '.Money::format(40), escape: false);
+        ->assertSee('Despesas por pagar · '.Money::format(4000), escape: false);
 });
 
 it('shows margin charts by business line and by client', function () {
@@ -58,7 +58,7 @@ it('shows margin charts by business line and by client', function () {
 
     Livewire::test(MarginsByLineChart::class, ['year' => 2026])
         ->assertSee('Faturado por linha de negócio')
-        ->assertSee('Printee · '.Money::format(1000), escape: false);
+        ->assertSee('Printee · '.Money::format(100000), escape: false);
 
     Livewire::test(MarginsByClientChart::class, ['year' => 2026])->assertSee('Faturado por cliente');
 });
@@ -75,11 +75,11 @@ it('passes the current horizon and period to the widgets after they change', fun
 });
 
 it('shows where the invoiced money goes: direct costs, overhead and result', function () {
-    Expense::factory()->create(['spent_on' => '2026-05-01', 'net_amount' => 100]); // overhead
+    Expense::factory()->create(['spent_on' => '2026-05-01', 'net_amount' => 10000]); // overhead
 
     Livewire::test(MarginsBreakdownChart::class, ['year' => 2026])
         ->assertSee('Para onde vai o faturado')
-        ->assertSee('Custos de estrutura · '.Money::format(140), escape: false) // + the 40 € unpaid one from beforeEach
+        ->assertSee('Custos de estrutura · '.Money::format(14000), escape: false) // + the 40 € unpaid one from beforeEach
         ->assertSee('Resultado · ', escape: false);
 });
 

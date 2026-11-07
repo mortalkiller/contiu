@@ -37,7 +37,7 @@ class Receivable extends Model implements AuditableContract
     protected function casts(): array
     {
         return [
-            'amount' => 'decimal:2',
+            'amount' => 'integer',
             'due_on' => 'date',
         ];
     }
@@ -64,7 +64,7 @@ class Receivable extends Model implements AuditableContract
     /** @param Builder<Receivable> $query */
     public function scopeOpen(Builder $query): void
     {
-        $query->whereRaw('amount > (select coalesce(sum(payments.amount), 0) from payments where payments.receivable_id = receivables.id) + 0.009');
+        $query->whereRaw('amount > (select coalesce(sum(payments.amount), 0) from payments where payments.receivable_id = receivables.id)');
     }
 
     /** @param Builder<Receivable> $query */
@@ -76,18 +76,18 @@ class Receivable extends Model implements AuditableContract
 
     protected function received(): Attribute
     {
-        return Attribute::get(fn (): float => round((float) $this->payments->sum('amount'), 2));
+        return Attribute::get(fn (): int => (int) $this->payments->sum('amount'));
     }
 
     protected function outstanding(): Attribute
     {
-        return Attribute::get(fn (): float => max(0, round((float) $this->amount - $this->received, 2)));
+        return Attribute::get(fn (): int => max(0, (int) $this->amount - $this->received));
     }
 
     protected function status(): Attribute
     {
         return Attribute::get(function (): ReceivableStatus {
-            if ($this->outstanding <= 0.01) {
+            if ($this->outstanding <= 0) {
                 return ReceivableStatus::Paid;
             }
 

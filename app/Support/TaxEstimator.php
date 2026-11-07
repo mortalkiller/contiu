@@ -24,7 +24,7 @@ final class TaxEstimator
 
     public const IRS_SERVICES_COEFFICIENT = 0.75;
 
-    /** @var array<string, float> */
+    /** @var array<string, int> */
     private array $incomeCache = [];
 
     public function __construct(private readonly FinanceSettings $settings, public readonly int $year) {}
@@ -34,13 +34,13 @@ final class TaxEstimator
         return $this->settings;
     }
 
-    public function income(): float
+    public function income(): int
     {
         return $this->incomeBetween(CarbonImmutable::create($this->year, 1, 1), CarbonImmutable::create($this->year, 12, 31));
     }
 
     /**
-     * @return array<int, array{label: string, income: float, base: float, monthly: float, chargedMonths: int, total: float, paidIn: string}>
+     * @return array<int, array{label: string, income: int, base: int, monthly: int, chargedMonths: int, total: int, paidIn: string} (cents)>
      */
     public function quarters(): array
     {
@@ -60,7 +60,7 @@ final class TaxEstimator
                 'base' => $base,
                 'monthly' => $monthly,
                 'chargedMonths' => $charged,
-                'total' => round($monthly * $charged, 2),
+                'total' => $monthly * $charged,
                 'paidIn' => Period::SHORT_MONTHS[$paymentMonths->first()->month - 1].' – '.Period::SHORT_MONTHS[$paymentMonths->last()->month - 1].' '.$paymentMonths->last()->year,
             ];
         }
@@ -68,18 +68,18 @@ final class TaxEstimator
         return $quarters;
     }
 
-    public function ssYearTotal(): float
+    public function ssYearTotal(): int
     {
-        return round(array_sum(array_column($this->quarters(), 'total')), 2);
+        return (int) array_sum(array_column($this->quarters(), 'total'));
     }
 
     /** Contribution due in a given month, from the income of the quarter before that month's quarter. */
-    public function ssContributionForMonth(CarbonImmutable $month): float
+    public function ssContributionForMonth(CarbonImmutable $month): int
     {
         $month = $month->startOfMonth();
 
         if ($this->isExemptMonth($month)) {
-            return 0.0;
+            return 0;
         }
 
         $quarterStart = $month->firstOfQuarter()->subMonths(3);
@@ -107,9 +107,9 @@ final class TaxEstimator
         return $this->settings->irsExempt();
     }
 
-    public function irsTaxableIncome(): float
+    public function irsTaxableIncome(): int
     {
-        return $this->irsExempt() ? 0.0 : round($this->income() * self::IRS_SERVICES_COEFFICIENT, 2);
+        return $this->irsExempt() ? 0 : Money::share($this->income(), self::IRS_SERVICES_COEFFICIENT);
     }
 
     public function vatExempt(): bool
@@ -118,12 +118,12 @@ final class TaxEstimator
     }
 
     /** Payments received in the year but marked tax-exempt, left out of every figure above. */
-    public function exemptIncome(): float
+    public function exemptIncome(): int
     {
-        return round((float) Payment::query()
+        return (int) Payment::query()
             ->whereBetween('paid_on', [CarbonImmutable::create($this->year, 1, 1)->startOfDay()->toDateTimeString(), CarbonImmutable::create($this->year, 12, 31)->endOfDay()->toDateTimeString()])
             ->where('tax_exempt', true)
-            ->sum('amount'), 2);
+            ->sum('amount');
     }
 
     public function vatThresholdPercent(): float
@@ -145,46 +145,47 @@ final class TaxEstimator
         };
     }
 
-    public function vatCollected(): float
+    /** VAT inside the payments received (payment − its net), per payment to the cent. */
+    public function vatCollected(): int
     {
-        return round($this->payments(CarbonImmutable::create($this->year, 1, 1), CarbonImmutable::create($this->year, 12, 31))
-            ->sum(function (Payment $payment): float {
-                $rate = (float) ($payment->receivable?->billable?->vat_rate ?? 0);
+        return (int) $this->payments(CarbonImmutable::create($this->year, 1, 1), CarbonImmutable::create($this->year, 12, 31))
+            ->sum(function (Payment $payment): int {
+                $rate = (string) ($payment->receivable?->billable?->vat_rate ?? 0);
 
-                return $rate > 0 ? (float) $payment->amount * $rate / (1 + $rate) : 0.0;
-            }), 2);
+                return (float) $rate > 0 ? $payment->amount - Money::netFromGross($payment->amount, $rate) : 0;
+            });
     }
 
-    public function vatPaid(): float
+    public function vatPaid(): int
     {
-        return round(Expense::query()
+        return (int) Expense::query()
             ->where('is_paid', true)
             ->whereBetween('spent_on', Period::of($this->year)->range())
             ->get()
-            ->sum(fn (Expense $expense) => $expense->vat_amount), 2);
+            ->sum(fn (Expense $expense) => $expense->vat_amount);
     }
 
-    public function vatBalance(): float
+    public function vatBalance(): int
     {
-        return round($this->vatCollected() - $this->vatPaid(), 2);
+        return $this->vatCollected() - $this->vatPaid();
     }
 
-    /** @return array{0: float, 1: float} [base, monthly contribution] */
-    private function contribution(float $income): array
+    /** @return array{0: int, 1: int} [base, monthly contribution] in cents */
+    private function contribution(int $income): array
     {
-        $base = $income * $this->settings->ssRelevantIncomeShare() / 3;
+        $base = Money::round($income * $this->settings->ssRelevantIncomeShare() / 3);
 
-        return [round($base, 2), round($base * $this->settings->ssRate(), 2)];
+        return [$base, Money::share($base, $this->settings->ssRate())];
     }
 
-    private function incomeBetween(CarbonImmutable $from, CarbonImmutable $to): float
+    private function incomeBetween(CarbonImmutable $from, CarbonImmutable $to): int
     {
         $key = $from->toDateString().'|'.$to->toDateString();
 
-        return $this->incomeCache[$key] ??= round((float) Payment::query()
+        return $this->incomeCache[$key] ??= (int) Payment::query()
             ->whereBetween('paid_on', [$from->startOfDay()->toDateTimeString(), $to->endOfDay()->toDateTimeString()])
             ->where('tax_exempt', false)
-            ->sum('amount'), 2);
+            ->sum('amount');
     }
 
     /** @return Collection<int, Payment> */

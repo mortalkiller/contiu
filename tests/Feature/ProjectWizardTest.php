@@ -52,11 +52,11 @@ it('creates a project in steps using the equal instalments preset', function () 
     $project = Project::firstWhere('code', 'OC-202603-9');
 
     expect($project->client_id)->toBe($client->id)
-        ->and($project->receivables()->orderBy('due_on')->get(['description', 'amount', 'due_on'])->map(fn ($row) => [$row->description, (float) $row->amount, $row->due_on->toDateString()])->all())
+        ->and($project->receivables()->orderBy('due_on')->get(['description', 'amount', 'due_on'])->map(fn ($row) => [$row->description, $row->amount, $row->due_on->toDateString()])->all())
         ->toBe([
-            ['Prestação 1/3', 333.33, '2026-03-10'],
-            ['Prestação 2/3', 333.33, '2026-04-10'],
-            ['Prestação 3/3', 333.34, '2026-05-10'],
+            ['Prestação 1/3', 33333, '2026-03-10'],
+            ['Prestação 2/3', 33333, '2026-04-10'],
+            ['Prestação 3/3', 33334, '2026-05-10'],
         ]);
 });
 
@@ -86,8 +86,8 @@ it('starts with the client chosen when opened from a client page', function () {
 });
 
 it('keeps the full form on the edit page', function () {
-    $project = Project::factory()->create(['net_amount' => 500, 'quoted_on' => '2026-03-01']);
-    $project->receivables()->create(['description' => 'Pagamento único', 'amount' => 500, 'due_on' => '2026-03-31']);
+    $project = Project::factory()->create(['net_amount' => 50000, 'quoted_on' => '2026-03-01']);
+    $project->receivables()->create(['description' => 'Pagamento único', 'amount' => 50000, 'due_on' => '2026-03-31']);
 
     Livewire::test(EditProject::class, ['record' => $project->getRouteKey()])
         ->assertFormFieldExists('client_id')

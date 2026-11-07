@@ -37,7 +37,7 @@ it('shows the fiscal settings with their defaults and saves changes', function (
 
     expect($settings->irsExempt())->toBeFalse()
         ->and($settings->ssRate())->toBe(0.214)
-        ->and($settings->currentBankBalance())->toBe(2500.0);
+        ->and($settings->currentBankBalance())->toBe(250000);
 });
 
 // Previsão de tesouraria --------------------------------------------------------------------
@@ -51,23 +51,23 @@ it('forecasts 3 months by default and switches to 6', function () {
 });
 
 it('lists the forecast months with a total row', function () {
-    Receivable::factory()->create(['amount' => 400, 'due_on' => '2026-12-10']);
+    Receivable::factory()->create(['amount' => 40000, 'due_on' => '2026-12-10']);
 
     Livewire::test(CashForecastTable::class, ['months' => 3])
-        ->assertSeeInOrder(['Novembro 2026', 'Dezembro 2026', Money::format(400), 'Janeiro 2027', 'Total']);
+        ->assertSeeInOrder(['Novembro 2026', 'Dezembro 2026', Money::format(40000), 'Janeiro 2027', 'Total']);
 });
 
 // Margens -----------------------------------------------------------------------------------
 
 it('shows margins by business line and by client for the chosen year', function () {
     $client = Client::factory()->create(['name' => 'Gonçalo']);
-    $job = Project::factory()->for($client)->create(['business_line' => 'Printee', 'quoted_on' => '2026-03-01', 'net_amount' => 1000]);
-    Payment::factory()->for(Receivable::factory()->for($job, 'billable')->create(['amount' => 1000]))->create(['paid_on' => '2026-04-01', 'amount' => 1000]);
+    $job = Project::factory()->for($client)->create(['business_line' => 'Printee', 'quoted_on' => '2026-03-01', 'net_amount' => 100000]);
+    Payment::factory()->for(Receivable::factory()->for($job, 'billable')->create(['amount' => 100000]))->create(['paid_on' => '2026-04-01', 'amount' => 100000]);
 
     Livewire::test(Margins::class)->assertSet('year', 2026)->assertSee('Margens');
 
     Livewire::test(MarginsByLineTable::class, ['year' => 2026, 'month' => null])
-        ->assertSeeInOrder(['Printee', Money::format(1000)]);
+        ->assertSeeInOrder(['Printee', Money::format(100000)]);
 
     Livewire::test(MarginsByClientTable::class, ['year' => 2026, 'month' => null])
         ->assertSee('Gonçalo');

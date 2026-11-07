@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Filament\Widgets\Concerns\UsesDashboardPeriod;
+use App\Support\Money;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
 
@@ -40,7 +41,7 @@ class MonthComparisonChart extends ChartWidget
     {
         $current = $this->summary();
         $previous = $current->previous();
-        $figures = fn ($summary) => [$summary->received(), $summary->paidExpenses(), $summary->cashResult()];
+        $figures = fn ($summary) => Money::toEurosList([$summary->received(), $summary->paidExpenses(), $summary->cashResult()]);
 
         return [
             'labels' => ['Recebido', 'Despesas pagas', 'Resultado'],

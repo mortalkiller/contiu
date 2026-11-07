@@ -9,8 +9,8 @@ namespace App\Support;
 final class SliceFolder
 {
     /**
-     * @param  array<string, float>  $values
-     * @return array<string, float>
+     * @param  array<string, int|float>  $values
+     * @return array<string, int|float>
      */
     public static function fold(array $values, int $max = 6): array
     {
@@ -21,7 +21,7 @@ final class SliceFolder
         arsort($values);
 
         $kept = array_slice($values, 0, $max - 1, true);
-        $kept['Outras'] = round(array_sum(array_slice($values, $max - 1, null, true)), 2);
+        $kept['Outras'] = array_sum(array_slice($values, $max - 1, null, true));
 
         return $kept;
     }

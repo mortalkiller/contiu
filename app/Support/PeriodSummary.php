@@ -20,7 +20,7 @@ use Illuminate\Support\Collection;
  */
 final class PeriodSummary
 {
-    /** @var array<string, float> */
+    /** @var array<string, int> */
     private array $memo = [];
 
     public function __construct(public readonly Period $period) {}
@@ -45,60 +45,60 @@ final class PeriodSummary
             ->mapWithKeys(fn (int $year) => [$year => (string) $year])->all();
     }
 
-    public function contracted(): float
+    public function contracted(): int
     {
         return $this->remember(__FUNCTION__, fn () => $this->contractedReceivables()->sum('amount'));
     }
 
-    public function received(): float
+    public function received(): int
     {
         return $this->remember(__FUNCTION__, fn () => Payment::query()->whereBetween('paid_on', $this->period->range())->sum('amount'));
     }
 
-    public function outstanding(): float
+    public function outstanding(): int
     {
         return $this->remember(__FUNCTION__, fn () => $this->contractedReceivables()->sum(fn (Receivable $receivable) => $receivable->outstanding));
     }
 
-    public function overdue(): float
+    public function overdue(): int
     {
         return $this->remember(__FUNCTION__, fn () => $this->contractedReceivables()
             ->filter(fn (Receivable $receivable) => $receivable->due_on->lt(today()))
             ->sum(fn (Receivable $receivable) => $receivable->outstanding));
     }
 
-    public function paidExpenses(): float
+    public function paidExpenses(): int
     {
         return $this->remember(__FUNCTION__, fn () => $this->expenses()->where('is_paid', true)->sum(fn (Expense $expense) => $expense->total));
     }
 
-    public function unpaidExpenses(): float
+    public function unpaidExpenses(): int
     {
         return $this->remember(__FUNCTION__, fn () => $this->expenses()->where('is_paid', false)->sum(fn (Expense $expense) => $expense->total));
     }
 
-    public function cashResult(): float
+    public function cashResult(): int
     {
-        return round($this->received() - $this->paidExpenses(), 2);
+        return $this->received() - $this->paidExpenses();
     }
 
-    public function forecastResult(): float
+    public function forecastResult(): int
     {
-        return round($this->contracted() - $this->paidExpenses() - $this->unpaidExpenses(), 2);
+        return $this->contracted() - $this->paidExpenses() - $this->unpaidExpenses();
     }
 
     /** Always from today, whatever the period. */
-    public static function dueNext30Days(): float
+    public static function dueNext30Days(): int
     {
-        return round(Receivable::query()->open()->excludingCancelled()->with('payments')
+        return (int) Receivable::query()->open()->excludingCancelled()->with('payments')
             ->whereBetween('due_on', [today()->startOfDay()->toDateTimeString(), today()->addDays(30)->endOfDay()->toDateTimeString()])
-            ->get()->sum(fn (Receivable $receivable) => $receivable->outstanding), 2);
+            ->get()->sum(fn (Receivable $receivable) => $receivable->outstanding);
     }
 
     /**
      * Months of the year, or days of the month.
      *
-     * @return array<int, array{label: string, received: float, paid: float, result: float}>
+     * @return array<int, array{label: string, received: int, paid: int, result: int}>
      */
     public function cashFlow(): array
     {
@@ -109,15 +109,15 @@ final class PeriodSummary
             $key = $this->bucketKey($cursor);
             $buckets[$key] = [
                 'label' => $this->period->isMonth() ? (string) $cursor->day : Period::SHORT_MONTHS[$cursor->month - 1],
-                'received' => 0.0,
-                'paid' => 0.0,
-                'result' => 0.0,
+                'received' => 0,
+                'paid' => 0,
+                'result' => 0,
             ];
             $cursor = $this->period->isMonth() ? $cursor->addDay() : $cursor->addMonth();
         }
 
         foreach (Payment::query()->whereBetween('paid_on', $this->period->range())->get() as $payment) {
-            $buckets[$this->bucketKey($payment->paid_on)]['received'] += (float) $payment->amount;
+            $buckets[$this->bucketKey($payment->paid_on)]['received'] += $payment->amount;
         }
 
         foreach ($this->expenses()->where('is_paid', true) as $expense) {
@@ -126,13 +126,13 @@ final class PeriodSummary
 
         return array_values(array_map(fn (array $bucket) => [
             ...$bucket,
-            'received' => round($bucket['received'], 2),
-            'paid' => round($bucket['paid'], 2),
-            'result' => round($bucket['received'] - $bucket['paid'], 2),
+            'received' => $bucket['received'],
+            'paid' => $bucket['paid'],
+            'result' => $bucket['received'] - $bucket['paid'],
         ], $buckets));
     }
 
-    /** @return array<string, float> income category => received in the period, largest first */
+    /** @return array<string, int> income category => cents received in the period, largest first */
     public function receivedByCategory(): array
     {
         return Payment::query()
@@ -140,17 +140,17 @@ final class PeriodSummary
             ->whereBetween('paid_on', $this->period->range())
             ->get()
             ->groupBy(fn (Payment $payment) => $payment->receivable?->billable?->category?->name ?? 'Sem categoria')
-            ->map(fn (Collection $payments) => round((float) $payments->sum('amount'), 2))
+            ->map(fn (Collection $payments) => (int) $payments->sum('amount'))
             ->sortDesc()
             ->all();
     }
 
-    /** @return array<string, float> category => paid total, largest first */
+    /** @return array<string, int> category => cents paid, largest first */
     public function paidExpensesByCategory(): array
     {
         return $this->expenses()->where('is_paid', true)
             ->groupBy(fn (Expense $expense) => $expense->category?->name ?? 'Sem categoria')
-            ->map(fn (Collection $expenses) => round($expenses->sum(fn (Expense $expense) => $expense->total), 2))
+            ->map(fn (Collection $expenses) => (int) $expenses->sum(fn (Expense $expense) => $expense->total))
             ->sortDesc()
             ->all();
     }
@@ -190,8 +190,8 @@ final class PeriodSummary
         return $this->period->isMonth() ? $date->format('Y-m-d') : $date->format('Y-m');
     }
 
-    private function remember(string $key, callable $compute): float
+    private function remember(string $key, callable $compute): int
     {
-        return $this->memo[$key] ??= round((float) $compute(), 2);
+        return $this->memo[$key] ??= (int) $compute();
     }
 }

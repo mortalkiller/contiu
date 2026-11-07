@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Support\MoneyInput;
 use App\Support\FinanceSettings;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -105,10 +106,8 @@ class FinanceSettingsPage extends Page
                         Toggle::make('vat_exempt')
                             ->label('Isento de IVA (art. 53.º)')
                             ->live(),
-                        TextInput::make('vat_exemption_threshold')
+                        MoneyInput::make('vat_exemption_threshold')
                             ->label('Limite anual de isenção de IVA (art. 53.º)')
-                            ->numeric()
-                            ->suffix('€')
                             ->visible(fn ($get) => (bool) $get('vat_exempt'))
                             ->required(fn ($get) => (bool) $get('vat_exempt')),
                     ]),
@@ -123,11 +122,8 @@ class FinanceSettingsPage extends Page
                             ->placeholder('Ex.: PEDRO FILIPE PEREIRA MONTEIRO')
                             ->helperText('Linhas do extrato com este nome são sugeridas como "Transferência minha".')
                             ->columnSpanFull(),
-                        TextInput::make('current_bank_balance')
-                            ->label('Saldo atual')
-                            ->numeric()
-                            ->step(0.01)
-                            ->suffix('€'),
+                        MoneyInput::make('current_bank_balance')
+                            ->label('Saldo atual'),
                         DatePicker::make('current_bank_balance_on')
                             ->label('Em')
                             ->native(false)
@@ -166,9 +162,9 @@ class FinanceSettingsPage extends Page
             'ss_relevant_income_share' => round((float) $data['ss_relevant_income_share_percent'] / 100, 4),
             'irs_exempt' => (bool) ($data['irs_exempt'] ?? false),
             'vat_exempt' => (bool) ($data['vat_exempt'] ?? false),
-            'vat_exemption_threshold' => (float) ($data['vat_exemption_threshold'] ?? 0),
+            'vat_exemption_threshold' => (int) ($data['vat_exemption_threshold'] ?? 0),
             'payments_exempt_by_default' => (bool) ($data['payments_exempt_by_default'] ?? false),
-            'current_bank_balance' => filled($data['current_bank_balance'] ?? null) ? (float) $data['current_bank_balance'] : null,
+            'current_bank_balance' => $data['current_bank_balance'] ?? null,
             'current_bank_balance_on' => $data['current_bank_balance_on'] ?? null,
             'account_holder_name' => filled($data['account_holder_name'] ?? null) ? trim($data['account_holder_name']) : null,
         ]);

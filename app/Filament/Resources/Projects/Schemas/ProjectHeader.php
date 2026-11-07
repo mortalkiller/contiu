@@ -43,18 +43,18 @@ class ProjectHeader
                 ->summary([
                     TextEntry::make('total')
                         ->label('Total')
-                        ->money('EUR'),
+                        ->money('EUR', divideBy: 100),
                     TextEntry::make('received_amount')
                         ->label('Recebido')
-                        ->money('EUR')
+                        ->money('EUR', divideBy: 100)
                         ->color('success'),
                     TextEntry::make('outstanding_amount')
                         ->label('Em aberto')
-                        ->money('EUR')
+                        ->money('EUR', divideBy: 100)
                         ->color(fn (float $state) => $state > 0 ? 'warning' : 'gray'),
                     TextEntry::make('margin')
                         ->label('Margem')
-                        ->money('EUR')
+                        ->money('EUR', divideBy: 100)
                         ->tooltip(fn (Project $record) => 'Total menos custos diretos ('.Money::format($record->direct_costs).')'),
                 ]),
         ]);

@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Support\ClientStatement;
+use App\Support\Money;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithColumnFormatting;
@@ -26,9 +27,10 @@ class ClientStatementExport implements FromArray, ShouldAutoSize, WithColumnForm
         return $this->statement->entries()->map(fn (array $entry) => [
             $entry['date']->format('d/m/Y'),
             $entry['description'],
-            $entry['debit'] > 0 ? $entry['debit'] : null,
-            $entry['credit'] > 0 ? $entry['credit'] : null,
-            $entry['balance'],
+            // The spreadsheet gets euros (the statement works in cents).
+            $entry['debit'] > 0 ? Money::toEuros($entry['debit']) : null,
+            $entry['credit'] > 0 ? Money::toEuros($entry['credit']) : null,
+            Money::toEuros($entry['balance']),
             $entry['is_future'] ? 'a vencer' : null,
         ])->all();
     }

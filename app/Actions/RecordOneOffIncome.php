@@ -12,7 +12,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Records a receita avulsa: the income at its gross amount (what the fatura-recibo says) and, when a
+ * Amounts in cents. Records a receita avulsa: the income at its gross amount (what the fatura-recibo says) and, when a
  * platform kept a commission, that commission as a paid expense — rendimento pelo bruto, comissão
  * como gasto.
  */
@@ -21,13 +21,13 @@ class RecordOneOffIncome
     public const COMMISSION_CATEGORY = 'Comissões';
 
     /**
-     * @param  array{received_on: string|\DateTimeInterface, title: string, gross_amount: float|int|string, category_id?: ?int, commission?: float|int|string|null, commission_supplier_id?: ?int, invoice_number?: ?string, tax_exempt?: ?bool, method?: PaymentMethod|string|null, client_id?: ?int, notes?: ?string}  $data
+     * @param  array{received_on: string|\DateTimeInterface, title: string, gross_amount: int, category_id?: ?int, commission?: ?int, commission_supplier_id?: ?int, invoice_number?: ?string, tax_exempt?: ?bool, method?: PaymentMethod|string|null, client_id?: ?int, notes?: ?string}  $data
      */
     public function handle(array $data): OneOffIncome
     {
         $receivedOn = Carbon::parse($data['received_on'])->startOfDay();
-        $gross = round((float) $data['gross_amount'], 2);
-        $commission = round((float) ($data['commission'] ?? 0), 2);
+        $gross = (int) $data['gross_amount'];
+        $commission = (int) ($data['commission'] ?? 0);
 
         return DB::transaction(function () use ($data, $receivedOn, $gross, $commission): OneOffIncome {
             $income = OneOffIncome::create([
@@ -55,7 +55,7 @@ class RecordOneOffIncome
                 'tax_exempt' => $data['tax_exempt'] ?? null, // null → the default from the settings
             ]);
 
-            if ($commission >= 0.01) {
+            if ($commission > 0) {
                 $expense = Expense::create([
                     'supplier_id' => $data['commission_supplier_id'],
                     'category_id' => Category::firstOrCreate(['type' => CategoryType::Expense, 'name' => self::COMMISSION_CATEGORY])->id,

@@ -66,11 +66,11 @@ class ExpensesTable
                     ->placeholder('—'),
                 TextColumn::make('total')
                     ->label('Total')
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->summarize(Summarizer::make()
                         ->label('Total')
-                        ->money('EUR')
+                        ->money('EUR', divideBy: 100)
                         ->using(fn ($query) => $query->get()->sum(fn ($row) => round((float) $row->net_amount * (1 + (float) $row->vat_rate), 2)))),
                 IconColumn::make('is_paid')
                     ->label('Paga')

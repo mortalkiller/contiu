@@ -27,24 +27,24 @@ class CashForecastTable extends TableWidget
                     ->weight(fn (array $record) => $record['is_total'] ? 'bold' : 'medium'),
                 TextColumn::make('inflows')
                     ->label('Entradas')
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->description(fn (array $record) => $record['inNote'])
                     ->wrap(),
                 TextColumn::make('outflows')
                     ->label('Saídas')
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->description(fn (array $record) => $record['outNote'])
                     ->wrap(),
                 TextColumn::make('net')
                     ->label('Saldo do mês')
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->color(fn (float $state) => $state < 0 ? 'danger' : null),
                 TextColumn::make('balance')
                     ->label('Saldo acumulado')
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->weight('semibold')
                     ->placeholder('')

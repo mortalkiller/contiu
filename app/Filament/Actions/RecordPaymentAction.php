@@ -3,6 +3,7 @@
 namespace App\Filament\Actions;
 
 use App\Enums\PaymentMethod;
+use App\Filament\Support\MoneyInput;
 use App\Models\Client;
 use App\Models\Payment;
 use App\Models\Project;
@@ -74,7 +75,7 @@ class RecordPaymentAction extends Action
                     ->hidden($record instanceof Receivable)
                     ->afterStateUpdated(function (Set $set, ?string $state): void {
                         $receivable = Receivable::with(['payments', 'billable'])->find($state);
-                        $set('amount', $receivable?->outstanding);
+                        $set('amount', Money::toEuros($receivable?->outstanding)); // the field holds euros
                         $set('tax_exempt', static::exemptByDefault($receivable));
                     }),
                 Grid::make(2)->schema([
@@ -84,17 +85,14 @@ class RecordPaymentAction extends Action
                         ->displayFormat('d/m/Y')
                         ->maxDate(today())
                         ->required(),
-                    TextInput::make('amount')
+                    MoneyInput::make('amount')
                         ->label('Montante')
-                        ->numeric()
                         ->minValue(0.01)
-                        ->step(0.01)
-                        ->suffix('€')
                         ->required()
                         ->rule(fn (Get $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get, $record): void {
                             $receivable = $record instanceof Receivable ? $record : Receivable::with('payments')->find($get('receivable_id'));
 
-                            if ($receivable && (float) $value > $receivable->outstanding + 0.009) {
+                            if ($receivable && (int) Money::toCents($value) > $receivable->outstanding) {
                                 $fail('Excede o que falta receber ('.Money::format($receivable->outstanding).'). Se o cliente pagou a mais, regista a diferença noutro valor a receber.');
                             }
                         }),

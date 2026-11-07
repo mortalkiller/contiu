@@ -24,11 +24,11 @@ class ClientHeader
                     MetadataEntry::make('phone')->label('Telefone')->placeholder('—')->fieldIcon(Phosphor::Phone),
                 ])
                 ->summary([
-                    TextEntry::make('contracted_amount')->label('Contratado')->money('EUR'),
-                    TextEntry::make('received_amount')->label('Recebido')->money('EUR')->color('success'),
-                    TextEntry::make('outstanding_amount')->label('Por receber')->money('EUR')
+                    TextEntry::make('contracted_amount')->label('Contratado')->money('EUR', divideBy: 100),
+                    TextEntry::make('received_amount')->label('Recebido')->money('EUR', divideBy: 100)->color('success'),
+                    TextEntry::make('outstanding_amount')->label('Por receber')->money('EUR', divideBy: 100)
                         ->color(fn (float $state) => $state > 0 ? 'warning' : 'gray'),
-                    TextEntry::make('overdue_amount')->label('Vencido')->money('EUR')
+                    TextEntry::make('overdue_amount')->label('Vencido')->money('EUR', divideBy: 100)
                         ->color(fn (float $state) => $state > 0 ? 'danger' : 'gray'),
                 ]),
         ]);

@@ -112,7 +112,8 @@ class CreateProject extends CreateRecord
     protected function planPresetActions(): array
     {
         $apply = function (Set $set, array $rows): void {
-            $set('receivables', collect($rows)->mapWithKeys(fn (array $row) => [(string) Str::uuid() => $row])->all());
+            // The planner works in cents; the repeater holds euros.
+            $set('receivables', collect($rows)->mapWithKeys(fn (array $row) => [(string) Str::uuid() => [...$row, 'amount' => Money::toEuros($row['amount'])]])->all());
         };
 
         $firstDue = fn (Get $get) => $get('quoted_on') ?: today()->toDateString();
@@ -167,7 +168,7 @@ class CreateProject extends CreateRecord
         return new HtmlString('<ul class="space-y-1">'.$rows->map(fn ($row) => sprintf(
             '<li>%s — %s — vence %s</li>',
             e($row['description'] ?? ''),
-            e(Money::format($row['amount'] ?? 0)),
+            e(Money::format(Money::toCents($row['amount'] ?? null) ?? 0)),
             e(filled($row['due_on'] ?? null) ? Carbon::parse($row['due_on'])->format('d/m/Y') : '—'),
         ))->implode('').'</ul>');
     }

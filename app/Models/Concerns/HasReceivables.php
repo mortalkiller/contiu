@@ -46,34 +46,34 @@ trait HasReceivables
 
     protected function billedAmount(): Attribute
     {
-        return Attribute::get(fn (): float => round((float) $this->receivables->sum('amount'), 2));
+        return Attribute::get(fn (): int => (int) $this->receivables->sum('amount'));
     }
 
     protected function receivedAmount(): Attribute
     {
-        return Attribute::get(fn (): float => round((float) $this->receivables->sum(fn (Receivable $receivable) => $receivable->received), 2));
+        return Attribute::get(fn (): int => (int) $this->receivables->sum(fn (Receivable $receivable) => $receivable->received));
     }
 
     protected function outstandingAmount(): Attribute
     {
-        return Attribute::get(fn (): float => round((float) $this->receivables->sum(fn (Receivable $receivable) => $receivable->outstanding), 2));
+        return Attribute::get(fn (): int => (int) $this->receivables->sum(fn (Receivable $receivable) => $receivable->outstanding));
     }
 
     protected function overdueAmount(): Attribute
     {
-        return Attribute::get(fn (): float => round((float) $this->receivables
+        return Attribute::get(fn (): int => (int) $this->receivables
             ->filter(fn (Receivable $receivable) => $receivable->status === ReceivableStatus::Overdue)
-            ->sum(fn (Receivable $receivable) => $receivable->outstanding), 2));
+            ->sum(fn (Receivable $receivable) => $receivable->outstanding));
     }
 
     protected function directCosts(): Attribute
     {
-        return Attribute::get(fn (): float => round((float) $this->expenses->sum(fn ($expense) => $expense->total), 2));
+        return Attribute::get(fn (): int => (int) $this->expenses->sum(fn ($expense) => $expense->total));
     }
 
     protected function margin(): Attribute
     {
-        return Attribute::get(fn (): float => round($this->billed_amount - $this->direct_costs, 2));
+        return Attribute::get(fn (): int => $this->billed_amount - $this->direct_costs);
     }
 
     protected function progress(): Attribute
@@ -81,9 +81,9 @@ trait HasReceivables
         return Attribute::get(fn (): float => $this->billed_amount > 0 ? min(1, $this->received_amount / $this->billed_amount) : 0);
     }
 
-    protected function aggregateReceivableStatus(float $expected): ReceivableStatus
+    protected function aggregateReceivableStatus(int $expected): ReceivableStatus
     {
-        if ($this->received_amount >= $expected - 0.01) {
+        if ($this->received_amount >= $expected) {
             return ReceivableStatus::Paid;
         }
 

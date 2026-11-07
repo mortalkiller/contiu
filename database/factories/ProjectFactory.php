@@ -17,7 +17,7 @@ class ProjectFactory extends Factory
             'client_id' => Client::factory(),
             'title' => fake()->sentence(3),
             'quoted_on' => today(),
-            'net_amount' => 1000,
+            'net_amount' => 100000, // cents
             'vat_rate' => 0,
             'status' => ProjectStatus::Approved,
         ];

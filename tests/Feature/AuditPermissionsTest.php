@@ -9,6 +9,7 @@ use App\Models\Project;
 use App\Models\Retainer;
 use App\Models\User;
 use App\Policies\AuditPolicy;
+use App\Support\Money;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
@@ -56,12 +57,12 @@ it('hides the history from a user without the audit permission', function () {
 it('shows the history of a payment from the payments list', function () {
     config(['audit.console' => true]); // auditing is off for console runs, tests included
     actingAsAdmin();
-    $payment = Payment::factory()->create(['amount' => 120]);
-    $payment->update(['amount' => 150]);
+    $payment = Payment::factory()->create(['amount' => 12000]);
+    $payment->update(['amount' => 15000]);
 
     Livewire::test(ManagePayments::class)
         ->assertTableActionVisible('history', $payment)
         ->mountTableAction('history', $payment)
         ->assertMountedActionModalSee(['Alterado', 'Criado'])
-        ->assertMountedActionModalSeeHtml('Montante: 120 → 150');
+        ->assertMountedActionModalSeeHtml(e('Montante: '.Money::format(12000).' → '.Money::format(15000)));
 });

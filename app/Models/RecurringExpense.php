@@ -6,6 +6,7 @@ use App\Enums\ExpenseKind;
 use App\Enums\Frequency;
 use App\Enums\PaymentMethod;
 use App\Models\Concerns\HasVatAmounts;
+use App\Support\Money;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -26,7 +27,7 @@ class RecurringExpense extends Model
         return [
             'starts_on' => 'date',
             'ends_on' => 'date',
-            'net_amount' => 'decimal:2',
+            'net_amount' => 'integer',
             'vat_rate' => 'decimal:4',
             'is_active' => 'boolean',
             'kind' => ExpenseKind::class,
@@ -67,7 +68,7 @@ class RecurringExpense extends Model
 
     protected function yearlyCost(): Attribute
     {
-        return Attribute::get(fn (): float => round($this->total * (12 / $this->frequency->months()), 2));
+        return Attribute::get(fn (): int => Money::round($this->total * 12 / $this->frequency->months()));
     }
 
     protected function nextOn(): Attribute

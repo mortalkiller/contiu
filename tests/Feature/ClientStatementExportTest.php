@@ -22,9 +22,9 @@ beforeEach(function () {
 
     $this->client = Client::factory()->create(['name' => 'Mariana Sousa', 'email' => 'mariana@example.pt']);
     $project = Project::factory()->for($this->client)->create(['code' => 'MINFRA', 'quoted_on' => '2026-01-01']);
-    $receivable = Receivable::factory()->for($project, 'billable')->create(['description' => 'Jan 2026', 'amount' => 20, 'due_on' => '2026-01-01']);
-    Payment::factory()->for($receivable)->create(['paid_on' => '2026-01-03', 'amount' => 20]);
-    Receivable::factory()->for($project, 'billable')->create(['description' => 'Dez 2026', 'amount' => 20, 'due_on' => '2026-12-01']);
+    $receivable = Receivable::factory()->for($project, 'billable')->create(['description' => 'Jan 2026', 'amount' => 2000, 'due_on' => '2026-01-01']);
+    Payment::factory()->for($receivable)->create(['paid_on' => '2026-01-03', 'amount' => 2000]);
+    Receivable::factory()->for($project, 'billable')->create(['description' => 'Dez 2026', 'amount' => 2000, 'due_on' => '2026-12-01']);
 });
 
 function readXlsx(string $binary): array
@@ -38,7 +38,7 @@ function readXlsx(string $binary): array
 it('exports the statement rows with money as numbers', function () {
     $rows = readXlsx(Excel::raw(new ClientStatementExport(new ClientStatement($this->client)), ExcelWriter::XLSX));
 
-    // Money columns are numeric cells (read back as int|float), not formatted text.
+    // Money columns are numeric cells in euros (read back as int|float), not formatted text.
     expect($rows[0])->toBe(['Data', 'Descrição', 'Débito', 'Crédito', 'Saldo', 'Nota'])
         ->and($rows[1])->toEqual(['01/01/2026', 'MINFRA · Jan 2026', 20, null, 20, null])
         ->and($rows[2][3])->toEqual(20)

@@ -17,7 +17,7 @@ class ExpenseFactory extends Factory
             'kind' => ExpenseKind::Overhead,
             'description' => 'Despesa',
             'spent_on' => today(),
-            'net_amount' => 10,
+            'net_amount' => 1000, // cents
             'vat_rate' => 0,
             'is_paid' => true,
             'paid_on' => today(),

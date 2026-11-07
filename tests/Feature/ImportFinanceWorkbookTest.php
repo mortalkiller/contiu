@@ -33,7 +33,7 @@ it('imports clients, projects and their single receivable', function () {
         ->and($project->receivables()->first()->due_on->toDateString())->toBe('2027-01-31')
         ->and(Project::firstWhere('code', 'PRINTEE OC-3'))
         ->status->toBe(ProjectStatus::Cancelled)
-        ->total->toBe(615.0);
+        ->total->toBe(61500);
 });
 
 it('turns repeated maintenance rows into a monthly retainer and a single one into a yearly retainer', function () {
@@ -60,13 +60,13 @@ it('allocates payments to the receivable of their row', function () {
     $project = Project::firstWhere('code', 'PRINTEE OC-1')->load('receivables.payments');
     $site = Retainer::firstWhere('code', 'SITE')->load('receivables.payments');
 
-    expect($project->received_amount)->toBe(2400.0)
-        ->and($project->outstanding_amount)->toBe(0.0)
-        ->and($site->receivables->map(fn (Receivable $r) => $r->received)->all())->toBe([20.0, 20.0, 0.0])
-        ->and(Payment::firstWhere('amount', 255.5))
+    expect($project->received_amount)->toBe(240000)
+        ->and($project->outstanding_amount)->toBe(0)
+        ->and($site->receivables->map(fn (Receivable $r) => $r->received)->all())->toBe([2000, 2000, 0])
+        ->and(Payment::firstWhere('amount', 25550))
         ->invoice_number->toBe('FT 1')
         ->method->toBe(PaymentMethod::Transfer)
-        ->and(Payment::firstWhere('amount', 1650)->method)->toBe(PaymentMethod::Cash);
+        ->and(Payment::firstWhere('amount', 165000)->method)->toBe(PaymentMethod::Cash);
 });
 
 it('classifies expenses as direct only when tied to a retainer or a direct-cost category', function () {
@@ -79,7 +79,7 @@ it('classifies expenses as direct only when tied to a retainer or a direct-cost 
     expect($server)
         ->kind->toBe(ExpenseKind::Direct)
         ->retainer_id->toBe(Retainer::firstWhere('code', 'INFRA2026')->id)
-        ->and($server->total)->toBe(122.02)
+        ->and($server->total)->toBe(12202)
         ->and($chatGpt)
         ->kind->toBe(ExpenseKind::Overhead)
         ->project_id->toBeNull()
@@ -100,8 +100,8 @@ it('reports rows it could not use or that look wrong', function () {
         ->and($result->counts['retainers'])->toBe(2)
         ->and($result->counts['payments'])->toBe(5)
         ->and($result->counts['expenses'])->toBe(3)
-        ->and($result->contracted)->toBe(4680.5)
-        ->and($result->received)->toBe(2695.5);
+        ->and($result->contracted)->toBe(468050)
+        ->and($result->received)->toBe(269550);
 });
 
 it('refuses to import over existing data unless asked to replace it', function () {

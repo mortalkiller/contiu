@@ -8,20 +8,20 @@ use Illuminate\Support\Carbon;
 beforeEach(fn () => $this->travelTo(Carbon::parse('2026-03-10')));
 
 it('creates one receivable per month from the start date up to the horizon', function () {
-    $retainer = Retainer::factory()->create(['starts_on' => '2026-01-01', 'due_day' => 5, 'net_amount' => 20, 'vat_rate' => 0.23]);
+    $retainer = Retainer::factory()->create(['starts_on' => '2026-01-01', 'due_day' => 5, 'net_amount' => 2000, 'vat_rate' => 0.23]);
 
     $created = app(GenerateRetainerPeriods::class)->forRetainer($retainer, until: Carbon::parse('2026-04-09'));
 
     expect($created)->toBe(4)
         ->and($retainer->receivables()->pluck('due_on')->map->toDateString()->all())
         ->toBe(['2026-01-05', '2026-02-05', '2026-03-05', '2026-04-05'])
-        ->and((float) $retainer->receivables()->first()->amount)->toBe(24.6)
+        ->and($retainer->receivables()->first()->amount)->toBe(2460)
         ->and($retainer->receivables()->first()->description)->toBe('Jan 2026');
 });
 
 it('continues after the latest period without filling older gaps', function () {
     $retainer = Retainer::factory()->create(['starts_on' => '2026-01-01', 'due_day' => 1]);
-    $retainer->receivables()->create(['description' => 'Fev 2026', 'amount' => 20, 'due_on' => '2026-02-01']);
+    $retainer->receivables()->create(['description' => 'Fev 2026', 'amount' => 2000, 'due_on' => '2026-02-01']);
 
     app(GenerateRetainerPeriods::class)->forRetainer($retainer, until: Carbon::parse('2026-04-01'));
 

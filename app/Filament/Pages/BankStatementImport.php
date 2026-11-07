@@ -141,7 +141,7 @@ class BankStatementImport extends Page implements HasTable
                 TextColumn::make('description')->label('Descrição')->wrap()->searchable(),
                 TextColumn::make('amount')
                     ->label('Montante')
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->weight('medium')
                     ->color(fn (BankTransaction $record) => $record->is_credit ? 'success' : 'danger'),
@@ -166,7 +166,7 @@ class BankStatementImport extends Page implements HasTable
                     ->icon(Phosphor::Link)
                     ->color('gray')
                     ->visible(fn (BankTransaction $record) => $record->status === BankTransactionStatus::Pending)
-                    ->modalHeading(fn (BankTransaction $record) => 'Associar '.Money::format((float) $record->amount).' · '.$record->booked_on->format('d/m/Y'))
+                    ->modalHeading(fn (BankTransaction $record) => 'Associar '.Money::format($record->amount).' · '.$record->booked_on->format('d/m/Y'))
                     ->modalDescription(fn (BankTransaction $record) => $record->description)
                     ->modalSubmitActionLabel('Associar')
                     ->schema(fn (BankTransaction $record) => [
@@ -180,15 +180,15 @@ class BankStatementImport extends Page implements HasTable
                             ->required(),
                         Callout::make('O valor é diferente')
                             ->key('amountDifference')
-                            ->description(fn (Get $get): string => 'O extrato tem '.Money::format((float) $record->amount).'; os registos escolhidos dão uma diferença de '.Money::format(abs((float) $this->plannedDifference($record, $get('targets')))).'. Confirma que é o mesmo movimento e diz o que é a diferença.')
+                            ->description(fn (Get $get): string => 'O extrato tem '.Money::format($record->amount).'; os registos escolhidos dão uma diferença de '.Money::format(abs($this->plannedDifference($record, $get('targets')))).'. Confirma que é o mesmo movimento e diz o que é a diferença.')
                             ->status('warning')
                             ->icon(Phosphor::Warning)
-                            ->visible(fn (Get $get): bool => abs((float) $this->plannedDifference($record, $get('targets'))) >= 0.01),
+                            ->visible(fn (Get $get): bool => $this->plannedDifference($record, $get('targets')) !== 0),
                         Radio::make('explanation')
                             ->label('Como explicas a diferença?')
                             ->options(fn (Get $get): array => $this->explanationOptions($record, $get('targets')))
-                            ->visible(fn (Get $get): bool => abs((float) $this->plannedDifference($record, $get('targets'))) >= 0.01)
-                            ->required(fn (Get $get): bool => abs((float) $this->plannedDifference($record, $get('targets'))) >= 0.01),
+                            ->visible(fn (Get $get): bool => $this->plannedDifference($record, $get('targets')) !== 0)
+                            ->required(fn (Get $get): bool => $this->plannedDifference($record, $get('targets')) !== 0),
                     ])
                     ->action(fn (BankTransaction $record, array $data) => $this->apply(fn (ApplyBankTransaction $apply) => $apply->applyTargets(
                         $record,
@@ -424,7 +424,7 @@ class BankStatementImport extends Page implements HasTable
             : BankCsvParser::parse($contents, $mapping);
     }
 
-    /** @param array<int, array{booked_on: string, description: string, amount: float, balance: ?float}> $rows */
+    /** @param array<int, array{booked_on: string, description: string, amount: int, balance: ?int}> $rows */
     private function storeRows(array $rows, string $path): void
     {
         Storage::disk('local')->delete($path);
@@ -467,12 +467,12 @@ class BankStatementImport extends Page implements HasTable
 
             $records = $record->links->pluck('linkable')->filter()
                 ->map(fn (Payment|Expense $linked) => $linked instanceof Payment
-                    ? 'Recebimento · '.$linked->receivable?->label.' · '.Money::format((float) $linked->amount)
+                    ? 'Recebimento · '.$linked->receivable?->label.' · '.Money::format($linked->amount)
                     : 'Despesa · '.$linked->supplier?->name.' · '.$linked->description.' · '.Money::format($linked->total))
                 ->values()->all();
             $difference = $record->difference();
 
-            if (abs($difference) < 0.01) {
+            if ($difference === 0) {
                 return $records;
             }
 
@@ -503,7 +503,7 @@ class BankStatementImport extends Page implements HasTable
                 ->all();
 
             $registered = $this->unlinkedNear(Payment::query()->with('receivable.billable.client'), 'paid_on', $record)
-                ->mapWithKeys(fn (Payment $payment) => ['payment:'.$payment->getKey() => $payment->paid_on->format('d/m/Y').' · '.$payment->receivable?->label.' ('.($payment->receivable?->client?->name ?? '—').') — '.Money::format((float) $payment->amount)])
+                ->mapWithKeys(fn (Payment $payment) => ['payment:'.$payment->getKey() => $payment->paid_on->format('d/m/Y').' · '.$payment->receivable?->label.' ('.($payment->receivable?->client?->name ?? '—').') — '.Money::format($payment->amount)])
                 ->all();
 
             // A platform payout is the income minus its commission, so expenses can join a credit.
@@ -564,16 +564,16 @@ class BankStatementImport extends Page implements HasTable
     }
 
     /** @param array<int, string>|null $targets */
-    private function plannedDifference(BankTransaction $record, ?array $targets): float
+    private function plannedDifference(BankTransaction $record, ?array $targets): int
     {
         if (blank($targets)) {
-            return 0.0;
+            return 0;
         }
 
         try {
             return app(ApplyBankTransaction::class)->plannedDifference($record, $targets);
         } catch (DomainException) {
-            return 0.0;
+            return 0;
         }
     }
 
@@ -594,7 +594,7 @@ class BankStatementImport extends Page implements HasTable
     private function undoDescription(BankTransaction $record): string
     {
         $created = $record->links()->where('created_from_line', true)->with('linkable')->get()->pluck('linkable')->filter()
-            ->map(fn (Payment|Expense $linked) => $linked instanceof Payment ? 'o recebimento de '.Money::format((float) $linked->amount) : 'a despesa '.$linked->description);
+            ->map(fn (Payment|Expense $linked) => $linked instanceof Payment ? 'o recebimento de '.Money::format($linked->amount) : 'a despesa '.$linked->description);
 
         return $created->isEmpty()
             ? 'A linha volta a "Por tratar". Os registos que já existiam ficam como estão.'

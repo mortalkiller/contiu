@@ -4,12 +4,70 @@ namespace App\Support;
 
 use Illuminate\Support\Number;
 
+/**
+ * Money is stored and computed in integer cents (as banks do), so sums and comparisons are exact.
+ * Euros only exist at the edges: what the user types, sees, imports and receives by email.
+ * Every rounding goes through here: half up, to the cent.
+ */
 final class Money
 {
-    /** "1 965,50 €" */
-    public static function format(float|int|string|null $amount): string
+    /** "1 965,50 €" from 196550 cents. */
+    public static function format(?int $cents): string
     {
-        return (string) Number::currency((float) $amount, 'EUR', 'pt_PT');
+        return (string) Number::currency(($cents ?? 0) / 100, 'EUR', 'pt_PT');
+    }
+
+    /** Euros as typed or imported ("151,98", "151.98", 151.98) → 15198 cents. */
+    public static function toCents(float|int|string|null $euros): ?int
+    {
+        if ($euros === null || (is_string($euros) && trim($euros) === '')) {
+            return null;
+        }
+
+        $value = is_string($euros) ? (float) str_replace([' ', ','], ['', '.'], trim($euros)) : (float) $euros;
+
+        return self::round($value * 100);
+    }
+
+    /** 15198 → 151.98, for form fields and chart axes. */
+    public static function toEuros(?int $cents): ?float
+    {
+        return $cents === null ? null : round($cents / 100, 2);
+    }
+
+    /**
+     * Cents → euros for a chart dataset (axes and tooltips read euros).
+     *
+     * @param  array<int|string, int>  $cents
+     * @return array<int|string, float>
+     */
+    public static function toEurosList(array $cents): array
+    {
+        return array_map(fn ($value) => round((int) $value / 100, 2), $cents);
+    }
+
+    /** VAT of a net amount at a rate (0.23), rounded per document line. */
+    public static function vat(int $netCents, float|string $rate): int
+    {
+        return self::round($netCents * (float) $rate);
+    }
+
+    /** Net amount inside a gross amount that includes VAT at a rate. */
+    public static function netFromGross(int $grossCents, float|string $rate): int
+    {
+        return self::round($grossCents / (1 + (float) $rate));
+    }
+
+    /** A share of an amount (e.g. 70 % of income), rounded to the cent. */
+    public static function share(int $cents, float|string $rate): int
+    {
+        return self::round($cents * (float) $rate);
+    }
+
+    /** The single rounding rule: half up, to the cent. */
+    public static function round(float $cents): int
+    {
+        return (int) round($cents, 0, PHP_ROUND_HALF_UP);
     }
 
     /**

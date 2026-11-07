@@ -28,45 +28,45 @@ final class MarginReport
 
     public function __construct(public readonly Period $period) {}
 
-    /** @return array<string, array{label: string, invoiced: float, received: float, directCosts: float, margin: float, marginPercent: ?float}> */
+    /** @return array<string, array{label: string, invoiced: int, received: int, directCosts: int, margin: int, marginPercent: ?float}> (cents) */
     public function byBusinessLine(): array
     {
         return $this->cache['line'] ??= $this->group(fn (?Model $billable) => filled($billable?->business_line) ? $billable->business_line : self::NO_LINE);
     }
 
-    /** @return array<string, array{label: string, invoiced: float, received: float, directCosts: float, margin: float, marginPercent: ?float}> */
+    /** @return array<string, array{label: string, invoiced: int, received: int, directCosts: int, margin: int, marginPercent: ?float}> (cents) */
     public function byClient(): array
     {
         return $this->cache['client'] ??= $this->group(fn (?Model $billable) => $billable?->client?->name ?? '—');
     }
 
-    /** @return array{invoiced: float, received: float, directCosts: float, margin: float, marginPercent: ?float, overhead: float, result: float} */
+    /** @return array{invoiced: int, received: int, directCosts: int, margin: int, marginPercent: ?float, overhead: int, result: int} (cents) */
     public function totals(): array
     {
         $rows = $this->byBusinessLine();
-        $invoiced = round(array_sum(array_column($rows, 'invoiced')), 2);
-        $directCosts = round(array_sum(array_column($rows, 'directCosts')), 2);
-        $margin = round($invoiced - $directCosts, 2);
+        $invoiced = (int) array_sum(array_column($rows, 'invoiced'));
+        $directCosts = (int) array_sum(array_column($rows, 'directCosts'));
+        $margin = $invoiced - $directCosts;
         $overhead = $this->overhead();
 
         return [
             'invoiced' => $invoiced,
-            'received' => round(array_sum(array_column($rows, 'received')), 2),
+            'received' => (int) array_sum(array_column($rows, 'received')),
             'directCosts' => $directCosts,
             'margin' => $margin,
             'marginPercent' => $this->percent($margin, $invoiced),
             'overhead' => $overhead,
-            'result' => round($margin - $overhead, 2),
+            'result' => $margin - $overhead,
         ];
     }
 
-    public function overhead(): float
+    public function overhead(): int
     {
-        return round(Expense::query()
+        return (int) Expense::query()
             ->where('kind', ExpenseKind::Overhead)
             ->whereBetween('spent_on', $this->period->range())
             ->get()
-            ->sum(fn (Expense $expense) => $expense->total), 2);
+            ->sum(fn (Expense $expense) => $expense->total);
     }
 
     /** @return array<string, array<string, mixed>> */
@@ -74,19 +74,19 @@ final class MarginReport
     {
         $rows = [];
 
-        $add = function (?Model $billable, string $field, float $amount) use (&$rows, $key): void {
+        $add = function (?Model $billable, string $field, int $amount) use (&$rows, $key): void {
             $label = $key($billable);
-            $rows[$label] ??= ['label' => $label, 'invoiced' => 0.0, 'received' => 0.0, 'directCosts' => 0.0];
+            $rows[$label] ??= ['label' => $label, 'invoiced' => 0, 'received' => 0, 'directCosts' => 0];
             $rows[$label][$field] += $amount;
         };
 
         (new PeriodSummary($this->period))->contractedReceivablesQuery()->with('billable.client')->get()
-            ->each(fn (Receivable $receivable) => $add($receivable->billable, 'invoiced', (float) $receivable->amount));
+            ->each(fn (Receivable $receivable) => $add($receivable->billable, 'invoiced', $receivable->amount));
 
         Payment::query()->with('receivable.billable.client')
             ->whereBetween('paid_on', $this->period->range())
             ->get()
-            ->each(fn (Payment $payment) => $add($payment->receivable?->billable, 'received', (float) $payment->amount));
+            ->each(fn (Payment $payment) => $add($payment->receivable?->billable, 'received', $payment->amount));
 
         Expense::query()->with(['project.client', 'retainer.client'])
             ->where('kind', ExpenseKind::Direct)
@@ -101,14 +101,14 @@ final class MarginReport
         }
 
         return array_map(function (array $row): array {
-            $invoiced = round($row['invoiced'], 2);
-            $directCosts = round($row['directCosts'], 2);
-            $margin = round($invoiced - $directCosts, 2);
+            $invoiced = $row['invoiced'];
+            $directCosts = $row['directCosts'];
+            $margin = $invoiced - $directCosts;
 
             return [
                 'label' => $row['label'],
                 'invoiced' => $invoiced,
-                'received' => round($row['received'], 2),
+                'received' => $row['received'],
                 'directCosts' => $directCosts,
                 'margin' => $margin,
                 'marginPercent' => $this->percent($margin, $invoiced),
@@ -116,7 +116,7 @@ final class MarginReport
         }, $rows);
     }
 
-    private function percent(float $margin, float $invoiced): ?float
+    private function percent(int $margin, int $invoiced): ?float
     {
         return $invoiced > 0 ? round($margin / $invoiced * 100, 1) : null;
     }

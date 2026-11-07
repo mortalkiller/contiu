@@ -53,11 +53,11 @@ class RetainersTable
                     ->color('gray'),
                 TextColumn::make('total')
                     ->label('Valor')
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->alignEnd(),
                 TextColumn::make('yearly_value')
                     ->label('Por ano')
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->alignEnd(),
                 TextColumn::make('next_due_on')
                     ->label('Próximo vencimento')
@@ -65,12 +65,12 @@ class RetainersTable
                     ->placeholder('—'),
                 TextColumn::make('outstanding_amount')
                     ->label('Em aberto')
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->color(fn (float $state) => $state > 0 ? 'warning' : 'gray'),
                 TextColumn::make('margin')
                     ->label('Margem')
-                    ->money('EUR')
+                    ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->color(fn (float $state) => $state < 0 ? 'danger' : null)
                     ->toggleable(),

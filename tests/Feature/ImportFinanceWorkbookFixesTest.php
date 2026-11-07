@@ -42,16 +42,16 @@ it('keeps an instalment plan made in the app when re-importing', function () {
 
     $project = Project::firstWhere('code', 'PRINTEE OC-1');
     $single = $project->receivables()->sole();
-    $single->update(['description' => 'Prestação 1/2', 'amount' => 750, 'due_on' => '2026-03-31']);
-    $second = $project->receivables()->create(['description' => 'Prestação 2/2', 'amount' => 1650, 'due_on' => '2026-08-15', 'sort' => 1]);
-    $single->payments()->where('amount', 1650)->update(['receivable_id' => $second->id]);
+    $single->update(['description' => 'Prestação 1/2', 'amount' => 75000, 'due_on' => '2026-03-31']);
+    $second = $project->receivables()->create(['description' => 'Prestação 2/2', 'amount' => 165000, 'due_on' => '2026-08-15', 'sort' => 1]);
+    $single->payments()->where('amount', 165000)->update(['receivable_id' => $second->id]);
 
     $result = importFixture(replace: true);
 
     $plan = Project::firstWhere('code', 'PRINTEE OC-1')->receivables()->with('payments')->orderBy('sort')->get();
 
     expect($plan->pluck('description')->all())->toBe(['Prestação 1/2', 'Prestação 2/2'])
-        ->and($plan->map(fn ($receivable) => $receivable->payments->sum('amount'))->all())->toEqual([750, 1650])
+        ->and($plan->map(fn ($receivable) => $receivable->payments->sum('amount'))->all())->toBe([75000, 165000])
         ->and($result->info)->toContain('Mantive o plano de prestações de 1 trabalho (PRINTEE OC-1).');
 });
 
@@ -59,8 +59,8 @@ it('does not keep a plan that no longer adds up to the imported total', function
     importFixture();
 
     $project = Project::firstWhere('code', 'PRINTEE OC-1');
-    $project->receivables()->sole()->update(['amount' => 1000]);
-    $project->receivables()->create(['description' => 'Extra', 'amount' => 1000, 'due_on' => '2026-09-01']);
+    $project->receivables()->sole()->update(['amount' => 100000]);
+    $project->receivables()->create(['description' => 'Extra', 'amount' => 100000, 'due_on' => '2026-09-01']);
 
     $result = importFixture(replace: true);
 
@@ -85,7 +85,7 @@ it('turns expenses that repeat in three or more months into a recurring expense'
         ->description->toBe('ChatGPT Pro')
         ->day->toBe(27)
         ->is_active->toBeTrue()
-        ->and((float) $template->net_amount)->toBe(83.74)
+        ->and($template->net_amount)->toBe(8374)
         ->and($template->starts_on->toDateString())->toBe('2026-08-27')
         ->and(Expense::where('recurring_expense_id', $template->id)->count())->toBe(3)
         ->and($result->counts['recurring_expenses'])->toBe(1);

@@ -15,14 +15,14 @@ use Illuminate\Support\Collection;
  * Future charges are listed and count towards the running balance (they are already agreed), but are
  * flagged `is_future` so the UI can grey them; `overdueBalance()` is the part that is actually late.
  *
- * @phpstan-type Entry array{key: string, date: CarbonInterface, description: string, debit: float, credit: float, balance: float, is_future: bool, kind: string}
+ * @phpstan-type Entry array{key: string, date: CarbonInterface, description: string, debit: int, credit: int, balance: int, is_future: bool, kind: string}
  */
 final class ClientStatement
 {
     /** @var Collection<int, Entry>|null */
     private ?Collection $entries = null;
 
-    private float $opening = 0.0;
+    private int $opening = 0; // cents
 
     public function __construct(
         public readonly Client $client,
@@ -36,27 +36,27 @@ final class ClientStatement
         return $this->entries ??= $this->build();
     }
 
-    public function charged(): float
+    public function charged(): int
     {
-        return round($this->entries()->sum('debit'), 2);
+        return (int) $this->entries()->sum('debit');
     }
 
-    public function received(): float
+    public function received(): int
     {
-        return round($this->entries()->sum('credit'), 2);
+        return (int) $this->entries()->sum('credit');
     }
 
-    public function balance(): float
+    public function balance(): int
     {
-        return round((float) ($this->entries()->last()['balance'] ?? $this->opening), 2);
+        return (int) ($this->entries()->last()['balance'] ?? $this->opening);
     }
 
-    public function overdueBalance(): float
+    public function overdueBalance(): int
     {
-        return round($this->receivables()
+        return (int) $this->receivables()
             ->filter(fn (Receivable $receivable) => $receivable->due_on->isBefore(today()))
             ->filter(fn (Receivable $receivable) => $this->to === null || $receivable->due_on->lte($this->to))
-            ->sum(fn (Receivable $receivable) => $receivable->outstanding), 2);
+            ->sum(fn (Receivable $receivable) => $receivable->outstanding);
     }
 
     /** @return Collection<int, Receivable> */
@@ -78,8 +78,8 @@ final class ClientStatement
             'key' => 'r'.$receivable->getKey(),
             'date' => $receivable->due_on,
             'description' => $receivable->label,
-            'debit' => round((float) $receivable->amount, 2),
-            'credit' => 0.0,
+            'debit' => $receivable->amount,
+            'credit' => 0,
             'is_future' => $receivable->due_on->isAfter(today()),
             'kind' => 'charge',
             'order' => 0,
@@ -89,8 +89,8 @@ final class ClientStatement
             'key' => 'p'.$payment->getKey(),
             'date' => $payment->paid_on,
             'description' => collect(['Recebimento', $payment->method?->getLabel(), $payment->invoice_number])->filter()->implode(' · '),
-            'debit' => 0.0,
-            'credit' => round((float) $payment->amount, 2),
+            'debit' => 0,
+            'credit' => $payment->amount,
             'is_future' => false,
             'kind' => 'payment',
             'order' => 1,
@@ -109,14 +109,14 @@ final class ClientStatement
 
         if ($this->from !== null) {
             $before = $all->filter(fn (array $entry) => $entry['date']->lt($this->from));
-            $this->opening = round($before->sum('debit') - $before->sum('credit'), 2);
+            $this->opening = (int) ($before->sum('debit') - $before->sum('credit'));
             $listed = $all->filter(fn (array $entry) => $entry['date']->gte($this->from))->values();
         }
 
         $balance = $this->opening;
 
         $entries = $listed->map(function (array $entry) use (&$balance) {
-            $balance = round($balance + $entry['debit'] - $entry['credit'], 2);
+            $balance = $balance + $entry['debit'] - $entry['credit'];
             unset($entry['order']);
 
             return [...$entry, 'balance' => $balance];
@@ -127,8 +127,8 @@ final class ClientStatement
                 'key' => 'opening',
                 'date' => $this->from,
                 'description' => 'Saldo anterior',
-                'debit' => 0.0,
-                'credit' => 0.0,
+                'debit' => 0,
+                'credit' => 0,
                 'balance' => $this->opening,
                 'is_future' => false,
                 'kind' => 'opening',
