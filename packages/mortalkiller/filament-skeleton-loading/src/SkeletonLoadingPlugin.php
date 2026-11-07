@@ -79,7 +79,7 @@ final class SkeletonLoadingPlugin implements Plugin
         if (self::isEnabled() && ! $this->shimmer) {
             $panel->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn (): string => '<style>.fsl-bone::after,.fi-ta-table-loading-ctn::after{display:none!important}</style>',
+                fn (): string => '<style>.fsl-bone::after,.fi-ta-table-loading-ctn::after,.fi-no-notifications-loading-ctn::after,.fi-sc-loading::after{display:none!important}</style>',
             );
         }
     }

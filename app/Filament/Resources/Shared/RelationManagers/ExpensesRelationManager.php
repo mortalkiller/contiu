@@ -8,12 +8,15 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\Summarizers\Summarizer;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 
 /**
  * Direct costs of a project or retainer; they reduce its margin.
  */
 class ExpensesRelationManager extends RelationManager
 {
+    use HasSkeletonPlaceholder;
+
     protected static string $relationship = 'expenses';
 
     protected static ?string $title = 'Custos diretos';

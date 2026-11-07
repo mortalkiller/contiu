@@ -17,12 +17,15 @@ use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 
 /**
  * Prestações (projects) or periods (retainers).
  */
 class ReceivablesRelationManager extends RelationManager
 {
+    use HasSkeletonPlaceholder;
+
     protected static string $relationship = 'receivables';
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string

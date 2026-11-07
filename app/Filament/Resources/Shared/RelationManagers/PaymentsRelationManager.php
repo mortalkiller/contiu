@@ -6,12 +6,15 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 
 /**
  * Read-only list of what came in for a project or retainer (record new ones with "Registar recebimento").
  */
 class PaymentsRelationManager extends RelationManager
 {
+    use HasSkeletonPlaceholder;
+
     protected static string $relationship = 'payments';
 
     protected static ?string $title = 'Recebimentos';

@@ -1,7 +1,12 @@
 <?php
 
 use App\Filament\Pages\Dashboard;
+use App\Filament\Resources\Clients\RelationManagers\ProjectsRelationManager;
+use App\Filament\Resources\Clients\RelationManagers\RetainersRelationManager;
 use App\Filament\Resources\Expenses\Pages\ListExpenses;
+use App\Filament\Resources\Shared\RelationManagers\ExpensesRelationManager;
+use App\Filament\Resources\Shared\RelationManagers\PaymentsRelationManager;
+use App\Filament\Resources\Shared\RelationManagers\ReceivablesRelationManager;
 use App\Filament\Widgets\CashFlowChart;
 use App\Filament\Widgets\FinanceStatsOverview;
 use App\Filament\Widgets\IncomeByCategoryChart;
@@ -78,3 +83,13 @@ it('defers the expenses list and shows its rows once loaded', function () {
         ->loadTable()
         ->assertCanSeeTableRecords([$expense]);
 });
+
+it('draws table skeletons for the relation managers of jobs, retainers and clients', function (string $manager) {
+    expect(app($manager)->placeholder()->render())->toContain('fsl-skeleton--table');
+})->with([
+    PaymentsRelationManager::class,
+    ReceivablesRelationManager::class,
+    ExpensesRelationManager::class,
+    ProjectsRelationManager::class,
+    RetainersRelationManager::class,
+]);

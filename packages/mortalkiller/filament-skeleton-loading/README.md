@@ -28,8 +28,11 @@ Non-goals: skeletons for forms, infolists or modals, and skeletons while a table
   - stats overview: one tile per column;
   - chart: bars, a line or a ring (doughnut, pie, polar area), with the chart's real heading;
   - table widget: header and rows.
-- **Generic skeleton** for every other lazy widget or section, with no code change.
+- **Relation managers** with the same trait get a table skeleton.
+- **Generic skeleton** for every other lazy widget, relation manager or Livewire component, with no code change.
 - **Deferred tables** draw skeleton rows instead of Filament's spinner.
+- **Database notifications** panel: three placeholder notifications instead of a spinner.
+- **Lazy loaded schemas** (`Section::make()->schema(...)->lazyLoaded()`): form rows (label and field) instead of a spinner.
 - **Shimmer** that can be turned off, and that always stands still for `prefers-reduced-motion`.
 - Light and dark mode; plain CSS, no build step in the consuming app.
 
@@ -59,7 +62,7 @@ The stylesheet is published with Filament's assets (`php artisan filament:assets
 
 ### Widgets
 
-Add the trait to a lazy widget (widgets are lazy by default):
+Add the trait to a lazy widget or relation manager (both are lazy by default):
 
 ```php
 use Filament\Widgets\ChartWidget;

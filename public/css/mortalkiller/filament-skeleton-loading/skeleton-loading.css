@@ -132,24 +132,50 @@
     border-top: 1px solid var(--fsl-border);
 }
 
-/* Deferred tables: Filament renders a spinner here; draw skeleton rows instead */
-.fi-ta-table-loading-ctn {
+/*
+ * Filament's own loading containers draw a spinner; draw skeletons instead:
+ * deferred tables, the database notifications panel and lazy loaded schemas (sections).
+ */
+.fi-ta-table-loading-ctn,
+.fi-no-notifications-loading-ctn,
+.fi-sc-loading {
     --fsl-bone: rgb(0 0 0 / 0.07);
     --fsl-shine: rgb(255 255 255 / 0.55);
     position: relative;
     display: block !important;
-    /* Filament gives the spinner box a fixed height: let the skeleton rows set it. */
+    /* Filament gives the spinner box a fixed height: let the skeleton set it. */
     height: auto !important;
+    min-height: 0 !important;
     overflow: hidden;
-    padding: 0 !important;
 }
 
-.dark .fi-ta-table-loading-ctn {
+.dark .fi-ta-table-loading-ctn,
+.dark .fi-no-notifications-loading-ctn,
+.dark .fi-sc-loading {
     --fsl-bone: rgb(255 255 255 / 0.08);
     --fsl-shine: rgb(255 255 255 / 0.07);
 }
 
-.fi-ta-table-loading-ctn > :not(.fi-sr-only) { display: none !important; }
+.fi-ta-table-loading-ctn > :not(.fi-sr-only),
+.fi-no-notifications-loading-ctn > :not(.fi-sr-only),
+.fi-sc-loading > :not(.fi-sr-only) {
+    display: none !important;
+}
+
+.fi-ta-table-loading-ctn::after,
+.fi-no-notifications-loading-ctn::after,
+.fi-sc-loading::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, var(--fsl-shine), transparent);
+    animation: fsl-shimmer 1.4s ease-in-out infinite;
+    pointer-events: none;
+}
+
+/* Deferred tables: rows of cells */
+.fi-ta-table-loading-ctn { padding: 0 !important; }
 
 .fi-ta-table-loading-ctn::before {
     content: "";
@@ -161,19 +187,39 @@
     mask-image: linear-gradient(90deg, #000 0 20%, transparent 20% 26%, #000 26% 58%, transparent 58% 64%, #000 64% 80%, transparent 80% 86%, #000 86% 96%, transparent 96%);
 }
 
-.fi-ta-table-loading-ctn::after {
+/* Notifications panel: three notifications (icon, title, two lines of text) */
+.fi-no-notifications-loading-ctn { padding: 16px 24px !important; }
+
+.fi-no-notifications-loading-ctn::before {
     content: "";
-    position: absolute;
-    inset: 0;
-    transform: translateX(-100%);
-    background: linear-gradient(90deg, transparent, var(--fsl-shine), transparent);
-    animation: fsl-shimmer 1.4s ease-in-out infinite;
-    pointer-events: none;
+    display: block;
+    height: 228px;
+    background:
+        radial-gradient(circle at 12px 12px, var(--fsl-bone) 11px, transparent 12px) 0 4px / 24px 76px repeat-y,
+        linear-gradient(to bottom, var(--fsl-bone) 0 12px, transparent 12px) 40px 4px / 50% 76px repeat-y,
+        linear-gradient(to bottom, var(--fsl-bone) 0 10px, transparent 10px) 40px 26px / 78% 76px repeat-y,
+        linear-gradient(to bottom, var(--fsl-bone) 0 10px, transparent 10px) 40px 44px / 42% 76px repeat-y;
+}
+
+/* Lazy loaded schemas: form rows (label, field) */
+.fi-sc-loading { padding: 4px 0 !important; }
+
+.fi-sc-loading::before {
+    content: "";
+    display: block;
+    /* `.fi-sc` children are laid out by Filament's schema grid rules: give the bones the full width. */
+    width: 100%;
+    height: 228px;
+    background:
+        linear-gradient(to bottom, var(--fsl-bone) 0 12px, transparent 12px) 0 0 / 28% 76px repeat-y,
+        linear-gradient(to bottom, var(--fsl-bone) 0 36px, transparent 36px) 0 22px / 100% 76px repeat-y;
 }
 
 @media (prefers-reduced-motion: reduce) {
     .fsl-bone::after,
-    .fi-ta-table-loading-ctn::after {
+    .fi-ta-table-loading-ctn::after,
+    .fi-no-notifications-loading-ctn::after,
+    .fi-sc-loading::after {
         display: none;
         animation: none;
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MortalKiller\FilamentSkeletonLoading\Concerns;
 
+use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Widgets\ChartWidget;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\TableWidget;
@@ -12,11 +13,11 @@ use MortalKiller\FilamentSkeletonLoading\SkeletonLoadingPlugin;
 use Throwable;
 
 /**
- * For lazy widgets: while the widget loads, draw a skeleton shaped like it (stat tiles, a chart,
- * table rows) instead of an empty box. Override the `$skeleton…` properties to fine-tune.
+ * For lazy widgets and relation managers: while they load, draw a skeleton shaped like them (stat
+ * tiles, a chart, table rows) instead of an empty box. Override the `$skeleton…` properties to fine-tune.
  *
  * @property ?int $skeletonItems number of stat tiles (stats widgets)
- * @property ?int $skeletonRows number of rows (table widgets)
+ * @property ?int $skeletonRows number of rows (table widgets and relation managers)
  */
 trait HasSkeletonPlaceholder
 {
@@ -40,7 +41,7 @@ trait HasSkeletonPlaceholder
         $kind = match (true) {
             $this instanceof StatsOverviewWidget => 'stats',
             $this instanceof ChartWidget => 'chart',
-            $this instanceof TableWidget => 'table',
+            $this instanceof TableWidget, $this instanceof RelationManager => 'table',
             default => 'generic',
         };
 
