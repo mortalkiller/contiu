@@ -23,6 +23,33 @@ final class TransferCoverage
     /** @var array<int, list<TransferCover>>|null */
     private ?array $covers = null;
 
+    /** @var array<string, list<array{line: BankTransaction, amount: int}>> by record key */
+    private array $coveredBy = [];
+
+    /** @var array<string, int> what is left to cover, by record key (records in scope only) */
+    private array $remaining = [];
+
+    /** Transfers that covered a payment or expense, oldest first, with how much each. */
+    public function coveredBy(Payment|Expense $record): array
+    {
+        $this->all();
+
+        return $this->coveredBy[$this->key($record)] ?? [];
+    }
+
+    /** Cents of the record not covered by any transfer; null when it is not in scope (linked, out of range). */
+    public function remaining(Payment|Expense $record): ?int
+    {
+        $this->all();
+
+        return $this->remaining[$this->key($record)] ?? null;
+    }
+
+    private function key(Payment|Expense $record): string
+    {
+        return $record::class.':'.$record->getKey();
+    }
+
     /** @return list<TransferCover> */
     public function for(BankTransaction $transfer): array
     {
@@ -65,6 +92,7 @@ final class TransferCoverage
                     $canNet -= $take;
                     $capacity += $take;
                     $covers[] = new TransferCover($item['record'], $take, $item['amount'], deducted: true);
+                    $this->coveredBy[$this->key($item['record'])][] = ['line' => $transfer, 'amount' => $take];
                 }
 
                 foreach ($payments as $key => $item) {
@@ -80,6 +108,7 @@ final class TransferCoverage
                     $payments[$key]['remaining'] -= $take;
                     $capacity -= $take;
                     $covers[] = new TransferCover($item['record'], $take, $item['amount']);
+                    $this->coveredBy[$this->key($item['record'])][] = ['line' => $transfer, 'amount' => $take];
                 }
 
                 // Payments first, then the expenses deducted from them.
@@ -100,10 +129,15 @@ final class TransferCoverage
                     $expenses[$key]['remaining'] -= $take;
                     $capacity -= $take;
                     $covers[] = new TransferCover($item['record'], $take, $item['amount']);
+                    $this->coveredBy[$this->key($item['record'])][] = ['line' => $transfer, 'amount' => $take];
                 }
             }
 
             $this->covers[$transfer->getKey()] = $covers;
+        }
+
+        foreach ([...$payments, ...$expenses] as $item) {
+            $this->remaining[$this->key($item['record'])] = $item['remaining'];
         }
 
         return $this->covers;

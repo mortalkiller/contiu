@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Expenses\Schemas;
 use App\Enums\ExpenseKind;
 use App\Enums\PaymentMethod;
 use App\Filament\Support\FinanceFields;
+use App\Filament\Support\ReconciliationColumns;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
@@ -128,6 +129,7 @@ class ExpenseForm
                         ->label('Notas')
                         ->rows(2) : null,
                 ]))),
+            ...($withPaymentStatus ? [ReconciliationColumns::section()] : []),
         ];
     }
 

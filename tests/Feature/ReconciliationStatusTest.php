@@ -7,6 +7,7 @@ use App\Models\Payment;
 use App\Support\CompanyAccount;
 use App\Support\Money;
 use App\Support\Reconciliation;
+use App\Support\TransferCoverage;
 use Illuminate\Support\Carbon;
 
 beforeEach(fn () => $this->travelTo(Carbon::parse('2026-11-20')));
@@ -83,4 +84,26 @@ it('has nothing to reconcile against without a statement', function () {
     expect((new Reconciliation)->forPayment($payment))
         ->status->toBe(ReconciliationStatus::NotReconciled)
         ->detail()->toBe('Sem extrato importado');
+});
+
+it('lists the statement lines behind each record', function () {
+    bankLine('2026-11-01', 0, 0);
+    $direct = paid(5000, '2026-11-02');
+    $line = bankLine('2026-11-02', 5000, 5000);
+    $line->links()->create(['linkable_type' => $direct->getMorphClass(), 'linkable_id' => $direct->id]);
+    $outside = paid(30000, '2026-11-03');
+    $transfer = bankLine('2026-11-06', 30000, 35000, 'own_transfer');
+
+    $reconciliation = new Reconciliation;
+
+    expect(collect($reconciliation->forPayment($direct)->lines)->map(fn ($by) => [$by['line']->getKey(), $by['amount'], $by['direct']])->all())->toBe([[$line->getKey(), 5000, true]])
+        ->and(collect($reconciliation->forPayment($outside)->lines)->map(fn ($by) => [$by['line']->getKey(), $by['amount'], $by['direct']])->all())->toBe([[$transfer->getKey(), 30000, false]]);
+});
+
+it('agrees with the transfer details on what is still missing', function () {
+    bankLine('2026-11-01', 0, 0);
+    $payment = paid(70000, '2026-11-02');
+    bankLine('2026-11-05', 30000, 30000, 'own_transfer');
+
+    expect((new Reconciliation)->forPayment($payment)->missing)->toBe((new TransferCoverage)->remaining($payment));
 });

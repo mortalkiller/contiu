@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Shared\RelationManagers;
 
+use App\Filament\Support\ReconciliationColumns;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
@@ -31,7 +32,11 @@ class PaymentsRelationManager extends RelationManager
                 TextColumn::make('invoice_number')->label('Fatura')->placeholder('—'),
                 TextColumn::make('amount')->label('Valor')->money('EUR', divideBy: 100)->alignEnd()
                     ->summarize(Sum::make()->label('Total')->money('EUR', divideBy: 100)),
+                ReconciliationColumns::paymentColumn(),
                 TextColumn::make('notes')->label('Notas')->placeholder('—')->limit(40)->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->recordActions([
+                ReconciliationColumns::detailsAction()->iconButton()->tooltip('Ver no banco'),
             ])
             ->emptyStateHeading('Ainda sem recebimentos');
     }

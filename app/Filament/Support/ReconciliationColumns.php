@@ -5,10 +5,17 @@ namespace App\Filament\Support;
 use App\Enums\ReconciliationStatus;
 use App\Models\Expense;
 use App\Models\Payment;
+use App\Support\Money;
 use App\Support\Reconciliation;
+use App\Support\ReconciliationResult;
+use Filament\Actions\Action;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\View;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 /**
  * "Banco" column and filter for payments and expenses: reconciled with the bank statement or not.
@@ -44,6 +51,42 @@ final class ReconciliationColumns
             ->color(fn (Expense $record) => self::reconciliation()->forExpense($record)->status->color())
             ->description(fn (Expense $record) => $record->is_paid ? self::reconciliation()->forExpense($record)->detail() : null)
             ->placeholder('—');
+    }
+
+    /** The result for a payment or (paid) expense. */
+    public static function for(Payment|Expense $record): ReconciliationResult
+    {
+        return $record instanceof Payment ? self::reconciliation()->forPayment($record) : self::reconciliation()->forExpense($record);
+    }
+
+    /** "Ver no banco": the status and the statement lines behind a record. */
+    public static function detailsAction(): Action
+    {
+        return Action::make('reconciliation')
+            ->label('Ver no banco')
+            ->icon(Phosphor::Bank)
+            ->visible(fn (Payment|Expense $record) => $record instanceof Payment || $record->is_paid)
+            ->modalHeading('Reconciliação com o banco')
+            ->modalDescription(fn (Payment|Expense $record) => $record instanceof Payment
+                ? 'Recebimento '.$record->receivable?->label.' · '.$record->paid_on?->format('d/m/Y').' · '.Money::format($record->amount)
+                : 'Despesa '.$record->description.' · '.($record->paid_on ?? $record->spent_on)?->format('d/m/Y').' · '.Money::format($record->total))
+            ->modalContent(fn (Payment|Expense $record) => view('filament.partials.reconciliation-details', ['result' => self::for($record), 'isExpense' => $record instanceof Expense]))
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Fechar');
+    }
+
+    /** "Banco" section for the payment and expense forms (editing an existing, paid record). */
+    public static function section(): Section
+    {
+        return Section::make('Banco')
+            ->icon(Phosphor::Bank)
+            ->description('Se já está reconciliado com o extrato e que linhas o cobrem.')
+            ->columnSpanFull()
+            ->schema([
+                View::make('filament.partials.reconciliation-details')
+                    ->viewData(fn (?Model $record) => ['result' => $record instanceof Payment || $record instanceof Expense ? self::for($record) : null, 'isExpense' => $record instanceof Expense]),
+            ])
+            ->visible(fn (?Model $record) => $record?->exists && ($record instanceof Payment || ($record instanceof Expense && $record->is_paid)));
     }
 
     public static function paymentFilter(): SelectFilter

@@ -125,7 +125,8 @@
                     <li><strong>A empresa deve-te</strong> — há despesas pagas que não saíram desta conta; podes transferir esse valor para ti.</li>
                     <li><strong>Bate certo</strong> — o banco tem exatamente o que a Contiu diz.</li>
                 </ul>
-                <p class="mt-3">Nas listas de <strong>Recebimentos</strong> e <strong>Despesas</strong>, a coluna <strong>Banco</strong> diz se cada um está <strong>Reconciliado</strong> ou <strong>Por reconciliar</strong> (com o filtro do mesmo nome). Está reconciliado quando está ligado a uma linha do extrato, ou quando o dinheiro que entrou depois já o cobre: os mais antigos ficam cobertos primeiro. O que está por reconciliar soma sempre o valor de "Falta transferir"; um parcial mostra quanto falta.</p>
+                <p class="mt-3">Nas listas de <strong>Recebimentos</strong> e <strong>Despesas</strong>, a coluna <strong>Banco</strong> diz se cada um está <strong>Reconciliado</strong> ou <strong>Por reconciliar</strong> (com o filtro do mesmo nome). Está reconciliado quando está ligado a uma linha do extrato, ou quando uma transferência tua já o cobre: os mais antigos ficam cobertos primeiro. Com o extrato todo tratado, o que está por reconciliar soma o valor de "Falta transferir"; um parcial mostra quanto falta.</p>
+                <p class="mt-3">Para ver <em>que</em> linhas do extrato cobrem um recebimento ou uma despesa: <strong>Ver no banco</strong> no menu ⋯ da linha, ou a secção <strong>Banco</strong> ao editá-lo. Também aparece nos separadores de recebimentos e despesas de cada trabalho e avença, e nas despesas do fecho do mês. Numa transferência, o ícone 👁 <strong>Ver detalhes</strong> mostra o contrário: que registos ela cobre.</p>
                 <p class="mt-2">O número só é final com o extrato todo tratado: enquanto houver linhas "Por tratar" o quadro avisa.</p>
             </x-filament::section>
 

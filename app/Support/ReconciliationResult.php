@@ -3,8 +3,12 @@
 namespace App\Support;
 
 use App\Enums\ReconciliationStatus;
+use App\Models\BankTransaction;
 
-/** One record's reconciliation; `missing` = cents not matched by the bank yet. */
+/**
+ * One record's reconciliation; `missing` = cents not matched by the bank yet; `lines` = the
+ * statement lines behind it (its own line, or the transfers that covered it) with how much each.
+ */
 final class ReconciliationResult
 {
     public function __construct(
@@ -12,6 +16,8 @@ final class ReconciliationResult
         public readonly int $amount = 0,
         public readonly int $missing = 0,
         public readonly ?string $note = null,
+        /** @var list<array{line: BankTransaction, amount: int, direct: bool}> */
+        public readonly array $lines = [],
     ) {}
 
     public function isReconciled(): bool

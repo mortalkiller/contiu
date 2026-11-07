@@ -68,6 +68,7 @@ class PaymentResource extends Resource
                 ->columnSpanFull(),
             TextInput::make('invoice_number')->label('N.º da fatura / recibo')->columnSpanFull(),
             Textarea::make('notes')->label('Notas')->rows(2)->columnSpanFull(),
+            ReconciliationColumns::section(),
         ]);
     }
 
@@ -140,6 +141,7 @@ class PaymentResource extends Resource
             ->recordActions([
                 ActionGroup::make([
                     EditAction::make()->modalHeading('Editar recebimento'),
+                    ReconciliationColumns::detailsAction(),
                     static::historyAction(),
                     DeleteAction::make(),
                 ]),

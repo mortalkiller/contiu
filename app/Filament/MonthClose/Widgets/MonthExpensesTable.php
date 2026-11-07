@@ -4,6 +4,7 @@ namespace App\Filament\MonthClose\Widgets;
 
 use App\Filament\MonthClose\Concerns\ReviewsMonth;
 use App\Filament\Resources\Expenses\ExpenseResource;
+use App\Filament\Support\ReconciliationColumns;
 use App\Models\Expense;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -40,6 +41,7 @@ class MonthExpensesTable extends TableWidget
                 TextColumn::make('kind')->label('Tipo')->badge()->toggleable(),
                 TextColumn::make('total')->label('Total')->money('EUR', divideBy: 100)->alignEnd(),
                 IconColumn::make('is_paid')->label('Paga')->boolean(),
+                ReconciliationColumns::expenseColumn(),
                 TextInputColumn::make('invoice_number')
                     ->label('N.º da fatura')
                     ->placeholder('Ex.: FT 2026/12')

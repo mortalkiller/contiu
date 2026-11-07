@@ -76,3 +76,16 @@ it('ignores payments already linked to their own statement line and ones newer t
 
     expect((new TransferCoverage)->for($transfer))->toBe([]);
 });
+
+it('tells, for a payment, which transfers covered it and what is left', function () {
+    coverLine('2026-11-01', 0, 0, 'matched');
+    $payment = receipt('OC-1', 70000, '2026-11-02');
+    $first = coverLine('2026-11-05', 30000, 30000);
+    $second = coverLine('2026-11-10', 25000, 55000);
+
+    $coverage = new TransferCoverage;
+
+    expect(collect($coverage->coveredBy($payment))->map(fn ($by) => $by['line']->getKey().':'.$by['amount'])->all())
+        ->toBe([$first->getKey().':30000', $second->getKey().':25000'])
+        ->and($coverage->remaining($payment))->toBe(15000);
+});

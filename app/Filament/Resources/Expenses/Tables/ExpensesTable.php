@@ -147,6 +147,7 @@ class ExpensesTable
                     }),
                 ActionGroup::make([
                     EditAction::make(),
+                    ReconciliationColumns::detailsAction(),
                     ReplicateAction::make()
                         ->label('Duplicar')
                         ->modalDescription('Cria uma cópia com a data de hoje, por pagar, para corrigires o que mudou.')
