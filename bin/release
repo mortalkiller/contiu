@@ -1,0 +1,224 @@
+#!/usr/bin/env bash
+#
+# Contiu — release em produção.
+#
+# Corre no servidor, na pasta da app (o código está montado nos containers):
+#
+#   bin/release               faz o deploy do que estiver em origin/main
+#   bin/release --dry-run     mostra o que ia correr, sem mudar nada
+#   bin/release --skip-backup não faz o backup da base de dados antes de migrar
+#   bin/release --skip-build  não compila o tema (CSS/JS)
+#   bin/release --force       faz o deploy mesmo sem commits novos
+#
+# Sequência: verificações → manutenção → backup da BD → git pull → composer →
+# build do tema → migrações → caches → reiniciar o worker → sair da manutenção.
+#
+# Se um passo falhar depois do git pull, o site FICA em manutenção (para ninguém
+# usar código novo com a base de dados antiga, ou o contrário). Corrige e corre
+# `bin/release` outra vez, ou sai da manutenção à mão com o comando que o
+# script mostra. Se falhar antes (verificações, backup), sai da manutenção sozinho.
+#
+# Configuração (variáveis de ambiente, com estes valores por defeito):
+#   COMPOSE="docker compose"   comando do Docker Compose
+#   APP_SERVICE=php            container onde correm php artisan e composer ("" = no próprio servidor)
+#   WORKER_SERVICE=php-work    container do queue:work, reiniciado no fim ("" = não reiniciar)
+#   NPM_SERVICE=""             container onde corre o npm ("" = no próprio servidor)
+#   RESTART_APP=0              1 = reiniciar também o container da app (limpa o OPcache)
+#   REMOTE=origin BRANCH=main  de onde vem o código
+#
+# Exemplo: APP_SERVICE=app RESTART_APP=1 bin/release
+
+set -Eeuo pipefail
+
+COMPOSE="${COMPOSE:-docker compose}"
+APP_SERVICE="${APP_SERVICE-php}"
+WORKER_SERVICE="${WORKER_SERVICE-php-work}"
+NPM_SERVICE="${NPM_SERVICE:-}"
+RESTART_APP="${RESTART_APP:-0}"
+REMOTE="${REMOTE:-origin}"
+BRANCH="${BRANCH:-main}"
+
+DRY_RUN=0
+SKIP_BACKUP=0
+SKIP_BUILD=0
+FORCE=0
+
+for arg in "$@"; do
+    case "$arg" in
+        --dry-run) DRY_RUN=1 ;;
+        --skip-backup) SKIP_BACKUP=1 ;;
+        --skip-build) SKIP_BUILD=1 ;;
+        --force) FORCE=1 ;;
+        -h|--help) sed -n '3,29p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *) echo "Opção desconhecida: $arg (vê bin/release --help)" >&2; exit 2 ;;
+    esac
+done
+
+cd "$(dirname "$0")/.."
+
+# ── Saída ───────────────────────────────────────────────────────────────────
+
+if [[ -t 1 ]]; then BOLD=$'\e[1m'; GREEN=$'\e[32m'; YELLOW=$'\e[33m'; RED=$'\e[31m'; RESET=$'\e[0m'; else BOLD=''; GREEN=''; YELLOW=''; RED=''; RESET=''; fi
+
+STEP=0
+CURRENT_STEP=''
+step() { STEP=$((STEP + 1)); CURRENT_STEP="$1"; echo; echo "${BOLD}${STEP}. $1${RESET}"; }
+info() { echo "   $*"; }
+warn() { echo "${YELLOW}   ! $*${RESET}"; }
+fail() { echo "${RED}✗ $*${RESET}" >&2; exit 1; }
+
+# Corre um comando (ou só o mostra em --dry-run).
+run() {
+    echo "   \$ $*"
+    [[ $DRY_RUN -eq 1 ]] || "$@"
+}
+
+# Comando dentro do container da app (ou no servidor se APP_SERVICE="").
+in_app() {
+    if [[ -n "$APP_SERVICE" ]]; then run $COMPOSE exec -T "$APP_SERVICE" "$@"; else run "$@"; fi
+}
+
+artisan() { in_app php artisan "$@"; }
+
+in_npm() {
+    if [[ -n "$NPM_SERVICE" ]]; then run $COMPOSE exec -T "$NPM_SERVICE" npm "$@"; else run npm "$@"; fi
+}
+
+# ── Falhas ──────────────────────────────────────────────────────────────────
+
+IN_MAINTENANCE=0
+CODE_CHANGED=0
+
+on_error() {
+    local status=$?
+    trap - ERR
+    echo
+    echo "${RED}${BOLD}✗ Falhou o passo ${STEP}: ${CURRENT_STEP}${RESET}" >&2
+
+    if [[ $IN_MAINTENANCE -eq 1 && $CODE_CHANGED -eq 0 ]]; then
+        echo "  Nada foi alterado ainda: a sair da manutenção." >&2
+        artisan up || true
+    elif [[ $IN_MAINTENANCE -eq 1 ]]; then
+        echo "  O site ficou em MANUTENÇÃO de propósito (código e base de dados podem estar a meio)." >&2
+        echo "  Corrige o problema e corre bin/release outra vez, ou sai da manutenção com:" >&2
+        if [[ -n "$APP_SERVICE" ]]; then
+            echo "    $COMPOSE exec -T $APP_SERVICE php artisan up" >&2
+        else
+            echo "    php artisan up" >&2
+        fi
+    fi
+
+    exit "$status"
+}
+trap on_error ERR
+
+# ── 1. Verificações (não mudam nada) ────────────────────────────────────────
+
+[[ $DRY_RUN -eq 1 ]] && echo "${YELLOW}${BOLD}Modo --dry-run: os comandos são mostrados mas não corridos.${RESET}"
+
+step "Verificações"
+
+[[ -f artisan ]] || fail "Não estou na pasta da app Laravel."
+[[ -f .env ]] || fail "Falta o ficheiro .env."
+
+app_env="$(grep -E '^APP_ENV=' .env | tail -1 | cut -d= -f2- | tr -d '"'"'"' ')"
+if [[ "$app_env" != "production" ]]; then
+    [[ $DRY_RUN -eq 1 ]] && warn "APP_ENV=$app_env (devia ser production)" || fail "O .env tem APP_ENV=$app_env; isto é para produção."
+fi
+
+if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+    [[ $DRY_RUN -eq 1 ]] && warn "Há alterações por commitar no servidor (o git pull ia falhar)." || fail "Há alterações por commitar no servidor; o git pull ia falhar. Vê: git status"
+fi
+
+if [[ -n "$APP_SERVICE" && $DRY_RUN -eq 0 ]]; then
+    $COMPOSE ps --status running --services 2>/dev/null | grep -qx "$APP_SERVICE" || fail "O container '$APP_SERVICE' não está a correr (define APP_SERVICE)."
+fi
+
+git fetch --quiet "$REMOTE" "$BRANCH"
+current="$(git rev-parse --short HEAD)"
+target="$(git rev-parse --short "$REMOTE/$BRANCH")"
+pending="$(git log --oneline "HEAD..$REMOTE/$BRANCH")"
+
+info "Versão atual: $current  →  nova: $target"
+if [[ -z "$pending" ]]; then
+    if [[ $FORCE -eq 0 ]]; then
+        echo "${GREEN}   Já está tudo na última versão. Nada a fazer (usa --force para repetir o deploy).${RESET}"
+        exit 0
+    fi
+    warn "Sem commits novos; a repetir o deploy (--force)."
+else
+    info "Commits a publicar:"
+    echo "$pending" | sed 's/^/     /'
+fi
+
+# ── 2. Manutenção ───────────────────────────────────────────────────────────
+
+step "Modo de manutenção (página \"Em manutenção\" da Contiu)"
+artisan down --render="errors::503" --retry=60
+IN_MAINTENANCE=1
+
+# ── 3. Backup da base de dados (antes de mudar código ou dados) ─────────────
+
+step "Backup da base de dados"
+if [[ $SKIP_BACKUP -eq 1 ]]; then
+    warn "Saltado (--skip-backup)."
+else
+    artisan backup:run --only-db --disable-notifications
+fi
+
+# ── 4. Código ───────────────────────────────────────────────────────────────
+
+step "Código novo ($REMOTE/$BRANCH)"
+CODE_CHANGED=1
+run git pull --ff-only "$REMOTE" "$BRANCH"
+
+step "Dependências PHP (composer)"
+in_app composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+step "Tema (npm run build)"
+if [[ $SKIP_BUILD -eq 1 ]]; then
+    warn "Saltado (--skip-build)."
+else
+    in_npm ci --no-audit --no-fund
+    in_npm run build
+fi
+
+# ── 5. Base de dados ────────────────────────────────────────────────────────
+
+step "Migrações"
+artisan migrate --force
+
+# ── 6. Caches ───────────────────────────────────────────────────────────────
+
+step "Caches (config, rotas, eventos, views, componentes e ícones do Filament)"
+artisan optimize:clear
+artisan optimize
+artisan filament:optimize
+
+# ── 7. Processos ────────────────────────────────────────────────────────────
+
+step "Worker das filas"
+if [[ -n "$WORKER_SERVICE" ]]; then
+    run $COMPOSE restart "$WORKER_SERVICE"
+else
+    warn "Sem WORKER_SERVICE: não há worker para reiniciar."
+fi
+
+if [[ "$RESTART_APP" == "1" && -n "$APP_SERVICE" ]]; then
+    step "Reiniciar o container da app (OPcache)"
+    run $COMPOSE restart "$APP_SERVICE"
+fi
+
+# ── 8. Online ───────────────────────────────────────────────────────────────
+
+step "Sair da manutenção"
+artisan up
+IN_MAINTENANCE=0
+
+trap - ERR
+echo
+if [[ $DRY_RUN -eq 1 ]]; then
+    echo "${YELLOW}${BOLD}--dry-run: nada foi alterado. Corre sem --dry-run para publicar $target.${RESET}"
+else
+    echo "${GREEN}${BOLD}✓ Release $target publicada.${RESET}"
+fi
