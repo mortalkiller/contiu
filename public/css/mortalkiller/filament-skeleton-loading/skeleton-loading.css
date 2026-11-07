@@ -215,12 +215,86 @@
         linear-gradient(to bottom, var(--fsl-bone) 0 36px, transparent 36px) 0 22px / 100% 76px repeat-y;
 }
 
+
+/* Page loader (opt-in: SkeletonLoadingPlugin::pageLoader()) */
+#fsl-page-loader {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483000;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    color: var(--primary-600, #0a0a0a);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.2s ease, visibility 0s linear 0.2s;
+}
+
+#fsl-page-loader.is-visible {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    /* Fast pages never get to show it. */
+    transition: opacity 0.2s ease var(--fsl-loader-delay, 300ms), visibility 0s linear var(--fsl-loader-delay, 300ms);
+}
+
+.dark #fsl-page-loader { background: #0a0a0a; color: #ffffff; }
+
+#fsl-page-loader .fsl-loader-symbol svg { display: block; overflow: visible; }
+
+#fsl-page-loader .fsl-loader-piece {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: fsl-loader-piece 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite both;
+    animation-play-state: paused;
+}
+
+#fsl-page-loader .fsl-loader-piece:nth-of-type(2) { animation-delay: 0.16s; }
+#fsl-page-loader .fsl-loader-piece:nth-of-type(3) { animation-delay: 0.32s; }
+#fsl-page-loader .fsl-loader-piece:nth-of-type(4) { animation-delay: 0.48s; }
+#fsl-page-loader .fsl-loader-piece:nth-of-type(5) { animation-delay: 0.64s; }
+#fsl-page-loader .fsl-loader-piece:nth-of-type(6) { animation-delay: 0.8s; }
+
+@keyframes fsl-loader-piece {
+    0% { opacity: 0; transform: translateY(36px); }
+    18%, 62% { opacity: 1; transform: none; }
+    82%, 100% { opacity: 0; transform: none; }
+}
+
+#fsl-page-loader .fsl-loader-label {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: #525252;
+    animation: fsl-loader-label 1.6s ease-in-out infinite alternate;
+    animation-play-state: paused;
+}
+
+.dark #fsl-page-loader .fsl-loader-label { color: #a3a3a3; }
+
+#fsl-page-loader.is-visible .fsl-loader-piece,
+#fsl-page-loader.is-visible .fsl-loader-label { animation-play-state: running; }
+
+@keyframes fsl-loader-label {
+    from { opacity: 0.55; }
+    to { opacity: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .fsl-bone::after,
     .fi-ta-table-loading-ctn::after,
     .fi-no-notifications-loading-ctn::after,
     .fi-sc-loading::after {
         display: none;
+        animation: none;
+    }
+
+    #fsl-page-loader .fsl-loader-piece,
+    #fsl-page-loader .fsl-loader-label {
         animation: none;
     }
 }

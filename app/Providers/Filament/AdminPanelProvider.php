@@ -76,15 +76,14 @@ class AdminPanelProvider extends PanelProvider
                 fn (): string => view('filament.partials.brand-head')->render(),
             )
             ->renderHook(
-                PanelsRenderHook::BODY_END,
-                fn (): string => view('filament.partials.page-loader')->render(),
-            )
-            ->renderHook(
                 PanelsRenderHook::GLOBAL_SEARCH_BEFORE,
                 fn (): string => Blade::render('@livewire(\\App\\Livewire\\QuickCreateMenu::class)'),
             )
             ->plugins([
-                SkeletonLoadingPlugin::make(),
+                SkeletonLoadingPlugin::make()
+                    ->pageLoader()
+                    ->pageLoaderSymbol(fn () => view('filament.partials.contiu-symbol'))
+                    ->pageLoaderLabel('A carregar…'),
                 PageHeaderPlugin::make(),
                 CompleteUserProfilePlugin::make(),
                 FilamentShieldPlugin::make()
