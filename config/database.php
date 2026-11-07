@@ -97,6 +97,12 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // Backups (spatie/laravel-backup): only the app's tables. Supabase keeps its own
+            // schemas (auth, storage, realtime, vault) in the same database, and those can't be
+            // restored elsewhere. No owner/grants, so the dump restores into any database.
+            'dump' => [
+                'add_extra_option' => '--schema=public --no-owner --no-privileges',
+            ],
         ],
 
         'sqlsrv' => [
