@@ -55,6 +55,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Attributes\Locked;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 use UnitEnum;
 
@@ -79,10 +80,15 @@ class BankStatementImport extends Page implements HasTable
 
     protected static ?int $navigationSort = 5;
 
-    /** Stored upload waiting for a manual column mapping. */
+    /**
+     * Stored upload waiting for a manual column mapping. Locked: it is a path on the disk every
+     * account shares, so the browser must never choose it.
+     */
+    #[Locked]
     public ?string $mappingFile = null;
 
     /** @var array<int, string> */
+    #[Locked]
     public array $mappingHeaders = [];
 
     /** @var array<int, BankSuggestion> */
@@ -392,7 +398,7 @@ class BankStatementImport extends Page implements HasTable
                 FileUpload::make('file')
                     ->label('Ficheiro do extrato')
                     ->disk('local')
-                    ->directory('bank-statements')
+                    ->directory(fn (): string => $this->uploadDirectory())
                     ->acceptedFileTypes([
                         'text/csv',
                         'text/plain',
@@ -447,8 +453,9 @@ class BankStatementImport extends Page implements HasTable
                     $action->halt();
                 }
 
-                $result = $this->readStatement($this->mappingFile, $mapping);
-                $this->storeRows($result->rows, $this->mappingFile);
+                $path = $this->mappingFile ?? abort(404);
+                $result = $this->readStatement($path, $mapping);
+                $this->storeRows($result->rows, $path);
                 $this->mappingFile = null;
                 $this->mappingHeaders = [];
             });
@@ -462,6 +469,8 @@ class BankStatementImport extends Page implements HasTable
      */
     private function readStatement(string $path, ?array $mapping = null): BankCsvResult
     {
+        $this->ensureOwnUpload($path);
+
         $contents = (string) Storage::disk('local')->get($path);
         $isSpreadsheet = str_starts_with($contents, "PK\x03\x04") || str_starts_with($contents, "\xD0\xCF\x11\xE0");
 
@@ -470,9 +479,30 @@ class BankStatementImport extends Page implements HasTable
             : BankCsvParser::parse($contents, $mapping);
     }
 
+    /** Uploads go to a folder of their own per account, on the disk all accounts share. */
+    private function uploadDirectory(): string
+    {
+        return 'bank-statements/'.CurrentAccount::id();
+    }
+
+    /**
+     * The upload's path comes back from the browser (the file field's state), and this page reads
+     * and deletes it: only a file in this account's upload folder, never a path climbing out of it.
+     */
+    private function ensureOwnUpload(string $path): void
+    {
+        $inFolder = str_starts_with($path, $this->uploadDirectory().'/')
+            && ! str_contains($path, '..')
+            && ! str_contains($path, '\\');
+
+        abort_unless($inFolder, 403);
+    }
+
     /** @param array<int, array{booked_on: string, description: string, amount: int, balance: ?int}> $rows */
     private function storeRows(array $rows, string $path): void
     {
+        $this->ensureOwnUpload($path);
+
         Storage::disk('local')->delete($path);
 
         if ($rows === []) {

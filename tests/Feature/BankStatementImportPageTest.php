@@ -17,6 +17,7 @@ use App\Support\Money;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -223,3 +224,34 @@ it('is reachable from the month close page', function () {
     Livewire::test(MonthClose::class)
         ->assertActionHasUrl('bankStatement', BankStatementImport::getUrl());
 });
+
+it('refuses a mapping file set from the browser', function () {
+    Livewire::test(BankStatementImport::class)->set('mappingFile', 'outra-conta/extrato.csv');
+})->throws(CannotUpdateLockedPropertyException::class);
+
+it('refuses a mapping headers list set from the browser', function () {
+    Livewire::test(BankStatementImport::class)->set('mappingHeaders', ['x']);
+})->throws(CannotUpdateLockedPropertyException::class);
+
+it('keeps each account\'s uploads in its own folder', function () {
+    Livewire::test(BankStatementImport::class)->loadTable()
+        ->callAction('upload', data: ['file' => UploadedFile::fake()->createWithContent('estranho.csv', "x;y;z\n05.10.2026;PAGAMENTO XPTO;-12,50\n")])
+        ->assertActionMounted('mapColumns')
+        ->assertSet('mappingFile', fn (string $path) => str_starts_with($path, 'bank-statements/'.$this->account->id.'/'));
+});
+
+it('reads and deletes only files in the account\'s upload folder', function (string $path) {
+    // The upload's state comes back from the browser: a forged one names a file already on the disk.
+    Storage::disk('local')->put($path, statementCsv());
+
+    Livewire::test(BankStatementImport::class)->loadTable()
+        ->callAction('upload', data: ['file' => ['forjado' => $path]])
+        ->assertForbidden();
+
+    expect(Storage::disk('local')->exists($path))->toBeTrue()
+        ->and(BankTransaction::count())->toBe(0);
+})->with([
+    'another folder' => 'outra-pasta/extrato.csv',
+    'another account' => 'bank-statements/999999/extrato.csv',
+    'climbing out' => fn () => 'bank-statements/'.test()->account->id.'/../outra-pasta/extrato.csv',
+]);
