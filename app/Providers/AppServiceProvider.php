@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Filament\Support\PhosphorIconAliases;
 use App\Policies\AuditPolicy;
+use App\Support\CurrentAccount;
 use Closure;
 use Filament\Schemas\Schema;
 use Filament\Support\Facades\FilamentIcon;
@@ -24,7 +25,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->scoped(CurrentAccount::class);
     }
 
     /**
