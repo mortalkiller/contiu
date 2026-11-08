@@ -12,14 +12,15 @@ function heroiconsOn(string $html): int
     return collect($matches[0])->reject(fn (string $tag) => str_contains($tag, 'fi-loading-indicator'))->count();
 }
 
-it('shows only Phosphor icons on list pages, including the Excel export buttons', function (string $url) {
+it('shows only Phosphor icons on list pages, including the Excel export buttons', function (string $resource) {
     actingAsAdmin();
     Payment::factory()->create();
 
-    $html = $this->get($url)->assertOk()->getContent();
+    // Resolved after logging in: the URL needs the account (tenant).
+    $html = $this->get($resource::getUrl())->assertOk()->getContent();
 
     expect(heroiconsOn($html))->toBe(0);
 })->with([
-    'trabalhos' => fn () => ProjectResource::getUrl(),
-    'recebimentos' => fn () => PaymentResource::getUrl(),
+    'trabalhos' => ProjectResource::class,
+    'recebimentos' => PaymentResource::class,
 ]);

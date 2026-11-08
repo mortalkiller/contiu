@@ -3,6 +3,9 @@
 use Illuminate\Support\Facades\Route;
 
 it('shows the branded page for a missing page', function () {
+    // Logged in: a guest is sent to the login first, since "/{account}" could be any word.
+    actingAsAdmin();
+
     $this->get('/pagina-que-nao-existe')
         ->assertNotFound()
         ->assertSee('Página não encontrada')

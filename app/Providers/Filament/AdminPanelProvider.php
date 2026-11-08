@@ -3,10 +3,15 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Pages\HelpCentre;
+use App\Filament\Pages\Tenancy\EditAccountProfile;
 use App\Filament\Support\BrandPalette;
+use App\Http\Middleware\UseDefaultAccountOutsideTenantRoutes;
+use App\Models\Account;
+use App\Models\User;
 use AzGasim\FilamentUnsavedChangesModal\FilamentUnsavedChangesModalPlugin;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Actions\Action;
+use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -38,6 +43,15 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('')
+            // Each account is a tenant: pages live at /{account-slug}/…, and "/" sends the user to
+            // their own account. Business resources are scoped by Filament AND by BelongsToAccount.
+            // Livewire update requests re-run IdentifyTenant (Filament makes it persistent
+            // middleware), so the tenant always comes from the page URL.
+            ->tenant(Account::class, slugAttribute: 'slug', ownershipRelationship: 'account')
+            ->tenantProfile(EditAccountProfile::class)
+            // The account switcher only matters to whoever can open more than one account. Pages
+            // outside an account (/profile) have no tenant, and Filament's menu needs one.
+            ->tenantMenu(fn (): bool => Filament::getTenant() !== null && static::canSwitchAccounts())
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->login()
             ->passwordReset()
@@ -66,6 +80,12 @@ class AdminPanelProvider extends PanelProvider
             ->databaseNotificationsPolling('60s')
             ->navigationGroups(['Receitas', 'Despesas', 'Contactos', 'Análise', 'Definições'])
             ->userMenuItems([
+                // Also reachable here because the account switcher (which links to it) is usually hidden.
+                'accountProfile' => Action::make('accountProfile')
+                    ->label('Perfil da conta')
+                    ->icon(Phosphor::Buildings)
+                    ->url(fn (): ?string => Filament::getTenant() ? EditAccountProfile::getUrl() : null)
+                    ->visible(fn (): bool => ($tenant = Filament::getTenant()) !== null && EditAccountProfile::canView($tenant)),
                 'help' => Action::make('help')
                     ->label('Centro de ajuda')
                     ->icon(Phosphor::Question)
@@ -87,12 +107,16 @@ class AdminPanelProvider extends PanelProvider
                 PageHeaderPlugin::make(),
                 CompleteUserProfilePlugin::make(),
                 FilamentShieldPlugin::make()
+                    // Roles are global (no Shield teams); RoleResource lets only super admins in.
+                    ->scopeToTenant(false)
                     ->navigationIcon(Phosphor::IdentificationBadge)
                     ->activeNavigationIcon(Phosphor::IdentificationBadge->fill())
                     ->navigationGroup('Definições')
                     ->navigationSort(10),
                 FilamentAuditingPlugin::make(),
                 FilamentSpatieLaravelBackupPlugin::make()
+                    // A dump holds every account's data.
+                    ->authorize(fn (): bool => User::loggedInIsSuperAdmin())
                     // This plugin casts enums to ->value ("hard-drives"), so pass the full icon name.
                     ->navigationIcon(Phosphor::HardDrives->getLabel())
                     ->navigationGroup('Definições')
@@ -115,6 +139,16 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
-            ]);
+                UseDefaultAccountOutsideTenantRoutes::class,
+            ])
+            // Also on Livewire updates from those pages (e.g. saving /profile).
+            ->persistentMiddleware([UseDefaultAccountOutsideTenantRoutes::class]);
+    }
+
+    private static function canSwitchAccounts(): bool
+    {
+        $user = auth()->user();
+
+        return $user instanceof User && ($user->isSuperAdmin() || $user->accounts()->count() > 1);
     }
 }

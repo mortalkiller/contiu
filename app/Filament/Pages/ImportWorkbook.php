@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Actions\ImportFinanceWorkbook;
 use App\Actions\ImportRefusedException;
 use App\Actions\ImportResult;
+use App\Models\User;
 use App\Support\Money;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -41,6 +42,12 @@ class ImportWorkbook extends Page
 
     /** Result of the last dry run, shown before importing. */
     public ?array $preview = null;
+
+    /** Pedro's personal workbook format (and "replace" wipes the account): super admins only. */
+    public static function canAccess(): bool
+    {
+        return User::loggedInIsSuperAdmin();
+    }
 
     public function mount(): void
     {

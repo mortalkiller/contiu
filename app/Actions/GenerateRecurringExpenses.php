@@ -6,6 +6,7 @@ use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Models\Expense;
 use App\Models\RecurringExpense;
 use App\Models\User;
+use App\Support\CurrentAccount;
 use App\Support\Money;
 use Carbon\CarbonInterface;
 use Filament\Actions\Action;
@@ -104,7 +105,7 @@ class GenerateRecurringExpenses
             ->actions([
                 Action::make('open')
                     ->label('Ver despesa')
-                    ->url(ExpenseResource::getUrl('edit', ['record' => $expense], panel: 'admin')),
+                    ->url(ExpenseResource::getUrl('edit', ['record' => $expense], panel: 'admin', tenant: CurrentAccount::get())),
             ])
             ->sendToDatabase($recipients);
     }

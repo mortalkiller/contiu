@@ -6,6 +6,7 @@ use App\Filament\Pages\MonthClose;
 use App\Filament\Resources\Receivables\ReceivableResource;
 use App\Models\Receivable;
 use App\Models\User;
+use App\Support\CurrentAccount;
 use App\Support\Money;
 use App\Support\MonthReview;
 use App\Support\Period;
@@ -87,7 +88,7 @@ class SendFinanceReminders
             ->actions([
                 Action::make('open')
                     ->label('Abrir fecho do mês')
-                    ->url(MonthClose::getUrl(['month' => $month->format('Y-m')], panel: 'admin')),
+                    ->url(MonthClose::getUrl(['month' => $month->format('Y-m')], panel: 'admin', tenant: CurrentAccount::get())),
             ])
             ->sendToDatabase($recipients);
 
@@ -104,7 +105,7 @@ class SendFinanceReminders
             ->actions([
                 Action::make('open')
                     ->label('Ver a receber')
-                    ->url(ReceivableResource::getUrl(panel: 'admin')),
+                    ->url(ReceivableResource::getUrl(panel: 'admin', tenant: CurrentAccount::get())),
             ])
             ->sendToDatabase($recipients);
     }

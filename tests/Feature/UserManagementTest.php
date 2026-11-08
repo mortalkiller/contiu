@@ -66,21 +66,16 @@ it('does not let you delete yourself', function () {
         ->assertTableActionHidden('delete', $this->admin);
 });
 
-it('keeps at least one super admin', function () {
-    Livewire::test(ManageUsers::class)
-        ->callTableAction('edit', $this->admin, data: ['roles' => [$this->editor->id]])
-        ->assertHasTableActionErrors(['roles']);
-
-    expect($this->admin->fresh()->hasRole('super_admin'))->toBeTrue();
-});
-
-it('lets you remove super admin from someone when another super admin remains', function () {
+it('leaves super_admin alone when a super admin\'s roles are edited (it is only managed by command)', function () {
     $other = User::factory()->create();
     $other->assignRole('super_admin');
 
-    Livewire::test(ManageUsers::class)
-        ->callTableAction('edit', $other, data: ['roles' => [$this->editor->id]])
-        ->assertHasNoTableActionErrors();
+    foreach ([$this->admin, $other] as $user) {
+        Livewire::test(ManageUsers::class)
+            ->callTableAction('edit', $user, data: ['roles' => [$this->editor->id]])
+            ->assertHasNoTableActionErrors();
 
-    expect($other->fresh()->hasRole('super_admin'))->toBeFalse();
+        expect($user->fresh()->hasRole('super_admin'))->toBeTrue()
+            ->and($user->fresh()->hasRole('editor'))->toBeTrue();
+    }
 });

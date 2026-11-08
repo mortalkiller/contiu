@@ -1,6 +1,6 @@
 <?php
 
-use Tapp\FilamentAuditing\Filament\Resources\Audits\AuditResource;
+use App\Filament\Resources\Audits\AuditResource;
 
 return [
 

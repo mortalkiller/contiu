@@ -11,14 +11,18 @@ it('shows the login page at /login', function () {
     $this->get('/login')->assertOk()->assertSee('Iniciar sessão');
 });
 
-it('opens the dashboard at the root once logged in', function () {
+it('sends a logged-in user from the root to their account\'s dashboard', function () {
     actingAsAdmin();
+    $slug = test()->account->slug;
 
-    expect(Dashboard::getUrl())->toBe(url('/'));
+    expect(Dashboard::getUrl())->toBe(url("/{$slug}"));
 
-    $this->get('/')->assertOk()->assertDontSee('Laravel');
+    $this->get('/')->assertRedirect(url("/{$slug}"));
+    $this->get("/{$slug}")->assertOk()->assertDontSee('Laravel');
 });
 
-it('serves the panel pages without the /admin prefix', function () {
-    expect(ProjectResource::getUrl())->toBe(url('/projects'));
+it('serves the panel pages without the /admin prefix, inside the account', function () {
+    actingAsAdmin();
+
+    expect(ProjectResource::getUrl())->toBe(url('/'.test()->account->slug.'/projects'));
 });
