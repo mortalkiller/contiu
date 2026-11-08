@@ -5,6 +5,7 @@ use App\Actions\SeedAccountDefaults;
 use App\Enums\CategoryType;
 use App\Filament\Pages\FinanceSettingsPage;
 use App\Filament\Pages\HelpCentre;
+use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Support\FinanceFields;
 use App\Mail\PaymentReminder;
 use App\Models\Account;
@@ -78,6 +79,7 @@ it('does not show Pedro data in settings or help', function () {
 
     $this->get(FinanceSettingsPage::getUrl())->assertOk()->assertDontSee('PEDRO')->assertDontSee('Ordenado');
     $this->get(HelpCentre::getUrl())->assertOk()->assertDontSee('PEDRO')->assertDontSee('Ordenado');
+    $this->get(ProjectResource::getUrl('create'))->assertOk()->assertDontSee('PRINTEE')->assertSee('ORC-2026-001');
 });
 
 it('refuses to import without a known account', function () {

@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Support\MoneyInput;
+use App\Support\CurrentAccount;
 use App\Support\FinanceSettings;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -107,6 +108,7 @@ class FinanceSettingsPage extends Page
                             ->live(),
                         MoneyInput::make('vat_exemption_threshold')
                             ->label('Limite anual de isenção de IVA (art. 53.º)')
+                            ->minValue(0)
                             ->visible(fn ($get) => (bool) $get('vat_exempt'))
                             ->required(fn ($get) => (bool) $get('vat_exempt')),
                     ]),
@@ -136,8 +138,13 @@ class FinanceSettingsPage extends Page
                 ->livewireSubmitHandler('save')
                 ->footer([
                     Actions::make([
-                        Action::make('save')->label('Guardar')->submit('save'),
-                    ]),
+                        Action::make('save')
+                            ->label('Guardar')
+                            ->submit('save')
+                            // Settings have no policy: the read-only gate cannot hide the button.
+                            ->disabled(fn () => CurrentAccount::readOnly())
+                            ->tooltip(fn () => CurrentAccount::readOnly() ? 'A conta está só de leitura' : null),
+                    ])->key('formActions'),
                 ]),
         ]);
     }

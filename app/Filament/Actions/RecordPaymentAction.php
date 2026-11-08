@@ -3,6 +3,7 @@
 namespace App\Filament\Actions;
 
 use App\Enums\PaymentMethod;
+use App\Filament\Actions\Concerns\DisabledWhenReadOnly;
 use App\Filament\Support\MoneyInput;
 use App\Models\Client;
 use App\Models\Payment;
@@ -34,6 +35,8 @@ use ToneGabes\Filament\Icons\Enums\Phosphor;
  */
 class RecordPaymentAction extends Action
 {
+    use DisabledWhenReadOnly;
+
     public static function getDefaultName(): ?string
     {
         return 'recordPayment';

@@ -7,6 +7,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    {{-- Out of search engines while the pages hold placeholder text: remove with Pedro's text. --}}
+    <meta name="robots" content="noindex">
     <title>@yield('title') · Contiu</title>
     <link rel="icon" href="{{ asset('brand/contiu/favicon.ico') }}" sizes="any">
     <link rel="icon" href="{{ asset('brand/contiu/favicon.svg') }}" type="image/svg+xml">

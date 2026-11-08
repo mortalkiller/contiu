@@ -5,6 +5,7 @@ namespace App\Filament\Actions;
 use App\Actions\RecordOneOffIncome;
 use App\Enums\CategoryType;
 use App\Enums\PaymentMethod;
+use App\Filament\Actions\Concerns\DisabledWhenReadOnly;
 use App\Filament\Support\MoneyInput;
 use App\Models\Category;
 use App\Models\Supplier;
@@ -30,6 +31,8 @@ use ToneGabes\Filament\Icons\Enums\Phosphor;
  */
 class OneOffIncomeAction extends Action
 {
+    use DisabledWhenReadOnly;
+
     public static function getDefaultName(): ?string
     {
         return 'oneOffIncome';

@@ -3,6 +3,7 @@
 use App\Filament\Pages\BankStatementImport;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\HelpCentre;
+use App\Support\Money;
 
 beforeEach(fn () => actingAsAdmin());
 
@@ -22,4 +23,16 @@ it('is reachable from the user menu', function () {
 
 it('is linked from the bank statement page', function () {
     $this->get(BankStatementImport::getUrl())->assertSee(HelpCentre::getUrl().'#extrato', escape: false);
+});
+
+it('explains the trial, the plans and the read-only account', function () {
+    $this->get(HelpCentre::getUrl())
+        ->assertOk()
+        ->assertSee('href="#conta"', escape: false)
+        ->assertSeeInOrder(['Notas legais', 'A tua conta e a assinatura'])
+        ->assertSee('14 dias')
+        ->assertSee(Money::format(500))
+        ->assertSee(Money::format(5400))
+        ->assertSee('só de leitura')
+        ->assertSee('portal de faturação da Stripe');
 });

@@ -6,6 +6,7 @@ use App\Filament\MonthClose\Concerns\ReviewsMonth;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Support\ReconciliationColumns;
 use App\Models\Expense;
+use App\Support\CurrentAccount;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
@@ -54,6 +55,9 @@ class MonthExpensesTable extends TableWidget
                     ->icon(Phosphor::CheckCircle)
                     ->color('success')
                     ->button()
+                    // Not behind a policy: the read-only gate cannot hide it.
+                    ->disabled(fn () => CurrentAccount::readOnly())
+                    ->tooltip(fn () => CurrentAccount::readOnly() ? 'A conta está só de leitura' : null)
                     ->visible(fn (Expense $record) => ! $record->is_paid)
                     ->action(function (Expense $record): void {
                         $record->update(['is_paid' => true, 'paid_on' => today()]);

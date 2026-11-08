@@ -53,3 +53,14 @@ it('saves the names of Pedro\'s accounts used to recognise own transfers', funct
 
     expect(app(FinanceSettings::class)->accountNames())->toBe(['Pedro Filipe Pereira Monteiro', 'Ordenado']);
 });
+
+it('refuses a negative VAT limit on the settings page', function () {
+    actingAsAdmin();
+
+    Livewire\Livewire::test(FinanceSettingsPage::class)
+        ->fillForm(['vat_exempt' => true, 'vat_exemption_threshold' => -1])
+        ->call('save')
+        ->assertHasFormErrors(['vat_exemption_threshold' => 'min']);
+
+    expect(app(FinanceSettings::class)->vatExemptionThreshold())->toBe(1500000);
+});

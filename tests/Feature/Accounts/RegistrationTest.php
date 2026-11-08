@@ -4,6 +4,7 @@ use App\Actions\CreateAccount;
 use App\Filament\Pages\Auth\RegisterAccount;
 use App\Filament\Pages\Dashboard;
 use App\Models\Account;
+use App\Models\Category;
 use App\Models\User;
 use App\Support\CurrentAccount;
 use App\Support\FinanceSettings;
@@ -148,6 +149,14 @@ it('does not take an email that already has a user', function () {
         ->assertWizardCurrentStep(1);
 });
 
+it('refuses a negative VAT limit', function () {
+    registrationWizard(['vat_exemption_threshold' => -1])
+        ->call('register')
+        ->assertHasFormErrors(['vat_exemption_threshold' => 'min']);
+
+    expect(Account::where('nif', '501964843')->exists())->toBeFalse();
+});
+
 it('requires accepting the terms', function () {
     registrationWizard(['terms' => false])
         ->call('register')
@@ -195,6 +204,48 @@ it('seeds a local admin whose email is already verified', function () {
     expect(User::firstWhere('email', 'admin@pressiumize.test')->hasVerifiedEmail())->toBeTrue();
 });
 
+it('seeds an example account owned by the local admin, without billing', function () {
+    $this->seed(DatabaseSeeder::class);
+    $this->seed(DatabaseSeeder::class); // safe to run again
+
+    $account = Account::where('name', 'Conta de exemplo')->sole();
+    $admin = User::firstWhere('email', 'admin@pressiumize.test');
+
+    expect($account)
+        ->billing_exempt->toBeTrue()
+        ->hasAccess()->toBeTrue()
+        ->and($account->owner()?->is($admin))->toBeTrue()
+        ->and($admin->isSuperAdmin())->toBeTrue()
+        ->and(CurrentAccount::run($account, fn () => Category::pluck('name')))
+        ->toContain('Serviços', 'Software e subscrições', 'Comissões')
+        ->toHaveCount(11);
+});
+
+it('shows the email confirmation prompt and email in European Portuguese', function () {
+    $user = User::factory()->unverified()->create(['email' => 'rita@example.pt']);
+    $this->account->users()->attach($user, ['role' => 'owner']);
+    $this->actingAs($user);
+
+    $this->get(Filament::getEmailVerificationPromptUrl())
+        ->assertOk()
+        ->assertSee('Confirma o teu email')
+        ->assertSee('Não recebeste o email?')
+        ->assertDontSee('Verifique');
+
+    $notification = new VerifyEmail;
+    $notification->url = 'https://contiu.test/confirmar';
+    $mail = $notification->toMail($user);
+    $html = (string) $mail->render();
+
+    expect($mail->subject)->toBe('Confirma o teu email')
+        ->and($mail->actionText)->toBe('Confirmar email')
+        ->and($html)->toContain('Olá!')
+        ->toContain('Se não criaste uma conta, ignora este email.')
+        ->not->toContain('Regards')
+        ->not->toContain('trouble clicking')
+        ->not->toContain('All rights reserved');
+});
+
 it('shows the sign-up page with links to the terms and the privacy policy', function () {
     $this->get(Filament::getRegistrationUrl())
         ->assertOk()
@@ -211,6 +262,8 @@ it('serves the terms and privacy pages', function (string $path, string $title) 
         ->assertSee($title)
         ->assertSee('Texto a fornecer pelo Pedro')
         ->assertSee('Versão 2026-11-08')
+        // Placeholder text until Pedro's: kept out of search engines.
+        ->assertSee('<meta name="robots" content="noindex">', escape: false)
         ->assertSee('brand/contiu/contiu-logo-white.svg', escape: false);
 })->with([
     'terms' => ['/termos', 'Termos de Serviço'],

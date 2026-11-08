@@ -1,22 +1,29 @@
 <?php
 
 use App\Exceptions\AccountIsReadOnly;
+use App\Filament\Actions\RecordPaymentAction;
+use App\Filament\MonthClose\Widgets\MonthExpensesTable;
 use App\Filament\Pages\BankStatementImport;
 use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\FinanceSettingsPage;
 use App\Filament\Resources\Clients\Pages\ClientStatementPage;
 use App\Filament\Resources\Clients\Pages\ListClients;
 use App\Filament\Resources\Clients\Pages\ViewClient;
+use App\Filament\Resources\Expenses\Pages\ListExpenses;
+use App\Filament\Resources\Payments\Pages\ManagePayments;
+use App\Livewire\QuickCreateMenu;
 use App\Models\Account;
 use App\Models\BankTransaction;
 use App\Models\Client;
 use App\Models\Expense;
-use App\Models\Payment;
 use App\Models\Project;
 use App\Models\Receivable;
 use App\Models\RecurringExpense;
 use App\Models\User;
 use App\Support\AccountStatus;
 use App\Support\CurrentAccount;
+use App\Support\FinanceSettings;
+use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Carbon;
@@ -143,17 +150,77 @@ it('shows the create buttons again with access', function () {
 });
 
 it('tells the user the account is read-only instead of failing', function () {
-    // "Registar recebimento" is not behind a policy, so the gate cannot hide it: the model guard
-    // stops the write and the panel shows it as a notification, not an error page.
-    $client = Client::factory()->create();
-    Receivable::factory()->for(Project::factory()->for($client), 'billable')->create(['amount' => 10000, 'due_on' => '2026-11-01']);
-    signInAsOwner(expire($this->account));
+    // A write that skips the disabled button (Enter in a field, a forged Livewire call): the model
+    // guard stops it and the panel shows it as a notification, not an error page.
+    signInAsOwner(expire($this->account), ownerOf($this->account));
 
-    Livewire::test(ClientStatementPage::class, ['record' => $client->getRouteKey()])
-        ->callAction('recordPayment')
+    Livewire::test(FinanceSettingsPage::class)
+        ->fillForm(['account_names' => 'ANA SILVA'])
+        ->call('save')
         ->assertNotified('A conta está só de leitura. Subscreve para continuar a registar.');
 
-    expect(Payment::count())->toBe(0);
+    expect(app(FinanceSettings::class)->accountNames())->toBe([]);
+});
+
+it('disables the writes no policy covers while read-only', function () {
+    // "Registar recebimento", "Receita avulsa", "Marcar como paga" and saving the fiscal settings
+    // are not behind a policy, so the gate cannot hide them.
+    $client = Client::factory()->create();
+    Receivable::factory()->for(Project::factory()->for($client), 'billable')->create(['amount' => 10000, 'due_on' => '2026-11-01']);
+    $expense = Expense::factory()->unpaid()->create(['spent_on' => '2026-11-02']);
+    signInAsOwner(expire($this->account), ownerOf($this->account));
+
+    Livewire::test(ClientStatementPage::class, ['record' => $client->getRouteKey()])
+        ->assertActionDisabled('recordPayment');
+    Livewire::test(ManagePayments::class)
+        ->assertActionDisabled('recordPayment')
+        ->assertActionDisabled('oneOffIncome');
+    Livewire::test(ListExpenses::class)
+        ->loadTable()
+        ->assertTableActionDisabled('markPaid', $expense)
+        ->assertTableBulkActionDisabled('markPaid');
+    Livewire::test(MonthExpensesTable::class, ['month' => '2026-11'])
+        ->assertTableActionDisabled('markPaid', $expense);
+    Livewire::test(FinanceSettingsPage::class)
+        ->assertActionDisabled(TestAction::make('save')->schemaComponent('formActions', 'content'));
+
+    // Call sites that set their own tooltip keep it, except while read-only.
+    expect(RecordPaymentAction::make()->tooltip('Registar recebimento')->getTooltip())->toBe('A conta está só de leitura');
+});
+
+it('disables them in the quick create menu too', function () {
+    // Menu items take a faster rendering path that never asks isDisabled(): check the HTML.
+    Receivable::factory()->create(['amount' => 10000, 'due_on' => '2026-11-01']);
+    signInAsOwner(expire($this->account), ownerOf($this->account));
+
+    Livewire::test(QuickCreateMenu::class)
+        ->assertSee('A conta está só de leitura')
+        ->assertDontSeeHtml("wire:click=\"mountAction('oneOffIncome')\"")
+        ->assertDontSeeHtml("wire:click=\"mountAction('recordPayment')\"");
+});
+
+it('keeps those writes enabled while the account has access', function () {
+    $client = Client::factory()->create();
+    Receivable::factory()->for(Project::factory()->for($client), 'billable')->create(['amount' => 10000, 'due_on' => '2026-11-01']);
+    $expense = Expense::factory()->unpaid()->create(['spent_on' => '2026-11-02']);
+    signInAsOwner($this->account, ownerOf($this->account));
+
+    Livewire::test(ManagePayments::class)
+        ->assertActionEnabled('recordPayment')
+        ->assertActionEnabled('oneOffIncome');
+    Livewire::test(ListExpenses::class)
+        ->loadTable()
+        ->assertTableActionEnabled('markPaid', $expense)
+        ->assertTableBulkActionEnabled('markPaid');
+    Livewire::test(MonthExpensesTable::class, ['month' => '2026-11'])
+        ->assertTableActionEnabled('markPaid', $expense);
+    Livewire::test(FinanceSettingsPage::class)
+        ->assertActionEnabled(TestAction::make('save')->schemaComponent('formActions', 'content'));
+    Livewire::test(QuickCreateMenu::class)
+        ->assertDontSee('A conta está só de leitura')
+        ->assertSeeHtml("wire:click=\"mountAction('oneOffIncome')\"");
+
+    expect(RecordPaymentAction::make()->tooltip('Registar recebimento')->getTooltip())->toBe('Registar recebimento');
 });
 
 it('hides the create button even from a user given Shield permissions', function () {

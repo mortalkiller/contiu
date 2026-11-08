@@ -140,6 +140,7 @@ class RegisterAccount extends Register
                         ->label('Limite anual de isenção de IVA')
                         ->helperText('Faturação anual até à qual a isenção se mantém.')
                         ->default(1500000)
+                        ->minValue(0)
                         ->visible(fn (Get $get) => (bool) $get('vat_exempt'))
                         ->required(fn (Get $get) => (bool) $get('vat_exempt')),
                 ]),

@@ -6,6 +6,7 @@ use App\Enums\ExpenseKind;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Support\ReconciliationColumns;
 use App\Models\Expense;
+use App\Support\CurrentAccount;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
@@ -138,7 +139,9 @@ class ExpensesTable
                     ->icon(Phosphor::CheckCircle)
                     ->color('success')
                     ->iconButton()
-                    ->tooltip('Marcar como paga')
+                    // Not behind a policy: the read-only gate cannot hide it.
+                    ->disabled(fn () => CurrentAccount::readOnly())
+                    ->tooltip(fn () => CurrentAccount::readOnly() ? 'A conta está só de leitura' : 'Marcar como paga')
                     ->visible(fn (Expense $record) => ! $record->is_paid)
                     ->action(function (Expense $record): void {
                         $record->update(['is_paid' => true, 'paid_on' => today()]);
@@ -168,6 +171,7 @@ class ExpensesTable
                         ->label('Marcar como pagas')
                         ->icon(Phosphor::CheckCircle)
                         ->color('success')
+                        ->disabled(fn () => CurrentAccount::readOnly())
                         ->requiresConfirmation()
                         ->deselectRecordsAfterCompletion()
                         ->action(function (Collection $records): void {

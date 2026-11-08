@@ -7,6 +7,7 @@ use App\Filament\Resources\Payments\PaymentResource;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Resources\RecurringExpenses\RecurringExpenseResource;
 use App\Filament\Resources\Retainers\RetainerResource;
+use App\Support\Money;
 use BackedEnum;
 use Filament\Pages\Page;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
@@ -49,6 +50,22 @@ class HelpCentre extends Page
             ['id' => 'fecho-do-mes', 'title' => 'Fecho do mês', 'summary' => 'Confirmar que nada ficou para trás.', 'icon' => Phosphor::CalendarCheck],
             ['id' => 'conta-pessoal', 'title' => 'Conta pessoal', 'summary' => 'Quando o dinheiro passa pela tua conta.', 'icon' => Phosphor::ArrowsLeftRight],
             ['id' => 'notas-legais', 'title' => 'Notas legais', 'summary' => 'O que confirmar com o contabilista.', 'icon' => Phosphor::Scales],
+            ['id' => 'conta', 'title' => 'A tua conta e a assinatura', 'summary' => 'Experiência, preços e conta só de leitura.', 'icon' => Phosphor::CreditCard],
+        ];
+    }
+
+    /**
+     * Trial length and prices as the app charges them, so the help never drifts from the
+     * subscription page.
+     *
+     * @return array{trialDays: int, monthly: string, yearly: string}
+     */
+    public function subscription(): array
+    {
+        return [
+            'trialDays' => (int) config('contiu.trial_days'),
+            'monthly' => Money::format(AccountSubscription::PLANS['monthly']['amount']),
+            'yearly' => Money::format(AccountSubscription::PLANS['yearly']['amount']),
         ];
     }
 

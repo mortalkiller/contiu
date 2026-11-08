@@ -14,9 +14,13 @@ use App\Support\AccountStatus;
 use App\Support\Money;
 use Filament\Facades\Filament;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
+use Symfony\Component\Mailer\Exception\TransportException;
+use Symfony\Component\Mailer\SentMessage;
+use Symfony\Component\Mailer\Transport\AbstractTransport;
 
 beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-11-10 10:00'));
@@ -233,10 +237,10 @@ it('records an invoice.paid webhook and emails super admins', function () {
         ->and($payment->period_end->toDateString())->toBe('2026-12-24')
         ->and($payment->billing_address['city'])->toBe('Porto');
 
-    Mail::assertSent(SubscriptionPaid::class, 2);
-    Mail::assertSent(SubscriptionPaid::class, fn (SubscriptionPaid $mail) => $mail->hasTo($admin->email));
-    Mail::assertSent(SubscriptionPaid::class, fn (SubscriptionPaid $mail) => $mail->hasTo($otherAdmin->email));
-    Mail::assertNotSent(SubscriptionPaid::class, fn (SubscriptionPaid $mail) => $mail->hasTo($owner->email));
+    Mail::assertQueued(SubscriptionPaid::class, 2);
+    Mail::assertQueued(SubscriptionPaid::class, fn (SubscriptionPaid $mail) => $mail->hasTo($admin->email));
+    Mail::assertQueued(SubscriptionPaid::class, fn (SubscriptionPaid $mail) => $mail->hasTo($otherAdmin->email));
+    Mail::assertNotQueued(SubscriptionPaid::class, fn (SubscriptionPaid $mail) => $mail->hasTo($owner->email));
 });
 
 it('records a payment once when Stripe repeats the webhook', function () {
@@ -248,7 +252,33 @@ it('records a payment once when Stripe repeats the webhook', function () {
     $this->postJson(route('cashier.webhook'), invoicePaidEvent($this->account))->assertOk();
 
     expect(SubscriptionPayment::count())->toBe(1);
-    Mail::assertSent(SubscriptionPaid::class, 1);
+    Mail::assertQueued(SubscriptionPaid::class, 1);
+});
+
+it('keeps the payment when the email to the super admins fails', function () {
+    // Stripe stops retrying once it gets a 2xx: the row is what tells Pedro to invoice, so a mail
+    // server that is down must never lose it.
+    Exceptions::fake();
+    Mail::extend('broken', fn () => new class extends AbstractTransport
+    {
+        protected function doSend(SentMessage $message): void
+        {
+            throw new TransportException('Servidor de email em baixo');
+        }
+
+        public function __toString(): string
+        {
+            return 'broken';
+        }
+    });
+    config(['mail.mailers.broken' => ['transport' => 'broken'], 'mail.default' => 'broken']);
+    $this->account->update(['stripe_id' => 'cus_123']);
+    superAdminOf(Account::factory()->create());
+
+    $this->postJson(route('cashier.webhook'), invoicePaidEvent($this->account))->assertOk();
+
+    expect(SubscriptionPayment::count())->toBe(1);
+    Exceptions::assertReported(TransportException::class);
 });
 
 it('ignores zero-amount invoices', function () {
@@ -260,7 +290,7 @@ it('ignores zero-amount invoices', function () {
     $this->postJson(route('cashier.webhook'), invoicePaidEvent($this->account, amountPaid: 0))->assertOk();
 
     expect(SubscriptionPayment::count())->toBe(0);
-    Mail::assertNothingSent();
+    Mail::assertNothingOutgoing();
 });
 
 it('ignores invoices of an unknown customer', function () {
@@ -271,7 +301,7 @@ it('ignores invoices of an unknown customer', function () {
     $this->postJson(route('cashier.webhook'), invoicePaidEvent($stranger))->assertOk();
 
     expect(SubscriptionPayment::count())->toBe(0);
-    Mail::assertNothingSent();
+    Mail::assertNothingOutgoing();
 });
 
 it('tells the super admins what to invoice', function () {

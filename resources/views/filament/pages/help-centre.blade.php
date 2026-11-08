@@ -1,6 +1,7 @@
 @php
     $links = $this->links();
     $icons = collect($this->topics())->pluck('icon', 'id');
+    $subscription = $this->subscription();
     $link = fn (string $key, string $label) => '<a href="'.e($links[$key]).'" class="font-medium text-primary-600 underline decoration-primary-600/30 underline-offset-2 hover:decoration-primary-600 dark:text-primary-400">'.e($label).'</a>';
 @endphp
 
@@ -160,6 +161,16 @@
                     <li>Cada recebimento, incluindo os parciais, deve ter a sua fatura-recibo.</li>
                     <li>Receitas por plataforma: o rendimento é o valor bruto; a comissão é um gasto.</li>
                     <li>Por confirmar: a quem passar a fatura-recibo de donativos de apoiantes anónimos ou estrangeiros, e se a tua isenção de IRS os abrange.</li>
+                </ul>
+            </x-filament::section>
+
+            {{-- A tua conta e a assinatura --}}
+            <x-filament::section class="scroll-mt-24" id="conta" :icon="$icons['conta']" heading="A tua conta e a assinatura" description="O que tens durante a experiência, quanto custa e o que acontece se a assinatura parar.">
+                <ul class="list-disc space-y-2 ps-5">
+                    <li><strong>Experiência de {{ $subscription['trialDays'] }} dias:</strong> uma conta nova pode usar tudo durante {{ $subscription['trialDays'] }} dias, sem cartão. O aviso no topo mostra quantos dias faltam.</li>
+                    <li><strong>Assinatura:</strong> em Definições → <strong>Assinatura</strong> escolhes mensal ({{ $subscription['monthly'] }} por mês) ou anual ({{ $subscription['yearly'] }} por ano) e pagas com cartão na Stripe. Se subscreveres durante a experiência não perdes os dias que faltam: a primeira cobrança é no fim da experiência.</li>
+                    <li><strong>Conta só de leitura:</strong> quando a experiência acaba sem assinatura, ou a assinatura deixa de estar paga, continuas a ver e a exportar tudo, mas não podes criar, alterar ou apagar registos, importar extratos nem enviar emails. Nada é apagado: ao subscrever, continuas onde ficaste.</li>
+                    <li><strong>Cartão, recibos e cancelamento:</strong> na página Assinatura, o botão abre o portal de faturação da Stripe. Se cancelares, a conta funciona até ao fim do período já pago.</li>
                 </ul>
             </x-filament::section>
         </div>

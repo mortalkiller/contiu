@@ -6,6 +6,7 @@ use App\Filament\Resources\Accounts\AccountResource;
 use App\Models\SubscriptionPayment;
 use App\Support\Money;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -13,13 +14,17 @@ use Illuminate\Queue\SerializesModels;
 
 /**
  * To the super admins only (never the account): a subscription payment came in, with what the
- * legal invoice needs. Sent by RecordSubscriptionPayment.
+ * legal invoice needs. Sent by RecordSubscriptionPayment, queued and only once the payment row is
+ * committed, so a failing mail never undoes the row.
  */
-class SubscriptionPaid extends Mailable
+class SubscriptionPaid extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public SubscriptionPayment $payment) {}
+    public function __construct(public SubscriptionPayment $payment)
+    {
+        $this->afterCommit();
+    }
 
     public function envelope(): Envelope
     {

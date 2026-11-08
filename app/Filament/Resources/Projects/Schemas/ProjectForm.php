@@ -61,7 +61,7 @@ class ProjectForm
     {
         return TextInput::make('code')
             ->label('Código')
-            ->placeholder('PRINTEE OC-202611-1')
+            ->placeholder('ORC-2026-001')
             ->helperText('O código do orçamento.')
             ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule) => $rule->where('account_id', CurrentAccount::id())) // codes repeat across accounts
             ->required();
