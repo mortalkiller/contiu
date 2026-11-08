@@ -4,6 +4,7 @@ namespace App\Filament\Pages\Tenancy;
 
 use App\Models\Account;
 use App\Models\User;
+use App\Rules\PortugueseNif;
 use Filament\Forms\Components\TextInput;
 use Filament\Pages\Tenancy\EditTenantProfile;
 use Filament\Schemas\Schema;
@@ -42,10 +43,9 @@ class EditAccountProfile extends EditTenantProfile
                 ->label('Nome')
                 ->required()
                 ->maxLength(255),
-            // Task 6 swaps this plain format check for the full Portuguese NIF rule.
             TextInput::make('nif')
                 ->label('NIF')
-                ->rule('digits:9')
+                ->rule(new PortugueseNif)
                 ->unique(ignoreRecord: true)
                 // Accounts migrated from before multi-account (billing exempt) may not have one yet.
                 ->required(fn (?Account $record): bool => ! $record?->billing_exempt),

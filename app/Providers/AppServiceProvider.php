@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Filament\Support\PhosphorIconAliases;
 use App\Policies\AuditPolicy;
+use App\Support\AccountMemberAccess;
 use App\Support\CurrentAccount;
 use Filament\Schemas\Schema;
 use Filament\Support\Facades\FilamentIcon;
@@ -24,6 +25,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->scoped(CurrentAccount::class);
+        $this->app->scoped(AccountMemberAccess::class);
     }
 
     /**
@@ -33,9 +35,22 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->registerPhosphorIcons();
         $this->configureFormatting();
+        $this->registerAccountGates();
 
         // tapp's Audit model lives in vendor, so Laravel cannot discover its Shield-generated policy.
         Gate::policy(Audit::class, AuditPolicy::class);
+    }
+
+    /**
+     * Account-level gate rules. Gate::before callbacks run in registration order and the first
+     * non-null answer wins, so a rule that must deny (e.g. read-only accounts) goes ABOVE the
+     * membership grant. Shield's super-admin grant and Spatie's permission check are registered
+     * earlier by their packages and only answer true or null: a deny here does not reach a super
+     * admin, nor a permission given directly to a user.
+     */
+    private function registerAccountGates(): void
+    {
+        Gate::before(fn ($user, string $ability, array $arguments): ?bool => app(AccountMemberAccess::class)->before($user, $ability, $arguments));
     }
 
     /**

@@ -249,10 +249,16 @@ it('lets the owner edit the account name and NIF', function () {
     $this->actingAs(ownerOf($this->mine));
     Filament::setTenant($this->mine);
 
-    Livewire::test(EditAccountProfile::class)
-        ->fillForm(['name' => 'Estúdio Novo', 'nif' => '12345'])
-        ->call('save')
-        ->assertHasFormErrors(['nif' => 'digits']);
+    $this->other->update(['nif' => '501964843']);
+
+    foreach (['12345', '123456780', '501964843'] as $invalid) { // too short, wrong check digit, another account's
+        Livewire::test(EditAccountProfile::class)
+            ->fillForm(['name' => 'Estúdio Novo', 'nif' => $invalid])
+            ->call('save')
+            ->assertHasFormErrors(['nif']);
+    }
+
+    expect($this->mine->fresh()->nif)->toBeNull();
 
     Livewire::test(EditAccountProfile::class)
         ->fillForm(['name' => 'Estúdio Novo', 'nif' => '123456789'])
