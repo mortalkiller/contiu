@@ -6,6 +6,7 @@ use App\Mail\PaymentReminder;
 use App\Models\Client;
 use App\Models\ClientMessage;
 use App\Models\Receivable;
+use App\Support\CurrentAccount;
 use App\Support\Money;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
@@ -46,8 +47,13 @@ class SendPaymentReminderAction extends Action
             ->modalWidth(Width::TwoExtraLarge)
             ->modalSubmitActionLabel('Enviar')
             ->visible(fn (?Model $record, $livewire) => static::clientFor($record, $livewire)?->openReceivables()->isNotEmpty() ?? false)
-            ->disabled(fn (?Model $record, $livewire) => blank(static::clientFor($record, $livewire)?->email))
-            ->tooltip(fn (?Model $record, $livewire) => blank(static::clientFor($record, $livewire)?->email) ? 'O cliente não tem email' : null)
+            // Emails to clients are a write too: none from a read-only account.
+            ->disabled(fn (?Model $record, $livewire) => CurrentAccount::readOnly() || blank(static::clientFor($record, $livewire)?->email))
+            ->tooltip(fn (?Model $record, $livewire) => match (true) {
+                CurrentAccount::readOnly() => 'A conta está só de leitura',
+                blank(static::clientFor($record, $livewire)?->email) => 'O cliente não tem email',
+                default => null,
+            })
             ->fillForm(function (?Model $record, $livewire): array {
                 $client = static::clientFor($record, $livewire);
 

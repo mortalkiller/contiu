@@ -9,6 +9,7 @@ use App\Filament\Support\BrandPalette;
 use App\Http\Middleware\UseDefaultAccountOutsideTenantRoutes;
 use App\Models\Account;
 use App\Models\User;
+use App\Support\AccountStatus;
 use AzGasim\FilamentUnsavedChangesModal\FilamentUnsavedChangesModalPlugin;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Actions\Action;
@@ -101,6 +102,13 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn (): string => view('filament.partials.brand-head')->render(),
+            )
+            // Trial days left, or that the account is read-only (App\Support\AccountStatus).
+            ->renderHook(
+                PanelsRenderHook::CONTENT_START,
+                fn (): string => ($banner = AccountStatus::banner()) === null
+                    ? ''
+                    : view('filament.partials.account-status-banner', ['banner' => $banner])->render(),
             )
             ->renderHook(
                 PanelsRenderHook::GLOBAL_SEARCH_BEFORE,

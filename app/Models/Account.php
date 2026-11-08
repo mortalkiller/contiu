@@ -7,14 +7,18 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Laravel\Cashier\Billable;
 
 /**
  * A tenant: one freelancer's (or company's) isolated books.
  * Deliberately NOT scoped by account: it is the thing the scope is keyed on.
  * One hasMany per business model, named as Filament tenancy looks them up (clients, payments…).
+ * It is also who pays: Cashier's customer, with the trial as Cashier's "generic trial".
  */
 class Account extends Model
 {
+    use Billable;
+
     /** @use HasFactory<AccountFactory> */
     use HasFactory;
 
@@ -26,6 +30,16 @@ class Account extends Model
             'trial_ends_at' => 'datetime',
             'billing_exempt' => 'boolean',
         ];
+    }
+
+    /**
+     * Full use of the account: the free trial, a valid subscription (past_due included: Stripe
+     * is still trying to charge; canceled only until the paid period ends) or exempt from billing.
+     * Without it the account is read-only (CurrentAccount::readOnly()).
+     */
+    public function hasAccess(): bool
+    {
+        return $this->billing_exempt || $this->onGenericTrial() || $this->subscribed('default');
     }
 
     public function users(): BelongsToMany

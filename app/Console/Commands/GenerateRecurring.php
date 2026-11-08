@@ -20,6 +20,11 @@ class GenerateRecurring extends Command
         $created = 0;
 
         Account::query()->each(function (Account $account) use ($periods, $expenses, &$receivables, &$created) {
+            // A read-only account (trial over, nothing paying) gets nothing new until it subscribes.
+            if (! $account->hasAccess()) {
+                return;
+            }
+
             CurrentAccount::run($account, function () use ($periods, $expenses, &$receivables, &$created) {
                 $receivables += $periods->forAll();
                 $created += $expenses->forAll();

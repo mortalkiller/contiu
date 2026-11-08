@@ -6,6 +6,7 @@ use App\Exports\ClientStatementExport;
 use App\Mail\ClientStatementEmail;
 use App\Models\ClientMessage;
 use App\Support\ClientStatement;
+use App\Support\CurrentAccount;
 use App\Support\Money;
 use Closure;
 use Filament\Actions\Action;
@@ -54,8 +55,13 @@ class SendStatementEmailAction extends Action
             ->modalIcon(Phosphor::PaperPlaneTilt)
             ->modalWidth(Width::TwoExtraLarge)
             ->modalSubmitActionLabel('Enviar')
-            ->disabled(fn () => blank($this->resolveStatement()->client->email))
-            ->tooltip(fn () => blank($this->resolveStatement()->client->email) ? 'O cliente não tem email' : null)
+            // Emails to clients are a write too: none from a read-only account.
+            ->disabled(fn () => CurrentAccount::readOnly() || blank($this->resolveStatement()->client->email))
+            ->tooltip(fn () => match (true) {
+                CurrentAccount::readOnly() => 'A conta está só de leitura',
+                blank($this->resolveStatement()->client->email) => 'O cliente não tem email',
+                default => null,
+            })
             ->fillForm(function (): array {
                 $statement = $this->resolveStatement();
                 $client = $statement->client;

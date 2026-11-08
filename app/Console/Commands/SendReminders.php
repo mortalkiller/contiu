@@ -18,6 +18,11 @@ class SendReminders extends Command
         $sent = 0;
 
         Account::query()->each(function (Account $account) use ($reminders, &$sent) {
+            // Read-only accounts are skipped: reminders also record that they were sent.
+            if (! $account->hasAccess()) {
+                return;
+            }
+
             $sent += CurrentAccount::run($account, fn () => $reminders->run());
         });
 

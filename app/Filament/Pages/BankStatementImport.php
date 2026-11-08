@@ -24,6 +24,7 @@ use App\Support\BankCandidate;
 use App\Support\BankCsvParser;
 use App\Support\BankCsvResult;
 use App\Support\BankSuggestion;
+use App\Support\CurrentAccount;
 use App\Support\FinanceSettings;
 use App\Support\Money;
 use App\Support\TransferCover;
@@ -138,6 +139,7 @@ class BankStatementImport extends Page implements HasTable
                 ->icon(Phosphor::MagicWand)
                 ->color('gray')
                 ->visible(fn () => BankTransaction::pending()->exists())
+                ->disabled(fn () => CurrentAccount::readOnly())
                 ->modalHeading('Reconciliar automaticamente')
                 ->modalIcon(Phosphor::MagicWand)
                 ->modalWidth(Width::TwoExtraLarge)
@@ -182,12 +184,14 @@ class BankStatementImport extends Page implements HasTable
                     ->color('success')
                     ->button()
                     ->visible(fn (BankTransaction $record) => $record->status === BankTransactionStatus::Pending && $this->suggestionFor($record)->best() !== null)
+                    ->disabled(fn () => CurrentAccount::readOnly())
                     ->action(fn (BankTransaction $record) => $this->apply(fn (ApplyBankTransaction $apply) => $apply->accept($record, $this->suggestionFor($record)->best()))),
                 Action::make('link')
                     ->label('Associar…')
                     ->icon(Phosphor::Link)
                     ->color('gray')
                     ->visible(fn (BankTransaction $record) => $record->status === BankTransactionStatus::Pending)
+                    ->disabled(fn () => CurrentAccount::readOnly())
                     ->modalHeading(fn (BankTransaction $record) => 'Associar '.Money::format($record->amount).' · '.$record->booked_on->format('d/m/Y'))
                     ->modalDescription(fn (BankTransaction $record) => $record->description)
                     ->modalSubmitActionLabel('Associar')
@@ -222,6 +226,7 @@ class BankStatementImport extends Page implements HasTable
                     ->icon(Phosphor::Gift)
                     ->color('gray')
                     ->visible(fn (BankTransaction $record) => $record->status === BankTransactionStatus::Pending && $record->is_credit)
+                    ->disabled(fn () => CurrentAccount::readOnly())
                     ->modalHeading(fn (BankTransaction $record) => 'Receita avulsa de '.Money::format($record->absolute_amount))
                     ->modalDescription(fn (BankTransaction $record) => $record->booked_on->format('d/m/Y').' · '.$record->description.'. Indica o valor bruto (o da fatura-recibo) e a comissão que a plataforma ficou.')
                     ->modalSubmitActionLabel('Criar')
@@ -238,6 +243,7 @@ class BankStatementImport extends Page implements HasTable
                     ->icon(Phosphor::Receipt)
                     ->color('gray')
                     ->visible(fn (BankTransaction $record) => $record->status === BankTransactionStatus::Pending && ! $record->is_credit)
+                    ->disabled(fn () => CurrentAccount::readOnly())
                     ->modalHeading(fn (BankTransaction $record) => 'Nova despesa de '.Money::format($record->absolute_amount))
                     ->modalDescription(fn (BankTransaction $record) => $record->booked_on->format('d/m/Y').' · '.$record->description)
                     ->fillForm(fn (BankTransaction $record) => [
@@ -289,6 +295,7 @@ class BankStatementImport extends Page implements HasTable
                     ->iconButton()
                     ->tooltip('Transferência minha: dinheiro entre as tuas contas, não é receita nem despesa')
                     ->visible(fn (BankTransaction $record) => $record->status === BankTransactionStatus::Pending)
+                    ->disabled(fn () => CurrentAccount::readOnly())
                     ->action(fn (BankTransaction $record) => $this->apply(fn (ApplyBankTransaction $apply) => $apply->markOwnTransfer($record))),
                 Action::make('details')
                     ->label('Ver detalhes')
@@ -307,6 +314,7 @@ class BankStatementImport extends Page implements HasTable
                     ->icon(Phosphor::ArrowCounterClockwise)
                     ->color('gray')
                     ->visible(fn (BankTransaction $record) => $record->status !== BankTransactionStatus::Pending)
+                    ->disabled(fn () => CurrentAccount::readOnly())
                     ->requiresConfirmation()
                     ->modalHeading('Voltar a tratar esta linha?')
                     ->modalDescription(fn (BankTransaction $record) => $this->undoDescription($record))
@@ -323,6 +331,7 @@ class BankStatementImport extends Page implements HasTable
                     ->iconButton()
                     ->tooltip('Ignorar esta linha (ex.: transferência entre contas)')
                     ->visible(fn (BankTransaction $record) => $record->status === BankTransactionStatus::Pending)
+                    ->disabled(fn () => CurrentAccount::readOnly())
                     ->action(function (BankTransaction $record): void {
                         app(ApplyBankTransaction::class)->ignore($record);
                         Notification::make()->title('Linha ignorada')->send();
@@ -334,6 +343,7 @@ class BankStatementImport extends Page implements HasTable
                     ->icon(Phosphor::Checks)
                     ->color('success')
                     ->deselectRecordsAfterCompletion()
+                    ->disabled(fn () => CurrentAccount::readOnly())
                     ->action(function (Collection $records): void {
                         $done = 0;
                         $skipped = 0;
@@ -373,6 +383,8 @@ class BankStatementImport extends Page implements HasTable
         return Action::make('upload')
             ->label('Carregar extrato')
             ->icon(Phosphor::UploadSimple)
+            // Importing and reconciling change the books: not in a read-only account.
+            ->disabled(fn () => CurrentAccount::readOnly())
             ->modalHeading('Carregar extrato bancário')
             ->modalDescription('Exporta os movimentos no site do banco em CSV ou Excel. Linhas que já foram carregadas são ignoradas.')
             ->modalSubmitActionLabel('Ler extrato')

@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Exceptions\NoCurrentAccount;
 use App\Models\Account;
+use App\Models\User;
 use Filament\Facades\Filament;
 
 /**
@@ -36,6 +37,23 @@ final class CurrentAccount
     public static function id(): int
     {
         return self::get()?->getKey() ?? throw new NoCurrentAccount;
+    }
+
+    /**
+     * The current account has no access (trial over, nothing paying): it can be seen and exported,
+     * not changed. Super admins are never held back; with no account there is nothing to protect.
+     */
+    public static function readOnly(): bool
+    {
+        $account = self::get();
+
+        if ($account === null || $account->hasAccess()) {
+            return false;
+        }
+
+        $user = auth()->user();
+
+        return ! ($user instanceof User && $user->isSuperAdmin());
     }
 
     /** Runs the callback as the given account and always restores the previous one. */

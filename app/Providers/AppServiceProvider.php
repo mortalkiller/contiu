@@ -2,20 +2,28 @@
 
 namespace App\Providers;
 
+use App\Exceptions\AccountIsReadOnly;
 use App\Filament\Support\PhosphorIconAliases;
+use App\Models\Account;
 use App\Policies\AuditPolicy;
 use App\Support\AccountMemberAccess;
 use App\Support\CurrentAccount;
+use App\Support\ReadOnlyAccountAccess;
+use Filament\Notifications\Notification;
 use Filament\Schemas\Schema;
 use Filament\Support\Facades\FilamentIcon;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Cashier\Cashier;
 use pxlrbt\FilamentExcel\Actions\ExportAction;
 use pxlrbt\FilamentExcel\Actions\ExportBulkAction;
 use Tapp\FilamentAuditing\Filament\Actions\RestoreAuditAction;
 use Tapp\FilamentAuditing\Models\Audit;
+use Throwable;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
+
+use function Livewire\on;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -35,7 +43,9 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->registerPhosphorIcons();
         $this->configureFormatting();
+        $this->configureBilling();
         $this->registerAccountGates();
+        $this->showReadOnlyAccountAsNotification();
 
         // tapp's Audit model lives in vendor, so Laravel cannot discover its Shield-generated policy.
         Gate::policy(Audit::class, AuditPolicy::class);
@@ -50,7 +60,34 @@ class AppServiceProvider extends ServiceProvider
      */
     private function registerAccountGates(): void
     {
+        Gate::before(fn ($user, string $ability): ?bool => ReadOnlyAccountAccess::before($ability));
         Gate::before(fn ($user, string $ability, array $arguments): ?bool => app(AccountMemberAccess::class)->before($user, $ability, $arguments));
+    }
+
+    /**
+     * The account pays (not the user). A past_due subscription keeps access while Stripe retries
+     * the charge: whoever is paying is not locked out (spec, "Regras da assinatura").
+     */
+    private function configureBilling(): void
+    {
+        Cashier::useCustomerModel(Account::class);
+        Cashier::keepPastDueSubscriptionsActive();
+    }
+
+    /**
+     * A write refused in a read-only account (BelongsToAccount) reaches the user as a notification
+     * on any panel action, instead of an error page.
+     */
+    private function showReadOnlyAccountAsNotification(): void
+    {
+        on('exception', function ($target, Throwable $exception, callable $stopPropagation): void {
+            if (! $exception instanceof AccountIsReadOnly) {
+                return;
+            }
+
+            Notification::make()->title($exception->getMessage())->danger()->send();
+            $stopPropagation();
+        });
     }
 
     /**

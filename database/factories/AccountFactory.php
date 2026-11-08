@@ -18,6 +18,8 @@ class AccountFactory extends Factory
         return [
             'name' => $name,
             'slug' => Str::slug($name).'-'.Str::lower(Str::random(6)),
+            // Like CreateAccount: a new account starts on the trial, so it can write.
+            'trial_ends_at' => now()->addDays(config('contiu.trial_days')),
         ];
     }
 }
