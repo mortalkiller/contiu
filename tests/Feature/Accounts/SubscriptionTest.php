@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
+use Spatie\Permission\Models\Role;
 use Symfony\Component\Mailer\Exception\TransportException;
 use Symfony\Component\Mailer\SentMessage;
 use Symfony\Component\Mailer\Transport\AbstractTransport;
@@ -158,6 +159,31 @@ it('opens the subscription page to owners, read-only ones included, and super ad
         ->assertSee('Subscrever mensal')
         ->assertSee('Subscrever anual');
 })->with(['owner', 'read-only owner', 'super admin']);
+
+it('shows a super admin outside the account its state but not the buttons to pay', function () {
+    $superAdmin = User::factory()->create();
+    $superAdmin->assignRole(Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']));
+    $this->actingAs($superAdmin);
+    asAWebRequest();
+
+    $this->get(AccountSubscription::getUrl(panel: 'admin', tenant: $this->account))
+        ->assertOk()
+        ->assertSee('Estás na experiência até')
+        ->assertDontSee('Subscrever mensal')
+        ->assertDontSee('Subscrever anual');
+
+    openAccountAs($this->account, $superAdmin);
+
+    Livewire::test(AccountSubscription::class)
+        ->assertActionHidden('subscribeMonthly')
+        ->assertActionHidden('subscribeYearly');
+
+    subscriptionFor($this->account);
+
+    Livewire::test(AccountSubscription::class)
+        ->assertSee('Assinatura mensal ativa.')
+        ->assertActionHidden('manage');
+});
 
 it('hides the subscription page from exempt accounts', function () {
     $this->account->update(['billing_exempt' => true, 'trial_ends_at' => null]);

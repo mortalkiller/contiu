@@ -268,6 +268,57 @@ it('lets the owner edit the account name and NIF', function () {
     expect($this->mine->fresh())->name->toBe('Estúdio Novo')->nif->toBe('123456789');
 });
 
+it('lets a super admin change the account address and opens it at the new one', function () {
+    $this->actingAs(superAdminOf($this->mine));
+    Filament::setTenant($this->mine);
+
+    Livewire::test(EditAccountProfile::class)
+        ->assertFormFieldVisible('slug')
+        ->fillForm(['nif' => '123456789', 'slug' => 'estudio-rita'])
+        ->call('save')
+        ->assertHasNoFormErrors()
+        ->assertRedirect(url('/estudio-rita/perfil-da-conta'));
+
+    expect($this->mine->fresh()->slug)->toBe('estudio-rita');
+});
+
+it('refuses an account address that is taken, reserved or not a plain lowercase slug', function (string $slug) {
+    $this->other->update(['slug' => 'ja-existe']);
+    $before = $this->mine->slug;
+
+    $this->actingAs(superAdminOf($this->mine));
+    Filament::setTenant($this->mine);
+
+    Livewire::test(EditAccountProfile::class)
+        ->fillForm(['nif' => '123456789', 'slug' => $slug])
+        ->call('save')
+        ->assertHasFormErrors(['slug']);
+
+    expect($this->mine->fresh()->slug)->toBe($before);
+})->with([
+    'another account\'s' => 'ja-existe',
+    'reserved' => 'login',
+    'a public page' => 'termos',
+    'uppercase' => 'Estudio',
+    'spaces' => 'estudio rita',
+    'empty' => '',
+]);
+
+it('keeps the account address out of an owner\'s reach', function () {
+    $this->actingAs(ownerOf($this->mine));
+    Filament::setTenant($this->mine);
+    $before = $this->mine->slug;
+
+    Livewire::test(EditAccountProfile::class)
+        ->assertFormFieldHidden('slug')
+        ->fillForm(['name' => 'Estúdio Novo', 'nif' => '123456789', 'slug' => 'roubado'])
+        ->call('save')
+        ->assertHasNoFormErrors()
+        ->assertNoRedirect();
+
+    expect($this->mine->fresh())->slug->toBe($before)->name->toBe('Estúdio Novo');
+});
+
 it('opens the account profile only to its owners and super admins', function () {
     $owner = ownerOf($this->mine);
     $stranger = ownerOf($this->other);

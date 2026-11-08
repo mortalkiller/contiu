@@ -2,6 +2,9 @@
 
 return [
 
+    // Public sign-up (/register and the login page's link). Off until going live is ready.
+    'registration_open' => (bool) env('CONTIU_REGISTRATION_OPEN', false),
+
     // Days a new account can use everything before it has to subscribe.
     'trial_days' => 14,
 

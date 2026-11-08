@@ -16,6 +16,9 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 
+// Public sign-up is off unless CONTIU_REGISTRATION_OPEN is set (tests/TestCase.php).
+pest()->group('registration-open');
+
 beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-11-08 10:00'));
     Filament::setCurrentPanel('admin');

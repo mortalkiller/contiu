@@ -28,7 +28,8 @@ use UnitEnum;
  * subscription; nothing here writes it.
  *
  * Open to the account's owners (and super admins) whatever its state — a read-only account must
- * reach it to subscribe — so it is never behind a write ability. Exempt accounts never pay.
+ * reach it to subscribe — so it is never behind a write ability. Exempt accounts never pay. Only
+ * the account's own members pay or manage it: a super admin giving support sees the state only.
  */
 class AccountSubscription extends Page
 {
@@ -55,6 +56,8 @@ class AccountSubscription extends Page
     private const MINIMUM_TRIAL_MINUTES = 48 * 60 + 5;
 
     private const SUBSCRIBE_FAILURE = 'Não é possível subscrever agora';
+
+    private ?bool $isMember = null;
 
     public static function canAccess(): bool
     {
@@ -140,7 +143,7 @@ class AccountSubscription extends Page
                 ->icon(Phosphor::Info)
                 ->schema([Text::make(fn (): string => $this->statusText())]),
             Grid::make(['md' => 2])
-                ->visible(fn (): bool => ! $this->account()->subscribed('default'))
+                ->visible(fn (): bool => $this->isMember() && ! $this->account()->subscribed('default'))
                 ->schema([
                     $this->planSection('monthly', $this->subscribeMonthlyAction()),
                     $this->planSection('yearly', $this->subscribeYearlyAction()),
@@ -148,7 +151,7 @@ class AccountSubscription extends Page
             Section::make('Gerir a assinatura')
                 ->description('Mudar o cartão, ver os recibos ou cancelar, no portal de faturação da Stripe.')
                 ->icon(Phosphor::Wrench)
-                ->visible(fn (): bool => $this->account()->subscription('default') !== null)
+                ->visible(fn (): bool => $this->isMember() && $this->account()->subscription('default') !== null)
                 ->schema([Actions::make([$this->manageAction()])]),
         ]);
     }
@@ -169,7 +172,7 @@ class AccountSubscription extends Page
             ->label('Abrir o portal da Stripe')
             ->icon(Phosphor::ArrowSquareOut)
             ->color('gray')
-            ->visible(fn (): bool => $this->account()->subscription('default') !== null)
+            ->visible(fn (): bool => $this->isMember() && $this->account()->subscription('default') !== null)
             ->action(fn () => $this->callStripe(
                 fn () => $this->redirect($this->account()->billingPortalUrl(static::getUrl())),
                 failure: 'Não é possível abrir o portal da Stripe agora',
@@ -205,7 +208,7 @@ class AccountSubscription extends Page
             ->label('Subscrever '.mb_strtolower(self::PLANS[$plan]['label']))
             ->icon(Phosphor::CreditCard)
             ->color($plan === 'yearly' ? 'primary' : 'gray')
-            ->visible(fn (): bool => ! $this->account()->subscribed('default'))
+            ->visible(fn (): bool => $this->isMember() && ! $this->account()->subscribed('default'))
             ->action(fn () => $this->checkout($plan));
     }
 
@@ -258,6 +261,12 @@ class AccountSubscription extends Page
     private function notifyFailure(string $title, string $body): void
     {
         Notification::make()->title($title)->body($body)->danger()->send();
+    }
+
+    /** The signed-in user belongs to the account (super admins can open any without being in it). */
+    private function isMember(): bool
+    {
+        return $this->isMember ??= $this->account()->users()->whereKey(auth()->id())->exists();
     }
 
     private function account(): Account

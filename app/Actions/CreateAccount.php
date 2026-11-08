@@ -66,11 +66,20 @@ class CreateAccount
         return $slug;
     }
 
+    /**
+     * Free for an account's URL: not a reserved word, not a root route, not another account's.
+     * Also checked when a super admin renames an account (EditAccountProfile), which passes it.
+     */
+    public function slugIsAvailable(string $slug, ?Account $except = null): bool
+    {
+        return ! in_array($slug, config('contiu.reserved_slugs'), true)
+            && ! in_array($slug, $this->rootSegments(), true)
+            && ! Account::query()->where('slug', $slug)->when($except, fn ($query) => $query->whereKeyNot($except->getKey()))->exists();
+    }
+
     private function isTaken(string $slug): bool
     {
-        return in_array($slug, config('contiu.reserved_slugs'), true)
-            || in_array($slug, $this->rootSegments(), true)
-            || Account::query()->where('slug', $slug)->exists();
+        return ! $this->slugIsAvailable($slug);
     }
 
     /**

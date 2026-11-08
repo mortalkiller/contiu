@@ -59,8 +59,9 @@ class AdminPanelProvider extends PanelProvider
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->login()
             // Self-service sign-up: the wizard creates the user and their account, and nothing
-            // in the panel opens until the email is confirmed.
-            ->registration(RegisterAccount::class)
+            // in the panel opens until the email is confirmed. Off (no route, no link on the login
+            // page) until CONTIU_REGISTRATION_OPEN is set.
+            ->registration(config('contiu.registration_open') ? RegisterAccount::class : null)
             ->emailVerification()
             ->passwordReset()
             ->brandName(config('app.name'))
