@@ -5,7 +5,6 @@ namespace App\Actions;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Models\Expense;
 use App\Models\RecurringExpense;
-use App\Models\User;
 use App\Support\CurrentAccount;
 use App\Support\Money;
 use Carbon\CarbonInterface;
@@ -91,7 +90,7 @@ class GenerateRecurringExpenses
 
     private function notify(Expense $expense): void
     {
-        $recipients = User::all();
+        $recipients = CurrentAccount::get()->users;
 
         if ($recipients->isEmpty()) {
             return;

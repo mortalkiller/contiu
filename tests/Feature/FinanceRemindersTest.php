@@ -13,6 +13,7 @@ use Illuminate\Support\Carbon;
 beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-03-10'));
     $this->user = User::factory()->create();
+    $this->account->users()->attach($this->user, ['role' => 'owner']);
 });
 
 function notificationTitles(User $user): array

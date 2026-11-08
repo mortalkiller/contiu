@@ -8,9 +8,9 @@ use App\Models\Payment;
 use App\Models\Receivable;
 use App\Models\RecurringExpense;
 use App\Models\Supplier;
-use App\Models\User;
 use App\Support\BankCandidate;
 use App\Support\BankSuggestion;
+use App\Support\CurrentAccount;
 use App\Support\FinanceSettings;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -104,7 +104,7 @@ class MatchBankTransactions
         $matches = fn (Collection $nameTokens) => $nameTokens->isNotEmpty() && $nameTokens->every(fn (string $token) => in_array($token, $words, true));
 
         $score = collect(app(FinanceSettings::class)->accountNames())->map($tokens)
-            ->concat(User::query()->pluck('name')->map($tokens)->filter(fn (Collection $nameTokens) => $nameTokens->count() >= 2))
+            ->concat(CurrentAccount::get()->users()->pluck('name')->map($tokens)->filter(fn (Collection $nameTokens) => $nameTokens->count() >= 2))
             ->filter($matches)
             ->map->count()
             ->max() ?? 0;

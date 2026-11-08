@@ -5,7 +5,6 @@ namespace App\Actions;
 use App\Filament\Pages\MonthClose;
 use App\Filament\Resources\Receivables\ReceivableResource;
 use App\Models\Receivable;
-use App\Models\User;
 use App\Support\CurrentAccount;
 use App\Support\Money;
 use App\Support\MonthReview;
@@ -24,7 +23,7 @@ class SendFinanceReminders
     /** @return int number of reminders sent */
     public function run(): int
     {
-        $recipients = User::all();
+        $recipients = CurrentAccount::get()->users;
 
         if ($recipients->isEmpty()) {
             return 0;

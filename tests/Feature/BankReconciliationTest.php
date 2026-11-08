@@ -317,7 +317,7 @@ it('marks an unpaid expense linked to a line as paid on the line date', function
 // Transferência minha, parcial, desfazer ----------------------------------------------------
 
 it('suggests own transfer when the description has the user full name', function () {
-    User::factory()->create(['name' => 'Pedro Monteiro']);
+    $this->account->users()->attach(User::factory()->create(['name' => 'Pedro Monteiro']), ['role' => 'owner']);
     $transaction = BankTransaction::create(['hash' => 'o1', 'booked_on' => '2026-07-10', 'description' => 'TRF DE PEDRO FILIPE PEREIRA MONTEIRO', 'amount' => 150000, 'import_batch' => 'x']);
 
     $best = app(MatchBankTransactions::class)->for($transaction)->best();
@@ -340,7 +340,7 @@ it('does not treat "ordenado" as special without the setting', function () {
 });
 
 it('does not suggest own transfer for a different person with one shared name', function () {
-    User::factory()->create(['name' => 'Pedro Monteiro']);
+    $this->account->users()->attach(User::factory()->create(['name' => 'Pedro Monteiro']), ['role' => 'owner']);
     $transaction = BankTransaction::create(['hash' => 'o3', 'booked_on' => '2026-07-10', 'description' => 'TRF DE PEDRO SILVA', 'amount' => 10000, 'import_batch' => 'x']);
 
     expect(app(MatchBankTransactions::class)->for($transaction)->candidates->pluck('type'))->not->toContain('own_transfer');
