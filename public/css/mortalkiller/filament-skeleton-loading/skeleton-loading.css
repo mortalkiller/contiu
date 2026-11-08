@@ -305,7 +305,8 @@
         animation: none;
     }
 
-    #fsl-page-loader .fsl-loader-piece,
+    /* As specific as the generic dots' rule, so their bounce stops too. */
+    #fsl-page-loader .fsl-loader-symbol .fsl-loader-piece,
     #fsl-page-loader .fsl-loader-label {
         animation: none;
     }

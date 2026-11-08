@@ -70,7 +70,7 @@ it('replaces the plain grey box of any lazy section with a generic skeleton', fu
 it('is announced to screen readers and keeps still for reduced motion', function () {
     expect(placeholderOf(CashFlowChart::class))->toContain('role="status"')->toContain('fi-sr-only');
 
-    $css = file_get_contents(base_path('packages/mortalkiller/filament-skeleton-loading/resources/css/skeleton-loading.css'));
+    $css = file_get_contents(base_path('vendor/mortalkiller/filament-skeleton-loading/resources/css/skeleton-loading.css'));
 
     expect($css)->toContain('prefers-reduced-motion')->toContain('fi-ta-table-loading-ctn');
 });
