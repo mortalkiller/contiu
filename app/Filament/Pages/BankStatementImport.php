@@ -399,6 +399,8 @@ class BankStatementImport extends Page implements HasTable
                     ->label('Ficheiro do extrato')
                     ->disk('local')
                     ->directory(fn (): string => $this->uploadDirectory())
+                    // A path in the field's state comes from the browser: never one it names itself.
+                    ->preventFilePathTampering()
                     ->acceptedFileTypes([
                         'text/csv',
                         'text/plain',

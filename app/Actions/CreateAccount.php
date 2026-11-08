@@ -19,6 +19,9 @@ use Illuminate\Support\Str;
  */
 class CreateAccount
 {
+    /** Every URL of the account carries it; the account profile holds it to the same length. */
+    public const SLUG_MAX_LENGTH = 50;
+
     private const SETTINGS = [
         'activity_started_on', 'irs_exempt', 'vat_exempt', 'vat_exemption_threshold',
         'ss_rate', 'ss_relevant_income_share', 'ss_first_year_exempt', 'account_names',
@@ -55,15 +58,20 @@ class CreateAccount
     /** From the name, never a reserved word or a root route, with "-2", "-3"… when taken. */
     private function uniqueSlug(string $name): string
     {
-        // Kept short: it is in every URL of the account.
-        $base = rtrim(Str::substr(Str::slug($name), 0, 50), '-') ?: 'conta';
-        $slug = $base;
+        // Kept short: it is in every URL of the account, and the account profile takes 50 at most.
+        $base = Str::slug($name) ?: 'conta';
+        $slug = $this->fit($base);
 
         for ($suffix = 2; $this->isTaken($slug); $suffix++) {
-            $slug = "{$base}-{$suffix}";
+            $slug = $this->fit($base, "-{$suffix}");
         }
 
         return $slug;
+    }
+
+    private function fit(string $base, string $suffix = ''): string
+    {
+        return (rtrim(Str::substr($base, 0, self::SLUG_MAX_LENGTH - strlen($suffix)), '-') ?: 'conta').$suffix;
     }
 
     /**

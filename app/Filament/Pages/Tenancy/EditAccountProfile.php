@@ -60,7 +60,7 @@ class EditAccountProfile extends EditTenantProfile
                 ->helperText('Só minúsculas, números e hífenes. Os links antigos para a conta deixam de funcionar.')
                 ->visible(fn (): bool => User::loggedInIsSuperAdmin())
                 ->required()
-                ->maxLength(50)
+                ->maxLength(CreateAccount::SLUG_MAX_LENGTH)
                 ->regex('/^[a-z0-9]+(-[a-z0-9]+)*$/')
                 ->validationMessages(['regex' => 'Usa só minúsculas, números e hífenes (sem espaços nem acentos).'])
                 ->rule(fn (?Account $record): Closure => function (string $attribute, mixed $value, Closure $fail) use ($record): void {

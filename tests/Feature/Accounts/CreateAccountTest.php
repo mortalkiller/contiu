@@ -116,6 +116,17 @@ it('keeps the slug of a long name short', function () {
         ->not->toEndWith('-');
 });
 
+it('keeps a repeated long name within the length the account profile accepts', function () {
+    $create = fn (string $nif) => app(CreateAccount::class)->handle(User::factory()->create(), newAccountData(['name' => str_repeat('Atelier ', 10), 'nif' => $nif]));
+    $create('501964843');
+
+    $second = $create('123456789');
+
+    expect(strlen($second->slug))->toBeLessThanOrEqual(50)
+        ->and($second->slug)->toEndWith('-2')
+        ->not->toContain('--');
+});
+
 it('creates nothing when a step fails', function () {
     $this->mock(SeedAccountDefaults::class)->shouldReceive('handle')->andThrow(new RuntimeException('falhou'));
     $owner = User::factory()->create();

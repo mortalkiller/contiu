@@ -13,6 +13,8 @@ use App\Models\Project;
 use App\Models\Receivable;
 use App\Models\Retainer;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 
 it('imports clients, projects and their single receivable', function () {
@@ -148,3 +150,22 @@ it('previews and imports from the Importar Excel page', function () {
 
     expect(Project::count())->toBe(3);
 });
+
+it('refuses a workbook path named from the browser', function () {
+    actingAsAdmin();
+    Storage::fake('local');
+    Storage::disk('local')->put('outra-pasta/controlo.xlsx', file_get_contents(financeWorkbook()));
+
+    Livewire::test(ImportWorkbook::class)
+        ->set('data.file', ['forjado' => 'outra-pasta/controlo.xlsx'])
+        ->call('preview')
+        ->assertHasFormErrors(['file']);
+
+    expect(Project::count())->toBe(0);
+});
+
+it('refuses a stored workbook path set from the browser', function () {
+    actingAsAdmin();
+
+    Livewire::test(ImportWorkbook::class)->set('storedFile', 'outra-pasta/controlo.xlsx');
+})->throws(CannotUpdateLockedPropertyException::class);

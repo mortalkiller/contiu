@@ -17,6 +17,7 @@ use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Attributes\Locked;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 use UnitEnum;
 
@@ -42,6 +43,10 @@ class ImportWorkbook extends Page
 
     /** Result of the last dry run, shown before importing. */
     public ?array $preview = null;
+
+    /** The workbook this page stored on the last run: the only path its file field takes back. */
+    #[Locked]
+    public ?string $storedFile = null;
 
     /** Pedro's personal workbook format (and "replace" wipes the account): super admins only. */
     public static function canAccess(): bool
@@ -70,6 +75,8 @@ class ImportWorkbook extends Page
                             ->label('Ficheiro Excel')
                             ->disk('local')
                             ->directory('imports')
+                            // A path in the field's state comes from the browser: never one it names itself.
+                            ->preventFilePathTampering(allowFilePathUsing: fn (string $file): bool => $file === $this->storedFile)
                             ->acceptedFileTypes([
                                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                                 'application/vnd.ms-excel',
@@ -119,6 +126,7 @@ class ImportWorkbook extends Page
         }
 
         Storage::disk('local')->delete($this->storedPath());
+        $this->storedFile = null;
 
         Notification::make()
             ->title('Importação concluída')
@@ -150,6 +158,7 @@ class ImportWorkbook extends Page
     private function runImport(bool $dryRun): ?ImportResult
     {
         $data = $this->form->getState();
+        $this->storedFile = $data['file'];
 
         try {
             return app(ImportFinanceWorkbook::class)->run(

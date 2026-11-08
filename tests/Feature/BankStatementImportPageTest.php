@@ -246,7 +246,7 @@ it('reads and deletes only files in the account\'s upload folder', function (str
 
     Livewire::test(BankStatementImport::class)->loadTable()
         ->callAction('upload', data: ['file' => ['forjado' => $path]])
-        ->assertForbidden();
+        ->assertHasActionErrors(['file']);
 
     expect(Storage::disk('local')->exists($path))->toBeTrue()
         ->and(BankTransaction::count())->toBe(0);
@@ -255,3 +255,16 @@ it('reads and deletes only files in the account\'s upload folder', function (str
     'another account' => 'bank-statements/999999/extrato.csv',
     'climbing out' => fn () => 'bank-statements/'.test()->account->id.'/../outra-pasta/extrato.csv',
 ]);
+
+it('does not hand out a link to a file named from the browser', function () {
+    // The file field asks the server for a preview link of each file in its state.
+    $path = 'bank-statements/999999/extrato.csv';
+    Storage::disk('local')->put($path, statementCsv());
+
+    $page = Livewire::test(BankStatementImport::class)->loadTable()
+        ->mountAction('upload')
+        ->set('mountedActions.0.data.file', ['forjado' => $path]);
+
+    expect($page->instance()->callSchemaComponentMethod('mountedActionSchema0.file', 'getUploadedFiles'))
+        ->toBe(['forjado' => null]);
+});
