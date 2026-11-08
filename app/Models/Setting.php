@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToAccount;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -9,6 +10,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class Setting extends Model
 {
+    use BelongsToAccount;
+
     protected $guarded = ['id'];
 
     protected function casts(): array

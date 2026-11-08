@@ -7,6 +7,7 @@ use App\Enums\ReceivableStatus;
 use App\Exceptions\HasPaymentsException;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Resources\Retainers\RetainerResource;
+use App\Models\Concerns\BelongsToAccount;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -21,7 +22,7 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  */
 class Receivable extends Model implements AuditableContract
 {
-    use Auditable, HasFactory;
+    use Auditable, BelongsToAccount, HasFactory;
 
     protected $guarded = ['id'];
 

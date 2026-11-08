@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\ProjectStatus;
 use App\Enums\ReceivableStatus;
+use App\Models\Concerns\BelongsToAccount;
 use App\Models\Concerns\HasReceivables;
 use App\Models\Concerns\HasVatAmounts;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -19,7 +20,7 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  */
 class Project extends Model implements AuditableContract
 {
-    use Auditable, HasFactory, HasReceivables, HasVatAmounts;
+    use Auditable, BelongsToAccount, HasFactory, HasReceivables, HasVatAmounts;
 
     protected $guarded = ['id'];
 

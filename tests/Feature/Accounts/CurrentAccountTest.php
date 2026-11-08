@@ -53,6 +53,7 @@ it('fills account_id when creating', function () {
 });
 
 it('throws when there is no current account', function () {
+    CurrentAccount::set(null); // feature tests start with one
     expect(fn () => ScopeProbe::query()->get())->toThrow(NoCurrentAccount::class);
 });
 
@@ -72,6 +73,7 @@ it('restores the previous account after run, even on exception', function () {
 });
 
 it('falls back to the Filament tenant', function () {
+    CurrentAccount::set(null); // the explicit account wins over the tenant
     $b = Account::factory()->create();
 
     // Filament dispatches TenantSet with the authenticated user.

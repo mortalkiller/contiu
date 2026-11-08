@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\PaymentMethod;
+use App\Models\Concerns\BelongsToAccount;
 use App\Models\Concerns\ExplainsBankLine;
 use App\Support\FinanceSettings;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -16,7 +17,7 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  */
 class Payment extends Model implements AuditableContract
 {
-    use Auditable, ExplainsBankLine, HasFactory;
+    use Auditable, BelongsToAccount, ExplainsBankLine, HasFactory;
 
     protected $guarded = ['id'];
 

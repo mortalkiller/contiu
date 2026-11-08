@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToAccount;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -12,6 +13,8 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  */
 class BankTransactionLink extends Model
 {
+    use BelongsToAccount;
+
     protected $guarded = ['id'];
 
     protected function casts(): array

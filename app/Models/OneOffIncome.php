@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToAccount;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,7 +17,7 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  */
 class OneOffIncome extends Model implements AuditableContract
 {
-    use Auditable, HasFactory;
+    use Auditable, BelongsToAccount, HasFactory;
 
     public const BUSINESS_LINE = 'Receitas avulsas';
 

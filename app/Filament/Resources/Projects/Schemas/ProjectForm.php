@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Projects\Schemas;
 use App\Enums\ProjectStatus;
 use App\Filament\Support\FinanceFields;
 use App\Filament\Support\MoneyInput;
+use App\Support\CurrentAccount;
 use App\Support\Money;
 use Closure;
 use Filament\Forms\Components\DatePicker;
@@ -20,6 +21,7 @@ use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\HtmlString;
+use Illuminate\Validation\Rules\Unique;
 
 class ProjectForm
 {
@@ -61,7 +63,7 @@ class ProjectForm
             ->label('Código')
             ->placeholder('PRINTEE OC-202611-1')
             ->helperText('O código do orçamento.')
-            ->unique(ignoreRecord: true)
+            ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule) => $rule->where('account_id', CurrentAccount::id())) // codes repeat across accounts
             ->required();
     }
 

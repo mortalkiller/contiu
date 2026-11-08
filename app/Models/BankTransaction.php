@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\BankTransactionStatus;
 use App\Enums\DifferenceExplanation;
+use App\Models\Concerns\BelongsToAccount;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
@@ -16,6 +17,8 @@ use Illuminate\Support\Collection;
  */
 class BankTransaction extends Model
 {
+    use BelongsToAccount;
+
     protected $guarded = ['id'];
 
     /** @var array<string, string> */

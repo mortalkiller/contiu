@@ -76,6 +76,7 @@ class RecordOneOffIncome
         });
     }
 
+    /** Numbered within the current account (the query is scoped), so each account starts at 1. */
     private function nextCode(Carbon $date): string
     {
         $prefix = 'RA-'.$date->format('Ymd').'-';

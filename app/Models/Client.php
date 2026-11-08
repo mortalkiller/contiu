@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ReceivableStatus;
+use App\Models\Concerns\BelongsToAccount;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -14,7 +15,7 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
 
 class Client extends Model implements AuditableContract
 {
-    use Auditable, HasFactory;
+    use Auditable, BelongsToAccount, HasFactory;
 
     protected $guarded = ['id'];
 

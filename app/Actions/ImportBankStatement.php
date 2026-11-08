@@ -30,6 +30,7 @@ class ImportBankStatement
                 $occurrence = $seen[$base] = ($seen[$base] ?? 0) + 1;
                 $hash = sha1($base.'|'.$occurrence);
 
+                // Scoped to the current account: another account may hold the same statement.
                 if (BankTransaction::where('hash', $hash)->exists()) {
                     continue;
                 }

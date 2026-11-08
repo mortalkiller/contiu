@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Retainers\Schemas;
 
 use App\Enums\Frequency;
 use App\Filament\Support\FinanceFields;
+use App\Support\CurrentAccount;
 use App\Support\FinanceSettings;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -14,6 +15,7 @@ use Filament\Forms\Components\ToggleButtons;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Validation\Rules\Unique;
 
 class RetainerForm
 {
@@ -29,7 +31,7 @@ class RetainerForm
                         TextInput::make('code')
                             ->label('Código')
                             ->placeholder('MINFRA')
-                            ->unique(ignoreRecord: true)
+                            ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule) => $rule->where('account_id', CurrentAccount::id())) // codes repeat across accounts
                             ->required(),
                         Toggle::make('is_active')
                             ->label('Ativa')

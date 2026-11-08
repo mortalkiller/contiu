@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\Frequency;
+use App\Models\Concerns\BelongsToAccount;
 use App\Models\Concerns\HasReceivables;
 use App\Models\Concerns\HasVatAmounts;
 use App\Support\FinanceSettings;
@@ -20,7 +21,7 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  */
 class Retainer extends Model implements AuditableContract
 {
-    use Auditable, HasFactory, HasReceivables, HasVatAmounts;
+    use Auditable, BelongsToAccount, HasFactory, HasReceivables, HasVatAmounts;
 
     protected $guarded = ['id'];
 

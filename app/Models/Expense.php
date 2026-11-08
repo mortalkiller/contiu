@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\ExpenseKind;
 use App\Enums\PaymentMethod;
+use App\Models\Concerns\BelongsToAccount;
 use App\Models\Concerns\ExplainsBankLine;
 use App\Models\Concerns\HasVatAmounts;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -15,7 +16,7 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
 
 class Expense extends Model implements AuditableContract
 {
-    use Auditable, ExplainsBankLine, HasFactory, HasVatAmounts;
+    use Auditable, BelongsToAccount, ExplainsBankLine, HasFactory, HasVatAmounts;
 
     protected $guarded = ['id'];
 

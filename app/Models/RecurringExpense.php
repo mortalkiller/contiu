@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\ExpenseKind;
 use App\Enums\Frequency;
 use App\Enums\PaymentMethod;
+use App\Models\Concerns\BelongsToAccount;
 use App\Models\Concerns\HasVatAmounts;
 use App\Support\Money;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -18,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class RecurringExpense extends Model
 {
-    use HasFactory, HasVatAmounts;
+    use BelongsToAccount, HasFactory, HasVatAmounts;
 
     protected $guarded = ['id'];
 
