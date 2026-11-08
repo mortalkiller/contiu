@@ -20,6 +20,7 @@ use App\Models\Receivable;
 use App\Models\RecurringExpense;
 use App\Models\Retainer;
 use App\Models\Setting;
+use App\Models\SubscriptionPayment;
 use App\Models\Supplier;
 use App\Support\CurrentAccount;
 use Illuminate\Database\Eloquent\Model;
@@ -139,8 +140,9 @@ it('numbers one-off incomes per account', function () {
 });
 
 it('scopes every model whose table has account_id', function () {
-    // Deliberately unscoped: audits are written outside any account too (logins, console).
-    $unscoped = [Audit::class];
+    // Deliberately unscoped: audits are written outside any account too (logins, console);
+    // subscription payments are written by Stripe's webhook and read only by super admins.
+    $unscoped = [Audit::class, SubscriptionPayment::class];
 
     $models = collect(glob(app_path('Models/*.php')))
         ->map(fn (string $path) => 'App\\Models\\'.basename($path, '.php'))

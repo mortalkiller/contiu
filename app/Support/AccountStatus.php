@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Filament\Pages\AccountSubscription;
 use App\Models\Account;
 use App\Models\User;
 
@@ -52,12 +53,34 @@ final class AccountStatus
         };
     }
 
-    /**
-     * Where "Subscrever" leads. TODO(Task 9): return AccountSubscription::getUrl() once the
-     * "Assinatura" page exists; until then the banner shows no link.
-     */
+    /** Where "Subscrever" leads: the "Assinatura" page, when the user may open it. */
     public static function subscribeUrl(): ?string
     {
-        return null;
+        return AccountSubscription::canAccess() ? AccountSubscription::getUrl() : null;
+    }
+
+    /**
+     * The billing state in one word, for the super admins' list of accounts:
+     * Isenta · Mensal · Anual · Experiência até d/m/Y · Só leitura.
+     */
+    public static function label(Account $account): string
+    {
+        if ($account->billing_exempt) {
+            return 'Isenta';
+        }
+
+        $subscription = $account->subscription('default');
+
+        if ($subscription?->valid()) {
+            $plan = AccountSubscription::planFor($subscription->stripe_price);
+
+            return $plan === null ? 'Assinatura' : AccountSubscription::PLANS[$plan]['label'];
+        }
+
+        if ($account->onGenericTrial()) {
+            return 'Experiência até '.$account->trial_ends_at->format('d/m/Y');
+        }
+
+        return 'Só leitura';
     }
 }

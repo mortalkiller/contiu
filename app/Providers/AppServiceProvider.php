@@ -34,6 +34,9 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->scoped(CurrentAccount::class);
         $this->app->scoped(AccountMemberAccess::class);
+
+        // Its routes are registered in routes/stripe.php, where the webhook fails closed.
+        Cashier::ignoreRoutes();
     }
 
     /**

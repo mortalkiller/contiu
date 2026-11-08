@@ -42,6 +42,29 @@ class Account extends Model
         return $this->billing_exempt || $this->onGenericTrial() || $this->subscribed('default');
     }
 
+    /** Cashier's customer name in Stripe (and on its receipts): the account, not a person. */
+    public function stripeName(): ?string
+    {
+        return $this->name;
+    }
+
+    /** The account has no email of its own: Stripe's receipts go to its owner. */
+    public function stripeEmail(): ?string
+    {
+        return $this->owner()?->email;
+    }
+
+    /**
+     * Paid subscription invoices (super admins only): not a business model of the account,
+     * so it is not scoped (SubscriptionPayment).
+     *
+     * @return HasMany<SubscriptionPayment, $this>
+     */
+    public function subscriptionPayments(): HasMany
+    {
+        return $this->hasMany(SubscriptionPayment::class);
+    }
+
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class)->withPivot('role')->withTimestamps();
