@@ -1,0 +1,227 @@
+<?php
+
+use App\Actions\CreateAccount;
+use App\Filament\Pages\Auth\RegisterAccount;
+use App\Filament\Pages\Dashboard;
+use App\Models\Account;
+use App\Models\User;
+use App\Support\CurrentAccount;
+use App\Support\FinanceSettings;
+use Database\Seeders\DatabaseSeeder;
+use Filament\Auth\Notifications\VerifyEmail;
+use Filament\Facades\Filament;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
+use Livewire\Livewire;
+
+beforeEach(function () {
+    $this->travelTo(Carbon::parse('2026-11-08 10:00'));
+    Filament::setCurrentPanel('admin');
+    // A visitor signing up: no one logged in and no account yet.
+    asAWebRequest();
+    Notification::fake();
+});
+
+/** Everything the wizard asks, as the visitor types it (money in euros, rates in %). */
+function registrationData(array $overrides = []): array
+{
+    return [
+        'name' => 'Rita Silva',
+        'email' => 'rita@example.pt',
+        'password' => 'uma-palavra-passe-longa',
+        'passwordConfirmation' => 'uma-palavra-passe-longa',
+        'account_name' => 'Estúdio Rita',
+        'nif' => '501964843',
+        'activity_started_on' => '2026-03-01',
+        'irs_exempt' => true,
+        'vat_exempt' => true,
+        'vat_exemption_threshold' => 15000,
+        'ss_rate_percent' => 21.4,
+        'ss_relevant_income_share_percent' => 70,
+        'ss_first_year_exempt' => true,
+        'account_names' => " RITA SILVA \n\nConta pessoal",
+        'terms' => true,
+        ...$overrides,
+    ];
+}
+
+function registrationWizard(array $overrides = [])
+{
+    return Livewire::test(RegisterAccount::class)->fillForm(registrationData($overrides));
+}
+
+it('creates user and account from the wizard', function () {
+    registrationWizard()
+        ->call('register')
+        ->assertHasNoFormErrors()
+        ->assertRedirect(url('/estudio-rita'));
+
+    $user = User::firstWhere('email', 'rita@example.pt');
+    $account = Account::firstWhere('nif', '501964843');
+
+    expect($user->name)->toBe('Rita Silva')
+        ->and(Hash::check('uma-palavra-passe-longa', $user->password))->toBeTrue()
+        ->and($user->hasVerifiedEmail())->toBeFalse()
+        ->and($user->terms_version)->toBe('2026-11-08')
+        ->and($user->terms_accepted_at->toDateTimeString())->toBe('2026-11-08 10:00:00')
+        ->and($account->name)->toBe('Estúdio Rita')
+        ->and($account->slug)->toBe('estudio-rita')
+        ->and($account->owner()?->is($user))->toBeTrue()
+        ->and($account->trial_ends_at->toDateString())->toBe('2026-11-22');
+
+    CurrentAccount::run($account, function () {
+        $settings = app(FinanceSettings::class);
+
+        expect($settings->activityStartedOn()?->toDateString())->toBe('2026-03-01')
+            ->and($settings->irsExempt())->toBeTrue()
+            ->and($settings->vatExempt())->toBeTrue()
+            ->and($settings->vatExemptionThreshold())->toBe(1500000)
+            ->and($settings->ssRate())->toBe(0.214)
+            ->and($settings->ssRelevantIncomeShare())->toBe(0.70)
+            ->and($settings->ssFirstYearExempt())->toBeTrue()
+            ->and($settings->accountNames())->toBe(['RITA SILVA', 'Conta pessoal']);
+    });
+
+    $this->assertAuthenticatedAs($user);
+    Notification::assertSentTo($user, VerifyEmail::class);
+
+    // The account opens only after the email is confirmed: the dashboard sends to the prompt.
+    $this->get(Dashboard::getUrl(tenant: $account))
+        ->assertRedirect(Filament::getEmailVerificationPromptUrl());
+});
+
+it('starts with the usual rates and VAT limit', function () {
+    Livewire::test(RegisterAccount::class)->assertFormSet([
+        'ss_rate_percent' => 21.4,
+        'ss_relevant_income_share_percent' => 70,
+        'vat_exemption_threshold' => 15000,
+        'terms' => false,
+    ]);
+});
+
+it('assumes the first-year exemption only for an activity started in the last 12 months', function (string $startedOn, bool $exempt) {
+    Livewire::test(RegisterAccount::class)
+        ->set('data.activity_started_on', $startedOn)
+        ->assertFormSet(['ss_first_year_exempt' => $exempt]);
+})->with([
+    'this year' => ['2026-03-01', true],
+    'starting soon' => ['2026-12-01', true],
+    'over a year ago' => ['2025-10-01', false],
+]);
+
+it('stores no VAT limit when the account is not VAT exempt', function () {
+    registrationWizard(['vat_exempt' => false, 'vat_exemption_threshold' => 999])
+        ->call('register')
+        ->assertHasNoFormErrors();
+
+    CurrentAccount::run(Account::firstWhere('nif', '501964843'), function () {
+        $settings = app(FinanceSettings::class);
+
+        expect($settings->vatExempt())->toBeFalse()
+            ->and($settings->paymentsExemptByDefault())->toBeFalse()
+            ->and($settings->vatExemptionThreshold())->toBe(1500000);
+    });
+});
+
+it('rejects an invalid or repeated NIF', function (string $nif, string $message) {
+    Account::factory()->create(['nif' => '123456789']);
+
+    registrationWizard(['nif' => $nif])
+        ->goToWizardStep(3)
+        ->assertHasFormErrors(['nif' => $message])
+        ->assertWizardCurrentStep(2);
+
+    expect(Account::where('nif', $nif)->count())->toBeLessThanOrEqual(1);
+})->with([
+    'wrong check digit' => ['123456780', 'O NIF não é válido.'],
+    'trailing newline' => ["501964843\n", 'O NIF não é válido.'],
+    'already has an account' => ['123456789', 'Já existe uma conta com este NIF.'],
+]);
+
+it('does not take an email that already has a user', function () {
+    User::factory()->create(['email' => 'rita@example.pt']);
+
+    registrationWizard()
+        ->goToWizardStep(2)
+        ->assertHasFormErrors(['email' => 'unique'])
+        ->assertWizardCurrentStep(1);
+});
+
+it('requires accepting the terms', function () {
+    registrationWizard(['terms' => false])
+        ->call('register')
+        ->assertHasFormErrors(['terms' => 'accepted']);
+
+    expect(User::where('email', 'rita@example.pt')->exists())->toBeFalse()
+        ->and(Account::where('nif', '501964843')->exists())->toBeFalse();
+});
+
+it('leaves no user behind when the account cannot be created', function () {
+    $this->mock(CreateAccount::class)->shouldReceive('handle')->andThrow(new RuntimeException('falhou'));
+
+    expect(fn () => registrationWizard()->call('register'))->toThrow(RuntimeException::class, 'falhou');
+
+    expect(User::where('email', 'rita@example.pt')->exists())->toBeFalse();
+    $this->assertGuest();
+});
+
+it('blocks the panel until the email is verified', function () {
+    $user = User::factory()->unverified()->create();
+    $this->account->users()->attach($user, ['role' => 'owner']);
+    $this->actingAs($user);
+
+    $this->get(Dashboard::getUrl(tenant: $this->account))
+        ->assertRedirect(Filament::getEmailVerificationPromptUrl());
+    $this->get(Filament::getEmailVerificationPromptUrl())->assertOk();
+
+    // The link in the email confirms it and opens the account.
+    $this->get(Filament::getVerifyEmailUrl($user))
+        ->assertRedirect(Dashboard::getUrl(tenant: $this->account));
+
+    expect($user->fresh()->hasVerifiedEmail())->toBeTrue();
+    $this->get(Dashboard::getUrl(tenant: $this->account))->assertOk();
+});
+
+it('keeps letting verified users in', function () {
+    $this->actingAs(ownerOf($this->account));
+
+    $this->get(Dashboard::getUrl(tenant: $this->account))->assertOk();
+});
+
+it('seeds a local admin whose email is already verified', function () {
+    $this->seed(DatabaseSeeder::class);
+
+    expect(User::firstWhere('email', 'admin@pressiumize.test')->hasVerifiedEmail())->toBeTrue();
+});
+
+it('shows the sign-up page with links to the terms and the privacy policy', function () {
+    $this->get(Filament::getRegistrationUrl())
+        ->assertOk()
+        ->assertSee('Criar conta')
+        ->assertSee(url('/termos'), escape: false)
+        ->assertSee(url('/privacidade'), escape: false);
+
+    $this->get(Filament::getLoginUrl())->assertSee(Filament::getRegistrationUrl(), escape: false);
+});
+
+it('serves the terms and privacy pages', function (string $path, string $title) {
+    $this->get($path)
+        ->assertOk()
+        ->assertSee($title)
+        ->assertSee('Texto a fornecer pelo Pedro')
+        ->assertSee('Versão 2026-11-08')
+        ->assertSee('brand/contiu/contiu-logo-white.svg', escape: false);
+})->with([
+    'terms' => ['/termos', 'Termos de Serviço'],
+    'privacy' => ['/privacidade', 'Política de Privacidade'],
+]);
+
+it('keeps the sign-up page logo while moving between steps', function () {
+    // Each step is a Livewire update: the route is Livewire's, not the sign-up page's.
+    registrationWizard()
+        ->goToWizardStep(2)
+        ->assertWizardCurrentStep(2)
+        ->assertSee('brand/contiu/contiu-logo-black.svg', escape: false)
+        ->assertSee('height: 2.5rem', escape: false);
+});

@@ -25,6 +25,7 @@ it('refuses a NIF that is not nine digits with the right check digit', function 
     'letters' => 'abcdefghi',
     'ten digits' => '1234567890',
     'spaces' => '123 456 789',
+    'trailing newline' => "123456789\n",
 ]);
 
 it('takes a check digit of 10 or 11 as 0', function () {

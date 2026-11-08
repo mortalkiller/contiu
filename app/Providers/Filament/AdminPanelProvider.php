@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\Auth\RegisterAccount;
 use App\Filament\Pages\HelpCentre;
 use App\Filament\Pages\Tenancy\EditAccountProfile;
 use App\Filament\Support\BrandPalette;
@@ -16,6 +17,7 @@ use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Pages\SimplePage;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -27,6 +29,7 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Livewire\Livewire;
 use Mortalkiller\FilamentCompleteUserProfile\CompleteUserProfilePlugin;
 use MortalKiller\FilamentPageHeader\PageHeaderPlugin;
 use MortalKiller\FilamentSkeletonLoading\SkeletonLoadingPlugin;
@@ -54,12 +57,16 @@ class AdminPanelProvider extends PanelProvider
             ->tenantMenu(fn (): bool => Filament::getTenant() !== null && static::canSwitchAccounts())
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->login()
+            // Self-service sign-up: the wizard creates the user and their account, and nothing
+            // in the panel opens until the email is confirmed.
+            ->registration(RegisterAccount::class)
+            ->emailVerification()
             ->passwordReset()
             ->brandName(config('app.name'))
-            // Contiu logo: white on the green topbar (both themes); black on the light login page.
-            ->brandLogo(fn () => asset(request()->routeIs('filament.admin.auth.*') ? 'brand/contiu/contiu-logo-black.svg' : 'brand/contiu/contiu-logo-white.svg'))
+            // Contiu logo: white on the green topbar (both themes); black on the light sign-in/sign-up pages.
+            ->brandLogo(fn () => asset(static::onAuthPage() ? 'brand/contiu/contiu-logo-black.svg' : 'brand/contiu/contiu-logo-white.svg'))
             ->darkModeBrandLogo(asset('brand/contiu/contiu-logo-white.svg'))
-            ->brandLogoHeight(fn () => request()->routeIs('filament.admin.auth.*') ? '2.5rem' : '1.6rem')
+            ->brandLogoHeight(fn () => static::onAuthPage() ? '2.5rem' : '1.6rem')
             ->colors([
                 'primary' => BrandPalette::primary(),
                 'gray' => BrandPalette::gray(),
@@ -143,6 +150,15 @@ class AdminPanelProvider extends PanelProvider
             ])
             // Also on Livewire updates from those pages (e.g. saving /profile).
             ->persistentMiddleware([UseDefaultAccountOutsideTenantRoutes::class]);
+    }
+
+    /**
+     * Sign-in, sign-up and email confirmation are simple pages on a light background. Checked by
+     * the component too: on their Livewire updates (each sign-up step) the route is Livewire's.
+     */
+    private static function onAuthPage(): bool
+    {
+        return request()->routeIs('filament.admin.auth.*') || Livewire::current() instanceof SimplePage;
     }
 
     private static function canSwitchAccounts(): bool

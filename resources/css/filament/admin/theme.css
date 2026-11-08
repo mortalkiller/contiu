@@ -241,3 +241,11 @@
         display: none;
     }
 }
+
+/*
+ * Sign-up wizard: tighter step buttons so all six steps fit on one line on a laptop screen
+ * (narrower screens keep Filament's horizontal scroll).
+ */
+.contiu-signup-wizard .fi-sc-wizard-header-step-btn {
+    padding-inline: 0.75rem;
+}

@@ -26,7 +26,7 @@ class PortugueseNif implements ValidationRule
 
         $nif = (string) $value;
 
-        if (preg_match('/^\d{9}$/', $nif) !== 1) {
+        if (preg_match('/^\d{9}\z/', $nif) !== 1) {
             return false;
         }
 
