@@ -6,12 +6,12 @@ use App\Support\FinanceSettings;
 it('returns the documented defaults when nothing is stored', function () {
     $settings = app(FinanceSettings::class);
 
-    expect($settings->irsExempt())->toBeTrue()
-        ->and($settings->vatExempt())->toBeTrue()
+    expect($settings->irsExempt())->toBeFalse()
+        ->and($settings->vatExempt())->toBeFalse()
         ->and($settings->vatExemptionThreshold())->toBe(1500000)
         ->and($settings->ssRate())->toBe(0.214)
         ->and($settings->ssRelevantIncomeShare())->toBe(0.70)
-        ->and($settings->ssFirstYearExempt())->toBeTrue()
+        ->and($settings->ssFirstYearExempt())->toBeFalse()
         ->and($settings->activityStartedOn())->toBeNull()
         ->and($settings->accountNames())->toBe([])
         ->and($settings->all())->not->toHaveKey('current_bank_balance');
@@ -34,8 +34,8 @@ it('stores and reads values back with their types', function () {
         ->and($fresh->all())->toHaveKey('ss_rate');
 });
 
-it('treats payments as tax-exempt by default, and lets you turn it off on the settings page', function () {
-    expect(app(FinanceSettings::class)->paymentsExemptByDefault())->toBeTrue();
+it('treats payments as not tax-exempt by default, and lets you turn it on on the settings page', function () {
+    expect(app(FinanceSettings::class)->paymentsExemptByDefault())->toBeFalse();
 
     actingAsAdmin();
 

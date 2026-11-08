@@ -51,7 +51,7 @@
                                     <tr><th class="px-3 py-2 font-medium">Linha do extrato</th><th class="px-3 py-2 font-medium">Sugestão</th><th class="px-3 py-2 font-medium">O que fazes</th></tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-950/5 dark:divide-white/10">
-                                    <tr><td class="px-3 py-2">TRF DE PEDRO … · +900 €</td><td class="px-3 py-2">Transferência minha</td><td class="px-3 py-2">nada</td></tr>
+                                    <tr><td class="px-3 py-2">TRF DE ANA SILVA … · +900 €</td><td class="px-3 py-2">Transferência minha</td><td class="px-3 py-2">nada</td></tr>
                                     <tr><td class="px-3 py-2">TRF GONCALO TEIXEIRA · +1 000 €</td><td class="px-3 py-2">Recebimento · 2.ª prestação (ou "Já registado")</td><td class="px-3 py-2">nada</td></tr>
                                     <tr><td class="px-3 py-2">STRIPE TECHNOLOGY EUROPE · +4,32 €</td><td class="px-3 py-2">sem sugestão</td><td class="px-3 py-2"><strong>Criar receita</strong>: bruto 5,00 €, comissão 0,68 €</td></tr>
                                     <tr><td class="px-3 py-2">COMPRA OPENAI · −83,74 €</td><td class="px-3 py-2">Despesa recorrente · ChatGPT Pro</td><td class="px-3 py-2">nada</td></tr>
@@ -117,7 +117,7 @@
                     </li>
                     <li>Enganaste-te? Em "Tratados" ou "Ignorados" usa <strong>Voltar a tratar</strong>: o que foi criado a partir da linha é apagado, o que já existia fica.</li>
                 </ol>
-                <p class="mt-3">As transferências entre a conta da empresa e a tua são reconhecidas pelos nomes das tuas contas (o nome do titular e o nome da conta pessoal, ex.: "Ordenado"), que defines em {!! $link('settings', 'Definições financeiras') !!}.</p>
+                <p class="mt-3">As transferências entre a conta da empresa e a tua são reconhecidas pelos nomes das tuas contas (o nome do titular e o nome da conta pessoal, ex.: "Conta pessoal"), que defines em {!! $link('settings', 'Definições financeiras') !!}.</p>
                 <p class="mt-3"><strong>Reconciliar automaticamente</strong> (no topo do extrato) trata de uma vez todas as linhas com uma sugestão segura; as outras ficam para ti.</p>
                 <p class="mt-3"><strong>Conta da empresa</strong> — no topo do extrato, no painel e no fecho do mês: o <em>saldo no banco</em> (do último extrato), o <em>saldo segundo a Contiu</em> (saldo inicial + recebido − despesas pagas) e a diferença:</p>
                 <ul class="mt-2 list-disc space-y-1 ps-5">

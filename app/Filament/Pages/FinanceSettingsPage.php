@@ -117,8 +117,8 @@ class FinanceSettingsPage extends Page
                     ->schema([
                         Textarea::make('account_names')
                             ->label('Nomes das tuas contas, como aparecem no banco')
-                            ->placeholder("PEDRO FILIPE PEREIRA MONTEIRO\nOrdenado")
-                            ->helperText('Um por linha: o nome do titular nas transferências e os nomes das tuas outras contas (ex.: Ordenado).')
+                            ->placeholder("ANA MARIA SILVA\nConta pessoal")
+                            ->helperText('Um por linha: o nome do titular nas transferências e os nomes das tuas outras contas (ex.: Conta pessoal).')
                             ->rows(3),
                     ]),
             ]);

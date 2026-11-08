@@ -15,5 +15,5 @@
 </x-mail::table>
 
 Com os melhores cumprimentos,<br>
-{{ config('app.name') }}
+{{ $accountName }}
 </x-mail::message>

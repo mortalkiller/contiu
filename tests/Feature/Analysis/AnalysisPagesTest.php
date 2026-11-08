@@ -25,17 +25,19 @@ beforeEach(function () {
 // Definições fiscais ------------------------------------------------------------------------
 
 it('shows the fiscal settings with their defaults and saves changes', function () {
+    app(FinanceSettings::class)->set(['vat_exempt' => true]); // the threshold only shows while VAT-exempt
+
     Livewire::test(FinanceSettingsPage::class)
         ->assertSee('confirma os valores com o teu contabilista')
         ->assertSee('Limite anual de isenção de IVA (art. 53.º)')
-        ->assertSchemaStateSet(['irs_exempt' => true, 'vat_exempt' => true, 'ss_rate_percent' => 21.4, 'vat_exemption_threshold' => 15000.0], 'form')
-        ->fillForm(['irs_exempt' => false, 'ss_rate_percent' => 21.4])
+        ->assertSchemaStateSet(['irs_exempt' => false, 'vat_exempt' => true, 'ss_rate_percent' => 21.4, 'vat_exemption_threshold' => 15000.0], 'form')
+        ->fillForm(['irs_exempt' => true, 'ss_rate_percent' => 21.4])
         ->call('save')
         ->assertHasNoFormErrors();
 
     $settings = app(FinanceSettings::class);
 
-    expect($settings->irsExempt())->toBeFalse()
+    expect($settings->irsExempt())->toBeTrue()
         ->and($settings->ssRate())->toBe(0.214);
 });
 
@@ -75,6 +77,8 @@ it('shows margins by business line and by client for the chosen year', function 
 // Impostos ----------------------------------------------------------------------------------
 
 it('estimates taxes for the year with the exemptions from the settings', function () {
+    app(FinanceSettings::class)->set(['irs_exempt' => true, 'vat_exempt' => true]);
+
     Livewire::test(TaxEstimate::class)
         ->assertSet('year', 2026)
         ->assertSee('Isento (definição)')

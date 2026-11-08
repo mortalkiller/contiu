@@ -35,6 +35,7 @@ it('lets you mark a payment as tax-exempt when recording it', function () {
 });
 
 it('is tax-exempt by default while the setting is on', function () {
+    app(FinanceSettings::class)->set(['payments_exempt_by_default' => true]);
     expect(Payment::factory()->state(['tax_exempt' => null])->create()->fresh()->tax_exempt)->toBeTrue();
 });
 
@@ -46,6 +47,7 @@ it('is not tax-exempt by default once the setting is off', function () {
 
 it('comes ticked when recording a payment for a project', function () {
     actingAsAdmin();
+    app(FinanceSettings::class)->set(['payments_exempt_by_default' => true]);
     Receivable::factory()->create(['amount' => 8000]);
 
     Livewire::test(ManagePayments::class)->loadTable()

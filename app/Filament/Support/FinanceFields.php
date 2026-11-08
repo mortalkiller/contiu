@@ -2,6 +2,8 @@
 
 namespace App\Filament\Support;
 
+use App\Models\Project;
+use App\Models\Retainer;
 use App\Support\Money;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -17,6 +19,22 @@ use Filament\Support\Enums\TextSize;
  */
 final class FinanceFields
 {
+    /**
+     * Business lines already used in this account (projects and retainers), as suggestions.
+     *
+     * @return array<int, string>
+     */
+    public static function businessLines(): array
+    {
+        return Project::query()->pluck('business_line')
+            ->merge(Retainer::query()->pluck('business_line'))
+            ->filter(fn ($line) => filled($line))
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+    }
+
     public static function clientSelect(): Select
     {
         return Select::make('client_id')

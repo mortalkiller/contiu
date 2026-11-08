@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Exports\ClientStatementExport;
+use App\Mail\Concerns\SendsAsAccount;
 use App\Support\ClientStatement;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
@@ -18,7 +19,7 @@ use Maatwebsite\Excel\Facades\Excel;
  */
 class ClientStatementEmail extends Mailable
 {
-    use Queueable, SerializesModels;
+    use Queueable, SendsAsAccount, SerializesModels;
 
     public function __construct(
         public ClientStatement $statement,
@@ -28,12 +29,13 @@ class ClientStatementEmail extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: $this->subjectLine);
+        return new Envelope(subject: $this->subjectLine, replyTo: $this->replyToOwner());
     }
 
     public function content(): Content
     {
         return new Content(markdown: 'mail.client-statement', with: [
+            'accountName' => $this->accountName(),
             'charged' => $this->statement->charged(),
             'received' => $this->statement->received(),
             'balance' => $this->statement->balance(),

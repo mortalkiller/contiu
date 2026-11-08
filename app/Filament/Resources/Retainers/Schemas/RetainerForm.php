@@ -45,7 +45,7 @@ class RetainerForm
                         FinanceFields::clientSelect(),
                         TextInput::make('business_line')
                             ->label('Linha de negócio')
-                            ->datalist(['Printee', 'Pressiu']),
+                            ->datalist(fn () => FinanceFields::businessLines()),
                         TextInput::make('title')
                             ->label('Título')
                             ->placeholder('Infraestrutura do site')

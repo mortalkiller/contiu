@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Mail\Concerns\SendsAsAccount;
 use App\Models\Client;
 use App\Models\Receivable;
 use Illuminate\Bus\Queueable;
@@ -17,7 +18,7 @@ use Illuminate\Support\Collection;
  */
 class PaymentReminder extends Mailable
 {
-    use Queueable, SerializesModels;
+    use Queueable, SendsAsAccount, SerializesModels;
 
     /** @var Collection<int, array{code: string, description: string, due_on: string, outstanding: int, overdue: bool, highlighted: bool}> */
     public Collection $items;
@@ -47,11 +48,11 @@ class PaymentReminder extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: $this->subjectLine);
+        return new Envelope(subject: $this->subjectLine, replyTo: $this->replyToOwner());
     }
 
     public function content(): Content
     {
-        return new Content(markdown: 'mail.payment-reminder');
+        return new Content(markdown: 'mail.payment-reminder', with: ['accountName' => $this->accountName()]);
     }
 }

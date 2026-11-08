@@ -5,6 +5,7 @@ use App\Filament\Resources\Retainers\Pages\ViewRetainer;
 use App\Models\Payment;
 use App\Models\Receivable;
 use App\Models\Retainer;
+use App\Support\FinanceSettings;
 use Livewire\Livewire;
 
 it('marks payments of a tax-exempt retainer as exempt automatically', function () {
@@ -21,6 +22,7 @@ it('keeps payments of a retainer marked not exempt out of the default', function
 });
 
 it('creates retainers tax-exempt by default while the setting is on', function () {
+    app(FinanceSettings::class)->set(['payments_exempt_by_default' => true]);
     expect(Retainer::factory()->state(['tax_exempt' => null])->create()->fresh()->tax_exempt)->toBeTrue();
 });
 

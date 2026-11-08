@@ -125,7 +125,7 @@ it('previews without saving anything', function () {
 });
 
 it('imports from the command line', function () {
-    $this->artisan('finance:import-excel', ['path' => financeWorkbook()])
+    $this->artisan('finance:import-excel', ['path' => financeWorkbook(), '--account' => $this->account->slug])
         ->expectsOutputToContain('Trabalhos: 3')
         ->expectsOutputToContain('NAO-EXISTE')
         ->assertSuccessful();

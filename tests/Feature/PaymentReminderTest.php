@@ -38,7 +38,7 @@ it('lists the client open amounts, flags the overdue ones and signs off', functi
         ->assertSeeInHtml('em atraso')
         ->assertSeeInHtml('01/10/2026')
         ->assertSeeInHtml('Olá Gonçalo')
-        ->assertSeeInHtml(config('app.name'))
+        ->assertSeeInHtml(e($this->account->name))
         ->assertDontSeeInHtml('Adjudicação');
 });
 

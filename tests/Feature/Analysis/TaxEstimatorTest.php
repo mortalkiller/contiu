@@ -71,7 +71,7 @@ it('bases a month contribution on the income of the previous quarter', function 
 it('reports IRS as exempt or as the simplified-regime taxable income', function () {
     payOn('2026-03-01', 400000);
 
-    expect(estimator(2026)->irsExempt())->toBeTrue()
+    expect(estimator(2026, ['irs_exempt' => true])->irsExempt())->toBeTrue()
         ->and(estimator(2026)->irsTaxableIncome())->toBe(0)
         ->and(estimator(2026, ['irs_exempt' => false])->irsTaxableIncome())->toBe(300000);
 });

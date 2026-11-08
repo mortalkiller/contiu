@@ -7,20 +7,20 @@ use Carbon\CarbonImmutable;
 
 /**
  * Typed access to the fiscal / cash settings used by the analysis pages.
- * Defaults follow what Pedro told us: ENI, regime simplificado, isento de IRS, IVA art. 53.º.
+ * Defaults are the neutral case (nothing exempt); each account sets its own regime.
  */
 final class FinanceSettings
 {
     public const DEFAULTS = [
         'activity_started_on' => null,
-        'irs_exempt' => true,
-        'vat_exempt' => true,
+        'irs_exempt' => false,
+        'vat_exempt' => false,
         'vat_exemption_threshold' => 1500000, // cents
         'ss_rate' => 0.214,
         'ss_relevant_income_share' => 0.70,
-        'ss_first_year_exempt' => true,
-        'payments_exempt_by_default' => true,
-        'account_names' => null, // one per line: the holder's name and Pedro's own accounts ("Ordenado")
+        'ss_first_year_exempt' => false,
+        'payments_exempt_by_default' => false,
+        'account_names' => null, // one per line: the holder's name and the holder's own accounts
     ];
 
     /** @var array<string, mixed>|null */
@@ -53,7 +53,7 @@ final class FinanceSettings
 
     /**
      * How the bank names Pedro's own accounts in transfer descriptions: the holder's name
-     * ("PEDRO FILIPE PEREIRA MONTEIRO") and the personal account's name ("Ordenado").
+     * and the personal account's name.
      *
      * @return array<int, string>
      */

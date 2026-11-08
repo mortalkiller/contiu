@@ -84,8 +84,8 @@ class ProjectForm
             FinanceFields::clientSelect(),
             TextInput::make('business_line')
                 ->label('Linha de negócio')
-                ->datalist(['Printee', 'Pressiu'])
-                ->placeholder('Printee, Pressiu…'),
+                ->datalist(fn () => FinanceFields::businessLines())
+                ->placeholder('Ex.: Design, Consultoria…'),
         ];
     }
 
