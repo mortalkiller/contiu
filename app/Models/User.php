@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Database\Factories\UserFactory;
+use Filament\Auth\Notifications\VerifyEmail;
+use Filament\Facades\Filament;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasDefaultTenant;
 use Filament\Models\Contracts\HasTenants;
@@ -75,6 +77,18 @@ class User extends Authenticatable implements FilamentUser, HasDefaultTenant, Ha
     public function getDefaultTenant(Panel $panel): ?Model
     {
         return $this->accounts()->orderBy('accounts.id')->first();
+    }
+
+    /**
+     * The panel's own confirmation email: Laravel's default links to a "verification.verify"
+     * route this app does not have; Filament's verify route opens the user's account afterwards.
+     */
+    public function sendEmailVerificationNotification(): void
+    {
+        $notification = app(VerifyEmail::class);
+        $notification->url = Filament::getVerifyEmailUrl($this);
+
+        $this->notify($notification);
     }
 
     /**

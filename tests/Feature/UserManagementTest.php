@@ -2,7 +2,9 @@
 
 use App\Filament\Resources\Users\Pages\ManageUsers;
 use App\Models\User;
+use Filament\Auth\Notifications\VerifyEmail;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 
@@ -37,6 +39,25 @@ it('creates a user with a hashed password and roles', function () {
     expect($user)->not->toBeNull()
         ->and(Hash::check('segredo-forte-123', $user->password))->toBeTrue()
         ->and($user->hasRole('editor'))->toBeTrue();
+});
+
+it('sends a new user the email confirmation link', function () {
+    Notification::fake();
+
+    Livewire::test(ManageUsers::class)
+        ->callAction('create', data: [
+            'name' => 'Rui Costa',
+            'email' => 'rui@example.test',
+            'password' => 'segredo-forte-123',
+            'password_confirmation' => 'segredo-forte-123',
+        ])
+        ->assertHasNoActionErrors();
+
+    $user = User::firstWhere('email', 'rui@example.test');
+
+    // The panel stays shut until the address is confirmed: they need the link to get in.
+    expect($user->hasVerifiedEmail())->toBeFalse();
+    Notification::assertSentTo($user, VerifyEmail::class, fn (VerifyEmail $notification) => str_contains($notification->url, '/email-verification/verify/'.$user->id.'/'));
 });
 
 it('requires the password to be confirmed on create', function () {
