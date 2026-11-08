@@ -5,6 +5,7 @@ namespace App\Filament\Support;
 use App\Enums\ReconciliationStatus;
 use App\Models\Expense;
 use App\Models\Payment;
+use App\Support\FinanceSettings;
 use App\Support\Money;
 use App\Support\Reconciliation;
 use App\Support\ReconciliationResult;
@@ -23,6 +24,12 @@ use ToneGabes\Filament\Icons\Enums\Phosphor;
  */
 final class ReconciliationColumns
 {
+    /** Only with a bank account for the activity: without one there is no statement to reconcile with. */
+    public static function enabled(): bool
+    {
+        return app(FinanceSettings::class)->hasBusinessAccount();
+    }
+
     public static function reconciliation(): Reconciliation
     {
         if (! app()->bound(Reconciliation::class.'@request')) {
@@ -36,6 +43,7 @@ final class ReconciliationColumns
     {
         return TextColumn::make('reconciliation')
             ->label('Banco')
+            ->visible(fn (): bool => self::enabled())
             ->badge()
             ->state(fn (Payment $record) => self::reconciliation()->forPayment($record)->label())
             ->color(fn (Payment $record) => self::reconciliation()->forPayment($record)->status->color())
@@ -46,6 +54,7 @@ final class ReconciliationColumns
     {
         return TextColumn::make('reconciliation')
             ->label('Banco')
+            ->visible(fn (): bool => self::enabled())
             ->badge()
             ->state(fn (Expense $record) => $record->is_paid ? self::reconciliation()->forExpense($record)->label() : null)
             ->color(fn (Expense $record) => self::reconciliation()->forExpense($record)->status->color())
@@ -65,7 +74,7 @@ final class ReconciliationColumns
         return Action::make('reconciliation')
             ->label('Ver no banco')
             ->icon(Phosphor::Bank)
-            ->visible(fn (Payment|Expense $record) => $record instanceof Payment || $record->is_paid)
+            ->visible(fn (Payment|Expense $record) => self::enabled() && ($record instanceof Payment || $record->is_paid))
             ->modalHeading('Reconciliação com o banco')
             ->modalDescription(fn (Payment|Expense $record) => $record instanceof Payment
                 ? 'Recebimento '.$record->receivable?->label.' · '.$record->paid_on?->format('d/m/Y').' · '.Money::format($record->amount)
@@ -86,7 +95,7 @@ final class ReconciliationColumns
                 View::make('filament.partials.reconciliation-details')
                     ->viewData(fn (?Model $record) => ['result' => $record instanceof Payment || $record instanceof Expense ? self::for($record) : null, 'isExpense' => $record instanceof Expense]),
             ])
-            ->visible(fn (?Model $record) => $record?->exists && ($record instanceof Payment || ($record instanceof Expense && $record->is_paid)));
+            ->visible(fn (?Model $record) => self::enabled() && $record?->exists && ($record instanceof Payment || ($record instanceof Expense && $record->is_paid)));
     }
 
     public static function paymentFilter(): SelectFilter
@@ -103,6 +112,7 @@ final class ReconciliationColumns
     {
         return SelectFilter::make('reconciliation')
             ->label('Banco')
+            ->visible(fn (): bool => self::enabled())
             ->options(collect(ReconciliationStatus::cases())->mapWithKeys(fn (ReconciliationStatus $status) => [$status->value => $status->label()])->all())
             ->query(fn (Builder $query, array $data) => filled($data['value'] ?? null)
                 ? $query->whereIn($query->getModel()->getQualifiedKeyName(), $ids(ReconciliationStatus::from($data['value'])))

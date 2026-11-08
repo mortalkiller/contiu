@@ -26,6 +26,23 @@ class CashForecastStats extends StatsOverviewWidget
         $forecast = $this->forecast();
         $totals = $forecast->totals();
 
+        if (! $forecast->showsBalance()) {
+            $worst = collect($forecast->months())->sortBy('net')->first();
+
+            return [
+                Stat::make('Entradas previstas', Money::format($totals['inflows']))->icon(Phosphor::HandCoins),
+                Stat::make('Saídas previstas', Money::format($totals['outflows']))->icon(Phosphor::Receipt),
+                Stat::make('Diferença prevista', Money::format($totals['net']))
+                    ->description('Entradas menos saídas no período')
+                    ->color($totals['net'] < 0 ? 'danger' : null)
+                    ->icon(Phosphor::Scales),
+                Stat::make('Pior mês', Money::format($worst['net'] ?? 0))
+                    ->description($worst['label'] ?? '')
+                    ->color(($worst['net'] ?? 0) < 0 ? 'danger' : 'success')
+                    ->icon(Phosphor::TrendDown),
+            ];
+        }
+
         return [
             Stat::make('Entradas previstas', Money::format($totals['inflows']))->icon(Phosphor::HandCoins),
             Stat::make('Saídas previstas', Money::format($totals['outflows']))->icon(Phosphor::Receipt),

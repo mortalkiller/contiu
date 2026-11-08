@@ -53,6 +53,7 @@ class FinanceSettingsPage extends Page
             'vat_exempt' => $settings->vatExempt(),
             'vat_exemption_threshold' => $settings->vatExemptionThreshold(),
             'payments_exempt_by_default' => $settings->paymentsExemptByDefault(),
+            'has_business_account' => $settings->hasBusinessAccount(),
             'account_names' => implode("\n", $settings->accountNames()),
         ]);
     }
@@ -112,15 +113,20 @@ class FinanceSettingsPage extends Page
                             ->visible(fn ($get) => (bool) $get('vat_exempt'))
                             ->required(fn ($get) => (bool) $get('vat_exempt')),
                     ]),
-                Section::make('As tuas contas no banco')
-                    ->description('Para o extrato reconhecer as transferências entre a conta da empresa e as tuas outras contas ("Transferência minha"). O saldo da conta vem do extrato importado.')
+                Section::make('Banco')
+                    ->description('A conta da atividade é a conta bancária onde recebes e pagas o que é do trabalho. O extrato importado dá o saldo e confirma que o dinheiro registado chegou lá.')
                     ->icon(Phosphor::Wallet)
                     ->columnSpanFull()
                     ->schema([
+                        Toggle::make('has_business_account')
+                            ->label('Tenho uma conta bancária só para a atividade')
+                            ->helperText('Desligado, o extrato bancário, a reconciliação e o saldo da conta deixam de aparecer. Os extratos já importados ficam guardados.')
+                            ->live(),
                         Textarea::make('account_names')
-                            ->label('Nomes das tuas contas, como aparecem no banco')
-                            ->placeholder("ANA MARIA SILVA\nConta pessoal")
-                            ->helperText('Um por linha: o nome do titular nas transferências e os nomes das tuas outras contas (ex.: Conta pessoal).')
+                            ->label('Os teus nomes no extrato')
+                            ->placeholder("ANA MARIA SILVA\nPoupança")
+                            ->helperText('Quando passas dinheiro entre a conta da atividade e outra conta tua, o banco escreve um nome na descrição (o teu, ou o que deste à outra conta). Um por linha: esses movimentos ficam como "Transferência minha" e não contam como receita nem despesa.')
+                            ->visible(fn ($get): bool => (bool) $get('has_business_account'))
                             ->rows(3),
                     ]),
             ]);
@@ -162,7 +168,11 @@ class FinanceSettingsPage extends Page
             'vat_exempt' => (bool) ($data['vat_exempt'] ?? false),
             'vat_exemption_threshold' => (int) ($data['vat_exemption_threshold'] ?? 0),
             'payments_exempt_by_default' => (bool) ($data['payments_exempt_by_default'] ?? false),
-            'account_names' => implode("\n", array_filter(array_map('trim', preg_split('/\R/', (string) ($data['account_names'] ?? '')) ?: []))) ?: null,
+            'has_business_account' => $hasBusinessAccount = (bool) ($data['has_business_account'] ?? false),
+            // Hidden while off: kept as they were, for when it is turned back on.
+            'account_names' => $hasBusinessAccount
+                ? (implode("\n", array_filter(array_map('trim', preg_split('/\R/', (string) ($data['account_names'] ?? '')) ?: []))) ?: null)
+                : app(FinanceSettings::class)->all()['account_names'],
         ]);
 
         Notification::make()->title('Definições guardadas')->success()->send();

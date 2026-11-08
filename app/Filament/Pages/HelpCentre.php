@@ -7,6 +7,7 @@ use App\Filament\Resources\Payments\PaymentResource;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Resources\RecurringExpenses\RecurringExpenseResource;
 use App\Filament\Resources\Retainers\RetainerResource;
+use App\Support\FinanceSettings;
 use App\Support\Money;
 use BackedEnum;
 use Filament\Pages\Page;
@@ -35,14 +36,30 @@ class HelpCentre extends Page
 
     public function getSubheading(): string
     {
-        return 'Como usar a app no dia a dia: do trabalho novo ao extrato do banco e ao fecho do mês.';
+        return $this->hasBusinessAccount()
+            ? 'Como usar a app no dia a dia: do trabalho novo ao extrato do banco e ao fecho do mês.'
+            : 'Como usar a app no dia a dia: do trabalho novo ao recebimento e ao fecho do mês.';
+    }
+
+    /** Without a bank account for the activity, the statement and the transfers are left out. */
+    public function hasBusinessAccount(): bool
+    {
+        return app(FinanceSettings::class)->hasBusinessAccount();
     }
 
     /** @return array<int, array{id: string, title: string, summary: string, icon: Phosphor}> */
     public function topics(): array
     {
+        $bankOnly = ['extrato', 'conta-pessoal'];
+
+        return array_values(array_filter($this->allTopics(), fn (array $topic): bool => $this->hasBusinessAccount() || ! in_array($topic['id'], $bankOnly, true)));
+    }
+
+    /** @return array<int, array{id: string, title: string, summary: string, icon: Phosphor}> */
+    private function allTopics(): array
+    {
         return [
-            ['id' => 'fluxo', 'title' => 'Do trabalho ao extrato', 'summary' => 'Um exemplo completo, passo a passo.', 'icon' => Phosphor::Path],
+            ['id' => 'fluxo', 'title' => $this->hasBusinessAccount() ? 'Do trabalho ao extrato' : 'Do trabalho ao recebimento', 'summary' => 'Um exemplo completo, passo a passo.', 'icon' => Phosphor::Path],
             ['id' => 'recebimentos', 'title' => 'Recebimentos', 'summary' => 'Totais, parciais e faturas-recibo.', 'icon' => Phosphor::HandCoins],
             ['id' => 'despesas', 'title' => 'Despesas', 'summary' => 'Registar, recorrentes e fornecedores.', 'icon' => Phosphor::Receipt],
             ['id' => 'receitas-avulsas', 'title' => 'Receitas avulsas', 'summary' => 'Donativos e outras entradas.', 'icon' => Phosphor::Gift],

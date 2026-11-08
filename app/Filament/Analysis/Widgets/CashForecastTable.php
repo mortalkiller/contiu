@@ -46,6 +46,7 @@ class CashForecastTable extends TableWidget
                     ->color(fn (float $state) => $state < 0 ? 'danger' : null),
                 TextColumn::make('balance')
                     ->label('Saldo acumulado')
+                    ->visible(fn (): bool => $this->forecast()->showsBalance())
                     ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->weight('semibold')

@@ -80,6 +80,17 @@ class BankStatementImport extends Page implements HasTable
 
     protected static ?int $navigationSort = 5;
 
+    /** Only for an account with a bank account just for the activity (finance settings). */
+    public static function canAccess(): bool
+    {
+        return app(FinanceSettings::class)->hasBusinessAccount();
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canAccess();
+    }
+
     /**
      * Stored upload waiting for a manual column mapping. Locked: it is a path on the disk every
      * account shares, so the browser must never choose it.

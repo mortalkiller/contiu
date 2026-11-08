@@ -2,6 +2,8 @@
     $links = $this->links();
     $icons = collect($this->topics())->pluck('icon', 'id');
     $subscription = $this->subscription();
+    $bank = $this->hasBusinessAccount();
+    $flowTitle = $bank ? 'Do trabalho ao extrato' : 'Do trabalho ao recebimento';
     $link = fn (string $key, string $label) => '<a href="'.e($links[$key]).'" class="font-medium text-primary-600 underline decoration-primary-600/30 underline-offset-2 hover:decoration-primary-600 dark:text-primary-400">'.e($label).'</a>';
 @endphp
 
@@ -20,30 +22,41 @@
         </nav>
 
         <div class="fi-help-body mt-8 space-y-6 text-sm leading-6 text-gray-700 dark:text-gray-300">
-            {{-- Do trabalho ao extrato --}}
-            <x-filament::section class="scroll-mt-24" id="fluxo" :icon="$icons['fluxo']" heading="Do trabalho ao extrato" description="Exemplo: loja online para o cliente Gonçalo Teixeira, 2 000 €, paga em duas metades.">
+            {{-- Do trabalho ao extrato (ao recebimento, sem conta da atividade) --}}
+            <x-filament::section class="scroll-mt-24" id="fluxo" :icon="$icons['fluxo']" :heading="$flowTitle" description="Exemplo: loja online para o cliente Gonçalo Teixeira, 2 000 €, paga em duas metades.">
                 <ol class="list-decimal space-y-4 ps-5">
                     <li>
                         <strong>Criar o trabalho.</strong> {!! $link('newProject', 'Novo trabalho') !!} (ou "+ Novo" → Novo trabalho): cliente → trabalho (código, descrição, categoria, valor, IVA, data do orçamento) → plano de pagamento "50% / 50%" → resumo.
                         A app cria dois <em>valores a receber</em> de 1 000 € que aparecem em "A receber" no painel e no fecho do mês de cada vencimento.
                     </li>
                     <li>
-                        <strong>O cliente paga 400 € na conta da atividade.</strong> Passa a fatura-recibo de 400 € no Portal das Finanças. Na app, uma de duas:
-                        <ul class="mt-2 list-disc space-y-1 ps-5">
-                            <li>regista logo: painel → "A receber" → <strong>Receber</strong> na 1.ª prestação → data, 400 €, método, n.º da fatura-recibo. A prestação fica "Parcial" (faltam 600 €);</li>
-                            <li>ou espera pelo extrato: a linha "TRF GONCALO TEIXEIRA 400,00" aparece com a sugestão <strong>Recebimento parcial</strong> — aceitas e depois acrescentas o n.º da fatura-recibo em Recebimentos.</li>
-                        </ul>
-                        Se já registaste, o extrato mostra "Já registado" e é só aceitar — nunca fica duplicado.
+                        @if ($bank)
+                            <strong>O cliente paga 400 € na conta da atividade.</strong> Passa a fatura-recibo de 400 € no Portal das Finanças. Na app, uma de duas:
+                            <ul class="mt-2 list-disc space-y-1 ps-5">
+                                <li>regista logo: painel → "A receber" → <strong>Receber</strong> na 1.ª prestação → data, 400 €, método, n.º da fatura-recibo. A prestação fica "Parcial" (faltam 600 €);</li>
+                                <li>ou espera pelo extrato: a linha "TRF GONCALO TEIXEIRA 400,00" aparece com a sugestão <strong>Recebimento parcial</strong> — aceitas e depois acrescentas o n.º da fatura-recibo em Recebimentos.</li>
+                            </ul>
+                            Se já registaste, o extrato mostra "Já registado" e é só aceitar — nunca fica duplicado.
+                        @else
+                            <strong>O cliente paga 400 €.</strong> Passa a fatura-recibo de 400 € no Portal das Finanças e regista: painel → "A receber" → <strong>Receber</strong> na 1.ª prestação → data em que o cliente pagou, 400 €, método, n.º da fatura-recibo. A prestação fica "Parcial" (faltam 600 €).
+                        @endif
                     </li>
+                    @if ($bank)
                     <li>
                         <strong>O cliente paga 600 € por MB Way na tua conta pessoal.</strong> Passa a fatura-recibo e carrega em <strong>Receber</strong> com a data em que o cliente pagou. É essa data que conta para o rendimento. A 1.ª prestação fica paga.
                     </li>
                     <li>
                         <strong>Passas 900 € da conta pessoal para a conta da atividade.</strong> Na app não fazes nada agora.
                     </li>
+                    @else
                     <li>
-                        <strong>O cliente paga os 1 000 € finais.</strong> Passa a fatura-recibo; registas logo ou deixas para o extrato.
+                        <strong>O cliente paga 600 € por MB Way.</strong> Passa a fatura-recibo e carrega em <strong>Receber</strong> com a data em que o cliente pagou. A 1.ª prestação fica paga.
                     </li>
+                    @endif
+                    <li>
+                        <strong>O cliente paga os 1 000 € finais.</strong> Passa a fatura-recibo; {{ $bank ? 'registas logo ou deixas para o extrato.' : 'registas como antes.' }}
+                    </li>
+                    @if ($bank)
                     <li>
                         <strong>Fim do mês: importar o extrato.</strong> {!! $link('bank', 'Extrato bancário') !!} → Carregar extrato → escolhe o Excel ou CSV do banco.
                         <div class="mt-3 overflow-x-auto rounded-lg ring-1 ring-gray-950/5 dark:ring-white/10">
@@ -61,6 +74,7 @@
                         </div>
                         <p class="mt-3">Carrega em <strong>Aceitar sugestões</strong> (seleciona as linhas e usa a ação em massa) e trata à mão só as que sobram.</p>
                     </li>
+                    @endif
                     <li>
                         <strong>Fecho do mês.</strong> No {!! $link('dashboard', 'painel') !!}, botão "Fecho do mês": mostra o que falta receber ou pagar nesse mês até aparecer "Mês fechado".
                     </li>
@@ -83,21 +97,24 @@
                 <ul class="list-disc space-y-2 ps-5">
                     <li>{!! $link('newExpense', 'Nova despesa') !!}: fornecedor, categoria, valor, IVA, data e n.º da fatura. Pede sempre fatura com o teu NIF — conta para os 15% de despesas do regime simplificado.</li>
                     <li><strong>Diretas</strong> (de um trabalho ou avença) entram nas margens; <strong>de estrutura</strong> são custos gerais.</li>
-                    <li>{!! $link('recurring', 'Despesas recorrentes') !!} (ex.: ChatGPT, OVH) são criadas sozinhas todos os meses e reconhecidas no extrato.</li>
-                    <li>Pagaste com a conta pessoal? Regista normalmente com a data do pagamento; não há nada a fazer no extrato.</li>
+                    <li>{!! $link('recurring', 'Despesas recorrentes') !!} (ex.: ChatGPT, OVH) são criadas sozinhas todos os meses{{ $bank ? ' e reconhecidas no extrato' : '' }}.</li>
+                    @if ($bank)
+                        <li>Pagaste com a conta pessoal? Regista normalmente com a data do pagamento; não há nada a fazer no extrato.</li>
+                    @endif
                 </ul>
             </x-filament::section>
 
             {{-- Receitas avulsas --}}
             <x-filament::section class="scroll-mt-24" id="receitas-avulsas" :icon="$icons['receitas-avulsas']" heading="Receitas avulsas" description="Donativos, reembolsos ou outras entradas sem trabalho nem avença.">
                 <ul class="list-disc space-y-2 ps-5">
-                    <li>"+ Novo" → <strong>Receita avulsa</strong>, ou <strong>Criar receita</strong> numa linha do extrato.</li>
+                    <li>"+ Novo" → <strong>Receita avulsa</strong>{!! $bank ? ', ou <strong>Criar receita</strong> numa linha do extrato' : '' !!}.</li>
                     <li>Indica o <strong>valor bruto</strong> (o que o apoiante pagou e o valor da fatura-recibo) e a <strong>comissão</strong> que a plataforma ficou. Ex.: Buy Me a Coffee → 5,00 € bruto, 0,68 € de comissão do Stripe, 4,32 € no banco.</li>
-                    <li>A app regista a receita de 5,00 € e uma despesa de 0,68 € ("Comissões"). No extrato, a linha de 4,32 € fica explicada pelas duas. Em "Criar receita" só escreves o bruto: a comissão é calculada com o que chegou ao banco.</li>
+                    <li>A app regista a receita de 5,00 € e uma despesa de 0,68 € ("Comissões").{{ $bank ? ' No extrato, a linha de 4,32 € fica explicada pelas duas. Em "Criar receita" só escreves o bruto: a comissão é calculada com o que chegou ao banco.' : '' }}</li>
                     <li>Conta no painel, margens ("Receitas avulsas") e impostos como qualquer receita.</li>
                 </ul>
             </x-filament::section>
 
+            @if ($bank)
             {{-- Extrato --}}
             <x-filament::section class="scroll-mt-24" id="extrato" :icon="$icons['extrato']" heading="Extrato bancário" description="Só a conta da atividade. O objetivo é que cada linha fique explicada.">
                 <ol class="list-decimal space-y-2 ps-5">
@@ -118,7 +135,7 @@
                     </li>
                     <li>Enganaste-te? Em "Tratados" ou "Ignorados" usa <strong>Voltar a tratar</strong>: o que foi criado a partir da linha é apagado, o que já existia fica.</li>
                 </ol>
-                <p class="mt-3">As transferências entre a conta da empresa e a tua são reconhecidas pelos nomes das tuas contas (o nome do titular e o nome da conta pessoal, ex.: "Conta pessoal"), que defines em {!! $link('settings', 'Definições financeiras') !!}.</p>
+                <p class="mt-3">As transferências entre a conta da atividade e as tuas outras contas são reconhecidas pelos nomes que o banco escreve nelas (o teu nome, ou o que deste à outra conta). Defines esses nomes em {!! $link('settings', 'Definições financeiras') !!} → Banco → <strong>Os teus nomes no extrato</strong>.</p>
                 <p class="mt-3"><strong>Reconciliar automaticamente</strong> (no topo do extrato) trata de uma vez todas as linhas com uma sugestão segura; as outras ficam para ti.</p>
                 <p class="mt-3"><strong>Conta da empresa</strong> — no topo do extrato, no painel e no fecho do mês: o <em>saldo no banco</em> (do último extrato), o <em>saldo segundo a Contiu</em> (saldo inicial + recebido − despesas pagas) e a diferença:</p>
                 <ul class="mt-2 list-disc space-y-1 ps-5">
@@ -131,16 +148,21 @@
                 <p class="mt-2">O número só é final com o extrato todo tratado: enquanto houver linhas "Por tratar" o quadro avisa.</p>
             </x-filament::section>
 
+            @endif
+
             {{-- Fecho do mês --}}
             <x-filament::section class="scroll-mt-24" id="fecho-do-mes" :icon="$icons['fecho-do-mes']" heading="Fecho do mês">
                 <ul class="list-disc space-y-2 ps-5">
                     <li>Abre {!! $link('monthClose', 'Fecho do mês') !!} (botão no painel). Mostra os valores a receber e as despesas do mês que ainda faltam.</li>
-                    <li>Regista o que entrou, marca as despesas como pagas, acrescenta o n.º da fatura e trata as linhas do extrato desse mês. Quando não falta nada aparece <strong>"Mês fechado"</strong>.</li>
-                    <li>O quadro <strong>Conta da empresa</strong> mostra o saldo no fim do mês: se disser "Falta transferir", faz a transferência para a conta da empresa.</li>
-                    <li>Ordem recomendada: importar o extrato → aceitar sugestões → fecho do mês.</li>
+                    <li>Regista o que entrou, marca as despesas como pagas{{ $bank ? ', acrescenta o n.º da fatura e trata as linhas do extrato desse mês' : ' e acrescenta o n.º da fatura' }}. Quando não falta nada aparece <strong>"Mês fechado"</strong>.</li>
+                    @if ($bank)
+                        <li>O quadro <strong>Conta da empresa</strong> mostra o saldo no fim do mês: se disser "Falta transferir", faz a transferência para a conta da empresa.</li>
+                        <li>Ordem recomendada: importar o extrato → aceitar sugestões → fecho do mês.</li>
+                    @endif
                 </ul>
             </x-filament::section>
 
+            @if ($bank)
             {{-- Conta pessoal --}}
             <x-filament::section class="scroll-mt-24" id="conta-pessoal" :icon="$icons['conta-pessoal']" heading="Conta pessoal">
                 <ul class="list-disc space-y-2 ps-5">
@@ -151,6 +173,8 @@
                     <li><strong>Exemplo com acerto:</strong> o cliente pagou 730 € na conta pessoal, a conta pessoal pagou o ChatGPT (83,74 €) e passaste só 646,26 €. Regista os dois quando acontecem; no extrato usa <strong>Associar…</strong> com o recebimento e a despesa (730 − 83,74 = 646,26, sem diferença), ou simplesmente <strong>Transferência minha</strong>.</li>
                 </ul>
             </x-filament::section>
+
+            @endif
 
             {{-- Notas legais --}}
             <x-filament::section class="scroll-mt-24" id="notas-legais" :icon="$icons['notas-legais']" heading="Notas legais" description="Resumo para ENI no regime simplificado — confirma com o teu contabilista.">

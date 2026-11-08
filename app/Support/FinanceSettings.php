@@ -21,6 +21,9 @@ final class FinanceSettings
         'ss_first_year_exempt' => false,
         'payments_exempt_by_default' => false,
         'account_names' => null, // one per line: the holder's name and the holder's own accounts
+        // A bank account only for the activity, whose statement is imported. On for accounts from
+        // before the question (Pedro's); the sign-up wizard asks it, off being the common case.
+        'has_business_account' => true,
     ];
 
     /** @var array<string, mixed>|null */
@@ -52,8 +55,8 @@ final class FinanceSettings
     }
 
     /**
-     * How the bank names Pedro's own accounts in transfer descriptions: the holder's name
-     * and the personal account's name.
+     * How the bank names the holder's own accounts in transfer descriptions: the holder's name
+     * and the names given to the other accounts.
      *
      * @return array<int, string>
      */
@@ -64,6 +67,12 @@ final class FinanceSettings
             ->filter()
             ->values()
             ->all();
+    }
+
+    /** Statement import, reconciliation, the company account card and the forecast's balance. */
+    public function hasBusinessAccount(): bool
+    {
+        return (bool) $this->all()['has_business_account'];
     }
 
     public function irsExempt(): bool

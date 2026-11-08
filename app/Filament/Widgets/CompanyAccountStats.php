@@ -7,6 +7,7 @@ use App\Filament\Pages\BankStatementImport;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\Payments\PaymentResource;
 use App\Support\CompanyAccount;
+use App\Support\FinanceSettings;
 use App\Support\Money;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -28,6 +29,12 @@ class CompanyAccountStats extends StatsOverviewWidget
     protected int|string|array $columnSpan = 'full';
 
     protected ?string $heading = 'Conta da empresa';
+
+    /** Its balance comes from the statement: only for an account with a bank account for the activity. */
+    public static function canView(): bool
+    {
+        return app(FinanceSettings::class)->hasBusinessAccount();
+    }
 
     public ?string $month = null;
 

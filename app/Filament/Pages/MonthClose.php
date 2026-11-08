@@ -66,6 +66,7 @@ class MonthClose extends Page
                 ->label('Extrato bancário')
                 ->icon(Phosphor::Bank)
                 ->color('gray')
+                ->visible(fn (): bool => BankStatementImport::canAccess())
                 ->url(BankStatementImport::getUrl()),
             Action::make('previousMonth')
                 ->label('Mês anterior')
@@ -98,9 +99,7 @@ class MonthClose extends Page
                 1 => 'Falta 1 item',
                 default => 'Faltam '.$pending.' itens',
             })
-                ->description(fn (): string => $this->review()->pendingCount() === 0
-                    ? 'Tudo recebido, todas as despesas confirmadas e o extrato tratado.'
-                    : $this->review()->pendingReceivables().' por receber · '.$this->review()->pendingExpenses().' despesas por pagar · '.$this->review()->pendingBankLines().' linhas do extrato por tratar')
+                ->description(fn (): string => $this->summary())
                 ->icon(fn () => $this->review()->pendingCount() === 0 ? Phosphor::CheckCircle : Phosphor::ListChecks)
                 ->status(fn (): string => $this->review()->pendingCount() === 0 ? 'success' : 'warning'),
             ...$this->getWidgetsSchemaComponents([
@@ -110,6 +109,24 @@ class MonthClose extends Page
                 MonthExpensesTable::class,
             ]),
         ]);
+    }
+
+    /** What is left to close the month; the statement only with a bank account for the activity. */
+    private function summary(): string
+    {
+        $withStatement = BankStatementImport::canAccess();
+
+        if ($this->review()->pendingCount() === 0) {
+            return $withStatement
+                ? 'Tudo recebido, todas as despesas confirmadas e o extrato tratado.'
+                : 'Tudo recebido e todas as despesas confirmadas.';
+        }
+
+        return implode(' · ', array_filter([
+            $this->review()->pendingReceivables().' por receber',
+            $this->review()->pendingExpenses().' despesas por pagar',
+            $withStatement ? $this->review()->pendingBankLines().' linhas do extrato por tratar' : null,
+        ]));
     }
 
     /** Read lazily by the widgets' Livewire data closure, so they always get the current month. */

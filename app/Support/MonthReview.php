@@ -125,9 +125,13 @@ final class MonthReview
         return $this->expenses()->where('is_paid', false)->count();
     }
 
-    /** Statement lines of the month not treated yet. */
+    /** Statement lines of the month not treated yet; none without a bank account for the activity. */
     public function pendingBankLines(): int
     {
+        if (! app(FinanceSettings::class)->hasBusinessAccount()) {
+            return 0;
+        }
+
         return BankTransaction::query()->pending()->whereBetween('booked_on', $this->range())->count();
     }
 

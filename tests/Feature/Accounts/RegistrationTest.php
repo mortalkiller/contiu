@@ -44,7 +44,8 @@ function registrationData(array $overrides = []): array
         'ss_rate_percent' => 21.4,
         'ss_relevant_income_share_percent' => 70,
         'ss_first_year_exempt' => true,
-        'account_names' => " RITA SILVA \n\nConta pessoal",
+        'has_business_account' => true,
+        'account_names' => " RITA SILVA \n\nOrdenado",
         'terms' => true,
         ...$overrides,
     ];
@@ -84,7 +85,8 @@ it('creates user and account from the wizard', function () {
             ->and($settings->ssRate())->toBe(0.214)
             ->and($settings->ssRelevantIncomeShare())->toBe(0.70)
             ->and($settings->ssFirstYearExempt())->toBeTrue()
-            ->and($settings->accountNames())->toBe(['RITA SILVA', 'Conta pessoal']);
+            ->and($settings->hasBusinessAccount())->toBeTrue()
+            ->and($settings->accountNames())->toBe(['RITA SILVA', 'Ordenado']);
     });
 
     $this->assertAuthenticatedAs($user);
@@ -93,6 +95,19 @@ it('creates user and account from the wizard', function () {
     // The account opens only after the email is confirmed: the dashboard sends to the prompt.
     $this->get(Dashboard::getUrl(tenant: $account))
         ->assertRedirect(Filament::getEmailVerificationPromptUrl());
+});
+
+it('leaves the bank out for a freelancer without an account only for the activity', function () {
+    registrationWizard(['has_business_account' => false])
+        ->call('register')
+        ->assertHasNoFormErrors();
+
+    CurrentAccount::run(Account::firstWhere('nif', '501964843'), function () {
+        $settings = app(FinanceSettings::class);
+
+        expect($settings->hasBusinessAccount())->toBeFalse()
+            ->and($settings->accountNames())->toBe([]);
+    });
 });
 
 it('starts with the usual rates and VAT limit', function () {

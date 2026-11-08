@@ -179,10 +179,16 @@ class RegisterAccount extends Register
             Step::make('Banco')
                 ->icon(Phosphor::Wallet)
                 ->schema([
+                    Toggle::make('has_business_account')
+                        ->label('Tenho uma conta bancária só para a atividade')
+                        ->helperText('Se sim, podes importar o extrato dessa conta: a Contiu confirma que o dinheiro que registas chegou lá e mostra o saldo. Se usas a mesma conta para tudo, deixa desligado. Podes mudar nas Definições.')
+                        ->default(false)
+                        ->live(),
                     Textarea::make('account_names')
-                        ->label('Nomes das tuas contas, como aparecem no banco')
-                        ->placeholder("ANA MARIA SILVA\nConta pessoal")
-                        ->helperText('Um por linha, para o extrato reconhecer transferências entre as tuas contas. Podes deixar em branco e preencher depois.')
+                        ->label('Os teus nomes no extrato')
+                        ->placeholder("ANA MARIA SILVA\nPoupança")
+                        ->helperText('Quando passas dinheiro entre esta conta e outra conta tua, o banco escreve um nome na descrição. Um por linha: esses movimentos ficam como "Transferência minha" e não contam como receita nem despesa. Podes deixar em branco e preencher depois.')
+                        ->visible(fn (Get $get): bool => (bool) $get('has_business_account'))
                         ->rows(3),
                 ]),
 
@@ -251,7 +257,8 @@ class RegisterAccount extends Register
                 'ss_rate' => round((float) $data['ss_rate_percent'] / 100, 4),
                 'ss_relevant_income_share' => round((float) $data['ss_relevant_income_share_percent'] / 100, 4),
                 'ss_first_year_exempt' => (bool) ($data['ss_first_year_exempt'] ?? false),
-                'account_names' => $data['account_names'] ?? null,
+                'has_business_account' => $hasBusinessAccount = (bool) ($data['has_business_account'] ?? false),
+                'account_names' => $hasBusinessAccount ? ($data['account_names'] ?? null) : null,
             ]);
 
             return $user;

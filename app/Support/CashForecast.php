@@ -32,6 +32,15 @@ final class CashForecast
         $this->end = $this->start->addMonths(max(1, $monthsAhead) - 1)->endOfMonth();
     }
 
+    /**
+     * A running balance needs a bank account to start from: without a bank account for the
+     * activity the forecast is only what comes in and goes out, month by month.
+     */
+    public function showsBalance(): bool
+    {
+        return $this->settings->hasBusinessAccount();
+    }
+
     /** True once a bank statement with balances was imported. */
     public function startsFromBankBalance(): bool
     {

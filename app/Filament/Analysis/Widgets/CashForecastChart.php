@@ -9,7 +9,8 @@ use Filament\Widgets\ChartWidget;
 use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 
 /**
- * Inflows vs outflows per month with the running balance as a neutral line, on one € axis.
+ * Inflows vs outflows per month with the running balance as a neutral line, on one € axis
+ * (no balance without a bank account for the activity).
  * Same validated colours as the dashboard cash flow chart.
  */
 class CashForecastChart extends ChartWidget
@@ -23,7 +24,7 @@ class CashForecastChart extends ChartWidget
 
     public function getHeading(): string
     {
-        return 'Entradas, saídas e saldo acumulado';
+        return $this->forecast()->showsBalance() ? 'Entradas, saídas e saldo acumulado' : 'Entradas e saídas';
     }
 
     protected function getType(): string
@@ -40,7 +41,9 @@ class CashForecastChart extends ChartWidget
             'datasets' => [
                 ['label' => 'Entradas', 'data' => Money::toEurosList(array_column($rows, 'inflows')), 'order' => 2],
                 ['label' => 'Saídas', 'data' => Money::toEurosList(array_column($rows, 'outflows')), 'order' => 2],
-                ['label' => 'Saldo acumulado', 'data' => Money::toEurosList(array_column($rows, 'balance')), 'type' => 'line', 'order' => 1],
+                ...($this->forecast()->showsBalance()
+                    ? [['label' => 'Saldo acumulado', 'data' => Money::toEurosList(array_column($rows, 'balance')), 'type' => 'line', 'order' => 1]]
+                    : []),
             ],
         ];
     }

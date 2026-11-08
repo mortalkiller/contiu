@@ -70,7 +70,12 @@ class CashForecast extends Page
         $forecast = new Forecast($settings, $this->months);
 
         return $schema->components([
-            $forecast->startsFromBankBalance()
+            ! $forecast->showsBalance()
+                ? Callout::make('Sem saldo')
+                    ->description('Sem conta bancária só para a atividade, a previsão mostra o que entra e sai em cada mês, não o dinheiro que vais ter.')
+                    ->icon(Phosphor::Wallet)
+                    ->status('info')
+                : ($forecast->startsFromBankBalance()
                 ? Callout::make('Começa em '.Money::format($forecast->startingBalance()))
                     ->description('Saldo do extrato até '.$forecast->account()->endsOn()?->format('d/m/Y').', mais o que registaste desde então. Importa o extrato do banco para o manter certo.')
                     ->icon(Phosphor::Wallet)
@@ -84,7 +89,7 @@ class CashForecast extends Page
                             ->label('Abrir Extrato bancário')
                             ->link()
                             ->url(BankStatementImport::getUrl()),
-                    ]),
+                    ])),
             ...$this->getWidgetsSchemaComponents([CashForecastStats::class]),
             // Two stacked columns: each widget keeps its natural height (no half-empty cards).
             Grid::make(['default' => 1, 'xl' => 3])->schema([
