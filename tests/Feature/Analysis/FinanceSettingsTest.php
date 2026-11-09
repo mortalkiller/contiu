@@ -64,3 +64,38 @@ it('refuses a negative VAT limit on the settings page', function () {
 
     expect(app(FinanceSettings::class)->vatExemptionThreshold())->toBe(1500000);
 });
+
+it('reads the new tax settings with their defaults', function () {
+    $settings = app(FinanceSettings::class);
+
+    expect($settings->activityStartKind())->toBeNull()
+        ->and($settings->previousActivityEndedOn())->toBeNull()
+        ->and($settings->ssEnrolledFrom())->toBeNull()
+        ->and($settings->dependentIncomeYears())->toBe([])
+        ->and($settings->irsCoefficient())->toBe(0.75)
+        ->and($settings->irsJovem())->toBeFalse()
+        ->and($settings->birthDate())->toBeNull()
+        ->and($settings->irsJovemYearNumber(2026))->toBeNull()
+        ->and($settings->ssContributionExempt())->toBeFalse()
+        ->and($settings->reverseChargeVatRate())->toBe(0.23);
+});
+
+it('counts the IRS Jovem year from the stored reference year', function () {
+    app(FinanceSettings::class)->set(['irs_jovem_year' => ['year' => 2026, 'number' => 2]]);
+
+    $settings = app(FinanceSettings::class);
+
+    expect($settings->irsJovemYearNumber(2026))->toBe(2)
+        ->and($settings->irsJovemYearNumber(2027))->toBe(3);
+});
+
+it('is incomplete until the activity start and kind are set', function () {
+    $settings = app(FinanceSettings::class);
+    expect($settings->isIncomplete())->toBeTrue();
+
+    $settings->set(['activity_started_on' => '2026-02-01']);
+    expect(app(FinanceSettings::class)->isIncomplete())->toBeTrue();
+
+    $settings->set(['activity_start_kind' => 'first']);
+    expect(app(FinanceSettings::class)->isIncomplete())->toBeFalse();
+});

@@ -25,6 +25,9 @@ class CreateAccount
     private const SETTINGS = [
         'activity_started_on', 'irs_exempt', 'vat_exempt', 'vat_exemption_threshold',
         'ss_rate', 'ss_relevant_income_share', 'ss_first_year_exempt', 'account_names', 'has_business_account',
+        'activity_start_kind', 'previous_activity_ended_on', 'ss_enrolled_from', 'dependent_income_years',
+        'irs_coefficient', 'irs_jovem', 'birth_date', 'irs_jovem_year', 'ss_contribution_exempt',
+        'reverse_charge_vat_rate',
     ];
 
     public function __construct(private SeedAccountDefaults $seedDefaults) {}

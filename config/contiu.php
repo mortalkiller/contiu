@@ -17,6 +17,9 @@ return [
         'yearly' => env('STRIPE_PRICE_YEARLY'),
     ],
 
+    // Indexante dos Apoios Sociais by year, in cents.
+    'ias' => [2025 => 52250, 2026 => 53713],
+
     /*
      * Account slugs are the first URL segment (/{slug}/…), so no account may take a name the
      * app's own routes use. CreateAccount also checks the router itself; a test fails when a

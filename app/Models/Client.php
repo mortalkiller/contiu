@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ReceivableStatus;
+use App\Enums\Seat;
 use App\Models\Concerns\BelongsToAccount;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Collection;
@@ -18,6 +19,11 @@ class Client extends Model implements AuditableContract
     use Auditable, BelongsToAccount, HasFactory;
 
     protected $guarded = ['id'];
+
+    protected function casts(): array
+    {
+        return ['seat' => Seat::class, 'is_business' => 'boolean'];
+    }
 
     /** @var Collection<int, Receivable>|null */
     protected ?Collection $receivablesCache = null;

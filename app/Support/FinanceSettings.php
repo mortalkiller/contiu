@@ -24,6 +24,16 @@ final class FinanceSettings
         // A bank account only for the activity, whose statement is imported. On for accounts from
         // before the question (Pedro's); the sign-up wizard asks it, off being the common case.
         'has_business_account' => true,
+        'activity_start_kind' => null, // first | restart
+        'previous_activity_ended_on' => null,
+        'ss_enrolled_from' => null,
+        'dependent_income_years' => [], // years with employment income (category A)
+        'irs_coefficient' => 0.75,
+        'irs_jovem' => false,
+        'birth_date' => null,
+        'irs_jovem_year' => null, // {"year": 2026, "number": 2}: the IRS Jovem year number in a reference year
+        'ss_contribution_exempt' => false,
+        'reverse_charge_vat_rate' => 0.23,
     ];
 
     /** @var array<string, mixed>|null */
@@ -109,6 +119,73 @@ final class FinanceSettings
     public function activityStartedOn(): ?CarbonImmutable
     {
         return $this->date('activity_started_on');
+    }
+
+    /** first | restart; null until the account says it. */
+    public function activityStartKind(): ?string
+    {
+        return blank($this->all()['activity_start_kind']) ? null : (string) $this->all()['activity_start_kind'];
+    }
+
+    public function previousActivityEndedOn(): ?CarbonImmutable
+    {
+        return $this->date('previous_activity_ended_on');
+    }
+
+    public function ssEnrolledFrom(): ?CarbonImmutable
+    {
+        return $this->date('ss_enrolled_from');
+    }
+
+    /** @return list<int> */
+    public function dependentIncomeYears(): array
+    {
+        $years = $this->all()['dependent_income_years'];
+
+        return is_array($years) ? array_values(array_map('intval', $years)) : [];
+    }
+
+    public function irsCoefficient(): float
+    {
+        return (float) $this->all()['irs_coefficient'];
+    }
+
+    public function irsJovem(): bool
+    {
+        return (bool) $this->all()['irs_jovem'];
+    }
+
+    public function birthDate(): ?CarbonImmutable
+    {
+        return $this->date('birth_date');
+    }
+
+    /** The IRS Jovem year (1 to 10) in a calendar year, counted from the stored reference year. */
+    public function irsJovemYearNumber(int $year): ?int
+    {
+        $reference = $this->all()['irs_jovem_year'];
+
+        if (! is_array($reference) || ! isset($reference['year'], $reference['number'])) {
+            return null;
+        }
+
+        return (int) $reference['number'] + ($year - (int) $reference['year']);
+    }
+
+    public function ssContributionExempt(): bool
+    {
+        return (bool) $this->all()['ss_contribution_exempt'];
+    }
+
+    public function reverseChargeVatRate(): float
+    {
+        return (float) $this->all()['reverse_charge_vat_rate'];
+    }
+
+    /** The account still has to say when and how the activity started. */
+    public function isIncomplete(): bool
+    {
+        return $this->activityStartedOn() === null || $this->activityStartKind() === null;
     }
 
     private function date(string $key): ?CarbonImmutable

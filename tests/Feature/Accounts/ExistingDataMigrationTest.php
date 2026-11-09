@@ -87,3 +87,16 @@ it('makes account_id required on business tables and optional on audits', functi
 
     expect($columns('audits')['account_id']['nullable'])->toBeTrue();
 });
+
+it('drops the old exemption settings', function () {
+    $now = now();
+    DB::table('settings')->insert([
+        ['account_id' => test()->account->id, 'key' => 'irs_exempt', 'value' => 'true', 'created_at' => $now, 'updated_at' => $now],
+        ['account_id' => test()->account->id, 'key' => 'ss_first_year_exempt', 'value' => 'true', 'created_at' => $now, 'updated_at' => $now],
+        ['account_id' => test()->account->id, 'key' => 'vat_exempt', 'value' => 'true', 'created_at' => $now, 'updated_at' => $now],
+    ]);
+
+    (require database_path('migrations/2026_11_09_100000_add_tax_fields.php'))->up();
+
+    expect(DB::table('settings')->pluck('key')->all())->toBe(['vat_exempt']);
+});

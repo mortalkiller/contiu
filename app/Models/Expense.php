@@ -28,6 +28,7 @@ class Expense extends Model implements AuditableContract
             'net_amount' => 'integer',
             'vat_rate' => 'decimal:4',
             'is_paid' => 'boolean',
+            'is_goods' => 'boolean',
             'kind' => ExpenseKind::class,
             'method' => PaymentMethod::class,
         ];
