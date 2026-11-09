@@ -272,8 +272,7 @@
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
-    /* Fast pages never get to show it. */
-    transition: opacity 0.2s ease var(--fsl-loader-delay, 300ms), visibility 0s linear var(--fsl-loader-delay, 300ms);
+    transition: opacity 0.2s ease;
 }
 
 .dark #fsl-page-loader { background: #0a0a0a; color: #ffffff; }

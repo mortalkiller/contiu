@@ -109,6 +109,48 @@
     color: #ffffff;
 }
 
+.fi-topbar :is(.fi-topbar-nav-groups > .fi-dropdown .fi-topbar-item-btn, .fi-user-menu-trigger, .fi-tenant-menu-trigger) {
+    display: flex;
+    min-height: var(--topbar-height);
+    align-items: center;
+}
+
+.fi-topbar .fi-user-menu-trigger:focus-visible {
+    outline: none;
+
+    & > .fi-user-avatar {
+        outline: 2px solid var(--chrome-text);
+        outline-offset: 2px;
+    }
+}
+
+/* Filament anchors the dropdown to the full button. Keep its highlight compact. */
+.fi-topbar :is(.fi-topbar-nav-groups > .fi-dropdown .fi-topbar-item-btn, .fi-tenant-menu-trigger) {
+    position: relative;
+    isolation: isolate;
+
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 50% 0 auto;
+        height: 2.25rem;
+        translate: 0 -50%;
+        z-index: -1;
+        border-radius: 0.5rem;
+        background-color: var(--contiu-topbar-highlight, transparent);
+    }
+
+    &:is(:hover, :focus-visible) {
+        --contiu-topbar-highlight: var(--chrome-hover);
+        background-color: transparent;
+    }
+}
+
+.fi-topbar .fi-topbar-nav-groups > .fi-dropdown .fi-topbar-item.fi-active .fi-topbar-item-btn {
+    --contiu-topbar-highlight: var(--chrome-active);
+    background-color: transparent;
+}
+
 /* Global search field on the green topbar */
 .fi-topbar .fi-global-search-field .fi-input-wrp {
     background-color: rgb(255 255 255 / 0.1);
@@ -184,6 +226,77 @@
 
 .fi-sidebar-footer {
     border-color: var(--chrome-ring);
+}
+
+@layer components {
+    .fi-dropdown-panel:has(.contiu-user-menu-header) {
+        max-width: min(21rem, calc(100vw - 1.5rem)) !important;
+    }
+}
+
+.fi-dropdown-panel:has(.contiu-user-menu-header) {
+    --contiu-appearance-text: var(--gray-600);
+    --contiu-appearance-track: var(--gray-100);
+    --contiu-appearance-active-text: var(--primary-700);
+    --contiu-appearance-active-bg: white;
+
+    border-radius: 0.875rem;
+
+    & > .fi-dropdown-list {
+        padding: 0.375rem;
+    }
+
+    & .fi-theme-switcher {
+        position: relative;
+        isolation: isolate;
+        grid-template-columns: minmax(0, 1fr) repeat(3, 1.875rem);
+        align-items: center;
+        gap: 0.125rem;
+        margin: 0.125rem 0.5rem;
+        padding: 0.125rem;
+
+        &::before {
+            content: attr(aria-label) / "";
+            color: var(--contiu-appearance-text);
+            font-size: 0.75rem;
+        }
+
+        &::after {
+            content: "";
+            position: absolute;
+            inset-block: 0;
+            inset-inline-end: 0;
+            width: 6.125rem;
+            z-index: -1;
+            border-radius: 0.5rem;
+            background-color: var(--contiu-appearance-track);
+        }
+    }
+
+    & .fi-theme-switcher-btn {
+        align-items: center;
+        min-height: 1.75rem;
+        padding: 0.25rem;
+        color: var(--contiu-appearance-text);
+
+        & > .fi-icon {
+            width: 1rem;
+            height: 1rem;
+        }
+
+        &.fi-active {
+            color: var(--contiu-appearance-active-text);
+            background-color: var(--contiu-appearance-active-bg);
+            box-shadow: var(--shadow-xs);
+        }
+    }
+}
+
+.dark .fi-dropdown-panel:has(.contiu-user-menu-header) {
+    --contiu-appearance-text: var(--gray-300);
+    --contiu-appearance-track: var(--gray-800);
+    --contiu-appearance-active-text: var(--primary-200);
+    --contiu-appearance-active-bg: var(--gray-700);
 }
 
 .fi-sidebar .fi-user-menu-trigger-text {
@@ -265,7 +378,8 @@
  */
 @media (min-width: 1024px) {
     .fi-topbar-nav-groups {
-        column-gap: 0.125rem;
+        column-gap: 0.25rem;
+        margin-block: 0;
         margin-inline: 0.75rem;
         flex-wrap: nowrap;
     }

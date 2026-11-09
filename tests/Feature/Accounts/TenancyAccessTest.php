@@ -385,9 +385,38 @@ it('shows the account switcher only to who can open more than one account', func
     $this->actingAs(ownerOf($this->mine));
     expect($panel->hasTenantMenu())->toBeFalse();
 
+    $member = ownerOf($this->mine);
+    $this->other->users()->attach($member, ['role' => 'member']);
+    $this->actingAs($member);
+    expect($panel->hasTenantMenu())->toBeTrue();
+
     $this->actingAs(superAdminOf($this->mine));
     expect($panel->hasTenantMenu())->toBeTrue();
 
+    $this->other->delete();
+    expect($panel->hasTenantMenu())->toBeFalse();
+
     Filament::setTenant(null, isQuiet: true); // e.g. /profile: Filament's menu needs an account
     expect($panel->hasTenantMenu())->toBeFalse();
+});
+
+it('highlights the active account before the signed-in user in the user menu', function () {
+    $user = ownerOf($this->mine);
+    $this->other->users()->attach($user, ['role' => 'member']);
+    $this->actingAs($user);
+    asAWebRequest();
+
+    $this->get(Dashboard::getUrl(tenant: $this->other))
+        ->assertSeeInOrder(['Conta ativa', $this->other->name, 'Membro', $user->name, $user->email, 'A minha conta'])
+        ->assertDontSee('Perfil da conta');
+});
+
+it('places the account profile link with the active account in the user menu', function () {
+    $user = ownerOf($this->mine);
+    $this->actingAs($user);
+    asAWebRequest();
+
+    $this->get(Dashboard::getUrl(tenant: $this->mine))
+        ->assertSeeInOrder(['Conta ativa', $this->mine->name, 'Proprietário', 'Perfil da conta', $user->email, 'A minha conta'])
+        ->assertSee(EditAccountProfile::getUrl(tenant: $this->mine), escape: false);
 });

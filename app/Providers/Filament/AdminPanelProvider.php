@@ -89,17 +89,16 @@ class AdminPanelProvider extends PanelProvider
             ->databaseNotificationsPolling('60s')
             ->navigationGroups(['Receitas', 'Despesas', 'Contactos', 'Análise', 'Definições'])
             ->userMenuItems([
-                // Also reachable here because the account switcher (which links to it) is usually hidden.
-                'accountProfile' => Action::make('accountProfile')
-                    ->label('Perfil da conta')
-                    ->icon(Phosphor::Buildings)
-                    ->url(fn (): ?string => Filament::getTenant() ? EditAccountProfile::getUrl() : null)
-                    ->visible(fn (): bool => ($tenant = Filament::getTenant()) !== null && EditAccountProfile::canView($tenant)),
                 'help' => Action::make('help')
                     ->label('Centro de ajuda')
                     ->icon(Phosphor::Question)
-                    ->url(fn (): string => HelpCentre::getUrl()),
+                    ->url(fn (): string => HelpCentre::getUrl())
+                    ->sort(-1),
             ])
+            ->renderHook(
+                PanelsRenderHook::USER_MENU_PROFILE_BEFORE,
+                fn (): string => static::renderUserMenuHeader(),
+            )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn (): string => view('filament.partials.brand-head')->render(),
@@ -172,8 +171,39 @@ class AdminPanelProvider extends PanelProvider
 
     private static function canSwitchAccounts(): bool
     {
-        $user = auth()->user();
+        $user = Filament::auth()->user();
 
-        return $user instanceof User && ($user->isSuperAdmin() || $user->accounts()->count() > 1);
+        return $user instanceof User
+            && ($user->isSuperAdmin() ? Account::count() : $user->accounts()->count()) > 1;
+    }
+
+    private static function renderUserMenuHeader(): string
+    {
+        $user = Filament::auth()->user();
+        $account = Filament::getTenant();
+
+        if (! $user instanceof User) {
+            return '';
+        }
+
+        $role = $account instanceof Account
+            ? $user->accounts()->whereKey($account->getKey())->value('account_user.role')
+            : null;
+
+        $roleLabel = match ($role) {
+            'owner' => 'Proprietário',
+            'member' => 'Membro',
+            null => $account instanceof Account && $user->isSuperAdmin() ? 'Superadministrador' : null,
+            default => $role,
+        };
+
+        return view('filament.partials.user-menu-header', [
+            'user' => $user,
+            'accountName' => $account instanceof Account ? $account->name : null,
+            'roleLabel' => $roleLabel,
+            'accountProfileUrl' => $account instanceof Account && EditAccountProfile::canView($account)
+                ? EditAccountProfile::getUrl(tenant: $account)
+                : null,
+        ])->render();
     }
 }
