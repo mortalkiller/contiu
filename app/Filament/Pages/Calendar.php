@@ -3,8 +3,10 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Analysis\Widgets\ActivityCalendarWidget;
+use App\Filament\Analysis\Widgets\UpcomingDeadlines;
 use BackedEnum;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Schema;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 use UnitEnum;
@@ -31,8 +33,15 @@ class Calendar extends Page
 
     public function content(Schema $schema): Schema
     {
+        // The calendar with the deadlines beside it; stacked (calendar first) below lg.
         return $schema->components([
-            ...$this->getWidgetsSchemaComponents([ActivityCalendarWidget::class]),
+            Grid::make(['default' => 1, 'lg' => 4])->schema([
+                Grid::make(1)
+                    ->columnSpan(['default' => 1, 'lg' => 3])
+                    ->schema(fn (): array => $this->getWidgetsSchemaComponents([ActivityCalendarWidget::class])),
+                Grid::make(1)
+                    ->schema(fn (): array => $this->getWidgetsSchemaComponents([UpcomingDeadlines::class])),
+            ]),
         ]);
     }
 }

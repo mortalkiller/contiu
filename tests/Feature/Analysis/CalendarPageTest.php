@@ -2,6 +2,7 @@
 
 use App\Enums\CalendarEntryType;
 use App\Filament\Analysis\Widgets\ActivityCalendarWidget;
+use App\Filament\Analysis\Widgets\UpcomingDeadlines;
 use App\Filament\Pages\Calendar;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Models\Expense;
@@ -118,4 +119,28 @@ it('refetches as soon as a type is ticked, not on blur', function () {
     Livewire::test(ActivityCalendarWidget::class)
         ->assertSeeHtml('wire:model.live="filters.types"')
         ->assertDontSeeHtml('wire:model.live.blur="filters.types"');
+});
+
+it('lists the deadlines with the overdue ones first', function () {
+    $this->account->forceFill(['created_at' => '2026-10-01', 'billing_exempt' => true])->save();
+    app(FinanceSettings::class)->set(['activity_started_on' => '2024-01-01', 'activity_start_kind' => 'first']);
+
+    Livewire::test(UpcomingDeadlines::class)
+        ->assertSeeInOrder([
+            'Prazos a seguir',
+            'Segurança Social · outubro', '10 a 20 out.', 'em atraso',
+            'Declaração trimestral da Segurança Social', 'até 31 out.', 'em atraso',
+            'Segurança Social · novembro', Money::format(2000), '10 a 20 nov.', '11 dias',
+            'Declaração trimestral da Segurança Social', 'até 31 jan.',
+        ]);
+});
+
+it('says when nothing is pending', function () {
+    Livewire::test(UpcomingDeadlines::class)
+        ->assertSee('Prazos a seguir')
+        ->assertSee('Sem prazos por cumprir');
+});
+
+it('shows the column beside the calendar on the page', function () {
+    $this->get(Calendar::getUrl())->assertOk()->assertSeeLivewire(UpcomingDeadlines::class);
 });
