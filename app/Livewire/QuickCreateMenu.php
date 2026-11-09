@@ -61,7 +61,7 @@ class QuickCreateMenu extends Component implements HasActions, HasSchemas
             ->label('Novo')
             ->icon(Phosphor::Plus)
             ->button()
-            ->color('gray')
+            ->color('primary')
             ->size('sm')
             ->dropdownPlacement('bottom-end')
             ->extraAttributes(['class' => 'fi-quick-create-btn']);

@@ -13,10 +13,12 @@
     <link rel="icon" href="{{ asset('brand/contiu/favicon.svg') }}" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=geist:400,500,600,700&display=swap" rel="stylesheet">
+    @php($brand = \App\Filament\Support\BrandPalette::primary())
     <style>
         :root {
-            --brand: #415847;
-            --brand-dark: #34473a;
+            --brand: {{ $brand[500] }};
+            --brand-button: {{ \App\Filament\Support\BrandPalette::ACTION_GREEN }};
+            --brand-button-hover: color-mix(in srgb, var(--brand-button) 88%, black);
             --bg: #ffffff;
             --surface: #ffffff;
             --text: #0a0a0a;
@@ -59,7 +61,7 @@
             align-items: center;
             justify-content: center;
             padding: 48px 16px;
-            background: linear-gradient(to bottom, rgba(65, 88, 71, .08), transparent 220px);
+            background: linear-gradient(to bottom, color-mix(in srgb, var(--brand) 8%, transparent), transparent 220px);
         }
         .card {
             width: 100%;
@@ -125,9 +127,9 @@
             transition: background .15s, border-color .15s;
         }
         .btn:hover { background: var(--soft); }
-        .btn-primary { background: var(--brand); border-color: var(--brand); color: #fff; }
-        .btn-primary:hover { background: var(--brand-dark); border-color: var(--brand-dark); }
-        .btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+        .btn-primary { background: var(--brand-button); border-color: var(--brand-button); color: #fff; }
+        .btn-primary:hover { background: var(--brand-button-hover); border-color: var(--brand-button-hover); }
+        .btn:focus-visible { outline: 2px solid var(--brand-button); outline-offset: 2px; }
         footer {
             padding: 20px 16px;
             text-align: center;

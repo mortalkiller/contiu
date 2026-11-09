@@ -2,34 +2,33 @@
 
 namespace App\Filament\Support;
 
-/**
- * Filament colour palettes built from the printee/Pressiu site tokens
- * (printee/resources/css/app.css, `@theme` block). Shades marked "site" are the
- * exact site colours; the rest are interpolated to complete Filament's 50–950 scale.
- */
+/** Contiu colour palettes for Filament. */
 final class BrandPalette
 {
+    public const string PRIMARY = '#18b980';
+
+    public const string ACTION_GREEN = '#0a5b42';
+
     /**
-     * Pressiu brand green (#415847, sampled from the site header). Filament fills primary
-     * buttons with 600 in light mode and 500 in dark mode; the sidebar and topbar use 600
-     * (light) and 900 (dark) through theme.css.
+     * The brand green is shade 500. Use darker shades for light-mode text and surfaces
+     * that carry white text.
      *
      * @return array<int, string>
      */
     public static function primary(): array
     {
         return [
-            50 => '#f2f6f2',
-            100 => '#e3ece4', // site: moss-tint
-            200 => '#c7d8ca',
-            300 => '#9db9a3', // site: sage
-            400 => '#7f9b85',
-            500 => '#5f7864',
-            600 => '#415847', // brand green
-            700 => '#374b3d',
-            800 => '#2d3e32',
-            900 => '#243228',
-            950 => '#131b16',
+            50 => '#effcf6',
+            100 => '#d8f7e8',
+            200 => '#b2eed4',
+            300 => '#7de0b7',
+            400 => '#48cf98',
+            500 => self::PRIMARY,
+            600 => '#087c55',
+            700 => '#076b49',
+            800 => '#08563c',
+            900 => '#084130',
+            950 => '#06291d',
         ];
     }
 

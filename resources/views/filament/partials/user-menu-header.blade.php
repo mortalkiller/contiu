@@ -1,6 +1,6 @@
 <div class="contiu-user-menu-header min-w-0">
     @if (filled($accountName))
-        <div class="flex items-center gap-2.5 rounded-lg bg-moss-tint p-2.5 text-moss-deep dark:bg-primary-950 dark:text-primary-100">
+        <div class="flex items-center gap-2.5 rounded-lg bg-primary-100 p-2.5 text-primary-900 dark:bg-primary-950 dark:text-primary-100">
             <span class="grid size-9 shrink-0 place-items-center rounded-md bg-white text-xs font-semibold dark:bg-primary-900" aria-hidden="true">
                 {{ \Illuminate\Support\Str::substr(\Illuminate\Support\Str::initials($accountName, capitalize: true), 0, 2) }}
             </span>

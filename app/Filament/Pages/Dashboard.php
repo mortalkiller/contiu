@@ -131,7 +131,9 @@ class Dashboard extends BaseDashboard
         $only = fn (array $classes): array => $this->onlyWidgets($classes);
 
         return Group::make([
-            Grid::make(1)->schema(fn (): array => $this->getWidgetsSchemaComponents($only([FinanceStatsOverview::class, CompanyAccountStats::class]))),
+            Grid::make(1)
+                ->extraAttributes(['class' => 'contiu-dashboard-stats'])
+                ->schema(fn (): array => $this->getWidgetsSchemaComponents($only([FinanceStatsOverview::class, CompanyAccountStats::class]))),
             Grid::make(['default' => 1, 'xl' => 3])->schema([
                 Grid::make(1)
                     ->columnSpan(['default' => 1, 'xl' => 2])

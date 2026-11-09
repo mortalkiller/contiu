@@ -14,9 +14,11 @@
     <link rel="icon" href="{{ asset('brand/contiu/favicon.svg') }}" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=geist:400,500,600,700&display=swap" rel="stylesheet">
+    @php($brand = \App\Filament\Support\BrandPalette::primary())
     <style>
         :root {
-            --brand: #415847;
+            --brand: {{ $brand[500] }};
+            --brand-link: {{ $brand[600] }};
             --bg: #ffffff;
             --text: #0a0a0a;
             --muted: #525252;
@@ -27,6 +29,7 @@
         }
         @media (prefers-color-scheme: dark) {
             :root {
+                --brand-link: {{ $brand[300] }};
                 --bg: #0a0a0a;
                 --text: #fafafa;
                 --muted: #a3a3a3;
@@ -58,7 +61,7 @@
         main {
             flex: 1;
             padding: 48px 16px;
-            background: linear-gradient(to bottom, rgba(65, 88, 71, .08), transparent 220px);
+            background: linear-gradient(to bottom, color-mix(in srgb, var(--brand) 8%, transparent), transparent 220px);
         }
         article { max-width: 720px; margin: 0 auto; }
         .version {
@@ -101,8 +104,7 @@
             font-weight: 500;
         }
         nav { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 14px; }
-        nav a { color: var(--brand); font-weight: 600; margin-right: 16px; }
-        @media (prefers-color-scheme: dark) { nav a { color: #9fbfa6; } }
+        nav a { color: var(--brand-link); font-weight: 600; margin-right: 16px; }
         footer {
             padding: 20px 16px;
             text-align: center;

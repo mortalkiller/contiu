@@ -10,7 +10,7 @@
 /*
  * Pressiu site tokens (printee/resources/css/app.css). Filament's own primary/gray scales come
  * from App\Filament\Support\BrandPalette; these names are for custom views and mocks
- * (e.g. bg-paper, text-ink, border-line, bg-moss-tint).
+ * (e.g. bg-paper, text-ink, border-line).
  */
 @theme {
     --color-paper: #f5f1e8;
@@ -22,58 +22,53 @@
     --color-line: #e2dcd0;
     --color-ink-line: #3a3835;
     --color-ink-body: #cdc7bb;
-    --color-sage: #9db9a3;
-    --color-moss: #637c69;
-    --color-moss-ink: #4f6655;
-    --color-moss-deep: #3b5442;
-    --color-moss-tint: #e3ece4;
     --color-clay: #c9a98e;
 
     --shadow-soft: 0 24px 80px rgba(30, 24, 18, 0.1);
     --shadow-lifted: 0 18px 48px rgba(30, 24, 18, 0.14);
 }
 
-/*
- * Light mode content: white background with a soft shade under the topbar (sampled from the
- * reference, made neutral: #f4f4f4 fading to white over ~80px); cards, tables and sections stay white.
- */
-:root:not(.dark) .fi-body {
-    background-color: #ffffff;
-}
-
+/* Light mode canvas behind cards and tables. */
+:root:not(.dark) .fi-body,
 :root:not(.dark) .fi-main-ctn {
-    background-color: #ffffff;
-    background-image: linear-gradient(
-        to bottom,
-        #f4f4f4 0,
-        #f7f7f7 20px,
-        #fbfbfb 40px,
-        #fefefe 60px,
-        #ffffff 80px
-    );
-    background-repeat: no-repeat;
+    background-color: #e5f3f1;
 }
 
-/*
- * Brand chrome: sidebar and topbar in the Pressiu green (primary-600 in light mode,
- * primary-900 in dark mode), with near-white neutral text and translucent white states.
- */
+.contiu-dashboard-stats .fi-wi-stats-overview {
+    min-width: 0;
+
+    & .fi-section-header-text-ctn {
+        @apply w-full min-w-0 gap-y-1.5;
+    }
+
+    & .fi-section-header-heading {
+        @apply text-xl font-semibold tracking-tight sm:text-2xl;
+    }
+
+    & .fi-section-header-description {
+        @apply max-w-3xl text-sm leading-relaxed text-gray-600 sm:text-base dark:text-gray-300;
+    }
+}
+
+/* Dashboard brand surface and navigation colours. */
 :root {
-    --chrome-bg: var(--primary-600);
-    --chrome-text: #fafafa;
-    --chrome-text-muted: rgb(250 250 250 / 0.68);
+    --contiu-brand-surface: var(--contiu-brand-green);
+    --chrome-text: #ffffff;
+    --chrome-text-muted: #ffffff;
     --chrome-hover: rgb(255 255 255 / 0.08);
-    --chrome-active: rgb(255 255 255 / 0.15);
+    --chrome-active: rgb(255 255 255 / 0.16);
     --chrome-ring: rgb(255 255 255 / 0.12);
 }
 
 :root.dark {
-    --chrome-bg: var(--primary-900);
+    --contiu-brand-surface: var(--primary-900);
+    --chrome-text: #fafafa;
+    --chrome-text-muted: rgb(250 250 250 / 0.68);
 }
 
 /* Topbar */
 .fi-topbar {
-    background-color: var(--chrome-bg);
+    background-color: var(--contiu-action-green);
     --tw-ring-color: var(--chrome-ring);
 }
 
@@ -108,7 +103,7 @@
 
 .fi-topbar-item.fi-active .fi-topbar-item-btn > .fi-icon,
 .fi-topbar-item.fi-active .fi-topbar-item-label {
-    color: #ffffff;
+    color: var(--chrome-text);
 }
 
 .fi-topbar :is(.fi-topbar-nav-groups > .fi-dropdown .fi-topbar-item-btn, .fi-user-menu-trigger, .fi-tenant-menu-trigger) {
@@ -156,7 +151,7 @@
 /* Global search field on the green topbar */
 .fi-topbar .fi-global-search-field .fi-input-wrp {
     background-color: rgb(255 255 255 / 0.1);
-    --tw-ring-color: rgb(255 255 255 / 0.18);
+    --tw-ring-color: var(--chrome-ring);
 }
 
 .fi-topbar .fi-global-search-field .fi-input-wrp .fi-icon {
@@ -174,7 +169,7 @@
 /* Sidebar */
 .fi-sidebar,
 .fi-body-has-topbar .fi-sidebar-header {
-    background-color: var(--chrome-bg);
+    background-color: var(--contiu-action-green);
 }
 
 .fi-body-has-topbar .fi-sidebar-header {
@@ -213,7 +208,7 @@
 .fi-sidebar-item.fi-active > .fi-sidebar-item-btn > .fi-icon,
 .fi-sidebar-item.fi-active > .fi-sidebar-item-btn > .fi-sidebar-item-label,
 .fi-sidebar-group.fi-active .fi-sidebar-group-dropdown-trigger-btn .fi-icon {
-    color: #ffffff;
+    color: var(--chrome-text);
 }
 
 .fi-sidebar-item-grouped-border-part,
@@ -228,6 +223,19 @@
 
 .fi-sidebar-footer {
     border-color: var(--chrome-ring);
+}
+
+.fi-btn.fi-color-primary:not(.fi-outlined):not(label):not([aria-pressed]) {
+    background-color: var(--contiu-action-green);
+    color: #ffffff;
+
+    & > .fi-icon {
+        color: currentColor;
+    }
+
+    &:not(.fi-disabled):not([disabled]):hover {
+        background-color: color-mix(in srgb, var(--contiu-action-green) 88%, black);
+    }
 }
 
 @layer components {
@@ -305,7 +313,7 @@
     color: var(--chrome-text);
 }
 
-/* Account switcher (topbar or sidebar): light text on the green, like the menu items. */
+/* The account switcher follows the navigation text colours. */
 .fi-topbar .fi-tenant-menu-trigger,
 .fi-topbar .fi-tenant-menu-trigger-tenant-name,
 .fi-sidebar .fi-tenant-menu-trigger,

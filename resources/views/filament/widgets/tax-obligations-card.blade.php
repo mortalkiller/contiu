@@ -7,10 +7,10 @@
 <x-filament-widgets::widget>
     <div class="grid overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 md:grid-cols-[15rem_1fr] dark:bg-gray-900 dark:ring-white/10">
         {{-- Summary: the month's total and the next deadline. --}}
-        <div class="flex flex-col bg-primary-600 p-5 text-white dark:bg-primary-900">
-            <p class="text-xs text-white/70">{{ $month }}</p>
+        <div class="flex flex-col bg-(--contiu-brand-surface) p-5 text-white">
+            <p class="text-xs">{{ $month }}</p>
             <p class="text-3xl font-bold tracking-tight tabular-nums">{{ $pendingTotal }}</p>
-            <p class="text-xs text-white/70">
+            <p class="text-xs">
                 @if ($pendingCount === 0)
                     tudo em dia ✓
                 @else
@@ -19,11 +19,11 @@
             </p>
 
             @if ($next)
-                <p class="mt-4 text-sm text-white/90">Próximo: <span class="font-semibold">{{ $next }}</span></p>
+                <p class="mt-4 text-sm">Próximo: <span class="font-semibold">{{ $next }}</span></p>
             @endif
 
             @if ($socialSecurity)
-                <p class="mt-auto pt-4 text-xs text-white/75">{{ $socialSecurity }}</p>
+                <p class="mt-auto pt-4 text-xs">{{ $socialSecurity }}</p>
             @endif
         </div>
 
