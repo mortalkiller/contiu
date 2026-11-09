@@ -276,3 +276,13 @@ it('computes VAT collected and paid when not exempt', function () {
         ->and($estimate->vatPaid())->toBe(2300)
         ->and($estimate->vatBalance())->toBe(0);
 });
+
+it('measures the relevant income against the accumulation exemption limit of 4 × IAS', function () {
+    payOn('2026-08-10', 25550);
+
+    $estimate = estimator(2026);
+
+    expect($estimate->ssAccumulationLimit())->toBe(214852)
+        ->and($estimate->ssRelevantMonthlyIncome(CarbonImmutable::parse('2026-07-01')))->toBe(5962)
+        ->and($estimate->ssRelevantMonthlyIncome(CarbonImmutable::parse('2026-04-01')))->toBe(0);
+});

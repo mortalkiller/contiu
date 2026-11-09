@@ -34,6 +34,12 @@ final class TaxEstimator
     /** Cents: the monthly contribution of a trabalhador independente never goes below it. */
     public const SS_MINIMUM_CONTRIBUTION = 2000;
 
+    /**
+     * The accumulation exemption (art. 157.º, n.º 1, al. a)) holds while the relevant income stays
+     * under this many IAS a month, on average over a quarter.
+     */
+    public const SS_ACCUMULATION_LIMIT_IAS = 4;
+
     /** @var array<string, int> */
     private array $incomeCache = [];
 
@@ -175,6 +181,20 @@ final class TaxEstimator
     }
 
     /** The year has no IAS in the table yet: the cap uses another year's. */
+    /** Cents a month: 4 × IAS of the year. */
+    public function ssAccumulationLimit(): int
+    {
+        return self::SS_ACCUMULATION_LIMIT_IAS * $this->ias();
+    }
+
+    /** Relevant income per month of the quarter starting on $quarterStart (cents): income × share ÷ 3. */
+    public function ssRelevantMonthlyIncome(CarbonImmutable $quarterStart): int
+    {
+        [$base] = $this->contribution($this->incomeBetween($quarterStart, $quarterStart->addMonths(2)->endOfMonth()));
+
+        return $base;
+    }
+
     public function iasIsProvisional(): bool
     {
         return ! isset(config('contiu.ias')[$this->year]);
