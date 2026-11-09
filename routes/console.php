@@ -10,6 +10,7 @@ Artisan::command('inspire', function () {
 
 Schedule::command('finance:generate-recurring')->dailyAt('06:15');
 Schedule::command('finance:send-reminders')->dailyAt('06:30');
+Schedule::command('finance:send-tax-obligations')->dailyAt('08:00');
 
 // Backups (spatie/laravel-backup): clean old archives, back up, then check the newest one is healthy.
 Schedule::command('backup:clean')->dailyAt('01:00');
