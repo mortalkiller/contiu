@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Actions\RecordTaxPayment;
 use App\Exceptions\AccountIsReadOnly;
 use App\Models\User;
 use App\Support\CurrentAccount;
@@ -15,6 +16,7 @@ use Carbon\CarbonImmutable;
 use Filament\Notifications\Notification;
 use Filament\Widgets\Widget;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\DB;
 use MortalKiller\FilamentSkeletonLoading\SkeletonLoadingPlugin;
 
 /**
@@ -53,19 +55,31 @@ class TaxObligationsCard extends Widget
         $this->showDone = ! $this->showDone;
     }
 
-    /** Only a row the card lists as due or overdue can be marked. */
-    public function complete(string $key): void
+    /**
+     * Only a row the card lists as due or overdue can be marked. With $withExpense, a payment (the
+     * VAT, the Segurança Social) is also recorded as a paid expense, so the bank statement matches.
+     */
+    public function complete(string $key, bool $withExpense = false): void
     {
         if ($this->refusedWhileReadOnly()) {
             return;
         }
 
         $obligations = $this->obligations();
+        $obligation = collect($obligations->pending())->firstWhere('key', $key);
 
-        if (in_array($key, array_column($obligations->pending(), 'key'), true)) {
-            $user = auth()->user();
-            $obligations->complete($key, $user instanceof User ? $user : null);
+        if (! $obligation instanceof TaxObligation) {
+            return;
         }
+
+        DB::transaction(function () use ($obligations, $obligation, $withExpense): void {
+            if ($withExpense && RecordTaxPayment::applies($obligation)) {
+                app(RecordTaxPayment::class)->handle($obligation);
+            }
+
+            $user = auth()->user();
+            $obligations->complete($obligation->key, $user instanceof User ? $user : null);
+        });
     }
 
     /** Only a row the card lists under "Ver feitas" can be reopened. */
@@ -111,7 +125,7 @@ class TaxObligationsCard extends Widget
      * One line of the card: the title (a link when there is one, the detail in its tooltip), the
      * deadline, the amount and the button.
      *
-     * @return array{key: string, title: string, tooltip: string, url: ?string, when: ?string, overdue: bool, amount: ?string, mark: ?string, markTooltip: ?string, tone: string, note: bool}
+     * @return array{key: string, title: string, tooltip: string, url: ?string, when: ?string, overdue: bool, amount: ?string, mark: ?string, markTooltip: ?string, asksExpense: bool, tone: string, note: bool}
      */
     private function row(TaxObligation $obligation, CarbonImmutable $today): array
     {
@@ -138,6 +152,8 @@ class TaxObligationsCard extends Widget
             'amount' => $obligation->amount === null ? null : Money::format($obligation->amount),
             'mark' => $mark,
             'markTooltip' => $markTooltip,
+            // A payment can also be recorded as an expense: the button asks first.
+            'asksExpense' => $mark !== null && RecordTaxPayment::applies($obligation),
             // The dot: overdue, due within a week (or a note to check), or later.
             'tone' => match (true) {
                 $obligation->status === 'done' => 'success',

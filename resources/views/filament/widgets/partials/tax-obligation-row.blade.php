@@ -1,5 +1,5 @@
 @php
-    /** @var array{key: string, title: string, tooltip: string, url: ?string, when: ?string, overdue: bool, amount: ?string, mark: ?string, markTooltip: ?string, tone: string, note: bool} $row */
+    /** @var array{key: string, title: string, tooltip: string, url: ?string, when: ?string, overdue: bool, amount: ?string, mark: ?string, markTooltip: ?string, asksExpense: bool, tone: string, note: bool} $row */
     $isDone ??= false;
 @endphp
 
@@ -38,6 +38,32 @@
         >
             Desfazer
         </x-filament::button>
+    @elseif ($row['mark'] && $row['asksExpense'] && blank($readOnlyTooltip))
+        {{-- A payment: ask whether to record it as an expense, so the bank statement matches. --}}
+        <x-filament::modal width="md" :id="'tax-payment-'.$row['key']">
+            <x-slot name="trigger">
+                <x-filament::button size="xs" :tooltip="$row['markTooltip']">{{ $row['mark'] }}</x-filament::button>
+            </x-slot>
+
+            <x-slot name="heading">Marcar como pago</x-slot>
+
+            <x-slot name="description">
+                {{ $row['title'] }} · {{ $row['amount'] }}
+            </x-slot>
+
+            <p class="text-sm text-gray-600 dark:text-gray-400">
+                Criar a despesa de {{ $row['amount'] }}? Fica registada como paga hoje, para o extrato do banco e a conta da empresa baterem certo.
+            </p>
+
+            <x-slot name="footerActions">
+                <x-filament::button :wire:click="'complete('.\Illuminate\Support\Js::from($row['key']).', true)'" x-on:click="close">
+                    Sim, criar a despesa
+                </x-filament::button>
+                <x-filament::button color="gray" :wire:click="'complete('.\Illuminate\Support\Js::from($row['key']).', false)'" x-on:click="close">
+                    Só marcar como pago
+                </x-filament::button>
+            </x-slot>
+        </x-filament::modal>
     @elseif ($row['mark'])
         <x-filament::button
             size="xs"

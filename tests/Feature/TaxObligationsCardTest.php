@@ -204,3 +204,49 @@ it('loads with a skeleton shaped like the card', function () {
         ->toContain('fsl-bone')
         ->toContain('md:grid-cols-[15rem_1fr]');
 });
+
+it('records the VAT paid as an expense to the tax authority when asked', function () {
+    cardOn('2026-11-09');
+    cardServiceBoughtAbroad('2026-10-15', 1000);
+    actingAsAdmin();
+    $before = Expense::query()->count();
+
+    Livewire::test(TaxObligationsCard::class)
+        ->assertSee('Criar a despesa')
+        ->call('complete', 'vat-reverse:2026-10', true);
+
+    $expense = Expense::query()->latest('id')->first();
+
+    expect(Expense::query()->count())->toBe($before + 1)
+        ->and($expense->supplier->name)->toBe('Autoridade Tributária e Aduaneira')
+        ->and($expense->category->name)->toBe('Impostos e contribuições')
+        ->and($expense->only(['net_amount', 'is_paid', 'description']))->toBe(['net_amount' => 230, 'is_paid' => true, 'description' => 'IVA autoliquidado · compras de outubro 2026'])
+        ->and((float) $expense->vat_rate)->toBe(0.0)
+        ->and($expense->paid_on->toDateString())->toBe('2026-11-09')
+        ->and(TaxObligationCompletion::query()->pluck('key')->all())->toBe(['vat-reverse:2026-10']);
+});
+
+it('only marks the obligation when the expense is not wanted', function () {
+    cardOn('2026-11-09');
+    cardServiceBoughtAbroad('2026-10-15', 1000);
+    actingAsAdmin();
+    $before = Expense::query()->count();
+
+    Livewire::test(TaxObligationsCard::class)->call('complete', 'vat-reverse:2026-10', false);
+
+    expect(Expense::query()->count())->toBe($before)
+        ->and(TaxObligationCompletion::query()->pluck('key')->all())->toBe(['vat-reverse:2026-10']);
+});
+
+it('records the Segurança Social paid as an expense for the month it contributes', function () {
+    cardOn('2026-11-09');
+    actingAsAdmin();
+
+    Livewire::test(TaxObligationsCard::class)->call('complete', 'ss:2026-11', true);
+
+    $expense = Expense::query()->latest('id')->first();
+
+    expect($expense->supplier->name)->toBe('Segurança Social')
+        ->and($expense->net_amount)->toBe(2000)
+        ->and($expense->description)->toBe('Segurança Social · contribuição de outubro 2026');
+});
