@@ -111,7 +111,7 @@ class TaxEstimate extends Page
                         ? [
                             TextEntry::make('vat')->hiddenLabel()->state(number_format($estimator->vatThresholdPercent(), 1, ',', ' ').'%')->size(TextSize::Large)->weight('bold')
                                 ->color(match ($estimator->vatThresholdStatus()) {
-                                    'danger' => 'danger',
+                                    'critical', 'danger' => 'danger',
                                     'warning' => 'warning',
                                     default => 'success',
                                 }),
@@ -125,9 +125,15 @@ class TaxEstimate extends Page
                         ]),
             ]),
             ...match (true) {
+                $estimator->vatExempt() && $estimator->vatThresholdStatus() === 'critical' => [
+                    Callout::make('Ultrapassaste o limite de isenção de IVA')
+                        ->description('Passaste 125 % do limite: tens 15 dias úteis para entregar a declaração de alterações.')
+                        ->icon(Phosphor::WarningCircle)
+                        ->status('danger'),
+                ],
                 $estimator->vatExempt() && $estimator->vatThresholdStatus() === 'danger' => [
                     Callout::make('Ultrapassaste o limite de isenção de IVA')
-                        ->description('Fala com o teu contabilista: pode ser preciso passar ao regime normal de IVA.')
+                        ->description('Sais da isenção no próximo ano: declaração de alterações em janeiro.')
                         ->icon(Phosphor::WarningCircle)
                         ->status('danger'),
                 ],

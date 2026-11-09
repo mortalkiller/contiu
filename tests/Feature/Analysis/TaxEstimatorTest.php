@@ -230,6 +230,7 @@ it('tracks the VAT exemption threshold', function (int $income, string $status, 
     [500000, 'ok', 33.3],
     [1200000, 'warning', 80.0],
     [1500000, 'danger', 100.0],
+    [1875000, 'critical', 125.0],
 ]);
 
 it('computes VAT collected and paid when not exempt', function () {

@@ -246,12 +246,13 @@ final class TaxEstimator
         return $threshold > 0 ? round($this->income() / $threshold * 100, 1) : 0.0;
     }
 
-    /** ok, warning (≥ 80%) or danger (≥ 100%). */
+    /** ok, warning (≥ 80%), danger (≥ 100%) or critical (≥ 125%). */
     public function vatThresholdStatus(): string
     {
         $percent = $this->vatThresholdPercent();
 
         return match (true) {
+            $percent >= 125 => 'critical',
             $percent >= 100 => 'danger',
             $percent >= 80 => 'warning',
             default => 'ok',
