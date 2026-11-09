@@ -2,6 +2,7 @@
 
 use App\Enums\CalendarEntryType;
 use App\Enums\ProjectStatus;
+use App\Enums\Seat;
 use App\Models\Account;
 use App\Models\Client;
 use App\Models\Expense;
@@ -124,7 +125,7 @@ it('includes the obligations of the range with their status', function () {
 
     expect($ss->date->toDateString())->toBe('2026-11-20')
         ->and($ss->status)->toBe('due')
-        ->and($ss->title)->toBe('Segurança Social · '.Money::format(2000))
+        ->and($ss->title)->toBe('Segurança Social · novembro · '.Money::format(2000))
         ->and($ss->url)->not->toBeNull()
         ->and($ss->detail)->toContain('Pagar entre 10 e 20 de novembro');
 });
@@ -170,4 +171,15 @@ it('sorts the entries by date', function () {
     $dates = array_map(fn (CalendarEntry $entry) => $entry->date->toDateString(), calendarEntries('2026-11-01', '2026-11-30'));
 
     expect($dates)->toBe(collect($dates)->sort()->values()->all());
+});
+
+it('names the month or year each obligation is about', function () {
+    $this->travelTo(Carbon::parse('2027-05-09'));
+    Expense::factory()->for(Supplier::factory()->create(['seat' => Seat::EuropeanUnion]))
+        ->create(['spent_on' => '2027-04-15', 'is_goods' => false, 'vat_rate' => 0, 'net_amount' => 1000]);
+
+    $titles = collect(ofType(calendarEntries('2027-05-01', '2027-06-30'), CalendarEntryType::Obligation))->pluck('title', 'id');
+
+    expect($titles['vat-reverse:2027-04'])->toStartWith('IVA das compras ao estrangeiro · abril · ')
+        ->and($titles['irs-modelo3:2026'])->toBe('IRS (modelo 3) · 2026');
 });

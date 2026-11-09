@@ -61,7 +61,11 @@ final class ActivityCalendar
             id: $obligation->key,
             type: CalendarEntryType::Obligation,
             date: $obligation->dueOn,
-            title: $obligation->title.($obligation->amount === null ? '' : ' · '.Money::format($obligation->amount)),
+            title: implode(' · ', array_filter([
+                $obligation->title,
+                $obligation->period(),
+                $obligation->amount === null ? null : Money::format($obligation->amount),
+            ])),
             amount: $obligation->amount,
             status: $obligation->status,
             url: $obligation->url,

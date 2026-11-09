@@ -25,6 +25,16 @@ final readonly class TaxObligation
         public string $status,
     ) {}
 
+    /** What the obligation is about: "outubro" for a monthly one, "2026" for the IRS return, else "". */
+    public function period(): string
+    {
+        return match ($this->kind) {
+            'irs-modelo3' => substr($this->key, -4),
+            'ss', 'vat-reverse', 'recapitulativa' => mb_strtolower(Period::MONTHS[(int) substr($this->key, -2) - 1]),
+            default => '',
+        };
+    }
+
     /** Days until the deadline (0 on the day, negative once past); null without one. */
     public function daysLeft(CarbonImmutable $today): ?int
     {
