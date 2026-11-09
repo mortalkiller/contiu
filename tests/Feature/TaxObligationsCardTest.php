@@ -2,6 +2,7 @@
 
 use App\Enums\Seat;
 use App\Filament\Pages\Dashboard;
+use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Widgets\TaxObligationsCard;
 use App\Models\Expense;
 use App\Models\Supplier;
@@ -60,6 +61,16 @@ it('shows this month obligations on the dashboard', function () {
         ->assertDontSee('Nada a pagar este mês');
 
     $this->get(Dashboard::getUrl())->assertSeeLivewire(TaxObligationsCard::class);
+});
+
+it('opens the expenses of the month from the reverse-charge row', function () {
+    cardOn('2026-11-09');
+    cardServiceBoughtAbroad('2026-10-15', 1000);
+    actingAsAdmin();
+
+    $url = ExpenseResource::getUrl('index', ['tableFilters' => ['year' => ['value' => 2026], 'month' => ['value' => 10]]]);
+
+    Livewire::test(TaxObligationsCard::class)->assertSee($url);
 });
 
 it('flags overdue rows and shows the VAT exemption threshold', function () {

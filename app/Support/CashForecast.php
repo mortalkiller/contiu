@@ -13,7 +13,8 @@ use Carbon\CarbonImmutable;
  *
  * In:  open amounts of existing receivables (cancelled projects excluded) + retainer periods not
  *      generated yet (projected with the generator's rules).
- * Out: unpaid expenses + recurring expenses not generated yet + estimated Segurança Social.
+ * Out: unpaid expenses + recurring expenses not generated yet + estimated Segurança Social (what is
+ *      paid in the month: the contribution of the month before).
  * Anything already due before the current month rolls into the current month and is flagged.
  * The running balance starts from the bank balance setting (or 0 when it isn't set).
  */
@@ -200,13 +201,13 @@ final class CashForecast
             }
         });
 
-        // Out: Segurança Social.
+        // Out: Segurança Social paid in the month (the contribution of the month before).
         $estimator = new TaxEstimator($this->settings, $this->start->year);
 
         foreach ($buckets as $key => $bucket) {
-            $contribution = $estimator->ssContributionForMonth($bucket['month']);
-            $buckets[$key]['socialSecurity'] = $contribution;
-            $buckets[$key]['outflows'] += $contribution;
+            $payment = $estimator->ssPaymentInMonth($bucket['month']);
+            $buckets[$key]['socialSecurity'] = $payment;
+            $buckets[$key]['outflows'] += $payment;
         }
 
         $balance = $this->startingBalance();

@@ -59,3 +59,12 @@ it('uses the configured reverse-charge rate', function () use ($october) {
 
     expect(reverseCharge()->forMonth($october())['vat'])->toBe(2200);
 });
+
+it('includes expenses on the last day of the month', function () use ($october) {
+    foreignExpense(Seat::EuropeanUnion, ['spent_on' => '2026-10-15', 'net_amount' => 1000]);
+    foreignExpense(Seat::EuropeanUnion, ['spent_on' => '2026-10-31', 'net_amount' => 2000]);
+    $withVat = foreignExpense(Seat::OutsideEu, ['spent_on' => '2026-10-31', 'vat_rate' => 0.23]);
+
+    expect(reverseCharge()->forMonth($october())['base'])->toBe(3000)
+        ->and(reverseCharge()->foreignWithVat($october())->pluck('id')->all())->toBe([$withVat->id]);
+});

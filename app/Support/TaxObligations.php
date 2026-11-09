@@ -23,7 +23,8 @@ use Illuminate\Support\Collection;
  * ESTIMATES ONLY — the amounts come from TaxEstimator and ReverseChargeVat.
  *
  * Keys and deadlines:
- * - ss:YYYY-MM — Segurança Social of the month, paid between the 10th and the 20th;
+ * - ss:YYYY-MM — Segurança Social paid in the month, between the 10th and the 20th: the contribution
+ *   of the month before (art. 155.º);
  * - ss-declaration:YYYY-Qn — quarterly SS declaration, by the end of the month after the quarter;
  * - vat-reverse:YYYY-MM — VAT self-assessed on the month's foreign services, by the end of the next month;
  * - recapitulativa:YYYY-MM — services to EU businesses received in the month, by the 20th of the next;
@@ -167,8 +168,11 @@ final class TaxObligations
     private function ss(CarbonImmutable $month): TaxObligation
     {
         $key = 'ss:'.$month->format('Y-m');
-        $url = $this->url(fn (Account $account) => TaxEstimate::getUrl(['year' => $month->year], panel: 'admin', tenant: $account));
-        $status = $this->estimator()->ssMonthStatus($month);
+        $contributionMonth = $month->subMonth();
+        // The quarter of income that set the contribution: the Estimativa of its year shows it.
+        $source = $contributionMonth->firstOfQuarter()->subMonths(3);
+        $url = $this->url(fn (Account $account) => TaxEstimate::getUrl(['year' => $source->year], panel: 'admin', tenant: $account));
+        $status = $this->estimator()->ssPaymentStatus($month);
 
         if ($status !== 'charged') {
             $detail = $status === 'exempt' ? 'Isento (art. 157.º)' : 'Isento (1.º enquadramento)';
@@ -176,9 +180,9 @@ final class TaxObligations
             return new TaxObligation($key, 'ss', self::SS_TITLE, null, null, null, $detail, $url, 'exempt');
         }
 
-        $amount = $this->estimator()->ssContributionForMonth($month);
-        $source = $month->firstOfQuarter()->subMonths(3);
+        $amount = $this->estimator()->ssPaymentInMonth($month);
         $detail = 'Pagar entre 10 e 20 de '.self::monthName($month)
+            .' · contribuição de '.self::monthName($contributionMonth)
             .' · rendimentos de '.self::quarterName($source)
             .($amount === TaxEstimator::SS_MINIMUM_CONTRIBUTION ? ' · contribuição mínima' : '');
         $dueOn = $month->setDay(20);
@@ -231,7 +235,10 @@ final class TaxObligations
             null,
             'Declaração periódica e pagamento até '.$dueOn->day.' de '.self::monthName($dueOn)
                 .' · compras de '.self::monthName($month).' ('.Money::format($vat['base']).' sem IVA)',
-            $this->url(fn (Account $account) => ExpenseResource::getUrl(panel: 'admin', tenant: $account)),
+            // The expenses list filtered to the month (it has no filter by supplier seat).
+            $this->url(fn (Account $account) => ExpenseResource::getUrl('index', [
+                'tableFilters' => ['year' => ['value' => $month->year], 'month' => ['value' => $month->month]],
+            ], panel: 'admin', tenant: $account)),
             $this->status($key, $dueOn),
         );
     }

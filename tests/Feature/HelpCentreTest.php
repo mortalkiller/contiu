@@ -52,3 +52,10 @@ it('explains the monthly tax obligations and where their answers come from', fun
         ->assertSee(SupplierResource::getUrl(), escape: false)
         ->assertSee(ClientResource::getUrl(), escape: false);
 });
+
+it('points the legal notes to the exempt payments, not an IRS exemption setting', function () {
+    $this->get(HelpCentre::getUrl())
+        ->assertOk()
+        ->assertDontSee('se a tua isenção de IRS os abrange')
+        ->assertSee('marca esses recebimentos como isentos de impostos');
+});

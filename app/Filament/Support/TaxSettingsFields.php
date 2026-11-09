@@ -27,6 +27,9 @@ final class TaxSettingsFields
         '0.35' => 'Outras prestações de serviços (coeficiente 0,35)',
     ];
 
+    /** IRS Jovem lasts this many years (art. 12.º-B do CIRS). */
+    public const IRS_JOVEM_YEARS = 10;
+
     public const SS_RATES = [
         '0.214' => 'Trabalhador independente (21,4 %)',
         '0.252' => 'Empresário em nome individual ou EIRL (25,2 %)',
@@ -87,10 +90,16 @@ final class TaxSettingsFields
         ]));
     }
 
-    /** @return array<int, Component> */
-    public static function irs(): array
+    /**
+     * With the $stored settings (the settings page), the IRS Jovem number says when its 10 years are
+     * over (fill() then leaves it blank).
+     *
+     * @return array<int, Component>
+     */
+    public static function irs(?FinanceSettings $stored = null): array
     {
         $year = (int) now()->year;
+        $irsJovemEnded = ($stored?->irsJovemYearNumber($year) ?? 0) > self::IRS_JOVEM_YEARS;
 
         return [
             Radio::make('irs_coefficient')
@@ -118,10 +127,12 @@ final class TaxSettingsFields
                 ->required(fn (Get $get): bool => (bool) $get('irs_jovem')),
             TextInput::make('irs_jovem_year_number')
                 ->label("Em {$year}, és no ano n.º")
-                ->helperText('Do IRS Jovem, de 1 a 10. Nos anos seguintes a app soma 1.')
+                ->helperText($irsJovemEnded
+                    ? 'O IRS Jovem dura 10 anos: já terminou. Desliga a opção acima.'
+                    : 'Do IRS Jovem, de 1 a 10. Nos anos seguintes a app soma 1.')
                 ->integer()
                 ->minValue(1)
-                ->maxValue(10)
+                ->maxValue(self::IRS_JOVEM_YEARS)
                 ->visible(fn (Get $get): bool => (bool) $get('irs_jovem'))
                 ->required(fn (Get $get): bool => (bool) $get('irs_jovem')),
         ];
@@ -173,7 +184,8 @@ final class TaxSettingsFields
             'irs_coefficient' => (string) $settings->irsCoefficient(),
             'irs_jovem' => $settings->irsJovem(),
             'birth_date' => $settings->birthDate()?->toDateString(),
-            'irs_jovem_year_number' => $settings->irsJovemYearNumber($year),
+            // Outside 1–10 the field would not validate and block every save.
+            'irs_jovem_year_number' => self::irsJovemYearNumberInRange($settings, $year),
             'ss_rate' => (string) $settings->ssRate(),
             'ss_relevant_income_share_percent' => round($settings->ssRelevantIncomeShare() * 100, 2),
             'ss_contribution_exempt' => $settings->ssContributionExempt(),
@@ -231,6 +243,13 @@ final class TaxSettingsFields
         }
 
         return $values;
+    }
+
+    private static function irsJovemYearNumberInRange(FinanceSettings $settings, int $year): ?int
+    {
+        $number = $settings->irsJovemYearNumber($year);
+
+        return $number !== null && $number >= 1 && $number <= self::IRS_JOVEM_YEARS ? $number : null;
     }
 
     private static function date(mixed $value): ?string

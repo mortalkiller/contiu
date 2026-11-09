@@ -47,7 +47,7 @@ final class ReverseChargeVat
         return Expense::query()
             ->with('supplier')
             ->where('is_goods', false)
-            ->whereBetween('spent_on', [$month->startOfMonth()->toDateString(), $month->endOfMonth()->toDateString()])
+            ->whereBetween('spent_on', Period::of($month->year, $month->month)->range())
             ->whereHas('supplier', fn (Builder $query) => $query->whereIn('seat', [Seat::EuropeanUnion->value, Seat::OutsideEu->value]));
     }
 }

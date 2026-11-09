@@ -78,7 +78,7 @@ class FinanceSettingsPage extends Page
                     ->description('Regime simplificado: o rendimento tributável é o rendimento bruto vezes o coeficiente.')
                     ->icon(Phosphor::Receipt)
                     ->columns(2)
-                    ->schema(TaxSettingsFields::irs()),
+                    ->schema(TaxSettingsFields::irs(app(FinanceSettings::class))),
                 Section::make('Segurança Social')
                     ->description('Contribuição sobre o rendimento relevante de cada trimestre.')
                     ->icon(Phosphor::Bank)

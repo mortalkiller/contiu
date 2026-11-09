@@ -67,7 +67,8 @@ class SendTaxObligations extends Command
 
             Notification::make()
                 ->title($obligation->title.': faltam '.self::DAYS_BEFORE.' dias')
-                ->body($obligation->detail)
+                // A user can be in several accounts: say which one.
+                ->body(CurrentAccount::get()->name.' · '.$obligation->detail)
                 ->warning()
                 ->icon(Phosphor::HourglassMedium)
                 ->actions([Action::make('open')->label('Abrir painel')->url($url)])

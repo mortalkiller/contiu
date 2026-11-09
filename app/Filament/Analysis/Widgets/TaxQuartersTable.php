@@ -11,7 +11,8 @@ use Livewire\Attributes\Reactive;
 use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 
 /**
- * Segurança Social per quarter: income, base, monthly contribution and the months it is paid in.
+ * Segurança Social per quarter of income: income, base, the monthly contribution it sets for the next
+ * quarter and the months that contribution is paid in (each one the month after: Q3 → Nov–Jan).
  */
 class TaxQuartersTable extends TableWidget
 {
@@ -26,7 +27,7 @@ class TaxQuartersTable extends TableWidget
     {
         return $table
             ->heading('Segurança Social por trimestre')
-            ->description('A contribuição de cada trimestre é paga nos três meses seguintes.')
+            ->description('O rendimento de cada trimestre fixa a contribuição dos três meses do trimestre seguinte; a de cada mês paga-se entre 10 e 20 do mês seguinte. Por exemplo, o rendimento de jul–set fixa as contribuições de out–dez, pagas de novembro a janeiro.')
             ->records(fn (): array => $this->rows())
             ->paginated(false)
             ->recordClasses(fn (array $record) => $record['is_total'] ? 'bg-gray-50 dark:bg-white/5' : null)

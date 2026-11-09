@@ -114,8 +114,17 @@ it('notes the first-enrolment months and the minimum contribution per quarter', 
             'Jul – Set', 'Contribuição mínima',
         ]);
 
+    // The first contribution is August's, paid in September.
     Livewire::test(TaxEstimate::class)
-        ->assertSee('Isento (1.º enquadramento) até julho de 2026 (estimativa).');
+        ->assertSee('Isento (1.º enquadramento) até julho de 2026 (estimativa). A primeira contribuição, de agosto, paga-se em setembro.');
+});
+
+it('says in which months each quarter is paid', function () {
+    app(FinanceSettings::class)->set(['activity_started_on' => '2024-01-01', 'activity_start_kind' => 'first']);
+
+    Livewire::test(TaxQuartersTable::class, ['year' => 2026])
+        ->assertSee('a de cada mês paga-se entre 10 e 20 do mês seguinte')
+        ->assertSeeInOrder(['Jan – Mar', 'Mai – Jul 2026', 'Abr – Jun', 'Ago – Out 2026', 'Jul – Set', 'Nov 2026 – Jan 2027', 'Out – Dez', 'Fev – Abr 2027']);
 });
 
 it('notes a recognised contribution exemption', function () {

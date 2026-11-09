@@ -211,7 +211,10 @@ class TaxEstimate extends Page
         return self::decimal($share * 100).' %';
     }
 
-    /** Why the year's contribution is lower: an exemption, or months before the obligation starts. */
+    /**
+     * Why the year's contribution is lower: an exemption, or months before the obligation starts.
+     * The first contribution is the start month's, paid the month after.
+     */
     private function socialSecurityNote(TaxEstimator $estimator): string
     {
         $startsOn = $estimator->ssObligationStartsOn();
@@ -219,10 +222,12 @@ class TaxEstimate extends Page
         return match (true) {
             // An exemption covers every month alike.
             $estimator->ssMonthStatus(CarbonImmutable::create($estimator->year, 1, 1)) === 'exempt' => 'Isento (art. 157.º).',
-            // The year's quarters are paid from April on; an earlier start leaves none of them exempt.
+            // The year's income sets the contributions from April on; an earlier start leaves none of them exempt.
             $startsOn !== null && $startsOn->gt(CarbonImmutable::create($estimator->year, 4, 1)) => 'Isento (1.º enquadramento) até '
                 .mb_strtolower(Period::MONTHS[$startsOn->subMonth()->month - 1]).' de '.$startsOn->subMonth()->year
-                .($estimator->ssObligationIsEstimated() ? ' (estimativa).' : '.'),
+                .($estimator->ssObligationIsEstimated() ? ' (estimativa).' : '.')
+                .' A primeira contribuição, de '.mb_strtolower(Period::MONTHS[$startsOn->month - 1])
+                .', paga-se em '.mb_strtolower(Period::MONTHS[$startsOn->addMonth()->month - 1]).'.',
             default => 'Estimativa do ano, pelos trimestres abaixo.',
         };
     }

@@ -12,11 +12,13 @@ use Illuminate\Support\Collection;
  *
  * - "Rendimento relevante" is approximated by the payments received (fatura-recibo is issued on payment).
  * - Segurança Social (trabalhador independente): each quarter's income is declared in the following
- *   month and sets the contribution of the next three months: base = income × relevant share / 3,
- *   contribution = base × rate, never below the 20 € minimum (art. 163.º), also in quarters without
- *   income. The obligation starts on the SS enrolment date, or else 12 months after a first start
- *   (art. 145.º, n.º 1) or on a restart (n.º 3); months before it are "1.º enquadramento". A
- *   recognised exemption (art. 157.º) leaves every month without contribution.
+ *   month (Jan, Apr, Jul, Oct) and sets the contribution of that month's quarter: base = income ×
+ *   relevant share / 3, contribution = base × rate, never below the 20 € minimum (art. 163.º), also
+ *   in quarters without income. The contribution of a month is paid between the 10th and the 20th of
+ *   the next month (art. 155.º): October's, from jul–set, is paid in November. The obligation starts
+ *   on the SS enrolment date, or else 12 months after a first start (art. 145.º, n.º 1) or on a
+ *   restart (n.º 3); months before it are "1.º enquadramento", so the first payment is the month
+ *   after the start. A recognised exemption (art. 157.º) leaves every month without contribution.
  * - IRS (art. 31.º and 12.º-B CIRS): IRS Jovem exempts a share of the gross income first (capped at
  *   55 × IAS), then the configured coefficient, reduced by 50 % / 25 % in the first two years of
  *   activity, gives the taxable income. The tax itself is not computed.
@@ -48,7 +50,9 @@ final class TaxEstimator
     }
 
     /**
-     * `status` is the one of the quarter's first payment month (charged, first_enrolment or exempt).
+     * Per quarter of income: the contributions it sets (the next quarter's months, `chargedMonths` of
+     * them charged), paid each the month after (`paidIn`: Q3 → contributions Oct–Dec → paid Nov–Jan).
+     * `status` is the one of the first of those contributions (charged, first_enrolment or exempt).
      *
      * @return array<int, array{label: string, income: int, base: int, monthly: int, chargedMonths: int, total: int, paidIn: string, status: string} (cents)>
      */
@@ -61,8 +65,10 @@ final class TaxEstimator
             $income = $this->incomeBetween($start, $start->addMonths(2)->endOfMonth());
             [$base, $monthly] = $this->contribution($income);
 
-            $paymentMonths = collect(range(0, 2))->map(fn (int $offset) => $start->addMonths(3 + $offset));
-            $charged = $paymentMonths->filter(fn (CarbonImmutable $month) => $this->ssMonthStatus($month) === 'charged')->count();
+            $contributionMonths = collect(range(0, 2))->map(fn (int $offset) => $start->addMonths(3 + $offset));
+            $charged = $contributionMonths->filter(fn (CarbonImmutable $month) => $this->ssMonthStatus($month) === 'charged')->count();
+            $firstPayment = $contributionMonths->first()->addMonth();
+            $lastPayment = $contributionMonths->last()->addMonth();
 
             $quarters[] = [
                 'label' => self::QUARTER_LABELS[$index],
@@ -71,8 +77,10 @@ final class TaxEstimator
                 'monthly' => $monthly,
                 'chargedMonths' => $charged,
                 'total' => $monthly * $charged,
-                'paidIn' => Period::SHORT_MONTHS[$paymentMonths->first()->month - 1].' – '.Period::SHORT_MONTHS[$paymentMonths->last()->month - 1].' '.$paymentMonths->last()->year,
-                'status' => $this->ssMonthStatus($paymentMonths->first()),
+                'paidIn' => Period::SHORT_MONTHS[$firstPayment->month - 1]
+                    .($firstPayment->year === $lastPayment->year ? '' : ' '.$firstPayment->year)
+                    .' – '.Period::SHORT_MONTHS[$lastPayment->month - 1].' '.$lastPayment->year,
+                'status' => $this->ssMonthStatus($contributionMonths->first()),
             ];
         }
 
@@ -84,7 +92,10 @@ final class TaxEstimator
         return (int) array_sum(array_column($this->quarters(), 'total'));
     }
 
-    /** Contribution due in a given month, from the income of the quarter before that month's quarter. */
+    /**
+     * Contribution OF a month (not the one paid in it), from the income of the quarter before that
+     * month's quarter. It is paid the month after: see ssPaymentInMonth().
+     */
     public function ssContributionForMonth(CarbonImmutable $month): int
     {
         $month = $month->startOfMonth();
@@ -99,8 +110,20 @@ final class TaxEstimator
         return $monthly;
     }
 
+    /** Paid between the 10th and the 20th of a month: the contribution of the month before. */
+    public function ssPaymentInMonth(CarbonImmutable $month): int
+    {
+        return $this->ssContributionForMonth($month->startOfMonth()->subMonth());
+    }
+
+    /** Status of what is paid in a month: the one of the month before's contribution. */
+    public function ssPaymentStatus(CarbonImmutable $month): string
+    {
+        return $this->ssMonthStatus($month->startOfMonth()->subMonth());
+    }
+
     /**
-     * First month with a contribution: the SS enrolment date when the account has it, else computed
+     * First month with a contribution (paid the month after): the SS enrolment date when the account has it, else computed
      * from the activity start (a first start when the kind is not said yet). Null without a start
      * date: every month is charged.
      */
@@ -124,7 +147,7 @@ final class TaxEstimator
         return $this->settings->ssEnrolledFrom() === null && $this->ssObligationStartsOn() !== null;
     }
 
-    /** charged | first_enrolment (before the obligation starts) | exempt (art. 157.º). */
+    /** Of a month's contribution: charged | first_enrolment (before the obligation starts) | exempt (art. 157.º). */
     public function ssMonthStatus(CarbonImmutable $month): string
     {
         if ($this->settings->ssContributionExempt()) {

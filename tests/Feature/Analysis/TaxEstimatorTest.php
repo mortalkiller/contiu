@@ -35,7 +35,31 @@ it('splits the year income into quarters with the Segurança Social base and mon
     expect($quarters)->toHaveCount(4)
         ->and($quarters[0])->toMatchArray(['label' => 'Jan – Mar', 'income' => 100000, 'base' => 23333, 'monthly' => 4993, 'chargedMonths' => 3, 'total' => 14979, 'status' => 'charged'])
         ->and($quarters[1])->toMatchArray(['label' => 'Abr – Jun', 'income' => 300000, 'base' => 70000, 'monthly' => 14980, 'total' => 44940])
-        ->and($quarters[2])->toMatchArray(['income' => 0, 'monthly' => TaxEstimator::SS_MINIMUM_CONTRIBUTION, 'total' => 6000]);
+        ->and($quarters[2])->toMatchArray(['income' => 0, 'monthly' => TaxEstimator::SS_MINIMUM_CONTRIBUTION, 'total' => 6000])
+        // Each quarter's income sets the contributions of the next quarter, each paid the month after.
+        ->and(array_column($quarters, 'paidIn'))->toBe(['Mai – Jul 2026', 'Ago – Out 2026', 'Nov 2026 – Jan 2027', 'Fev – Abr 2027']);
+});
+
+it('gives the payment of a month from the contribution of the month before', function () {
+    payOn('2026-08-10', 300000);
+    payOn('2026-11-10', 100000);
+
+    $estimate = estimator(2026, ['activity_started_on' => '2024-01-01', 'activity_start_kind' => 'first']);
+
+    expect($estimate->ssContributionForMonth(CarbonImmutable::parse('2026-10-01')))->toBe(14980)
+        ->and($estimate->ssPaymentInMonth(CarbonImmutable::parse('2026-11-01')))->toBe(14980)
+        ->and($estimate->ssContributionForMonth(CarbonImmutable::parse('2027-01-01')))->toBe(4993)
+        ->and($estimate->ssPaymentInMonth(CarbonImmutable::parse('2027-01-01')))->toBe(14980)
+        ->and($estimate->ssPaymentInMonth(CarbonImmutable::parse('2027-02-01')))->toBe(4993);
+});
+
+it('starts the payments the month after the obligation', function () {
+    $estimate = estimator(2026, ['activity_started_on' => '2024-01-01', 'activity_start_kind' => 'first', 'ss_enrolled_from' => '2026-05-01']);
+
+    expect($estimate->ssPaymentStatus(CarbonImmutable::parse('2026-05-01')))->toBe('first_enrolment')
+        ->and($estimate->ssPaymentInMonth(CarbonImmutable::parse('2026-05-01')))->toBe(0)
+        ->and($estimate->ssPaymentStatus(CarbonImmutable::parse('2026-06-01')))->toBe('charged')
+        ->and($estimate->ssPaymentInMonth(CarbonImmutable::parse('2026-06-01')))->toBe(2000);
 });
 
 it('charges the 20 € minimum in a quarter without income', function () {

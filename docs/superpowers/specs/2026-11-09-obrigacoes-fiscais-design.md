@@ -132,7 +132,12 @@ e a SS do trimestre seguinte é a contribuição mínima.
 - O IRS Jovem não reduz a base da SS (art. 162.º usa o valor das prestações de serviços).
 - A SS considera os valores à data da prestação do serviço, como declarados no IRS. A Contiu usa a
   data do recebimento, que coincide com a fatura-recibo; a página diz que é uma aproximação.
-- A contribuição de um trimestre paga-se nos 3 meses seguintes, entre os dias 10 e 20 (art. 155.º).
+- O rendimento de um trimestre, declarado em jan/abr/jul/out, fixa a contribuição dos 3 meses do
+  trimestre seguinte (art. 163.º, n.º 1). A contribuição do mês M paga-se entre os dias 10 e 20 do
+  mês M+1 (art. 155.º): jul–set → contribuições de out–dez → pagas de novembro a janeiro. O
+  pagamento do mês P (cartão, previsão de tesouraria) é a contribuição de P−1, com o estado de P−1;
+  o primeiro pagamento é no mês a seguir ao início da obrigação. *(Decisão da revisão final,
+  substitui o texto anterior.)*
 - **Mês em que começa a obrigação**: o mês de `ss_enrolled_from`, se preenchido (é o que a SS
   diz). Se não estiver, a app calcula e diz que é uma estimativa:
   - início (`first`): 1.º dia do 12.º mês posterior ao mês de início (art. 145.º, n.º 1);

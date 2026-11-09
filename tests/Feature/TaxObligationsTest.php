@@ -65,7 +65,7 @@ it('lists what is due this month with amount and deadline', function () {
         ->and($rows['ss:2026-11'])->toMatchObject(['kind' => 'ss', 'title' => 'Segurança Social', 'amount' => 2000, 'status' => 'due'])
         ->and($rows['ss:2026-11']->dueOn->toDateString())->toBe('2026-11-20')
         ->and($rows['ss:2026-11']->opensOn->toDateString())->toBe('2026-11-10')
-        ->and($rows['ss:2026-11']->detail)->toContain('Pagar entre 10 e 20 de novembro')->toContain('rendimentos de jul–set')->toContain('contribuição mínima')
+        ->and($rows['ss:2026-11']->detail)->toContain('Pagar entre 10 e 20 de novembro')->toContain('contribuição de outubro')->toContain('rendimentos de jul–set')->toContain('contribuição mínima')
         ->and($rows['ss:2026-11']->daysLeft($today))->toBe(11)
         ->and($rows['vat-reverse:2026-10'])->toMatchObject(['kind' => 'vat-reverse', 'amount' => 230, 'status' => 'due'])
         ->and($rows['vat-reverse:2026-10']->dueOn->toDateString())->toBe('2026-11-30')
@@ -80,7 +80,8 @@ it('shows the January set across the year boundary', function () {
     $rows = byKey(obligationsOn('2027-01-05', since: '2026-12-01')->thisMonth());
 
     expect($rows)->toHaveKeys(['ss:2027-01', 'ss-declaration:2026-Q4', 'vat-reverse:2026-11'])
-        ->and($rows['ss:2027-01']->detail)->toContain('rendimentos de out–dez')
+        // January pays December's contribution, set by the income of jul–set.
+        ->and($rows['ss:2027-01']->detail)->toContain('contribuição de dezembro')->toContain('rendimentos de jul–set')
         ->and($rows['ss-declaration:2026-Q4'])->toMatchObject(['kind' => 'ss-declaration', 'amount' => null, 'status' => 'due'])
         ->and($rows['ss-declaration:2026-Q4']->dueOn->toDateString())->toBe('2027-01-31')
         ->and($rows['vat-reverse:2026-11'])->toMatchObject(['status' => 'overdue', 'amount' => 1150])
@@ -203,4 +204,36 @@ it('shows the VAT threshold and foreign VAT warnings as info', function () {
         ->and($rows['foreign-vat-warning:'.$withVat->id])->toMatchObject(['kind' => 'foreign-vat-warning', 'status' => 'info'])
         ->and(array_key_last($rows))->toBe('foreign-vat-warning:'.$withVat->id)
         ->and(byKey(obligationsOn('2026-11-09', [...OBLIGATIONS_COMPLETE_SETTINGS, 'vat_exempt' => false])->thisMonth()))->not->toHaveKey('vat-threshold:2026');
+});
+
+it('pays each month the contribution of the month before', function () {
+    paymentFrom(Client::factory()->create(), '2026-08-10', 300000);
+    paymentFrom(Client::factory()->create(), '2026-11-10', 100000);
+
+    // November pays October's contribution, from the income of jul–set.
+    $november = byKey(obligationsOn('2026-11-09')->thisMonth())['ss:2026-11'];
+
+    expect($november->amount)->toBe(14980)
+        ->and($november->detail)->toContain('contribuição de outubro')->toContain('rendimentos de jul–set');
+
+    // January pays December's, still from jul–set; February pays January's, from out–dez.
+    $january = byKey(obligationsOn('2027-01-05')->thisMonth())['ss:2027-01'];
+    $february = byKey(obligationsOn('2027-02-03')->thisMonth())['ss:2027-02'];
+
+    expect($january->amount)->toBe(14980)
+        ->and($january->detail)->toContain('contribuição de dezembro')->toContain('rendimentos de jul–set')
+        ->and($february->amount)->toBe(4993)
+        ->and($february->detail)->toContain('contribuição de janeiro')->toContain('rendimentos de out–dez');
+});
+
+it('makes the first payment the month after enrolment', function () {
+    $settings = [...OBLIGATIONS_COMPLETE_SETTINGS, 'ss_enrolled_from' => '2026-05-01'];
+
+    // May's contribution is the first one: nothing is paid in May.
+    $may = byKey(obligationsOn('2026-05-09', $settings)->thisMonth())['ss:2026-05'];
+    $june = byKey(obligationsOn('2026-06-09', $settings)->thisMonth())['ss:2026-06'];
+
+    expect($may)->toMatchObject(['status' => 'exempt', 'amount' => null, 'detail' => 'Isento (1.º enquadramento)'])
+        ->and($june)->toMatchObject(['status' => 'due', 'amount' => 2000])
+        ->and($june->detail)->toContain('contribuição de maio');
 });

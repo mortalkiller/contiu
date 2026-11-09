@@ -88,8 +88,9 @@ it('adds the estimated Segurança Social contribution when it is due', function 
 
     $forecast = forecast();
 
-    // January 2027 comes from a quarter without income: the 20 € minimum.
-    expect(array_column($forecast->months(), 'socialSecurity'))->toBe([14980, 14980, 2000])
+    // Each month pays the contribution of the month before: November to January pay October to
+    // December, all set by the income of jul–set.
+    expect(array_column($forecast->months(), 'socialSecurity'))->toBe([14980, 14980, 14980])
         ->and(row($forecast, 0)['outflows'])->toBe(14980);
 });
 

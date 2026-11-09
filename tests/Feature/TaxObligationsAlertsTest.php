@@ -47,7 +47,9 @@ it('sends no email without obligations', function () {
 
 it('notifies 3 days before a deadline, once', function () {
     alertsRunOn('2026-11-17');
-    expect(alertsTitles())->toHaveCount(1)->and(alertsTitles()[0])->toContain('faltam 3 dias');
+    expect(alertsTitles())->toHaveCount(1)->and(alertsTitles()[0])->toContain('faltam 3 dias')
+        // A user can be in several accounts: the body says which one.
+        ->and($this->alertsUser->fresh()->notifications->first()->data['body'])->toStartWith($this->account->name.' · ');
     Mail::assertNothingQueued();
 
     alertsRunOn('2026-11-18');

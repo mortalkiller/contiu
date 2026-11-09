@@ -193,6 +193,21 @@ it('derives this year\'s IRS Jovem number from the stored reference year', funct
     expect(app(FinanceSettings::class)->all()['irs_jovem_year'])->toBe(['year' => 2026, 'number' => 3]);
 });
 
+it('leaves the IRS Jovem number blank once the 10 years are over', function () {
+    $this->travelTo(Carbon::parse('2026-11-09'));
+    actingAsAdmin();
+    app(FinanceSettings::class)->set(['irs_jovem' => true, 'birth_date' => '1998-05-20', 'irs_jovem_year' => ['year' => 2015, 'number' => 1]]);
+
+    Livewire\Livewire::test(FinanceSettingsPage::class)
+        ->assertSchemaStateSet(['irs_jovem_year_number' => null], 'form')
+        ->assertSee('O IRS Jovem dura 10 anos: já terminou')
+        ->fillForm(['irs_jovem' => false])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect(app(FinanceSettings::class)->irsJovem())->toBeFalse();
+});
+
 it('asks for the cessation date on a restart and the birth date with IRS Jovem', function () {
     actingAsAdmin();
 
