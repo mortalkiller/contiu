@@ -4563,16 +4563,16 @@
         },
         {
             "name": "mortalkiller/filament-skeleton-loading",
-            "version": "v1.0.0",
+            "version": "v1.1.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/mortalkiller/filament-skeleton-loading.git",
-                "reference": "4ddca51edd5cab0ec044a7b1caeb9fdeb092210e"
+                "reference": "b7c2797be2b7de39f68e3fe2f7e950434c0167cf"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/mortalkiller/filament-skeleton-loading/zipball/4ddca51edd5cab0ec044a7b1caeb9fdeb092210e",
-                "reference": "4ddca51edd5cab0ec044a7b1caeb9fdeb092210e",
+                "url": "https://api.github.com/repos/mortalkiller/filament-skeleton-loading/zipball/b7c2797be2b7de39f68e3fe2f7e950434c0167cf",
+                "reference": "b7c2797be2b7de39f68e3fe2f7e950434c0167cf",
                 "shasum": ""
             },
             "require": {
@@ -4628,7 +4628,7 @@
                 "issues": "https://github.com/mortalkiller/filament-skeleton-loading/issues",
                 "source": "https://github.com/mortalkiller/filament-skeleton-loading"
             },
-            "time": "2026-11-08T21:58:28+00:00"
+            "time": "2026-11-09T02:16:59+00:00"
         },
         {
             "name": "nesbot/carbon",

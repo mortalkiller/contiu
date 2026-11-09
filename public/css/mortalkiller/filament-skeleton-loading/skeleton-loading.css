@@ -22,7 +22,7 @@
     position: relative;
     display: block;
     overflow: hidden;
-    border-radius: 6px;
+    border-radius: var(--fsl-rounded, var(--fsl-bone-radius, var(--radius-md, 6px)));
     background: var(--fsl-bone);
 }
 
@@ -88,7 +88,6 @@
 
 .fsl-chart-bars .fsl-bone {
     flex: 1 1 0;
-    border-radius: 6px 6px 2px 2px;
 }
 
 .fsl-chart-line {
@@ -174,17 +173,52 @@
     pointer-events: none;
 }
 
-/* Deferred tables: rows of cells */
-.fi-ta-table-loading-ctn { padding: 0 !important; }
+/* Repeat a rounded cell across four columns and seven rows. */
+.fi-ta-table-loading-ctn {
+    container-type: inline-size;
+    padding: 21px 0 !important;
+}
 
 .fi-ta-table-loading-ctn::before {
+    --fsl-column-1: calc((100cqw - 48px) * .26);
+    --fsl-column-2: calc((100cqw - 48px) * .52);
+    --fsl-column-3: calc((100cqw - 48px) * .78);
     content: "";
     display: block;
-    height: 392px;
-    margin: 0 24px;
-    background: repeating-linear-gradient(to bottom, transparent 0 21px, var(--fsl-bone) 21px 35px, transparent 35px 56px);
-    -webkit-mask-image: linear-gradient(90deg, #000 0 20%, transparent 20% 26%, #000 26% 58%, transparent 58% 64%, #000 64% 80%, transparent 80% 86%, #000 86% 96%, transparent 96%);
-    mask-image: linear-gradient(90deg, #000 0 20%, transparent 20% 26%, #000 26% 58%, transparent 58% 64%, #000 64% 80%, transparent 80% 86%, #000 86% 96%, transparent 96%);
+    width: max(0px, calc((100cqw - 48px) * .22));
+    height: 14px;
+    margin-inline: 24px;
+    margin-block-end: 336px;
+    border-radius: var(--fsl-rounded, var(--fsl-bone-radius, var(--radius-md, 6px)));
+    background: var(--fsl-bone);
+    box-shadow:
+        var(--fsl-column-1) 0 var(--fsl-bone),
+        var(--fsl-column-2) 0 var(--fsl-bone),
+        var(--fsl-column-3) 0 var(--fsl-bone),
+        0 56px var(--fsl-bone),
+        var(--fsl-column-1) 56px var(--fsl-bone),
+        var(--fsl-column-2) 56px var(--fsl-bone),
+        var(--fsl-column-3) 56px var(--fsl-bone),
+        0 112px var(--fsl-bone),
+        var(--fsl-column-1) 112px var(--fsl-bone),
+        var(--fsl-column-2) 112px var(--fsl-bone),
+        var(--fsl-column-3) 112px var(--fsl-bone),
+        0 168px var(--fsl-bone),
+        var(--fsl-column-1) 168px var(--fsl-bone),
+        var(--fsl-column-2) 168px var(--fsl-bone),
+        var(--fsl-column-3) 168px var(--fsl-bone),
+        0 224px var(--fsl-bone),
+        var(--fsl-column-1) 224px var(--fsl-bone),
+        var(--fsl-column-2) 224px var(--fsl-bone),
+        var(--fsl-column-3) 224px var(--fsl-bone),
+        0 280px var(--fsl-bone),
+        var(--fsl-column-1) 280px var(--fsl-bone),
+        var(--fsl-column-2) 280px var(--fsl-bone),
+        var(--fsl-column-3) 280px var(--fsl-bone),
+        0 336px var(--fsl-bone),
+        var(--fsl-column-1) 336px var(--fsl-bone),
+        var(--fsl-column-2) 336px var(--fsl-bone),
+        var(--fsl-column-3) 336px var(--fsl-bone);
 }
 
 /* Notifications panel: three notifications (icon, title, two lines of text) */
@@ -310,4 +344,104 @@
     #fsl-page-loader .fsl-loader-label {
         animation: none;
     }
+}
+
+/* Style the cells that Filament already marks as loading. */
+.fi-ta-content-loading {
+    --loading-skeleton-border-radius: var(--fsl-rounded, var(--fsl-bone-radius, var(--radius-md, 6px)));
+    --loading-skeleton-bg: rgb(0 0 0 / 0.07);
+}
+
+.dark .fi-ta-content-loading {
+    --loading-skeleton-bg: rgb(255 255 255 / 0.08);
+}
+
+/* Keep Filament's status and load trigger when the content hook supplies a richer placeholder. */
+.fsl-deferred-table ~ .fi-ta-content-ctn .fi-ta-table-loading-ctn {
+    padding: 0 !important;
+}
+
+.fsl-deferred-table ~ .fi-ta-content-ctn .fi-ta-table-loading-ctn::before,
+.fsl-deferred-table ~ .fi-ta-content-ctn .fi-ta-table-loading-ctn::after {
+    display: none;
+}
+
+.fsl-deferred-cells {
+    display: grid;
+    grid-template-columns: repeat(var(--fsl-columns), minmax(0, 1fr));
+    grid-auto-rows: 14px;
+    gap: 42px clamp(8px, 3vw, 24px);
+    padding: 21px 24px;
+}
+
+.fsl-deferred-cards {
+    gap: 16px;
+    padding: 16px 24px;
+}
+
+.fsl-deferred-card {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid var(--fsl-border);
+    border-radius: var(--radius-xl, 12px);
+}
+
+.fi-sc-loading[data-fsl-schema="infolist"]::before,
+.fi-sc-loading:not([data-fsl-schema])[data-fsl-schema-default="infolist"]::before {
+    background:
+        linear-gradient(var(--fsl-bone) 0 9px, transparent 9px) 0 0 / 24% 76px repeat-y,
+        linear-gradient(var(--fsl-bone) 0 16px, transparent 16px) 0 21px / 65% 76px repeat-y;
+}
+
+.fi-sc-loading[data-fsl-schema="list"]::before,
+.fi-sc-loading:not([data-fsl-schema])[data-fsl-schema-default="list"]::before {
+    background:
+        linear-gradient(var(--fsl-bone) 0 40px, transparent 40px) 0 8px / 100% 76px repeat-y;
+}
+
+html:has([data-fsl-search]) [role="listbox"][aria-busy="true"] ~ .fi-select-input-message::after {
+    content: "";
+    display: block;
+    width: 72%;
+    height: 8px;
+    margin-block: 10px 30px;
+    border-radius: var(--fsl-rounded, var(--fsl-bone-radius, var(--radius-md, 6px)));
+    color: rgb(0 0 0 / 0.07);
+    background: currentColor;
+    box-shadow: 0 16px currentColor, 0 32px currentColor;
+}
+
+.dark:has([data-fsl-search]) [role="listbox"][aria-busy="true"] ~ .fi-select-input-message::after {
+    color: rgb(255 255 255 / 0.08);
+}
+
+.fi-global-search-ctn:has(> .fsl-global-search-loading) {
+    position: relative;
+}
+
+.fsl-global-search-loading {
+    position: absolute;
+    z-index: 10;
+    inset-block-start: 100%;
+    inset-inline-end: 0;
+    width: 100%;
+    pointer-events: none;
+}
+
+.fi-global-search-ctn:not(:has(input[type="search"]:focus:not(:placeholder-shown))) > .fsl-global-search-loading {
+    display: none !important;
+}
+
+.fsl-global-search-loading > .fsl-skeleton {
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+    background: white;
+    border: 1px solid var(--fsl-border);
+    border-radius: var(--radius-lg, 8px);
+}
+
+.dark .fsl-global-search-loading > .fsl-skeleton {
+    background: var(--gray-900, #18181b);
 }
