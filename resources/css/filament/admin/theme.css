@@ -190,6 +190,55 @@
     color: var(--chrome-text);
 }
 
+/* Account switcher (topbar or sidebar): light text on the green, like the menu items. */
+.fi-topbar .fi-tenant-menu-trigger,
+.fi-topbar .fi-tenant-menu-trigger-tenant-name,
+.fi-sidebar .fi-tenant-menu-trigger,
+.fi-sidebar .fi-tenant-menu-trigger-tenant-name {
+    color: var(--chrome-text);
+}
+
+.fi-topbar .fi-tenant-menu-trigger-current-tenant-label,
+.fi-topbar .fi-tenant-menu-trigger > .fi-icon,
+.fi-sidebar .fi-tenant-menu-trigger-current-tenant-label,
+.fi-sidebar .fi-tenant-menu-trigger > .fi-icon {
+    color: var(--chrome-text-muted);
+}
+
+.fi-topbar .fi-tenant-menu-trigger:hover,
+.fi-topbar .fi-tenant-menu-trigger:focus-visible,
+.fi-sidebar .fi-tenant-menu-trigger:hover,
+.fi-sidebar .fi-tenant-menu-trigger:focus-visible {
+    background-color: var(--chrome-hover);
+}
+
+/* Sidebar scrollbar: thin, translucent white on the green instead of the browser's grey bar. */
+.fi-sidebar-nav {
+    scrollbar-width: thin;
+    scrollbar-color: var(--chrome-ring) transparent;
+}
+
+.fi-sidebar-nav:hover {
+    scrollbar-color: var(--chrome-text-muted) transparent;
+}
+
+.fi-sidebar-nav::-webkit-scrollbar {
+    width: 6px;
+}
+
+.fi-sidebar-nav::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.fi-sidebar-nav::-webkit-scrollbar-thumb {
+    background-color: var(--chrome-ring);
+    border-radius: 9999px;
+}
+
+.fi-sidebar-nav:hover::-webkit-scrollbar-thumb {
+    background-color: var(--chrome-text-muted);
+}
+
 /*
  * Page header summary (Total, Recebido, Em aberto…): keep each money value on one line.
  * Columns size to their content and wrap as whole items instead of breaking "2 400,00 €".
