@@ -30,6 +30,7 @@ it('shows the fiscal settings with their defaults and saves changes', function (
     Livewire::test(FinanceSettingsPage::class)
         ->assertSee('confirma os valores com o teu contabilista')
         ->assertSee('Limite anual de isenção de IVA (art. 53.º)')
+        ->assertFormFieldDoesNotExist('ss_first_year_exempt')
         ->assertSchemaStateSet(['irs_exempt' => false, 'vat_exempt' => true, 'ss_rate_percent' => 21.4, 'vat_exemption_threshold' => 15000.0], 'form')
         ->fillForm(['irs_exempt' => true, 'ss_rate_percent' => 21.4])
         ->call('save')
@@ -86,4 +87,30 @@ it('estimates taxes for the year with the exemptions from the settings', functio
 
     Livewire::test(TaxQuartersTable::class, ['year' => 2026])
         ->assertSeeInOrder(['Jan – Mar', 'Abr – Jun', 'Jul – Set', 'Out – Dez']);
+});
+
+it('notes the first-enrolment months and the minimum contribution per quarter', function () {
+    // A first start in August 2025: contributions are owed from August 2026 (an estimate).
+    app(FinanceSettings::class)->set(['activity_started_on' => '2025-08-07', 'activity_start_kind' => 'first']);
+
+    Livewire::test(TaxQuartersTable::class, ['year' => 2026])
+        ->assertSeeInOrder([
+            'Jan – Mar', 'Isento (1.º enquadramento)',
+            'Abr – Jun', '1 mês isento (1.º enquadramento) · Contribuição mínima',
+            'Jul – Set', 'Contribuição mínima',
+        ]);
+
+    Livewire::test(TaxEstimate::class)
+        ->assertSee('Isento (1.º enquadramento) até julho de 2026 (estimativa).');
+});
+
+it('notes a recognised contribution exemption', function () {
+    app(FinanceSettings::class)->set(['activity_started_on' => '2024-01-01', 'activity_start_kind' => 'first', 'ss_contribution_exempt' => true]);
+
+    Livewire::test(TaxQuartersTable::class, ['year' => 2026])
+        ->assertSee('Isento (art. 157.º)')
+        ->assertDontSee('Contribuição mínima');
+
+    Livewire::test(TaxEstimate::class)
+        ->assertSee('Isento (art. 157.º).');
 });

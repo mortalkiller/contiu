@@ -18,8 +18,9 @@ use Illuminate\Support\Carbon;
 
 beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-11-06'));
-    // Keep Segurança Social out of the way unless a test turns it on.
-    app(FinanceSettings::class)->set(['activity_started_on' => '2026-10-01', 'ss_first_year_exempt' => true]);
+    // Keep Segurança Social out of the way unless a test turns it on: a first start in October 2026
+    // only owes contributions from October 2027 (1.º enquadramento).
+    app(FinanceSettings::class)->set(['activity_started_on' => '2026-10-01', 'activity_start_kind' => 'first']);
 });
 
 function forecast(int $months = 3): CashForecast
@@ -81,13 +82,14 @@ it('counts unpaid expenses and projects recurring ones after the latest generate
 });
 
 it('adds the estimated Segurança Social contribution when it is due', function () {
-    app(FinanceSettings::class)->set(['ss_first_year_exempt' => false]);
+    app(FinanceSettings::class)->set(['activity_started_on' => '2024-01-01']);
     $receivable = Receivable::factory()->create(['amount' => 300000, 'due_on' => '2026-08-01']);
     Payment::factory()->for($receivable)->create(['paid_on' => '2026-08-10', 'amount' => 300000]);
 
     $forecast = forecast();
 
-    expect(array_column($forecast->months(), 'socialSecurity'))->toBe([14980, 14980, 0])
+    // January 2027 comes from a quarter without income: the 20 € minimum.
+    expect(array_column($forecast->months(), 'socialSecurity'))->toBe([14980, 14980, 2000])
         ->and(row($forecast, 0)['outflows'])->toBe(14980);
 });
 

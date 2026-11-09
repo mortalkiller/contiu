@@ -19,7 +19,6 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\EmbeddedSchema;
 use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\Wizard;
 use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
@@ -121,9 +120,7 @@ class RegisterAccount extends Register
                         ->helperText('A data em que abriste atividade nas Finanças.')
                         ->native(false)
                         ->displayFormat('d/m/Y')
-                        ->required()
-                        ->live()
-                        ->afterStateUpdated(fn ($state, Set $set) => $set('ss_first_year_exempt', self::inFirstYear($state))),
+                        ->required(),
                 ]),
 
             Step::make('Impostos')
@@ -170,10 +167,6 @@ class RegisterAccount extends Register
                         ->suffix('%')
                         ->default(70)
                         ->required(),
-                    Toggle::make('ss_first_year_exempt')
-                        ->label('Isento nos primeiros 12 meses')
-                        ->helperText('Ligado por defeito quando a atividade começou há menos de 12 meses.')
-                        ->columnSpanFull(),
                 ]),
 
             Step::make('Banco')
@@ -256,19 +249,12 @@ class RegisterAccount extends Register
                 ...($vatExempt ? ['vat_exemption_threshold' => (int) $data['vat_exemption_threshold']] : []),
                 'ss_rate' => round((float) $data['ss_rate_percent'] / 100, 4),
                 'ss_relevant_income_share' => round((float) $data['ss_relevant_income_share_percent'] / 100, 4),
-                'ss_first_year_exempt' => (bool) ($data['ss_first_year_exempt'] ?? false),
                 'has_business_account' => $hasBusinessAccount = (bool) ($data['has_business_account'] ?? false),
                 'account_names' => $hasBusinessAccount ? ($data['account_names'] ?? null) : null,
             ]);
 
             return $user;
         });
-    }
-
-    /** Social Security exempts the first 12 months of activity (and an activity about to start). */
-    private static function inFirstYear(mixed $startedOn): bool
-    {
-        return filled($startedOn) && Carbon::parse($startedOn)->greaterThanOrEqualTo(today()->subYear());
     }
 
     private static function taxSummary(Get $get): string
@@ -284,8 +270,7 @@ class RegisterAccount extends Register
     private static function socialSecuritySummary(Get $get): string
     {
         $percent = fn ($value) => str_replace('.', ',', (string) round((float) $value, 2)).' %';
-        $summary = $percent($get('ss_rate_percent')).' sobre '.$percent($get('ss_relevant_income_share_percent')).' do rendimento';
 
-        return $get('ss_first_year_exempt') ? "{$summary}; isento nos primeiros 12 meses" : $summary;
+        return $percent($get('ss_rate_percent')).' sobre '.$percent($get('ss_relevant_income_share_percent')).' do rendimento';
     }
 }

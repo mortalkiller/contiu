@@ -35,8 +35,9 @@ it('starts new accounts without tax exemptions', function () {
 
     expect($settings['irs_exempt'])->toBeFalse()
         ->and($settings['vat_exempt'])->toBeFalse()
-        ->and($settings['ss_first_year_exempt'])->toBeFalse()
-        ->and($settings['payments_exempt_by_default'])->toBeFalse();
+        ->and($settings['ss_contribution_exempt'])->toBeFalse()
+        ->and($settings['payments_exempt_by_default'])->toBeFalse()
+        ->and($settings)->not->toHaveKey('ss_first_year_exempt');
 });
 
 it('suggests the business lines already used in the account', function () {

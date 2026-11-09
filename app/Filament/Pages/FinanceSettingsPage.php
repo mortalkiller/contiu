@@ -46,7 +46,6 @@ class FinanceSettingsPage extends Page
 
         $this->form->fill([
             'activity_started_on' => $settings->activityStartedOn()?->toDateString(),
-            'ss_first_year_exempt' => $settings->ssFirstYearExempt(),
             'ss_rate_percent' => round($settings->ssRate() * 100, 2),
             'ss_relevant_income_share_percent' => round($settings->ssRelevantIncomeShare() * 100, 2),
             'irs_exempt' => $settings->irsExempt(),
@@ -77,10 +76,8 @@ class FinanceSettingsPage extends Page
                         DatePicker::make('activity_started_on')
                             ->label('Início de atividade')
                             ->native(false)
-                            ->displayFormat('d/m/Y'),
-                        Toggle::make('ss_first_year_exempt')
-                            ->label('Isento nos primeiros 12 meses')
-                            ->inline(false),
+                            ->displayFormat('d/m/Y')
+                            ->columnSpanFull(),
                         TextInput::make('ss_rate_percent')
                             ->label('Taxa contributiva')
                             ->numeric()
@@ -161,7 +158,6 @@ class FinanceSettingsPage extends Page
 
         app(FinanceSettings::class)->set([
             'activity_started_on' => $data['activity_started_on'] ?? null,
-            'ss_first_year_exempt' => (bool) ($data['ss_first_year_exempt'] ?? false),
             'ss_rate' => round((float) $data['ss_rate_percent'] / 100, 4),
             'ss_relevant_income_share' => round((float) $data['ss_relevant_income_share_percent'] / 100, 4),
             'irs_exempt' => (bool) ($data['irs_exempt'] ?? false),

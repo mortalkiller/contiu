@@ -43,7 +43,6 @@ function registrationData(array $overrides = []): array
         'vat_exemption_threshold' => 15000,
         'ss_rate_percent' => 21.4,
         'ss_relevant_income_share_percent' => 70,
-        'ss_first_year_exempt' => true,
         'has_business_account' => true,
         'account_names' => " RITA SILVA \n\nOrdenado",
         'terms' => true,
@@ -84,7 +83,6 @@ it('creates user and account from the wizard', function () {
             ->and($settings->vatExemptionThreshold())->toBe(1500000)
             ->and($settings->ssRate())->toBe(0.214)
             ->and($settings->ssRelevantIncomeShare())->toBe(0.70)
-            ->and($settings->ssFirstYearExempt())->toBeTrue()
             ->and($settings->hasBusinessAccount())->toBeTrue()
             ->and($settings->accountNames())->toBe(['RITA SILVA', 'Ordenado']);
     });
@@ -119,15 +117,11 @@ it('starts with the usual rates and VAT limit', function () {
     ]);
 });
 
-it('assumes the first-year exemption only for an activity started in the last 12 months', function (string $startedOn, bool $exempt) {
+it('no longer asks for the first-year exemption, now computed from the activity', function () {
     Livewire::test(RegisterAccount::class)
-        ->set('data.activity_started_on', $startedOn)
-        ->assertFormSet(['ss_first_year_exempt' => $exempt]);
-})->with([
-    'this year' => ['2026-03-01', true],
-    'starting soon' => ['2026-12-01', true],
-    'over a year ago' => ['2025-10-01', false],
-]);
+        ->assertFormFieldDoesNotExist('ss_first_year_exempt')
+        ->assertDontSee('Isento nos primeiros 12 meses');
+});
 
 it('stores no VAT limit when the account is not VAT exempt', function () {
     registrationWizard(['vat_exempt' => false, 'vat_exemption_threshold' => 999])

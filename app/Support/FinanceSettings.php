@@ -18,7 +18,6 @@ final class FinanceSettings
         'vat_exemption_threshold' => 1500000, // cents
         'ss_rate' => 0.214,
         'ss_relevant_income_share' => 0.70,
-        'ss_first_year_exempt' => false,
         'payments_exempt_by_default' => false,
         'account_names' => null, // one per line: the holder's name and the holder's own accounts
         // A bank account only for the activity, whose statement is imported. On for accounts from
@@ -109,11 +108,6 @@ final class FinanceSettings
     public function ssRelevantIncomeShare(): float
     {
         return (float) $this->all()['ss_relevant_income_share'];
-    }
-
-    public function ssFirstYearExempt(): bool
-    {
-        return (bool) $this->all()['ss_first_year_exempt'];
     }
 
     public function activityStartedOn(): ?CarbonImmutable

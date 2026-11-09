@@ -5,9 +5,11 @@ namespace App\Filament\Pages;
 use App\Filament\Analysis\Widgets\TaxQuartersTable;
 use App\Support\FinanceSettings;
 use App\Support\Money;
+use App\Support\Period;
 use App\Support\PeriodSummary;
 use App\Support\TaxEstimator;
 use BackedEnum;
+use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Infolists\Components\TextEntry;
@@ -97,10 +99,7 @@ class TaxEstimate extends Page
                     ->icon(Phosphor::Bank)
                     ->schema([
                         TextEntry::make('ss')->hiddenLabel()->state(Money::format($estimator->ssYearTotal()))->size(TextSize::Large)->weight('bold'),
-                        TextEntry::make('ss_note')->hiddenLabel()->color('gray')->state(match (true) {
-                            $estimator->firstYearEndsOn() !== null && $estimator->settings()->ssFirstYearExempt() => 'Isento até '.$estimator->firstYearEndsOn()->format('d/m/Y').' (1.º ano).',
-                            default => 'Estimativa do ano, pelos trimestres abaixo.',
-                        }),
+                        TextEntry::make('ss_note')->hiddenLabel()->color('gray')->state(fn (): string => $this->socialSecurityNote($estimator)),
                     ]),
                 Section::make('IRS')
                     ->icon(Phosphor::Receipt)
@@ -149,5 +148,20 @@ class TaxEstimate extends Page
             },
             ...$this->getWidgetsSchemaComponents([TaxQuartersTable::class], ['year' => $this->year]),
         ]);
+    }
+
+    /** Why the year's contribution is lower: an exemption, or months before the obligation starts. */
+    private function socialSecurityNote(TaxEstimator $estimator): string
+    {
+        $startsOn = $estimator->ssObligationStartsOn();
+
+        return match (true) {
+            $estimator->settings()->ssContributionExempt() => 'Isento (art. 157.º).',
+            // The year's quarters are paid from April on; an earlier start leaves none of them exempt.
+            $startsOn !== null && $startsOn->gt(CarbonImmutable::create($estimator->year, 4, 1)) => 'Isento (1.º enquadramento) até '
+                .mb_strtolower(Period::MONTHS[$startsOn->subMonth()->month - 1]).' de '.$startsOn->subMonth()->year
+                .($estimator->ssObligationIsEstimated() ? ' (estimativa).' : '.'),
+            default => 'Estimativa do ano, pelos trimestres abaixo.',
+        };
     }
 }

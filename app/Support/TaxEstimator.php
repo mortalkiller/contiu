@@ -13,8 +13,10 @@ use Illuminate\Support\Collection;
  * - "Rendimento relevante" is approximated by the payments received (fatura-recibo is issued on payment).
  * - Segurança Social (trabalhador independente): each quarter's income is declared in the following
  *   month and sets the contribution of the next three months: base = income × relevant share / 3,
- *   contribution = base × rate. Months within the first 12 months of activity are exempt when the
- *   first-year exemption applies.
+ *   contribution = base × rate, never below the 20 € minimum (art. 163.º), also in quarters without
+ *   income. The obligation starts on the SS enrolment date, or else 12 months after a first start
+ *   (art. 145.º, n.º 1) or on a restart (n.º 3); months before it are "1.º enquadramento". A
+ *   recognised exemption (art. 157.º) leaves every month without contribution.
  * - IRS: exempt (setting) or taxable income = 75% of services income; the tax itself is not computed.
  * - IVA: art. 53.º exemption → progress against the yearly threshold; otherwise VAT collected vs paid.
  */
@@ -23,6 +25,9 @@ final class TaxEstimator
     public const QUARTER_LABELS = ['Jan – Mar', 'Abr – Jun', 'Jul – Set', 'Out – Dez'];
 
     public const IRS_SERVICES_COEFFICIENT = 0.75;
+
+    /** Cents: the monthly contribution of a trabalhador independente never goes below it. */
+    public const SS_MINIMUM_CONTRIBUTION = 2000;
 
     /** @var array<string, int> */
     private array $incomeCache = [];
@@ -40,7 +45,9 @@ final class TaxEstimator
     }
 
     /**
-     * @return array<int, array{label: string, income: int, base: int, monthly: int, chargedMonths: int, total: int, paidIn: string} (cents)>
+     * `status` is the one of the quarter's first payment month (charged, first_enrolment or exempt).
+     *
+     * @return array<int, array{label: string, income: int, base: int, monthly: int, chargedMonths: int, total: int, paidIn: string, status: string} (cents)>
      */
     public function quarters(): array
     {
@@ -52,7 +59,7 @@ final class TaxEstimator
             [$base, $monthly] = $this->contribution($income);
 
             $paymentMonths = collect(range(0, 2))->map(fn (int $offset) => $start->addMonths(3 + $offset));
-            $charged = $paymentMonths->reject(fn (CarbonImmutable $month) => $this->isExemptMonth($month))->count();
+            $charged = $paymentMonths->filter(fn (CarbonImmutable $month) => $this->ssMonthStatus($month) === 'charged')->count();
 
             $quarters[] = [
                 'label' => self::QUARTER_LABELS[$index],
@@ -62,6 +69,7 @@ final class TaxEstimator
                 'chargedMonths' => $charged,
                 'total' => $monthly * $charged,
                 'paidIn' => Period::SHORT_MONTHS[$paymentMonths->first()->month - 1].' – '.Period::SHORT_MONTHS[$paymentMonths->last()->month - 1].' '.$paymentMonths->last()->year,
+                'status' => $this->ssMonthStatus($paymentMonths->first()),
             ];
         }
 
@@ -78,7 +86,7 @@ final class TaxEstimator
     {
         $month = $month->startOfMonth();
 
-        if ($this->isExemptMonth($month)) {
+        if ($this->ssMonthStatus($month) !== 'charged') {
             return 0;
         }
 
@@ -88,18 +96,41 @@ final class TaxEstimator
         return $monthly;
     }
 
-    public function isExemptMonth(CarbonImmutable $month): bool
+    /**
+     * First month with a contribution: the SS enrolment date when the account has it, else computed
+     * from the activity start (a first start when the kind is not said yet). Null without a start
+     * date: every month is charged.
+     */
+    public function ssObligationStartsOn(): ?CarbonImmutable
     {
-        $start = $this->settings->activityStartedOn();
+        if ($enrolled = $this->settings->ssEnrolledFrom()) {
+            return $enrolled->startOfMonth();
+        }
 
-        return $this->settings->ssFirstYearExempt()
-            && $start !== null
-            && $month->startOfMonth()->lt($start->addMonths(12)->startOfMonth());
+        $start = $this->settings->activityStartedOn()?->startOfMonth();
+
+        return match ($this->settings->activityStartKind()) {
+            'restart' => $start,
+            default => $start?->addMonths(12),
+        };
     }
 
-    public function firstYearEndsOn(): ?CarbonImmutable
+    /** The obligation start is the app's calculation, not the date the SS gave. */
+    public function ssObligationIsEstimated(): bool
     {
-        return $this->settings->activityStartedOn()?->addMonths(12)->subDay();
+        return $this->settings->ssEnrolledFrom() === null && $this->ssObligationStartsOn() !== null;
+    }
+
+    /** charged | first_enrolment (before the obligation starts) | exempt (art. 157.º). */
+    public function ssMonthStatus(CarbonImmutable $month): string
+    {
+        if ($this->settings->ssContributionExempt()) {
+            return 'exempt';
+        }
+
+        $startsOn = $this->ssObligationStartsOn();
+
+        return $startsOn !== null && $month->startOfMonth()->lt($startsOn) ? 'first_enrolment' : 'charged';
     }
 
     public function irsExempt(): bool
@@ -170,12 +201,12 @@ final class TaxEstimator
         return $this->vatCollected() - $this->vatPaid();
     }
 
-    /** @return array{0: int, 1: int} [base, monthly contribution] in cents */
+    /** @return array{0: int, 1: int} [base, monthly contribution with the minimum] in cents */
     private function contribution(int $income): array
     {
         $base = Money::round($income * $this->settings->ssRelevantIncomeShare() / 3);
 
-        return [$base, Money::share($base, $this->settings->ssRate())];
+        return [$base, max(Money::share($base, $this->settings->ssRate()), self::SS_MINIMUM_CONTRIBUTION)];
     }
 
     private function incomeBetween(CarbonImmutable $from, CarbonImmutable $to): int

@@ -26,7 +26,6 @@ function newAccountData(array $overrides = []): array
         'vat_exemption_threshold' => 1500000,
         'ss_rate' => 0.214,
         'ss_relevant_income_share' => 0.70,
-        'ss_first_year_exempt' => true,
         'account_names' => "RITA SILVA\nCONTA RITA",
         ...$overrides,
     ];
@@ -58,7 +57,6 @@ it('creates the account with its owner, trial, settings and categories', functio
             ->and($settings->vatExemptionThreshold())->toBe(1500000)
             ->and($settings->ssRate())->toBe(0.214)
             ->and($settings->ssRelevantIncomeShare())->toBe(0.70)
-            ->and($settings->ssFirstYearExempt())->toBeTrue()
             ->and($settings->accountNames())->toBe(['RITA SILVA', 'CONTA RITA'])
             ->and(Category::count())->toBe(11);
     });

@@ -52,11 +52,7 @@ class TaxQuartersTable extends TableWidget
         foreach ($estimator->quarters() as $index => $quarter) {
             $rows['q'.($index + 1)] = [
                 ...$quarter,
-                'note' => match ($quarter['chargedMonths']) {
-                    3 => null,
-                    0 => 'Isento (1.º ano de atividade)',
-                    default => (3 - $quarter['chargedMonths']).' '.((3 - $quarter['chargedMonths']) === 1 ? 'mês isento' : 'meses isentos'),
-                },
+                'note' => $this->note($quarter),
                 'is_total' => false,
             ];
         }
@@ -73,5 +69,25 @@ class TaxQuartersTable extends TableWidget
         ];
 
         return $rows;
+    }
+
+    /**
+     * Exempt months (first enrolment or art. 157.º) and whether the contribution is the minimum.
+     *
+     * @param  array{monthly: int, chargedMonths: int, status: string}  $quarter
+     */
+    private function note(array $quarter): ?string
+    {
+        $exemptMonths = 3 - $quarter['chargedMonths'];
+
+        return collect([
+            match (true) {
+                $exemptMonths === 0 => null,
+                $quarter['status'] === 'exempt' => 'Isento (art. 157.º)',
+                $exemptMonths === 3 => 'Isento (1.º enquadramento)',
+                default => $exemptMonths.' '.($exemptMonths === 1 ? 'mês isento' : 'meses isentos').' (1.º enquadramento)',
+            },
+            $quarter['chargedMonths'] > 0 && $quarter['monthly'] === TaxEstimator::SS_MINIMUM_CONTRIBUTION ? 'Contribuição mínima' : null,
+        ])->filter()->implode(' · ') ?: null;
     }
 }

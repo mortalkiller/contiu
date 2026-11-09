@@ -11,10 +11,11 @@ it('returns the documented defaults when nothing is stored', function () {
         ->and($settings->vatExemptionThreshold())->toBe(1500000)
         ->and($settings->ssRate())->toBe(0.214)
         ->and($settings->ssRelevantIncomeShare())->toBe(0.70)
-        ->and($settings->ssFirstYearExempt())->toBeFalse()
+        ->and($settings->ssContributionExempt())->toBeFalse()
         ->and($settings->activityStartedOn())->toBeNull()
         ->and($settings->accountNames())->toBe([])
-        ->and($settings->all())->not->toHaveKey('current_bank_balance');
+        ->and($settings->all())->not->toHaveKey('current_bank_balance')
+        ->and($settings->all())->not->toHaveKey('ss_first_year_exempt');
 });
 
 it('stores and reads values back with their types', function () {
