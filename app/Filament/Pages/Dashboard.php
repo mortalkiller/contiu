@@ -10,6 +10,7 @@ use App\Filament\Widgets\IncomeByCategoryChart;
 use App\Filament\Widgets\MonthComparisonChart;
 use App\Filament\Widgets\MonthlyCashFlowTable;
 use App\Filament\Widgets\PeriodSummaryTable;
+use App\Filament\Widgets\TaxObligationsCard;
 use App\Filament\Widgets\UpcomingReceivablesTable;
 use App\Support\Period;
 use App\Support\PeriodSummary;
@@ -109,15 +110,15 @@ class Dashboard extends BaseDashboard
     public const SIDE_COLUMN = [IncomeByCategoryChart::class, ExpensesByCategoryChart::class, PeriodSummaryTable::class];
 
     /**
-     * Stats on top, then two stacked columns instead of one grid: in a grid every row takes the
-     * height of its tallest widget, which left short widgets in tall, half-empty cards.
+     * Stats and the "Este mês" card on top, then two stacked columns instead of one grid: in a grid
+     * every row takes the height of its tallest widget, which left short widgets in tall, half-empty cards.
      */
     public function getWidgetsContentComponent(): Component
     {
         $only = fn (array $classes): array => array_values(array_filter($this->getWidgets(), fn ($widget) => in_array($widget, $classes, true)));
 
         return Group::make([
-            Grid::make(1)->schema(fn (): array => $this->getWidgetsSchemaComponents($only([FinanceStatsOverview::class, CompanyAccountStats::class]))),
+            Grid::make(1)->schema(fn (): array => $this->getWidgetsSchemaComponents($only([FinanceStatsOverview::class, CompanyAccountStats::class, TaxObligationsCard::class]))),
             Grid::make(['default' => 1, 'xl' => 3])->schema([
                 Grid::make(1)
                     ->columnSpan(['default' => 1, 'xl' => 2])
