@@ -1,57 +1,51 @@
 @php
-    /** @var array{key: string, kind: string, title: string, amount: ?string, detail: string, badge: ?array{label: string, color: string}, mark: ?string, link: ?array{label: string, url: string}, tone: string} $row */
+    /** @var array{key: string, title: string, tooltip: string, url: ?string, when: ?string, overdue: bool, amount: ?string, mark: ?string, markTooltip: ?string, tone: string, note: bool} $row */
     $isDone ??= false;
-    $isNote = in_array($row['kind'], ['incomplete-settings', 'foreign-vat-warning'], true);
 @endphp
 
-<div @class(['flex flex-wrap items-center gap-x-4 gap-y-2 py-3', 'opacity-75' => $isDone]) wire:key="tax-obligation-{{ $row['key'] }}{{ $isDone ? '-done' : '' }}">
+<div @class(['flex items-center gap-3 border-b border-gray-950/5 py-3 dark:border-white/10', 'opacity-70' => $isDone]) wire:key="tax-obligation-{{ $row['key'] }}{{ $isDone ? '-done' : '' }}">
     <span @class([
-        'size-2.5 shrink-0 rounded-full',
-        'bg-danger-500' => $row['tone'] === 'danger' && ! $isDone,
-        'bg-warning-500' => $row['tone'] === 'warning' && ! $isDone,
-        'bg-gray-300 dark:bg-white/20' => $row['tone'] === 'gray' && ! $isDone,
-        'bg-success-500' => $isDone,
+        'size-2 shrink-0 rounded-full',
+        'bg-danger-500' => $row['tone'] === 'danger',
+        'bg-warning-500' => $row['tone'] === 'warning',
+        'bg-success-500' => $row['tone'] === 'success',
+        'bg-gray-300 dark:bg-white/20' => $row['tone'] === 'gray',
     ])></span>
 
-    <div class="min-w-0 flex-1 basis-56">
-        <p @class(['font-semibold', 'text-gray-950 dark:text-white' => ! $isNote, 'text-warning-700 dark:text-warning-400' => $isNote])>{{ $row['title'] }}</p>
-        <p class="text-xs text-gray-500 dark:text-gray-400">{{ $row['detail'] }}</p>
-        @if ($row['badge'] || $row['link'])
-            <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-                @if ($row['badge'])
-                    <x-filament::badge :color="$row['badge']['color']" size="sm">{{ $row['badge']['label'] }}</x-filament::badge>
-                @endif
-                @if ($row['link'])
-                    <x-filament::link :href="$row['link']['url']" size="sm" color="gray">{{ $row['link']['label'] }}</x-filament::link>
-                @endif
-            </div>
+    <span class="min-w-0 flex-1 truncate" x-tooltip="{ content: @js($row['tooltip']), theme: $store.theme }">
+        @if ($row['url'])
+            <a href="{{ $row['url'] }}" @class(['font-semibold hover:underline', 'text-gray-950 dark:text-white' => ! $row['note'], 'text-warning-700 dark:text-warning-400' => $row['note']])>{{ $row['title'] }}</a>
+        @else
+            <span @class(['font-semibold', 'text-gray-950 dark:text-white' => ! $row['note'], 'text-warning-700 dark:text-warning-400' => $row['note']])>{{ $row['title'] }}</span>
         @endif
-    </div>
+    </span>
 
-    <div class="ms-auto flex items-center gap-3">
-        @if ($row['amount'])
-            <span class="text-base font-semibold tabular-nums text-gray-950 dark:text-white">{{ $row['amount'] }}</span>
-        @endif
+    @if ($row['when'])
+        <span @class(['shrink-0 whitespace-nowrap text-xs', 'text-danger-600 dark:text-danger-400' => $row['overdue'], 'text-gray-500 dark:text-gray-400' => ! $row['overdue']])>{{ $row['when'] }}</span>
+    @endif
 
-        @if ($isDone)
-            <x-filament::button
-                size="sm"
-                color="gray"
-                :disabled="filled($readOnlyTooltip)"
-                :tooltip="$readOnlyTooltip"
-                :wire:click="filled($readOnlyTooltip) ? null : 'reopen('.\Illuminate\Support\Js::from($row['key']).')'"
-            >
-                Desfazer
-            </x-filament::button>
-        @elseif ($row['mark'])
-            <x-filament::button
-                size="sm"
-                :disabled="filled($readOnlyTooltip)"
-                :tooltip="$readOnlyTooltip"
-                :wire:click="filled($readOnlyTooltip) ? null : 'complete('.\Illuminate\Support\Js::from($row['key']).')'"
-            >
-                {{ $row['mark'] }}
-            </x-filament::button>
-        @endif
-    </div>
+    @if ($row['amount'])
+        <span class="w-20 shrink-0 text-right font-semibold tabular-nums text-gray-950 dark:text-white">{{ $row['amount'] }}</span>
+    @endif
+
+    @if ($isDone)
+        <x-filament::button
+            size="xs"
+            color="gray"
+            :disabled="filled($readOnlyTooltip)"
+            :tooltip="$readOnlyTooltip ?? 'Voltar a pôr por fazer'"
+            :wire:click="filled($readOnlyTooltip) ? null : 'reopen('.\Illuminate\Support\Js::from($row['key']).')'"
+        >
+            Desfazer
+        </x-filament::button>
+    @elseif ($row['mark'])
+        <x-filament::button
+            size="xs"
+            :disabled="filled($readOnlyTooltip)"
+            :tooltip="$readOnlyTooltip ?? $row['markTooltip']"
+            :wire:click="filled($readOnlyTooltip) ? null : 'complete('.\Illuminate\Support\Js::from($row['key']).')'"
+        >
+            {{ $row['mark'] }}
+        </x-filament::button>
+    @endif
 </div>

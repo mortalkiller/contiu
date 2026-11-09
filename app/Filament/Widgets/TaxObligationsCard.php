@@ -14,18 +14,20 @@ use App\Support\TaxObligations;
 use Carbon\CarbonImmutable;
 use Filament\Notifications\Notification;
 use Filament\Widgets\Widget;
-use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
+use Illuminate\Contracts\View\View;
+use MortalKiller\FilamentSkeletonLoading\SkeletonLoadingPlugin;
 
 /**
  * "Este mês": what there is to pay or deliver this month (always the current month, whatever
- * period the dashboard filters show), each row marked as paid / delivered from here.
+ * period the dashboard filters show), each row marked as paid / delivered from here. One line per
+ * task; the details (which purchases, which article, how it is worked out) sit in tooltips.
  * ESTIMATES ONLY — see App\Support\TaxObligations.
  */
 class TaxObligationsCard extends Widget
 {
-    use HasSkeletonPlaceholder;
-
     protected static ?int $sort = 3;
+
+    protected static bool $isLazy = true;
 
     protected int|string|array $columnSpan = 'full';
 
@@ -35,6 +37,16 @@ class TaxObligationsCard extends Widget
     public bool $showDone = false;
 
     private ?FinanceSettings $settings = null;
+
+    /** While it loads: a skeleton with the card's own shape (summary block, a task, two limits). */
+    public function placeholder(): View
+    {
+        if (! SkeletonLoadingPlugin::isEnabled()) {
+            return parent::placeholder();
+        }
+
+        return view('filament.widgets.partials.tax-obligations-card-skeleton');
+    }
 
     public function toggleDone(): void
     {
@@ -81,66 +93,65 @@ class TaxObligationsCard extends Widget
         $next = collect($pending)->filter(fn (TaxObligation $obligation) => $obligation->dueOn !== null)->sortBy(fn (TaxObligation $obligation) => $obligation->dueOn)->first();
 
         return [
-            'monthName' => mb_strtolower(Period::MONTHS[$today->month - 1]),
+            'month' => Period::MONTHS[$today->month - 1],
             'pendingCount' => count($pending),
             'pendingTotal' => Money::format((int) array_sum(array_map(fn (TaxObligation $obligation) => $obligation->amount ?? 0, $pending))),
-            'next' => $next === null ? null : [
-                'title' => $next->title,
-                'date' => $next->dueOn->day.' de '.mb_strtolower(Period::MONTHS[$next->dueOn->month - 1]),
-                'badge' => $this->badge($next, $today),
-            ],
+            'next' => $next === null ? null : self::shortDate($next->dueOn).' · '.self::daysLabel($next->daysLeft($today)),
             'socialSecurity' => $this->socialSecurityLine($rows),
             'tasks' => array_map(fn (TaxObligation $obligation) => $this->row($obligation, $today), [...$pending, ...$notes]),
             'nothingToPay' => $pending === [] && ! $this->settings()->isIncomplete(),
             'limits' => array_values(array_filter([$this->socialSecurityLimit($today), $this->vatLimit($today)])),
-            'upcoming' => array_map(fn (TaxObligation $obligation) => ['title' => $obligation->title, 'when' => $this->upcomingWhen($obligation)], $obligations->upcoming()),
+            'upcoming' => implode(' · ', array_map(fn (TaxObligation $obligation) => $this->upcomingLabel($obligation), $obligations->upcoming())),
             'done' => array_map(fn (TaxObligation $obligation) => $this->row($obligation, $today), $obligations->done()),
             'readOnly' => CurrentAccount::readOnly(),
         ];
     }
 
     /**
-     * What the view draws for one obligation.
+     * One line of the card: the title (a link when there is one, the detail in its tooltip), the
+     * deadline, the amount and the button.
      *
-     * @return array{key: string, kind: string, title: string, amount: ?string, detail: string, badge: ?array{label: string, color: string}, mark: ?string, link: ?array{label: string, url: string}, tone: string}
+     * @return array{key: string, title: string, tooltip: string, url: ?string, when: ?string, overdue: bool, amount: ?string, mark: ?string, markTooltip: ?string, tone: string, note: bool}
      */
     private function row(TaxObligation $obligation, CarbonImmutable $today): array
     {
         $days = $obligation->daysLeft($today);
+        [$mark, $markTooltip] = in_array($obligation->status, ['due', 'overdue'], true) ? match ($obligation->kind) {
+            'ss', 'vat-reverse' => ['Pago', 'Marcar como pago'],
+            'ss-declaration', 'recapitulativa', 'irs-modelo3' => ['Entregue', 'Marcar como entregue'],
+            default => [null, null],
+        } : [null, null];
 
         return [
             'key' => $obligation->key,
-            'kind' => $obligation->kind,
             'title' => $obligation->title,
+            'tooltip' => $obligation->detail,
+            'url' => $obligation->url,
+            'when' => match (true) {
+                $obligation->status === 'done' => 'feito',
+                $obligation->dueOn === null => null,
+                $days < 0 => 'atrasado '.self::days(-$days),
+                $days === 0 => 'termina hoje',
+                default => 'até '.self::shortDate($obligation->dueOn),
+            },
+            'overdue' => $obligation->status === 'overdue',
             'amount' => $obligation->amount === null ? null : Money::format($obligation->amount),
-            'detail' => $obligation->detail,
-            'badge' => $this->badge($obligation, $today),
-            'mark' => in_array($obligation->status, ['due', 'overdue'], true) ? match ($obligation->kind) {
-                'ss', 'vat-reverse' => 'Marcar como pago',
-                'ss-declaration', 'recapitulativa', 'irs-modelo3' => 'Marcar como entregue',
-                default => null,
-            } : null,
-            'link' => $obligation->url === null ? null : [
-                'label' => match ($obligation->kind) {
-                    'vat-reverse' => 'Ver compras',
-                    'foreign-vat-warning' => 'Ver despesa',
-                    'incomplete-settings' => 'Completar definições',
-                    default => 'Ver estimativa',
-                },
-                'url' => $obligation->url,
-            ],
-            // The dot beside the title: overdue, due within a week, a note, or later.
+            'mark' => $mark,
+            'markTooltip' => $markTooltip,
+            // The dot: overdue, due within a week (or a note to check), or later.
             'tone' => match (true) {
+                $obligation->status === 'done' => 'success',
                 $obligation->status === 'overdue' => 'danger',
                 $obligation->status === 'info' => 'warning',
                 $days !== null && $days <= 7 => 'warning',
                 default => 'gray',
             },
+            'note' => $obligation->status === 'info',
         ];
     }
 
     /**
-     * The month's Segurança Social in one line for the summary block.
+     * The month's Segurança Social in a few words for the summary block.
      *
      * @param  list<TaxObligation>  $rows
      */
@@ -150,8 +161,8 @@ class TaxObligationsCard extends Widget
 
         return match (true) {
             $ss === null => null,
-            $ss->status === 'exempt' => 'Segurança Social: '.$ss->detail,
-            $ss->status === 'done' => 'Segurança Social do mês paga',
+            $ss->status === 'exempt' => 'Segurança Social: isento',
+            $ss->status === 'done' => 'Segurança Social: paga',
             default => 'Segurança Social: '.Money::format((int) $ss->amount).' até dia '.$ss->dueOn?->day,
         };
     }
@@ -160,7 +171,7 @@ class TaxObligationsCard extends Widget
      * The accumulation exemption (art. 157.º, n.º 1, al. a)) holds while the relevant income of the
      * last closed quarter stays under 4 × IAS a month. Only for an account exempt from contributing.
      *
-     * @return array{label: string, percent: string, width: float, color: string, detail: string, message: ?string}|null
+     * @return array{label: string, percent: string, width: float, color: string, tooltip: string}|null
      */
     private function socialSecurityLimit(CarbonImmutable $today): ?array
     {
@@ -176,20 +187,22 @@ class TaxObligationsCard extends Widget
         $months = mb_strtolower(Period::SHORT_MONTHS[$quarter->month - 1]).'–'.mb_strtolower(Period::SHORT_MONTHS[$quarter->month + 1]);
 
         return [
-            'label' => 'Isenção da Segurança Social',
+            'label' => 'Isenção da SS',
             'percent' => self::percent($percent),
             'width' => min(100.0, $percent),
             'color' => $percent >= 100 ? 'danger' : ($percent >= 80 ? 'warning' : 'primary'),
-            'detail' => Money::format($monthly).' de '.Money::format($limit).'/mês ('.$months.')',
-            'message' => match (true) {
-                $percent >= 100 => 'Passaste o limite da isenção por acumulação: declara os rendimentos na próxima declaração trimestral e passas a contribuir.',
-                $percent >= 80 => 'Estás perto do limite da isenção por acumulação (4 × IAS por mês).',
-                default => null,
-            },
+            'tooltip' => implode(' ', array_filter([
+                'Rendimento relevante de '.$months.': '.Money::format($monthly).' de '.Money::format($limit).'/mês (4 × IAS, art. 157.º).',
+                match (true) {
+                    $percent >= 100 => 'Passaste o limite da isenção por acumulação: declara os rendimentos na próxima declaração trimestral e passas a contribuir.',
+                    $percent >= 80 => 'Estás perto do limite da isenção por acumulação.',
+                    default => null,
+                },
+            ])),
         ];
     }
 
-    /** @return array{label: string, percent: string, width: float, color: string, detail: string, message: ?string}|null */
+    /** @return array{label: string, percent: string, width: float, color: string, tooltip: string}|null */
     private function vatLimit(CarbonImmutable $today): ?array
     {
         if (! $this->settings()->vatExempt()) {
@@ -209,40 +222,44 @@ class TaxObligationsCard extends Widget
                 'warning' => 'warning',
                 default => 'danger',
             },
-            'detail' => Money::format($estimator->income()).' de '.Money::format($this->settings()->vatExemptionThreshold()).' em '.$today->year,
-            'message' => match ($status) {
-                'critical' => 'Passaste 125 % do limite: tens 15 dias úteis para a declaração de alterações.',
-                'danger' => 'Passaste o limite: sais da isenção de IVA no próximo ano (declaração em janeiro).',
-                'warning' => 'Estás perto do limite de isenção de IVA.',
-                default => null,
-            },
+            'tooltip' => implode(' ', array_filter([
+                Money::format($estimator->income()).' de '.Money::format($this->settings()->vatExemptionThreshold()).' em '.$today->year.' (art. 53.º).',
+                match ($status) {
+                    'critical' => 'Passaste 125 % do limite: tens 15 dias úteis para a declaração de alterações.',
+                    'danger' => 'Passaste o limite: sais da isenção de IVA no próximo ano (declaração em janeiro).',
+                    'warning' => 'Estás perto do limite de isenção de IVA.',
+                    default => null,
+                },
+            ])),
         ];
     }
 
-    /** @return array{label: string, color: string}|null */
-    private function badge(TaxObligation $obligation, CarbonImmutable $today): ?array
+    /** "Declaração trimestral da SS · até 31 jan" · "IRS com anexo SS · abr–jun". */
+    private function upcomingLabel(TaxObligation $obligation): string
     {
-        $days = $obligation->daysLeft($today);
+        $title = str_replace(['IRS (modelo 3)', 'Segurança Social'], ['IRS com anexo SS', 'SS'], $obligation->title);
 
         return match (true) {
-            $obligation->status === 'done' => ['label' => 'Feito', 'color' => 'success'],
-            $obligation->status === 'exempt' => ['label' => 'Isento', 'color' => 'gray'],
-            $days === null => null,
-            $days < 0 => ['label' => 'Em atraso há '.self::days(-$days), 'color' => 'danger'],
-            $days === 0 => ['label' => 'Termina hoje', 'color' => 'warning'],
-            default => ['label' => ($days === 1 ? 'Falta ' : 'Faltam ').self::days($days), 'color' => $days <= 7 ? 'warning' : 'gray'],
+            $obligation->dueOn === null => $title,
+            $obligation->opensOn !== null => $title.' · '.mb_strtolower(Period::SHORT_MONTHS[$obligation->opensOn->month - 1]).'–'.mb_strtolower(Period::SHORT_MONTHS[$obligation->dueOn->month - 1]),
+            default => $title.' · até '.self::shortDate($obligation->dueOn),
         };
     }
 
-    /** "até 31 jan" · "de 1 abr a 30 jun". */
-    private function upcomingWhen(TaxObligation $obligation): ?string
+    /** "30 nov". */
+    private static function shortDate(CarbonImmutable $date): string
     {
-        $date = fn (CarbonImmutable $date) => $date->day.' '.mb_strtolower(Period::SHORT_MONTHS[$date->month - 1]);
+        return $date->day.' '.mb_strtolower(Period::SHORT_MONTHS[$date->month - 1]);
+    }
 
+    /** "21 dias" · "hoje" · "atrasado 5 dias". */
+    private static function daysLabel(?int $days): string
+    {
         return match (true) {
-            $obligation->dueOn === null => null,
-            $obligation->opensOn !== null => 'de '.$date($obligation->opensOn).' a '.$date($obligation->dueOn),
-            default => 'até '.$date($obligation->dueOn),
+            $days === null => '',
+            $days < 0 => 'atrasado '.self::days(-$days),
+            $days === 0 => 'hoje',
+            default => self::days($days),
         };
     }
 

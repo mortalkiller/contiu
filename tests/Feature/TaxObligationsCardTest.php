@@ -59,12 +59,10 @@ it('shows this month obligations on the dashboard', function () {
     actingAsAdmin();
 
     Livewire::test(TaxObligationsCard::class)
-        ->assertSee('A pagar em novembro')
-        ->assertSee(Money::format(2230), escape: false)
-        ->assertSee('2 por fazer')
-        ->assertSeeInOrder(['Segurança Social', 'Pagar entre 10 e 20 de novembro', 'Faltam 11 dias', Money::format(2000), 'Marcar como pago'])
-        ->assertSeeInOrder(['IVA das compras ao estrangeiro', 'Faltam 21 dias', 'Ver compras', Money::format(230), 'Marcar como pago'])
-        ->assertSeeInOrder(['A seguir', 'Declaração trimestral da Segurança Social', 'até 31 jan'])
+        ->assertSeeInOrder(['Novembro', Money::format(2230), 'a pagar · 2 tarefas'])
+        ->assertSeeInOrder(['Segurança Social', 'até 20 nov', Money::format(2000), 'Pago'])
+        ->assertSeeInOrder(['IVA das compras ao estrangeiro', 'até 30 nov', Money::format(230), 'Pago'])
+        ->assertSee('A seguir: Declaração trimestral da SS · até 31 jan')
         ->assertDontSee('Nada a pagar este mês');
 
     $this->get(Dashboard::getUrl())->assertSeeLivewire(TaxObligationsCard::class);
@@ -101,10 +99,9 @@ it('flags overdue rows and shows the VAT exemption threshold', function () {
     actingAsAdmin();
 
     Livewire::test(TaxObligationsCard::class)
-        ->assertSeeInOrder(['Segurança Social', 'Em atraso há 36 dias', 'Declaração trimestral', 'Em atraso há 25 dias', 'Segurança Social', 'Em atraso há 5 dias'])
-        ->assertSee('3 por fazer')
-        ->assertSee(Money::format(4000), escape: false)
-        ->assertSeeInOrder(['Limites', 'Isenção de IVA', '0,0 %']);
+        ->assertSeeInOrder(['Segurança Social', 'atrasado 36 dias', 'Declaração trimestral', 'atrasado 25 dias', 'Segurança Social', 'atrasado 5 dias'])
+        ->assertSeeInOrder([Money::format(4000), 'a pagar · 3 tarefas'])
+        ->assertSeeInOrder(['Isenção de IVA', '0,0 %']);
 });
 
 it('marks an obligation as done and hides it', function () {
@@ -141,7 +138,8 @@ it('does not mark in a read-only account', function () {
     Livewire::test(TaxObligationsCard::class)
         ->assertSee('Segurança Social')
         // The buttons stay, disabled and without the Livewire call.
-        ->assertSee('Marcar como pago')
+        ->assertSee('Pago')
+        ->assertSee('A conta está só de leitura')
         ->assertDontSeeHtml('wire:click="complete(')
         ->call('toggleDone')
         ->assertSee('Desfazer')
@@ -159,7 +157,8 @@ it('shows the empty state', function () {
 
     Livewire::test(TaxObligationsCard::class)
         ->assertSee('Nada a pagar este mês')
-        ->assertSee('Isento (art. 157.º)')
+        ->assertSee('tudo em dia')
+        ->assertSee('Segurança Social: isento')
         ->assertDontSee('por fazer')
         ->assertDontSee('Marcar como');
 });
@@ -170,9 +169,10 @@ it('shows the accumulation exemption limit of the Segurança Social for an exemp
     actingAsAdmin();
 
     Livewire::test(TaxObligationsCard::class)
-        ->assertSeeInOrder(['Limites', 'Isenção da Segurança Social', '2,8 %'])
-        ->assertSee(Money::format(5962).' de '.Money::format(214852).'/mês (jul–set)', escape: false)
-        ->assertSee('Segurança Social: Isento (art. 157.º)');
+        ->assertSeeInOrder(['Isenção da SS', '2,8 %'])
+        // The figures sit in the tooltip.
+        ->assertSee('59,62')
+        ->assertSee('Segurança Social: isento');
 });
 
 it('warns when the relevant income passes the accumulation limit', function () {
@@ -181,7 +181,8 @@ it('warns when the relevant income passes the accumulation limit', function () {
     actingAsAdmin();
 
     Livewire::test(TaxObligationsCard::class)
-        ->assertSee('Passaste o limite da isenção');
+        ->assertSeeInOrder(['Isenção da SS', '108,6 %'])
+        ->assertSeeHtml('text-danger-600');
 });
 
 it('lays out the month total, the next deadline and the tasks', function () {
@@ -190,6 +191,16 @@ it('lays out the month total, the next deadline and the tasks', function () {
     actingAsAdmin();
 
     Livewire::test(TaxObligationsCard::class)
-        ->assertSeeInOrder(['A pagar em novembro', Money::format(2230), 'Próximo prazo', '20 de novembro', 'Faltam 11 dias', 'Segurança Social'])
-        ->assertSeeInOrder(['Por fazer', 'Segurança Social', 'IVA das compras ao estrangeiro', 'A seguir', 'Declaração trimestral da Segurança Social']);
+        ->assertSeeInOrder(['Novembro', Money::format(2230), 'Próximo:', '20 nov · 11 dias', 'Segurança Social: '.Money::format(2000).' até dia 20'])
+        ->assertSeeInOrder(['Segurança Social', 'IVA das compras ao estrangeiro', 'A seguir: Declaração trimestral da SS']);
+});
+
+it('loads with a skeleton shaped like the card', function () {
+    actingAsAdmin();
+
+    $html = (new TaxObligationsCard)->placeholder()->render();
+
+    expect($html)->toContain('fsl-skeleton')
+        ->toContain('fsl-bone')
+        ->toContain('md:grid-cols-[15rem_1fr]');
 });
