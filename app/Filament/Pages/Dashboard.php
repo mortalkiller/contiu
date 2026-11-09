@@ -110,15 +110,28 @@ class Dashboard extends BaseDashboard
     public const SIDE_COLUMN = [IncomeByCategoryChart::class, ExpensesByCategoryChart::class, PeriodSummaryTable::class];
 
     /**
-     * Stats and the "Este mês" card on top, then two stacked columns instead of one grid: in a grid
-     * every row takes the height of its tallest widget, which left short widgets in tall, half-empty cards.
+     * The month's tax obligations ("Este mês") open the page, above the period filters: they are what
+     * needs doing now, whatever period the rest of the dashboard shows.
+     */
+    public function content(Schema $schema): Schema
+    {
+        return $schema->components([
+            Grid::make(1)->schema(fn (): array => $this->getWidgetsSchemaComponents($this->onlyWidgets([TaxObligationsCard::class]))),
+            $this->getFiltersFormContentComponent(),
+            $this->getWidgetsContentComponent(),
+        ]);
+    }
+
+    /**
+     * Stats on top, then two stacked columns instead of one grid: in a grid every row takes the
+     * height of its tallest widget, which left short widgets in tall, half-empty cards.
      */
     public function getWidgetsContentComponent(): Component
     {
-        $only = fn (array $classes): array => array_values(array_filter($this->getWidgets(), fn ($widget) => in_array($widget, $classes, true)));
+        $only = fn (array $classes): array => $this->onlyWidgets($classes);
 
         return Group::make([
-            Grid::make(1)->schema(fn (): array => $this->getWidgetsSchemaComponents($only([FinanceStatsOverview::class, CompanyAccountStats::class, TaxObligationsCard::class]))),
+            Grid::make(1)->schema(fn (): array => $this->getWidgetsSchemaComponents($only([FinanceStatsOverview::class, CompanyAccountStats::class]))),
             Grid::make(['default' => 1, 'xl' => 3])->schema([
                 Grid::make(1)
                     ->columnSpan(['default' => 1, 'xl' => 2])
@@ -128,6 +141,15 @@ class Dashboard extends BaseDashboard
                     ->schema(fn (): array => $this->getWidgetsSchemaComponents($only(self::SIDE_COLUMN))),
             ]),
         ]);
+    }
+
+    /**
+     * @param  array<class-string>  $classes
+     * @return array<class-string>
+     */
+    private function onlyWidgets(array $classes): array
+    {
+        return array_values(array_filter($this->getWidgets(), fn ($widget) => in_array($widget, $classes, true)));
     }
 
     public function getColumns(): int|array

@@ -63,6 +63,22 @@ it('shows this month obligations on the dashboard', function () {
     $this->get(Dashboard::getUrl())->assertSeeLivewire(TaxObligationsCard::class);
 });
 
+it('puts the month obligations at the very top of the dashboard, before the filters', function () {
+    cardOn('2026-11-09');
+    actingAsAdmin();
+
+    $html = $this->get(Dashboard::getUrl())->assertOk()->getContent();
+
+    // Widgets render lazily: their class names in the page mark where each one sits.
+    $card = strpos($html, 'TaxObligationsCard');
+    $filters = strpos($html, 'Fecho do mês');
+    $stats = strpos($html, 'FinanceStatsOverview');
+
+    expect($card)->not->toBeFalse()
+        ->and($card)->toBeLessThan($filters)
+        ->and($card)->toBeLessThan($stats);
+});
+
 it('opens the expenses of the month from the reverse-charge row', function () {
     cardOn('2026-11-09');
     cardServiceBoughtAbroad('2026-10-15', 1000);
