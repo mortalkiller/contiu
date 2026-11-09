@@ -126,9 +126,6 @@ class RegisterAccount extends Register
             Step::make('Impostos')
                 ->icon(Phosphor::Receipt)
                 ->schema([
-                    Toggle::make('irs_exempt')
-                        ->label('Isento de IRS')
-                        ->helperText('Liga se, para já, não pagas IRS. Sem isenção, a estimativa usa o coeficiente de 75%.'),
                     Toggle::make('vat_exempt')
                         ->label('Isento de IVA (art. 53.º)')
                         ->helperText('Os recebimentos novos vêm marcados como isentos; podes mudar caso a caso.')
@@ -199,8 +196,8 @@ class RegisterAccount extends Register
                         ->label('Início de atividade')
                         ->state(fn (Get $get) => filled($get('activity_started_on')) ? Carbon::parse($get('activity_started_on'))->format('d/m/Y') : '—'),
                     TextEntry::make('summary_taxes')
-                        ->label('IRS e IVA')
-                        ->state(fn (Get $get) => self::taxSummary($get)),
+                        ->label('IVA')
+                        ->state(fn (Get $get) => self::vatSummary($get)),
                     TextEntry::make('summary_social_security')
                         ->label('Segurança Social')
                         ->columnSpanFull()
@@ -243,7 +240,6 @@ class RegisterAccount extends Register
                 'name' => $data['account_name'],
                 'nif' => $data['nif'],
                 'activity_started_on' => $data['activity_started_on'],
-                'irs_exempt' => (bool) ($data['irs_exempt'] ?? false),
                 'vat_exempt' => $vatExempt,
                 // Without the exemption the limit is not asked, so the default stays.
                 ...($vatExempt ? ['vat_exemption_threshold' => (int) $data['vat_exemption_threshold']] : []),
@@ -257,14 +253,11 @@ class RegisterAccount extends Register
         });
     }
 
-    private static function taxSummary(Get $get): string
+    private static function vatSummary(Get $get): string
     {
-        $irs = $get('irs_exempt') ? 'Isento de IRS' : 'Sem isenção de IRS';
-        $vat = $get('vat_exempt')
-            ? 'isento de IVA até '.Money::format(Money::toCents($get('vat_exemption_threshold')))
-            : 'com IVA';
-
-        return "{$irs}; {$vat}";
+        return $get('vat_exempt')
+            ? 'Isento de IVA até '.Money::format(Money::toCents($get('vat_exemption_threshold')))
+            : 'Com IVA';
     }
 
     private static function socialSecuritySummary(Get $get): string

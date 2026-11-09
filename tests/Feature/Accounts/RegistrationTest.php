@@ -38,7 +38,6 @@ function registrationData(array $overrides = []): array
         'account_name' => 'Estúdio Rita',
         'nif' => '501964843',
         'activity_started_on' => '2026-03-01',
-        'irs_exempt' => true,
         'vat_exempt' => true,
         'vat_exemption_threshold' => 15000,
         'ss_rate_percent' => 21.4,
@@ -78,7 +77,6 @@ it('creates user and account from the wizard', function () {
         $settings = app(FinanceSettings::class);
 
         expect($settings->activityStartedOn()?->toDateString())->toBe('2026-03-01')
-            ->and($settings->irsExempt())->toBeTrue()
             ->and($settings->vatExempt())->toBeTrue()
             ->and($settings->vatExemptionThreshold())->toBe(1500000)
             ->and($settings->ssRate())->toBe(0.214)
@@ -121,6 +119,12 @@ it('no longer asks for the first-year exemption, now computed from the activity'
     Livewire::test(RegisterAccount::class)
         ->assertFormFieldDoesNotExist('ss_first_year_exempt')
         ->assertDontSee('Isento nos primeiros 12 meses');
+});
+
+it('no longer asks for an IRS exemption, now computed from the IRS settings', function () {
+    Livewire::test(RegisterAccount::class)
+        ->assertFormFieldDoesNotExist('irs_exempt')
+        ->assertDontSee('Isento de IRS');
 });
 
 it('stores no VAT limit when the account is not VAT exempt', function () {

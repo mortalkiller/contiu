@@ -13,7 +13,6 @@ final class FinanceSettings
 {
     public const DEFAULTS = [
         'activity_started_on' => null,
-        'irs_exempt' => false,
         'vat_exempt' => false,
         'vat_exemption_threshold' => 1500000, // cents
         'ss_rate' => 0.214,
@@ -82,11 +81,6 @@ final class FinanceSettings
     public function hasBusinessAccount(): bool
     {
         return (bool) $this->all()['has_business_account'];
-    }
-
-    public function irsExempt(): bool
-    {
-        return (bool) $this->all()['irs_exempt'];
     }
 
     public function vatExempt(): bool

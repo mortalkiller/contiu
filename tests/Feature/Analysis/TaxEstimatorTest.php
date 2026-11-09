@@ -126,12 +126,97 @@ it('counts only payments not marked tax exempt, still with the minimum', functio
     expect($estimate->ssContributionForMonth(CarbonImmutable::parse('2026-07-01')))->toBe(2000);
 });
 
-it('reports IRS as exempt or as the simplified-regime taxable income', function () {
+it('uses the configured IRS coefficient', function () {
     payOn('2026-03-01', 400000);
 
-    expect(estimator(2026, ['irs_exempt' => true])->irsExempt())->toBeTrue()
-        ->and(estimator(2026)->irsTaxableIncome())->toBe(0)
-        ->and(estimator(2026, ['irs_exempt' => false])->irsTaxableIncome())->toBe(300000);
+    $estimate = estimator(2026, ['irs_coefficient' => 0.35, 'activity_started_on' => '2020-01-01', 'activity_start_kind' => 'first']);
+
+    expect($estimate->irsCoefficientReduction())->toBe(0.0)
+        ->and($estimate->effectiveIrsCoefficient())->toBe(0.35)
+        ->and($estimate->irsTaxableIncome())->toBe(140000);
+});
+
+it('reduces the coefficient in the first two years', function () {
+    $settings = ['activity_started_on' => '2025-08-07', 'activity_start_kind' => 'first'];
+
+    expect(estimator(2025, $settings)->irsCoefficientReduction())->toBe(0.5)
+        ->and(estimator(2025, $settings)->effectiveIrsCoefficient())->toBe(0.375)
+        ->and(estimator(2026, $settings)->irsCoefficientReduction())->toBe(0.25)
+        ->and(estimator(2026, $settings)->effectiveIrsCoefficient())->toBe(0.5625)
+        ->and(estimator(2027, $settings)->irsCoefficientReduction())->toBe(0.0)
+        ->and(estimator(2027, $settings)->effectiveIrsCoefficient())->toBe(0.75);
+});
+
+it('drops the reduction in a year with salary or pension', function () {
+    $settings = ['activity_started_on' => '2025-08-07', 'activity_start_kind' => 'first', 'dependent_income_years' => [2026]];
+
+    expect(estimator(2026, $settings)->effectiveIrsCoefficient())->toBe(0.75)
+        ->and(estimator(2025, $settings)->effectiveIrsCoefficient())->toBe(0.375);
+});
+
+it('drops the reduction after a recent cessation', function () {
+    $restart = ['activity_started_on' => '2025-08-07', 'activity_start_kind' => 'restart'];
+
+    expect(estimator(2025, [...$restart, 'previous_activity_ended_on' => '2022-01-01'])->irsCoefficientReduction())->toBe(0.0)
+        ->and(estimator(2025, [...$restart, 'previous_activity_ended_on' => '2019-01-01'])->irsCoefficientReduction())->toBe(0.5)
+        // Without the cessation date the reduction is not assumed.
+        ->and(estimator(2025, [...$restart, 'previous_activity_ended_on' => null])->irsCoefficientReduction())->toBe(0.0);
+});
+
+it('gives no reduction without an activity start', function () {
+    expect(estimator(2026)->irsCoefficientReduction())->toBe(0.0)
+        ->and(estimator(2026)->effectiveIrsCoefficient())->toBe(0.75);
+});
+
+it('exempts part of the gross income with IRS Jovem before the coefficient', function () {
+    payOn('2026-03-01', 2000000);
+
+    $estimate = estimator(2026, [
+        'activity_started_on' => '2025-08-07', 'activity_start_kind' => 'first',
+        'irs_jovem' => true, 'irs_jovem_year' => ['year' => 2026, 'number' => 2],
+    ]);
+
+    expect($estimate->irsJovemPercent())->toBe(0.75)
+        ->and($estimate->irsJovemExempt())->toBe(1500000)
+        ->and($estimate->effectiveIrsCoefficient())->toBe(0.5625)
+        ->and($estimate->irsTaxableIncome())->toBe(281250);
+});
+
+it('takes the IRS Jovem percentage from the year number', function (int $number, float $percent) {
+    $estimate = estimator(2026, ['irs_jovem' => true, 'irs_jovem_year' => ['year' => 2026, 'number' => $number]]);
+
+    expect($estimate->irsJovemPercent())->toBe($percent);
+})->with([
+    [0, 0.0], [1, 1.0], [2, 0.75], [4, 0.75], [5, 0.5], [7, 0.5], [8, 0.25], [10, 0.25], [11, 0.0],
+]);
+
+it('gives no IRS Jovem when it is off or the year number is unknown', function () {
+    expect(estimator(2026, ['irs_jovem' => false, 'irs_jovem_year' => ['year' => 2026, 'number' => 1]])->irsJovemPercent())->toBe(0.0)
+        ->and(estimator(2026, ['irs_jovem' => true, 'irs_jovem_year' => null])->irsJovemPercent())->toBe(0.0);
+});
+
+it('caps IRS Jovem at 55 times the IAS', function () {
+    payOn('2026-03-01', 4000000);
+
+    $estimate = estimator(2026, ['irs_jovem' => true, 'irs_jovem_year' => ['year' => 2026, 'number' => 1]]);
+
+    expect($estimate->irsJovemPercent())->toBe(1.0)
+        ->and($estimate->irsJovemExempt())->toBe(2954215);
+});
+
+it('gives no IRS Jovem after turning 35', function () {
+    $jovem = ['irs_jovem' => true, 'irs_jovem_year' => ['year' => 2026, 'number' => 2]];
+
+    expect(estimator(2026, [...$jovem, 'birth_date' => '1990-06-01'])->irsJovemPercent())->toBe(0.0)
+        // 35 on 31/12 still counts.
+        ->and(estimator(2026, [...$jovem, 'birth_date' => '1991-12-31'])->irsJovemPercent())->toBe(0.75);
+});
+
+it('marks the IAS provisional for a year not in the table', function () {
+    expect(estimator(2026)->ias())->toBe(53713)
+        ->and(estimator(2026)->iasIsProvisional())->toBeFalse()
+        ->and(estimator(2027)->ias())->toBe(53713)
+        ->and(estimator(2027)->iasIsProvisional())->toBeTrue();
 });
 
 it('tracks the VAT exemption threshold', function (int $income, string $status, float $percent) {

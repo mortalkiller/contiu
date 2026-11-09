@@ -14,6 +14,7 @@ use App\Models\Project;
 use App\Models\Receivable;
 use App\Support\FinanceSettings;
 use App\Support\Money;
+use App\Support\TaxEstimator;
 use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 
@@ -31,18 +32,28 @@ it('shows the fiscal settings with their defaults and saves changes', function (
         ->assertSee('confirma os valores com o teu contabilista')
         ->assertSee('Limite anual de isenção de IVA (art. 53.º)')
         ->assertFormFieldDoesNotExist('ss_first_year_exempt')
-        ->assertSchemaStateSet(['irs_exempt' => false, 'vat_exempt' => true, 'ss_rate_percent' => 21.4, 'vat_exemption_threshold' => 15000.0], 'form')
-        ->fillForm(['irs_exempt' => true, 'ss_rate_percent' => 21.4])
+        ->assertFormFieldDoesNotExist('irs_exempt')
+        ->assertDontSee('Isento de IRS')
+        ->assertSchemaStateSet(['vat_exempt' => true, 'ss_rate_percent' => 21.4, 'vat_exemption_threshold' => 15000.0], 'form')
+        ->fillForm(['ss_rate_percent' => 22.5])
         ->call('save')
         ->assertHasNoFormErrors();
 
-    $settings = app(FinanceSettings::class);
-
-    expect($settings->irsExempt())->toBeTrue()
-        ->and($settings->ssRate())->toBe(0.214);
+    expect(app(FinanceSettings::class)->ssRate())->toBe(0.225);
 });
 
 // Previsão de tesouraria --------------------------------------------------------------------
+
+it('warns on the forecast while the fiscal settings are incomplete', function () {
+    Livewire::test(CashForecast::class)
+        ->assertSee('Definições fiscais incompletas: valores aproximados')
+        ->assertSee(FinanceSettingsPage::getUrl());
+
+    app(FinanceSettings::class)->set(['activity_started_on' => '2024-01-01', 'activity_start_kind' => 'first']);
+
+    Livewire::test(CashForecast::class)
+        ->assertDontSee('Definições fiscais incompletas');
+});
 
 it('forecasts 3 months by default and switches to 6', function () {
     Livewire::test(CashForecast::class)
@@ -78,11 +89,12 @@ it('shows margins by business line and by client for the chosen year', function 
 // Impostos ----------------------------------------------------------------------------------
 
 it('estimates taxes for the year with the exemptions from the settings', function () {
-    app(FinanceSettings::class)->set(['irs_exempt' => true, 'vat_exempt' => true]);
+    app(FinanceSettings::class)->set(['vat_exempt' => true]);
 
     Livewire::test(TaxEstimate::class)
         ->assertSet('year', 2026)
-        ->assertSee('Isento (definição)')
+        ->assertDontSee('Isento (definição)')
+        ->assertDontSee('coeficiente de 75%')
         ->assertSee('Limite de isenção de IVA');
 
     Livewire::test(TaxQuartersTable::class, ['year' => 2026])
@@ -113,4 +125,41 @@ it('notes a recognised contribution exemption', function () {
 
     Livewire::test(TaxEstimate::class)
         ->assertSee('Isento (art. 157.º).');
+});
+
+it('shows each step of the IRS estimate', function () {
+    app(FinanceSettings::class)->set([
+        'activity_started_on' => '2025-08-07', 'activity_start_kind' => 'first',
+        'irs_jovem' => true, 'irs_jovem_year' => ['year' => 2026, 'number' => 2],
+    ]);
+    Payment::factory()->create(['paid_on' => '2026-03-01', 'amount' => 2000000]);
+
+    Livewire::test(TaxEstimate::class)
+        ->assertSeeInOrder([
+            'Rendimento tributável',
+            'Rendimento bruto', Money::format(2000000),
+            'Isento pelo IRS Jovem', Money::format(1500000),
+            '0,5625', 'redução de 25 % — 2.º ano',
+        ])
+        ->assertSee(Money::format(281250))
+        ->assertSee('sem informação vinculativa da AT')
+        ->assertDontSee('Isento (definição)');
+});
+
+it('warns on the estimate while the fiscal settings are incomplete', function () {
+    Livewire::test(TaxEstimate::class)
+        ->assertSee('Definições fiscais incompletas: valores aproximados');
+
+    app(FinanceSettings::class)->set(['activity_started_on' => '2024-01-01', 'activity_start_kind' => 'first']);
+
+    Livewire::test(TaxEstimate::class)
+        ->assertDontSee('Definições fiscais incompletas');
+});
+
+it('leaves the monthly contribution blank in a quarter without charged months', function () {
+    app(FinanceSettings::class)->set(['activity_started_on' => '2024-01-01', 'activity_start_kind' => 'first', 'ss_contribution_exempt' => true]);
+
+    Livewire::test(TaxQuartersTable::class, ['year' => 2026])
+        ->assertSee('Isento (art. 157.º)')
+        ->assertDontSee(Money::format(TaxEstimator::SS_MINIMUM_CONTRIBUTION));
 });

@@ -17,14 +17,17 @@ use Illuminate\Support\Collection;
  *   income. The obligation starts on the SS enrolment date, or else 12 months after a first start
  *   (art. 145.º, n.º 1) or on a restart (n.º 3); months before it are "1.º enquadramento". A
  *   recognised exemption (art. 157.º) leaves every month without contribution.
- * - IRS: exempt (setting) or taxable income = 75% of services income; the tax itself is not computed.
+ * - IRS (art. 31.º and 12.º-B CIRS): IRS Jovem exempts a share of the gross income first (capped at
+ *   55 × IAS), then the configured coefficient, reduced by 50 % / 25 % in the first two years of
+ *   activity, gives the taxable income. The tax itself is not computed.
  * - IVA: art. 53.º exemption → progress against the yearly threshold; otherwise VAT collected vs paid.
  */
 final class TaxEstimator
 {
     public const QUARTER_LABELS = ['Jan – Mar', 'Abr – Jun', 'Jul – Set', 'Out – Dez'];
 
-    public const IRS_SERVICES_COEFFICIENT = 0.75;
+    /** IRS Jovem exempts at most this many times the year's IAS. */
+    public const IRS_JOVEM_IAS_CAP = 55;
 
     /** Cents: the monthly contribution of a trabalhador independente never goes below it. */
     public const SS_MINIMUM_CONTRIBUTION = 2000;
@@ -133,14 +136,93 @@ final class TaxEstimator
         return $startsOn !== null && $month->startOfMonth()->lt($startsOn) ? 'first_enrolment' : 'charged';
     }
 
-    public function irsExempt(): bool
+    /** Indexante dos Apoios Sociais of the year in cents; the closest known year when missing. */
+    public function ias(): int
     {
-        return $this->settings->irsExempt();
+        $table = config('contiu.ias');
+
+        if (isset($table[$this->year])) {
+            return (int) $table[$this->year];
+        }
+
+        $known = array_keys($table);
+        $earlier = array_filter($known, fn (int $year) => $year < $this->year);
+
+        return (int) $table[$earlier === [] ? min($known) : max($earlier)];
     }
 
+    /** The year has no IAS in the table yet: the cap uses another year's. */
+    public function iasIsProvisional(): bool
+    {
+        return ! isset(config('contiu.ias')[$this->year]);
+    }
+
+    /**
+     * Share of the gross income exempt by IRS Jovem (art. 12.º-B): by the year number, while 35 or
+     * younger on 31/12. Without a birth date the age is not checked.
+     */
+    public function irsJovemPercent(): float
+    {
+        $number = $this->settings->irsJovemYearNumber($this->year);
+        $birth = $this->settings->birthDate();
+
+        if (! $this->settings->irsJovem() || $number === null
+            || ($birth !== null && $birth->addYears(36)->lte(CarbonImmutable::create($this->year, 12, 31)))) {
+            return 0.0;
+        }
+
+        return match (true) {
+            $number === 1 => 1.0,
+            $number >= 2 && $number <= 4 => 0.75,
+            $number >= 5 && $number <= 7 => 0.5,
+            $number >= 8 && $number <= 10 => 0.25,
+            default => 0.0,
+        };
+    }
+
+    /** Cents exempt by IRS Jovem, never above 55 × IAS. */
+    public function irsJovemExempt(): int
+    {
+        return min(Money::share($this->income(), $this->irsJovemPercent()), self::IRS_JOVEM_IAS_CAP * $this->ias());
+    }
+
+    /**
+     * Reduction of the coefficient (art. 31.º, n.os 10 and 11): 50 % in the year the activity starts,
+     * 25 % in the next, not in a year with salary or pension, nor on a restart less than 5 years
+     * after the previous cessation (or with that date unknown).
+     */
+    public function irsCoefficientReduction(): float
+    {
+        $start = $this->settings->activityStartedOn();
+
+        if ($start === null || in_array($this->year, $this->settings->dependentIncomeYears(), true)) {
+            return 0.0;
+        }
+
+        if ($this->settings->activityStartKind() === 'restart') {
+            $ended = $this->settings->previousActivityEndedOn();
+
+            if ($ended === null || $ended->addYears(5)->gt($start)) {
+                return 0.0;
+            }
+        }
+
+        return match ($this->year - $start->year) {
+            0 => 0.5,
+            1 => 0.25,
+            default => 0.0,
+        };
+    }
+
+    public function effectiveIrsCoefficient(): float
+    {
+        return round($this->settings->irsCoefficient() * (1 - $this->irsCoefficientReduction()), 6);
+    }
+
+    /** (gross − IRS Jovem) × coefficient, in cents. */
     public function irsTaxableIncome(): int
     {
-        return $this->irsExempt() ? 0 : Money::share($this->income(), self::IRS_SERVICES_COEFFICIENT);
+        return Money::share($this->income() - $this->irsJovemExempt(), $this->effectiveIrsCoefficient());
     }
 
     public function vatExempt(): bool

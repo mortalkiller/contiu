@@ -33,11 +33,11 @@ it('creates the base categories once', function () {
 it('starts new accounts without tax exemptions', function () {
     $settings = FinanceSettings::DEFAULTS;
 
-    expect($settings['irs_exempt'])->toBeFalse()
-        ->and($settings['vat_exempt'])->toBeFalse()
+    expect($settings['vat_exempt'])->toBeFalse()
         ->and($settings['ss_contribution_exempt'])->toBeFalse()
         ->and($settings['payments_exempt_by_default'])->toBeFalse()
-        ->and($settings)->not->toHaveKey('ss_first_year_exempt');
+        ->and($settings)->not->toHaveKey('ss_first_year_exempt')
+        ->and($settings)->not->toHaveKey('irs_exempt');
 });
 
 it('suggests the business lines already used in the account', function () {

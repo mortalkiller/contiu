@@ -38,7 +38,7 @@ function oneRecordOf(string $model): Model
             'linkable_id' => Payment::factory()->create()->id,
         ]),
         ClientMessage::class => ClientMessage::create(['client_id' => Client::factory()->create()->id, 'type' => ClientMessage::STATEMENT, 'to' => 'a@b.pt', 'subject' => 'Extrato', 'body' => '…', 'sent_at' => now()]),
-        Setting::class => Setting::create(['key' => 'irs_exempt', 'value' => false]),
+        Setting::class => Setting::create(['key' => 'vat_exempt', 'value' => false]),
         default => $model::factory()->create(),
     };
 }

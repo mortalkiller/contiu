@@ -21,7 +21,6 @@ function newAccountData(array $overrides = []): array
         'name' => 'Estúdio Rita',
         'nif' => '501964843',
         'activity_started_on' => '2026-01-15',
-        'irs_exempt' => true,
         'vat_exempt' => true,
         'vat_exemption_threshold' => 1500000,
         'ss_rate' => 0.214,
@@ -51,7 +50,6 @@ it('creates the account with its owner, trial, settings and categories', functio
         $settings = app(FinanceSettings::class);
 
         expect($settings->activityStartedOn()?->toDateString())->toBe('2026-01-15')
-            ->and($settings->irsExempt())->toBeTrue()
             ->and($settings->vatExempt())->toBeTrue()
             ->and($settings->paymentsExemptByDefault())->toBeTrue()
             ->and($settings->vatExemptionThreshold())->toBe(1500000)

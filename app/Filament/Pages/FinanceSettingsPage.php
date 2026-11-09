@@ -48,7 +48,6 @@ class FinanceSettingsPage extends Page
             'activity_started_on' => $settings->activityStartedOn()?->toDateString(),
             'ss_rate_percent' => round($settings->ssRate() * 100, 2),
             'ss_relevant_income_share_percent' => round($settings->ssRelevantIncomeShare() * 100, 2),
-            'irs_exempt' => $settings->irsExempt(),
             'vat_exempt' => $settings->vatExempt(),
             'vat_exemption_threshold' => $settings->vatExemptionThreshold(),
             'payments_exempt_by_default' => $settings->paymentsExemptByDefault(),
@@ -92,12 +91,9 @@ class FinanceSettingsPage extends Page
                             ->suffix('%')
                             ->required(),
                     ]),
-                Section::make('IRS e IVA')
+                Section::make('Impostos')
                     ->icon(Phosphor::Receipt)
                     ->schema([
-                        Toggle::make('irs_exempt')
-                            ->label('Isento de IRS')
-                            ->helperText('Desliga se passares a pagar IRS; a estimativa mostra então o rendimento tributável (coeficiente de 75%).'),
                         Toggle::make('payments_exempt_by_default')
                             ->label('Recebimentos isentos por defeito')
                             ->helperText('Os recebimentos e as avenças novos vêm marcados como isentos de impostos (não contam para a estimativa). Podes desmarcar caso a caso.'),
@@ -160,7 +156,6 @@ class FinanceSettingsPage extends Page
             'activity_started_on' => $data['activity_started_on'] ?? null,
             'ss_rate' => round((float) $data['ss_rate_percent'] / 100, 4),
             'ss_relevant_income_share' => round((float) $data['ss_relevant_income_share_percent'] / 100, 4),
-            'irs_exempt' => (bool) ($data['irs_exempt'] ?? false),
             'vat_exempt' => (bool) ($data['vat_exempt'] ?? false),
             'vat_exemption_threshold' => (int) ($data['vat_exemption_threshold'] ?? 0),
             'payments_exempt_by_default' => (bool) ($data['payments_exempt_by_default'] ?? false),

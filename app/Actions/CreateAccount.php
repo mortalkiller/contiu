@@ -23,7 +23,7 @@ class CreateAccount
     public const SLUG_MAX_LENGTH = 50;
 
     private const SETTINGS = [
-        'activity_started_on', 'irs_exempt', 'vat_exempt', 'vat_exemption_threshold',
+        'activity_started_on', 'vat_exempt', 'vat_exemption_threshold',
         'ss_rate', 'ss_relevant_income_share', 'account_names', 'has_business_account',
         'activity_start_kind', 'previous_activity_ended_on', 'ss_enrolled_from', 'dependent_income_years',
         'irs_coefficient', 'irs_jovem', 'birth_date', 'irs_jovem_year', 'ss_contribution_exempt',

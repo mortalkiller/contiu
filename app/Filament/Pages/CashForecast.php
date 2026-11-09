@@ -70,6 +70,7 @@ class CashForecast extends Page
         $forecast = new Forecast($settings, $this->months);
 
         return $schema->components([
+            ...($settings->isIncomplete() ? [TaxEstimate::incompleteSettingsCallout()] : []),
             ! $forecast->showsBalance()
                 ? Callout::make('Sem saldo')
                     ->description('Sem conta bancária só para a atividade, a previsão mostra o que entra e sai em cada mês, não o dinheiro que vais ter.')

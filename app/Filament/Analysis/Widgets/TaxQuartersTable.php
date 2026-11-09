@@ -34,7 +34,9 @@ class TaxQuartersTable extends TableWidget
                 TextColumn::make('label')->label('Trimestre')->weight(fn (array $record) => $record['is_total'] ? 'bold' : 'medium'),
                 TextColumn::make('income')->label('Rendimento')->money('EUR', divideBy: 100)->alignEnd(),
                 TextColumn::make('base')->label('Base mensal')->money('EUR', divideBy: 100)->alignEnd()->placeholder(''),
-                TextColumn::make('monthly')->label('Contribuição mensal')->money('EUR', divideBy: 100)->alignEnd()->placeholder(''),
+                // Blank in a quarter whose payment months are all exempt: nothing is paid.
+                TextColumn::make('monthly')->label('Contribuição mensal')->money('EUR', divideBy: 100)->alignEnd()->placeholder('')
+                    ->state(fn (array $record): ?int => ($record['chargedMonths'] ?? 0) > 0 ? $record['monthly'] : null),
                 TextColumn::make('paidIn')
                     ->label('Pago em')
                     ->description(fn (array $record) => $record['note'])
