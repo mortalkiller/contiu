@@ -28,7 +28,7 @@ return [
     'reserved_slugs' => [
         'login', 'logout', 'register', 'password-reset', 'email-verification', 'profile',
         'termos', 'privacidade', 'stripe', 'livewire', 'up', 'storage', 'build', 'brand',
-        'admin', 'api', 'filament', 'filament-excel',
+        'admin', 'api', 'filament', 'filament-excel', 'filament-fullcalendar',
     ],
 
 ];

@@ -18,6 +18,7 @@
         "mortalkiller/filament-skeleton-loading": "^1.0",
         "phpseclib/bcmath_compat": "^2.0",
         "pxlrbt/filament-excel": "^4.1",
+        "saade/filament-fullcalendar": "^5.0",
         "shuvroroy/filament-spatie-laravel-backup": "^4.1",
         "tapp/filament-auditing": "^4.1",
         "tonegabes/filament-phosphor-icons": "^1.4",
