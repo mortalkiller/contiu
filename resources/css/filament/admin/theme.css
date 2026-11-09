@@ -414,3 +414,15 @@
 .contiu-signup-wizard .fi-sc-wizard-header-step-btn {
     padding-inline: 0.5rem;
 }
+
+/* Calendário: what is still to be generated (dashed, no fill) and obligations already done. */
+.fc-event.contiu-calendar-projected {
+    background: transparent !important;
+    border: 1px dashed currentColor !important;
+    font-style: italic;
+}
+
+.fc-event.contiu-calendar-done {
+    opacity: 0.7;
+    text-decoration: line-through;
+}
