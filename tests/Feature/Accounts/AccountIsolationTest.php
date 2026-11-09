@@ -22,6 +22,7 @@ use App\Models\Retainer;
 use App\Models\Setting;
 use App\Models\SubscriptionPayment;
 use App\Models\Supplier;
+use App\Models\TaxObligationCompletion;
 use App\Support\CurrentAccount;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
@@ -69,6 +70,7 @@ it('keeps every business model inside its account', function (string $model) {
     BankTransactionLink::class,
     ClientMessage::class,
     Setting::class,
+    TaxObligationCompletion::class,
 ]);
 
 it('lets two accounts import the same bank statement', function () {
