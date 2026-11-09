@@ -34,12 +34,14 @@ it('shows the fiscal settings with their defaults and saves changes', function (
         ->assertFormFieldDoesNotExist('ss_first_year_exempt')
         ->assertFormFieldDoesNotExist('irs_exempt')
         ->assertDontSee('Isento de IRS')
-        ->assertSchemaStateSet(['vat_exempt' => true, 'ss_rate_percent' => 21.4, 'vat_exemption_threshold' => 15000.0], 'form')
-        ->fillForm(['ss_rate_percent' => 22.5])
+        ->assertSee('Trabalhador independente (21,4 %)')
+        ->assertSee('Empresário em nome individual ou EIRL (25,2 %)')
+        ->assertSchemaStateSet(['vat_exempt' => true, 'ss_rate' => '0.214', 'vat_exemption_threshold' => 15000.0, 'reverse_charge_vat_rate_percent' => 23.0], 'form')
+        ->fillForm(['ss_rate' => '0.252'])
         ->call('save')
         ->assertHasNoFormErrors();
 
-    expect(app(FinanceSettings::class)->ssRate())->toBe(0.225);
+    expect(app(FinanceSettings::class)->ssRate())->toBe(0.252);
 });
 
 // Previsão de tesouraria --------------------------------------------------------------------
@@ -144,6 +146,24 @@ it('shows each step of the IRS estimate', function () {
         ->assertSee(Money::format(281250))
         ->assertSee('sem informação vinculativa da AT')
         ->assertDontSee('Isento (definição)');
+});
+
+it('says why the early-years IRS reduction does not apply', function (array $settings, string $reason) {
+    app(FinanceSettings::class)->set(['activity_started_on' => '2025-08-07', ...$settings]);
+
+    Livewire::test(TaxEstimate::class)
+        ->assertSee('Coeficiente 0,75 (sem redução: '.$reason.')');
+})->with([
+    'salary this year' => [['activity_start_kind' => 'first', 'dependent_income_years' => [2026]], 'ano com salário ou pensão'],
+    'recent restart' => [['activity_start_kind' => 'restart', 'previous_activity_ended_on' => '2023-01-31'], 'reinício a menos de 5 anos da cessação'],
+]);
+
+it('gives no reduction reason once the early years are over', function () {
+    app(FinanceSettings::class)->set(['activity_started_on' => '2020-08-07', 'activity_start_kind' => 'first', 'dependent_income_years' => [2026]]);
+
+    Livewire::test(TaxEstimate::class)
+        ->assertSee('Coeficiente 0,75')
+        ->assertDontSee('sem redução');
 });
 
 it('warns on the estimate while the fiscal settings are incomplete', function () {

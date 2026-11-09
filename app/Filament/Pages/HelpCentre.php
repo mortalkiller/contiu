@@ -2,11 +2,13 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Resources\Clients\ClientResource;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\Payments\PaymentResource;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Resources\RecurringExpenses\RecurringExpenseResource;
 use App\Filament\Resources\Retainers\RetainerResource;
+use App\Filament\Resources\Suppliers\SupplierResource;
 use App\Support\FinanceSettings;
 use App\Support\Money;
 use BackedEnum;
@@ -66,6 +68,7 @@ class HelpCentre extends Page
             ['id' => 'extrato', 'title' => 'Extrato bancário', 'summary' => 'Importar e explicar cada linha.', 'icon' => Phosphor::Bank],
             ['id' => 'fecho-do-mes', 'title' => 'Fecho do mês', 'summary' => 'Confirmar que nada ficou para trás.', 'icon' => Phosphor::CalendarCheck],
             ['id' => 'conta-pessoal', 'title' => 'Conta pessoal', 'summary' => 'Quando o dinheiro passa pela tua conta.', 'icon' => Phosphor::ArrowsLeftRight],
+            ['id' => 'obrigacoes-fiscais', 'title' => 'Obrigações fiscais', 'summary' => 'O que pagar e entregar em cada mês.', 'icon' => Phosphor::CalendarDots],
             ['id' => 'notas-legais', 'title' => 'Notas legais', 'summary' => 'O que confirmar com o contabilista.', 'icon' => Phosphor::Scales],
             ['id' => 'conta', 'title' => 'A tua conta e a assinatura', 'summary' => 'Experiência, preços e conta só de leitura.', 'icon' => Phosphor::CreditCard],
         ];
@@ -99,6 +102,8 @@ class HelpCentre extends Page
             'bank' => BankStatementImport::getUrl(),
             'monthClose' => MonthClose::getUrl(),
             'settings' => FinanceSettingsPage::getUrl(),
+            'suppliers' => SupplierResource::getUrl(),
+            'clients' => ClientResource::getUrl(),
             'dashboard' => Dashboard::getUrl(),
         ];
     }

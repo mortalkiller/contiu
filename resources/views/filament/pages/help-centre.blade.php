@@ -176,6 +176,18 @@
 
             @endif
 
+            {{-- Obrigações fiscais --}}
+            <x-filament::section class="scroll-mt-24" id="obrigacoes-fiscais" :icon="$icons['obrigacoes-fiscais']" heading="Obrigações fiscais" description="O cartão Este mês, no painel, diz o que há para pagar ou entregar e até quando.">
+                <ul class="list-disc space-y-2 ps-5">
+                    <li><strong>O que aparece:</strong> a Segurança Social do mês (paga entre os dias 10 e 20), a declaração trimestral da Segurança Social (em janeiro, abril, julho e outubro), o IVA das compras de serviços ao estrangeiro (autoliquidação), a declaração recapitulativa dos serviços a empresas da UE e o IRS (modelo 3, de 1 de abril a 30 de junho). Só aparece o que se aplica à tua conta.</li>
+                    <li><strong>Marcar como feito:</strong> depois de pagar ou entregar, carrega em <strong>Marcar como pago</strong> ou <strong>Marcar como entregue</strong>. O que não marcares continua no cartão depois do prazo, como <strong>Em atraso</strong>.</li>
+                    <li><strong>Avisos:</strong> no dia 1 de cada mês recebes um email com as obrigações do mês, e 3 dias antes de cada prazo aparece um aviso no sino.</li>
+                    <li><strong>As tuas respostas:</strong> em {!! $link('settings', 'Definições fiscais') !!} dizes quando começaste a atividade (primeiro início ou reinício), se tiveste salário ou pensão, o coeficiente do IRS, o IRS Jovem e a taxa e a isenção da Segurança Social. Sem o início de atividade, o cartão pede para completares as definições.</li>
+                    <li><strong>Compras ao estrangeiro:</strong> em {!! $link('suppliers', 'Fornecedores') !!} diz onde fica a sede de cada empresa. As despesas a fornecedores de fora de Portugal sem IVA na fatura entram na autoliquidação, exceto as compras de bens (material), que marcas na despesa.</li>
+                    <li><strong>Serviços a empresas da UE:</strong> em {!! $link('clients', 'Clientes') !!} diz onde fica o cliente e se é uma empresa. Os recebimentos de empresas de outro país da UE entram na declaração recapitulativa.</li>
+                </ul>
+            </x-filament::section>
+
             {{-- Notas legais --}}
             <x-filament::section class="scroll-mt-24" id="notas-legais" :icon="$icons['notas-legais']" heading="Notas legais" description="Resumo para ENI no regime simplificado — confirma com o teu contabilista.">
                 <ul class="list-disc space-y-2 ps-5">

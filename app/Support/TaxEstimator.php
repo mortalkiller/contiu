@@ -188,26 +188,49 @@ final class TaxEstimator
 
     /**
      * Reduction of the coefficient (art. 31.º, n.os 10 and 11): 50 % in the year the activity starts,
-     * 25 % in the next, not in a year with salary or pension, nor on a restart less than 5 years
-     * after the previous cessation (or with that date unknown).
+     * 25 % in the next, unless blocked (irsCoefficientReductionBlocker()).
      */
     public function irsCoefficientReduction(): float
     {
-        $start = $this->settings->activityStartedOn();
-
-        if ($start === null || in_array($this->year, $this->settings->dependentIncomeYears(), true)) {
+        if ($this->irsCoefficientReductionBlocker() !== null) {
             return 0.0;
+        }
+
+        return $this->irsEarlyYearReduction();
+    }
+
+    /**
+     * Why an early year (the start year or the next) gets no reduction: dependent_income (a year with
+     * salary or pension) or recent_restart (a restart less than 5 years after the previous cessation,
+     * or with that date unknown). Null outside the early years or when the reduction applies.
+     */
+    public function irsCoefficientReductionBlocker(): ?string
+    {
+        if ($this->irsEarlyYearReduction() === 0.0) {
+            return null;
+        }
+
+        if (in_array($this->year, $this->settings->dependentIncomeYears(), true)) {
+            return 'dependent_income';
         }
 
         if ($this->settings->activityStartKind() === 'restart') {
             $ended = $this->settings->previousActivityEndedOn();
 
-            if ($ended === null || $ended->addYears(5)->gt($start)) {
-                return 0.0;
+            if ($ended === null || $ended->addYears(5)->gt($this->settings->activityStartedOn())) {
+                return 'recent_restart';
             }
         }
 
-        return match ($this->year - $start->year) {
+        return null;
+    }
+
+    /** 50 % in the start year, 25 % in the next, before any blocker. */
+    private function irsEarlyYearReduction(): float
+    {
+        $start = $this->settings->activityStartedOn();
+
+        return match ($start === null ? null : $this->year - $start->year) {
             0 => 0.5,
             1 => 0.25,
             default => 0.0,

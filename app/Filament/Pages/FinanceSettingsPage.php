@@ -3,11 +3,11 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Support\MoneyInput;
+use App\Filament\Support\TaxSettingsFields;
 use App\Support\CurrentAccount;
 use App\Support\FinanceSettings;
 use BackedEnum;
 use Filament\Actions\Action;
-use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -45,9 +45,8 @@ class FinanceSettingsPage extends Page
         $settings = app(FinanceSettings::class);
 
         $this->form->fill([
-            'activity_started_on' => $settings->activityStartedOn()?->toDateString(),
-            'ss_rate_percent' => round($settings->ssRate() * 100, 2),
-            'ss_relevant_income_share_percent' => round($settings->ssRelevantIncomeShare() * 100, 2),
+            ...TaxSettingsFields::fill($settings),
+            'reverse_charge_vat_rate_percent' => round($settings->reverseChargeVatRate() * 100, 2),
             'vat_exempt' => $settings->vatExempt(),
             'vat_exemption_threshold' => $settings->vatExemptionThreshold(),
             'payments_exempt_by_default' => $settings->paymentsExemptByDefault(),
@@ -67,32 +66,26 @@ class FinanceSettingsPage extends Page
             ->statePath('data')
             ->columns(['lg' => 2])
             ->components([
-                Section::make('Segurança Social')
-                    ->description('Trabalhador independente: contribuição sobre o rendimento relevante de cada trimestre.')
-                    ->icon(Phosphor::Bank)
+                Section::make('Atividade')
+                    ->description('Quando e como começou a atividade: decide a Segurança Social do início e a redução do IRS dos primeiros anos.')
+                    ->icon(Phosphor::Briefcase)
                     ->columns(2)
                     ->schema([
-                        DatePicker::make('activity_started_on')
-                            ->label('Início de atividade')
-                            ->native(false)
-                            ->displayFormat('d/m/Y')
-                            ->columnSpanFull(),
-                        TextInput::make('ss_rate_percent')
-                            ->label('Taxa contributiva')
-                            ->numeric()
-                            ->step(0.1)
-                            ->suffix('%')
-                            ->required(),
-                        TextInput::make('ss_relevant_income_share_percent')
-                            ->label('Rendimento relevante')
-                            ->helperText('70% para prestação de serviços.')
-                            ->numeric()
-                            ->step(1)
-                            ->suffix('%')
-                            ->required(),
+                        TaxSettingsFields::activityStartedOn()->columnSpanFull(),
+                        ...TaxSettingsFields::activity(withPreviousYear: true),
                     ]),
-                Section::make('Impostos')
+                Section::make('IRS')
+                    ->description('Regime simplificado: o rendimento tributável é o rendimento bruto vezes o coeficiente.')
                     ->icon(Phosphor::Receipt)
+                    ->columns(2)
+                    ->schema(TaxSettingsFields::irs()),
+                Section::make('Segurança Social')
+                    ->description('Contribuição sobre o rendimento relevante de cada trimestre.')
+                    ->icon(Phosphor::Bank)
+                    ->columns(2)
+                    ->schema(TaxSettingsFields::socialSecurity()),
+                Section::make('IVA')
+                    ->icon(Phosphor::Percent)
                     ->schema([
                         Toggle::make('payments_exempt_by_default')
                             ->label('Recebimentos isentos por defeito')
@@ -105,6 +98,16 @@ class FinanceSettingsPage extends Page
                             ->minValue(0)
                             ->visible(fn ($get) => (bool) $get('vat_exempt'))
                             ->required(fn ($get) => (bool) $get('vat_exempt')),
+                        // Stored as a fraction (0.23); typed as a percentage.
+                        TextInput::make('reverse_charge_vat_rate_percent')
+                            ->label('Taxa de IVA na autoliquidação')
+                            ->helperText('O IVA que liquidas nas compras de serviços a fornecedores com sede fora de Portugal. 23 % no continente.')
+                            ->numeric()
+                            ->step(1)
+                            ->minValue(0)
+                            ->maxValue(100)
+                            ->suffix('%')
+                            ->required(),
                     ]),
                 Section::make('Banco')
                     ->description('A conta da atividade é a conta bancária onde recebes e pagas o que é do trabalho. O extrato importado dá o saldo e confirma que o dinheiro registado chegou lá.')
@@ -152,10 +155,11 @@ class FinanceSettingsPage extends Page
     {
         $data = $this->form->getState();
 
-        app(FinanceSettings::class)->set([
-            'activity_started_on' => $data['activity_started_on'] ?? null,
-            'ss_rate' => round((float) $data['ss_rate_percent'] / 100, 4),
-            'ss_relevant_income_share' => round((float) $data['ss_relevant_income_share_percent'] / 100, 4),
+        $settings = app(FinanceSettings::class);
+
+        $settings->set([
+            ...TaxSettingsFields::toSettings($data, $settings->dependentIncomeYears()),
+            'reverse_charge_vat_rate' => round((float) $data['reverse_charge_vat_rate_percent'] / 100, 4),
             'vat_exempt' => (bool) ($data['vat_exempt'] ?? false),
             'vat_exemption_threshold' => (int) ($data['vat_exemption_threshold'] ?? 0),
             'payments_exempt_by_default' => (bool) ($data['payments_exempt_by_default'] ?? false),
@@ -163,7 +167,7 @@ class FinanceSettingsPage extends Page
             // Hidden while off: kept as they were, for when it is turned back on.
             'account_names' => $hasBusinessAccount
                 ? (implode("\n", array_filter(array_map('trim', preg_split('/\R/', (string) ($data['account_names'] ?? '')) ?: []))) ?: null)
-                : app(FinanceSettings::class)->all()['account_names'],
+                : $settings->all()['account_names'],
         ]);
 
         Notification::make()->title('Definições guardadas')->success()->send();

@@ -2,7 +2,10 @@
 
 use App\Filament\Pages\BankStatementImport;
 use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\FinanceSettingsPage;
 use App\Filament\Pages\HelpCentre;
+use App\Filament\Resources\Clients\ClientResource;
+use App\Filament\Resources\Suppliers\SupplierResource;
 use App\Support\Money;
 
 beforeEach(fn () => actingAsAdmin());
@@ -35,4 +38,17 @@ it('explains the trial, the plans and the read-only account', function () {
         ->assertSee(Money::format(5400))
         ->assertSee('só de leitura')
         ->assertSee('portal de faturação da Stripe');
+});
+
+it('explains the monthly tax obligations and where their answers come from', function () {
+    $this->get(HelpCentre::getUrl())
+        ->assertOk()
+        ->assertSee('href="#obrigacoes-fiscais"', escape: false)
+        ->assertSeeInOrder(['Obrigações fiscais', 'Notas legais'])
+        ->assertSee('Este mês')
+        ->assertSee('Marcar como pago')
+        ->assertSee('declaração recapitulativa')
+        ->assertSee(FinanceSettingsPage::getUrl(), escape: false)
+        ->assertSee(SupplierResource::getUrl(), escape: false)
+        ->assertSee(ClientResource::getUrl(), escape: false);
 });

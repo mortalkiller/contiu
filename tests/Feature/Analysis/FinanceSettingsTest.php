@@ -1,7 +1,9 @@
 <?php
 
 use App\Filament\Pages\FinanceSettingsPage;
+use App\Filament\Pages\TaxEstimate;
 use App\Support\FinanceSettings;
+use Illuminate\Support\Carbon;
 
 it('returns the documented defaults when nothing is stored', function () {
     $settings = app(FinanceSettings::class);
@@ -99,4 +101,133 @@ it('is incomplete until the activity start and kind are set', function () {
 
     $settings->set(['activity_start_kind' => 'first']);
     expect(app(FinanceSettings::class)->isIncomplete())->toBeFalse();
+});
+
+it('saves and reloads every activity, IRS, Segurança Social and VAT setting', function () {
+    $this->travelTo(Carbon::parse('2026-11-09'));
+    actingAsAdmin();
+
+    Livewire\Livewire::test(FinanceSettingsPage::class)
+        ->assertSee('Tive salário ou pensão em 2026')
+        ->assertSee('Tive salário ou pensão em 2025')
+        ->assertSee('Consultar e alterar os dados de atividade')
+        ->assertSee('programadores, designers, consultores')
+        ->assertSee('art. 157.º')
+        ->fillForm([
+            'activity_started_on' => '2026-02-01',
+            'activity_start_kind' => 'restart',
+            'previous_activity_ended_on' => '2019-12-31',
+            'ss_enrolled_from' => '2026-03-01',
+            'dependent_income_current_year' => true,
+            'dependent_income_previous_year' => false,
+            'irs_coefficient' => '0.35',
+            'irs_jovem' => true,
+            'birth_date' => '1998-05-20',
+            'irs_jovem_year_number' => 3,
+            'ss_rate' => '0.252',
+            'ss_relevant_income_share_percent' => 70,
+            'ss_contribution_exempt' => true,
+            'reverse_charge_vat_rate_percent' => 22,
+        ])
+        ->assertSee('Em 2026, és no ano n.º')
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    $settings = app(FinanceSettings::class);
+
+    expect($settings->activityStartedOn()->toDateString())->toBe('2026-02-01')
+        ->and($settings->activityStartKind())->toBe('restart')
+        ->and($settings->previousActivityEndedOn()->toDateString())->toBe('2019-12-31')
+        ->and($settings->ssEnrolledFrom()->toDateString())->toBe('2026-03-01')
+        ->and($settings->dependentIncomeYears())->toBe([2026])
+        ->and($settings->irsCoefficient())->toBe(0.35)
+        ->and($settings->irsJovem())->toBeTrue()
+        ->and($settings->birthDate()->toDateString())->toBe('1998-05-20')
+        ->and($settings->all()['irs_jovem_year'])->toBe(['year' => 2026, 'number' => 3])
+        ->and($settings->ssRate())->toBe(0.252)
+        ->and($settings->ssContributionExempt())->toBeTrue()
+        ->and($settings->reverseChargeVatRate())->toBe(0.22);
+
+    Livewire\Livewire::test(FinanceSettingsPage::class)
+        ->assertSchemaStateSet([
+            'activity_started_on' => '2026-02-01',
+            'activity_start_kind' => 'restart',
+            'previous_activity_ended_on' => '2019-12-31',
+            'ss_enrolled_from' => '2026-03-01',
+            'dependent_income_current_year' => true,
+            'dependent_income_previous_year' => false,
+            'irs_coefficient' => '0.35',
+            'irs_jovem' => true,
+            'birth_date' => '1998-05-20',
+            'irs_jovem_year_number' => 3,
+            'ss_rate' => '0.252',
+            'ss_contribution_exempt' => true,
+            'reverse_charge_vat_rate_percent' => 22.0,
+        ], 'form');
+});
+
+it('keeps the older salary years when saving the two shown on the settings page', function () {
+    $this->travelTo(Carbon::parse('2026-11-09'));
+    actingAsAdmin();
+    app(FinanceSettings::class)->set(['dependent_income_years' => [2020, 2025, 2026]]);
+
+    Livewire\Livewire::test(FinanceSettingsPage::class)
+        ->assertSchemaStateSet(['dependent_income_current_year' => true, 'dependent_income_previous_year' => true], 'form')
+        ->fillForm(['dependent_income_current_year' => false])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect(app(FinanceSettings::class)->dependentIncomeYears())->toBe([2020, 2025]);
+});
+
+it('derives this year\'s IRS Jovem number from the stored reference year', function () {
+    $this->travelTo(Carbon::parse('2026-11-09'));
+    actingAsAdmin();
+    app(FinanceSettings::class)->set(['irs_jovem' => true, 'birth_date' => '1998-05-20', 'irs_jovem_year' => ['year' => 2024, 'number' => 1]]);
+
+    Livewire\Livewire::test(FinanceSettingsPage::class)
+        ->assertSchemaStateSet(['irs_jovem_year_number' => 3], 'form')
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect(app(FinanceSettings::class)->all()['irs_jovem_year'])->toBe(['year' => 2026, 'number' => 3]);
+});
+
+it('asks for the cessation date on a restart and the birth date with IRS Jovem', function () {
+    actingAsAdmin();
+
+    // An account that has not said how it started is not assumed a first start.
+    Livewire\Livewire::test(FinanceSettingsPage::class)
+        ->assertSchemaStateSet(['activity_start_kind' => null], 'form')
+        ->assertFormFieldHidden('previous_activity_ended_on')
+        ->assertFormFieldHidden('birth_date')
+        ->fillForm(['activity_start_kind' => 'restart', 'irs_jovem' => true, 'previous_activity_ended_on' => null, 'birth_date' => null])
+        ->assertFormFieldVisible('previous_activity_ended_on')
+        ->assertFormFieldVisible('birth_date')
+        ->call('save')
+        ->assertHasFormErrors(['previous_activity_ended_on' => 'required', 'birth_date' => 'required', 'irs_jovem_year_number' => 'required']);
+});
+
+it('estimates Pedro\'s account from his settings: exempt from SS, IRS at 0,75 without reduction', function () {
+    $this->travelTo(Carbon::parse('2026-11-09'));
+    actingAsAdmin();
+
+    Livewire\Livewire::test(FinanceSettingsPage::class)
+        ->fillForm([
+            'activity_started_on' => '2025-08-07',
+            'activity_start_kind' => 'restart',
+            'previous_activity_ended_on' => '2012-06-30',
+            'ss_enrolled_from' => '2025-08-01',
+            'ss_rate' => '0.214',
+            'ss_contribution_exempt' => true,
+            'dependent_income_current_year' => true,
+            'irs_coefficient' => '0.75',
+        ])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    Livewire\Livewire::test(TaxEstimate::class)
+        ->assertSee('Isento (art. 157.º).')
+        ->assertSee('Coeficiente 0,75 (sem redução: ano com salário ou pensão)')
+        ->assertDontSee('Definições fiscais incompletas');
 });

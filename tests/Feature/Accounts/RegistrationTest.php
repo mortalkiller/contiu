@@ -38,10 +38,19 @@ function registrationData(array $overrides = []): array
         'account_name' => 'Estúdio Rita',
         'nif' => '501964843',
         'activity_started_on' => '2026-03-01',
+        'activity_start_kind' => 'restart',
+        'previous_activity_ended_on' => '2019-06-30',
+        'ss_enrolled_from' => '2026-03-01',
+        'dependent_income_current_year' => true,
+        'irs_coefficient' => '0.35',
+        'irs_jovem' => true,
+        'birth_date' => '1997-04-12',
+        'irs_jovem_year_number' => 2,
         'vat_exempt' => true,
         'vat_exemption_threshold' => 15000,
-        'ss_rate_percent' => 21.4,
+        'ss_rate' => '0.214',
         'ss_relevant_income_share_percent' => 70,
+        'ss_contribution_exempt' => true,
         'has_business_account' => true,
         'account_names' => " RITA SILVA \n\nOrdenado",
         'terms' => true,
@@ -81,6 +90,17 @@ it('creates user and account from the wizard', function () {
             ->and($settings->vatExemptionThreshold())->toBe(1500000)
             ->and($settings->ssRate())->toBe(0.214)
             ->and($settings->ssRelevantIncomeShare())->toBe(0.70)
+            ->and($settings->activityStartKind())->toBe('restart')
+            ->and($settings->previousActivityEndedOn()?->toDateString())->toBe('2019-06-30')
+            ->and($settings->ssEnrolledFrom()?->toDateString())->toBe('2026-03-01')
+            ->and($settings->dependentIncomeYears())->toBe([2026])
+            ->and($settings->irsCoefficient())->toBe(0.35)
+            ->and($settings->irsJovem())->toBeTrue()
+            ->and($settings->birthDate()?->toDateString())->toBe('1997-04-12')
+            ->and($settings->irsJovemYearNumber(2026))->toBe(2)
+            ->and($settings->ssContributionExempt())->toBeTrue()
+            ->and($settings->reverseChargeVatRate())->toBe(0.23)
+            ->and($settings->isIncomplete())->toBeFalse()
             ->and($settings->hasBusinessAccount())->toBeTrue()
             ->and($settings->accountNames())->toBe(['RITA SILVA', 'Ordenado']);
     });
@@ -108,7 +128,12 @@ it('leaves the bank out for a freelancer without an account only for the activit
 
 it('starts with the usual rates and VAT limit', function () {
     Livewire::test(RegisterAccount::class)->assertFormSet([
-        'ss_rate_percent' => 21.4,
+        'activity_start_kind' => 'first',
+        'irs_coefficient' => '0.75',
+        'irs_jovem' => false,
+        'dependent_income_current_year' => false,
+        'ss_rate' => '0.214',
+        'ss_contribution_exempt' => false,
         'ss_relevant_income_share_percent' => 70,
         'vat_exemption_threshold' => 15000,
         'terms' => false,
@@ -125,6 +150,47 @@ it('no longer asks for an IRS exemption, now computed from the IRS settings', fu
     Livewire::test(RegisterAccount::class)
         ->assertFormFieldDoesNotExist('irs_exempt')
         ->assertDontSee('Isento de IRS');
+});
+
+it('stores a first start without the restart, IRS Jovem or salary answers', function () {
+    registrationWizard([
+        'activity_start_kind' => 'first',
+        'dependent_income_current_year' => false,
+        'irs_jovem' => false,
+        'ss_enrolled_from' => null,
+    ])
+        ->call('register')
+        ->assertHasNoFormErrors();
+
+    CurrentAccount::run(Account::firstWhere('nif', '501964843'), function () {
+        $settings = app(FinanceSettings::class);
+
+        expect($settings->activityStartKind())->toBe('first')
+            ->and($settings->previousActivityEndedOn())->toBeNull()
+            ->and($settings->ssEnrolledFrom())->toBeNull()
+            ->and($settings->dependentIncomeYears())->toBe([])
+            ->and($settings->irsJovem())->toBeFalse()
+            ->and($settings->birthDate())->toBeNull()
+            ->and($settings->irsJovemYearNumber(2026))->toBeNull();
+    });
+});
+
+it('asks for the cessation date on a restart and the birth date with IRS Jovem', function () {
+    registrationWizard(['previous_activity_ended_on' => null, 'birth_date' => null, 'irs_jovem_year_number' => null])
+        ->call('register')
+        ->assertHasFormErrors(['previous_activity_ended_on' => 'required', 'birth_date' => 'required', 'irs_jovem_year_number' => 'required']);
+
+    expect(Account::where('nif', '501964843')->exists())->toBeFalse();
+});
+
+it('sums up the tax answers before creating the account', function () {
+    registrationWizard()
+        ->goToWizardStep(7)
+        ->assertSee('Reinício a 01/03/2026 (cessação anterior a 30/06/2019)')
+        ->assertSee('Enquadrado na Segurança Social a partir de 01/03/2026')
+        ->assertSee('Com salário ou pensão em 2026')
+        ->assertSee('Coeficiente 0,35 · IRS Jovem, ano n.º 2 em 2026')
+        ->assertSee('21,4 % sobre 70 % do rendimento · isento de contribuições (art. 157.º)');
 });
 
 it('stores no VAT limit when the account is not VAT exempt', function () {

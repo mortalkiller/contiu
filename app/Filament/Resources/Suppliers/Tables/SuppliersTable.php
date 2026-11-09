@@ -31,6 +31,10 @@ class SuppliersTable
                     ->url(fn (Supplier $record) => $record->website, shouldOpenInNewTab: true)
                     ->formatStateUsing(fn (?string $state) => $state ? preg_replace('#^https?://(www\.)?#', '', $state) : null)
                     ->color('primary'),
+                TextColumn::make('seat')
+                    ->label('Sede')
+                    ->badge()
+                    ->color('gray'),
                 TextColumn::make('expenses_count')
                     ->label('Despesas')
                     ->numeric()

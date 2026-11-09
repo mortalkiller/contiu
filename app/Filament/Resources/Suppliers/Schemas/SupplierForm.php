@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Suppliers\Schemas;
 
+use App\Filament\Support\FinanceFields;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
@@ -23,6 +24,8 @@ class SupplierForm
                     ->label('Site')
                     ->url()
                     ->placeholder('https://'),
+                FinanceFields::seat()
+                    ->helperText('As compras de serviços a empresas com sede fora de Portugal pagam IVA por autoliquidação.'),
                 Textarea::make('notes')
                     ->label('Notas')
                     ->rows(3)

@@ -6,6 +6,7 @@ use App\Enums\ExpenseKind;
 use App\Enums\PaymentMethod;
 use App\Filament\Support\FinanceFields;
 use App\Filament\Support\ReconciliationColumns;
+use App\Models\Supplier;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
@@ -30,7 +31,8 @@ class ExpenseForm
                     ->columnSpan(2)
                     ->columns(2)
                     ->schema([
-                        FinanceFields::supplierSelect(),
+                        FinanceFields::supplierSelect()
+                            ->live(),
                         Select::make('category_id')
                             ->label('Categoria')
                             ->relationship('category', 'name', fn (Builder $query) => $query->expense())
@@ -45,6 +47,12 @@ class ExpenseForm
                             ->displayFormat('d/m/Y')
                             ->default(today())
                             ->required(),
+                        // Services bought abroad are self-assessed (autoliquidação); goods are not.
+                        Toggle::make('is_goods')
+                            ->label('É uma compra de bens (material)?')
+                            ->helperText('Desligado, é um serviço (software, alojamento, publicidade…): o IVA paga-se por autoliquidação.')
+                            ->visible(fn (Get $get): bool => (bool) Supplier::find($get('supplier_id'))?->seat?->isForeign())
+                            ->columnSpanFull(),
                     ]),
 
                 Section::make('Valor')

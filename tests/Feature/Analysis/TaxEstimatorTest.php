@@ -151,7 +151,15 @@ it('drops the reduction in a year with salary or pension', function () {
     $settings = ['activity_started_on' => '2025-08-07', 'activity_start_kind' => 'first', 'dependent_income_years' => [2026]];
 
     expect(estimator(2026, $settings)->effectiveIrsCoefficient())->toBe(0.75)
-        ->and(estimator(2025, $settings)->effectiveIrsCoefficient())->toBe(0.375);
+        ->and(estimator(2026, $settings)->irsCoefficientReductionBlocker())->toBe('dependent_income')
+        ->and(estimator(2025, $settings)->effectiveIrsCoefficient())->toBe(0.375)
+        ->and(estimator(2025, $settings)->irsCoefficientReductionBlocker())->toBeNull();
+});
+
+it('names no blocker once the early years are over', function () {
+    $settings = ['activity_started_on' => '2020-08-07', 'activity_start_kind' => 'restart', 'dependent_income_years' => [2026]];
+
+    expect(estimator(2026, $settings)->irsCoefficientReductionBlocker())->toBeNull();
 });
 
 it('drops the reduction after a recent cessation', function () {
@@ -160,7 +168,8 @@ it('drops the reduction after a recent cessation', function () {
     expect(estimator(2025, [...$restart, 'previous_activity_ended_on' => '2022-01-01'])->irsCoefficientReduction())->toBe(0.0)
         ->and(estimator(2025, [...$restart, 'previous_activity_ended_on' => '2019-01-01'])->irsCoefficientReduction())->toBe(0.5)
         // Without the cessation date the reduction is not assumed.
-        ->and(estimator(2025, [...$restart, 'previous_activity_ended_on' => null])->irsCoefficientReduction())->toBe(0.0);
+        ->and(estimator(2025, [...$restart, 'previous_activity_ended_on' => null])->irsCoefficientReduction())->toBe(0.0)
+        ->and(estimator(2025, [...$restart, 'previous_activity_ended_on' => '2022-01-01'])->irsCoefficientReductionBlocker())->toBe('recent_restart');
 });
 
 it('gives no reduction without an activity start', function () {

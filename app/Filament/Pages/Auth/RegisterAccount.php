@@ -4,6 +4,7 @@ namespace App\Filament\Pages\Auth;
 
 use App\Actions\CreateAccount;
 use App\Filament\Support\MoneyInput;
+use App\Filament\Support\TaxSettingsFields;
 use App\Models\Account;
 use App\Models\User;
 use App\Rules\PortugueseNif;
@@ -11,7 +12,6 @@ use App\Support\Money;
 use Filament\Actions\Action;
 use Filament\Auth\Pages\Register;
 use Filament\Forms\Components\Checkbox;
-use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -115,16 +115,18 @@ class RegisterAccount extends Register
                         ->unique(Account::class, 'nif')
                         ->validationMessages(['unique' => 'Já existe uma conta com este NIF.'])
                         ->extraInputAttributes(['inputmode' => 'numeric', 'autocomplete' => 'off']),
-                    DatePicker::make('activity_started_on')
-                        ->label('Início de atividade')
-                        ->helperText('A data em que abriste atividade nas Finanças.')
-                        ->native(false)
-                        ->displayFormat('d/m/Y')
+                    TaxSettingsFields::activityStartedOn()
                         ->required(),
+                    ...TaxSettingsFields::activity(withPreviousYear: false, requireKind: true),
                 ]),
 
-            Step::make('Impostos')
+            Step::make('IRS')
                 ->icon(Phosphor::Receipt)
+                ->columns(2)
+                ->schema(TaxSettingsFields::irs()),
+
+            Step::make('IVA')
+                ->icon(Phosphor::Percent)
                 ->schema([
                     Toggle::make('vat_exempt')
                         ->label('Isento de IVA (art. 53.º)')
@@ -142,29 +144,7 @@ class RegisterAccount extends Register
             Step::make('Segurança Social')
                 ->icon(Phosphor::Bank)
                 ->columns(2)
-                ->schema([
-                    // Stored as fractions (0.214); typed as percentages, like the fiscal settings page.
-                    TextInput::make('ss_rate_percent')
-                        ->label('Taxa contributiva')
-                        ->helperText('A taxa dos trabalhadores independentes.')
-                        ->numeric()
-                        ->step(0.1)
-                        ->minValue(0)
-                        ->maxValue(100)
-                        ->suffix('%')
-                        ->default(21.4)
-                        ->required(),
-                    TextInput::make('ss_relevant_income_share_percent')
-                        ->label('Rendimento relevante')
-                        ->helperText('70% para prestação de serviços.')
-                        ->numeric()
-                        ->step(1)
-                        ->minValue(0)
-                        ->maxValue(100)
-                        ->suffix('%')
-                        ->default(70)
-                        ->required(),
-                ]),
+                ->schema(TaxSettingsFields::socialSecurity()),
 
             Step::make('Banco')
                 ->icon(Phosphor::Wallet)
@@ -193,14 +173,17 @@ class RegisterAccount extends Register
                         ->label('Email')
                         ->state(fn (Get $get) => $get('email') ?: '—'),
                     TextEntry::make('summary_activity')
-                        ->label('Início de atividade')
-                        ->state(fn (Get $get) => filled($get('activity_started_on')) ? Carbon::parse($get('activity_started_on'))->format('d/m/Y') : '—'),
+                        ->label('Atividade')
+                        ->listWithLineBreaks()
+                        ->state(fn (Get $get) => self::activitySummary($get)),
+                    TextEntry::make('summary_irs')
+                        ->label('IRS')
+                        ->state(fn (Get $get) => self::irsSummary($get)),
                     TextEntry::make('summary_taxes')
                         ->label('IVA')
                         ->state(fn (Get $get) => self::vatSummary($get)),
                     TextEntry::make('summary_social_security')
                         ->label('Segurança Social')
-                        ->columnSpanFull()
                         ->state(fn (Get $get) => self::socialSecuritySummary($get)),
                     Checkbox::make('terms')
                         ->label(new HtmlString(
@@ -239,12 +222,10 @@ class RegisterAccount extends Register
             app(CreateAccount::class)->handle($user, [
                 'name' => $data['account_name'],
                 'nif' => $data['nif'],
-                'activity_started_on' => $data['activity_started_on'],
+                ...TaxSettingsFields::toSettings($data),
                 'vat_exempt' => $vatExempt,
                 // Without the exemption the limit is not asked, so the default stays.
                 ...($vatExempt ? ['vat_exemption_threshold' => (int) $data['vat_exemption_threshold']] : []),
-                'ss_rate' => round((float) $data['ss_rate_percent'] / 100, 4),
-                'ss_relevant_income_share' => round((float) $data['ss_relevant_income_share_percent'] / 100, 4),
                 'has_business_account' => $hasBusinessAccount = (bool) ($data['has_business_account'] ?? false),
                 'account_names' => $hasBusinessAccount ? ($data['account_names'] ?? null) : null,
             ]);
@@ -260,10 +241,32 @@ class RegisterAccount extends Register
             : 'Com IVA';
     }
 
+    /** @return array<int, string> */
+    private static function activitySummary(Get $get): array
+    {
+        $date = fn (?string $value) => filled($value) ? Carbon::parse($value)->format('d/m/Y') : '—';
+        $restart = $get('activity_start_kind') === 'restart';
+        $year = now()->year;
+
+        return array_values(array_filter([
+            ($restart ? 'Reinício a ' : 'Primeiro início a ').$date($get('activity_started_on'))
+                .($restart ? ' (cessação anterior a '.$date($get('previous_activity_ended_on')).')' : ''),
+            filled($get('ss_enrolled_from')) ? 'Enquadrado na Segurança Social a partir de '.$date($get('ss_enrolled_from')) : null,
+            $get('dependent_income_current_year') ? "Com salário ou pensão em {$year}" : "Sem salário nem pensão em {$year}",
+        ]));
+    }
+
+    private static function irsSummary(Get $get): string
+    {
+        return 'Coeficiente '.str_replace('.', ',', (string) (float) $get('irs_coefficient'))
+            .($get('irs_jovem') ? ' · IRS Jovem, ano n.º '.$get('irs_jovem_year_number').' em '.now()->year : ' · sem IRS Jovem');
+    }
+
     private static function socialSecuritySummary(Get $get): string
     {
         $percent = fn ($value) => str_replace('.', ',', (string) round((float) $value, 2)).' %';
 
-        return $percent($get('ss_rate_percent')).' sobre '.$percent($get('ss_relevant_income_share_percent')).' do rendimento';
+        return $percent((float) $get('ss_rate') * 100).' sobre '.$percent($get('ss_relevant_income_share_percent')).' do rendimento'
+            .($get('ss_contribution_exempt') ? ' · isento de contribuições (art. 157.º)' : '');
     }
 }

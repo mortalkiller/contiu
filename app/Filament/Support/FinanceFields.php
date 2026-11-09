@@ -2,12 +2,14 @@
 
 namespace App\Filament\Support;
 
+use App\Enums\Seat;
 use App\Models\Project;
 use App\Models\Retainer;
 use App\Support\Money;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Utilities\Get;
@@ -15,7 +17,7 @@ use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\TextSize;
 
 /**
- * Form fields shared by projects, retainers, expenses and recurring expenses.
+ * Form fields shared by projects, retainers, expenses, recurring expenses, clients and suppliers.
  */
 final class FinanceFields
 {
@@ -35,6 +37,23 @@ final class FinanceFields
             ->all();
     }
 
+    /** Where a supplier (or client) is seated: decides the VAT on what is bought from or sold to it. */
+    public static function seat(string $label = 'Onde fica a sede da empresa?'): Select
+    {
+        return Select::make('seat')
+            ->label($label)
+            ->options(Seat::class)
+            ->default(Seat::Portugal)
+            ->required();
+    }
+
+    public static function isBusiness(): Toggle
+    {
+        return Toggle::make('is_business')
+            ->label('É uma empresa?')
+            ->helperText('Os serviços a empresas de outro país da UE entram na declaração recapitulativa.');
+    }
+
     public static function clientSelect(): Select
     {
         return Select::make('client_id')
@@ -47,6 +66,8 @@ final class FinanceFields
                 TextInput::make('name')->label('Nome')->required(),
                 TextInput::make('vat_number')->label('NIF'),
                 TextInput::make('email')->label('Email')->email(),
+                self::seat('Onde fica o cliente?'),
+                self::isBusiness(),
             ])
             ->createOptionModalHeading('Novo cliente');
     }
@@ -63,6 +84,7 @@ final class FinanceFields
                 TextInput::make('name')->label('Nome')->required(),
                 TextInput::make('vat_number')->label('NIF'),
                 TextInput::make('website')->label('Site')->url(),
+                self::seat(),
                 Textarea::make('notes')->label('Notas')->rows(2),
             ])
             ->createOptionModalHeading('Novo fornecedor');

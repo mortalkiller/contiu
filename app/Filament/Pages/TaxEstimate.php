@@ -187,9 +187,12 @@ class TaxEstimate extends Page
                         : '')
                 : 'IRS Jovem: não se aplica em '.$estimator->year.' (idade ou ano n.º).') : null,
             $line('irs_coefficient', 'Coeficiente '.self::decimal($estimator->effectiveIrsCoefficient())
-                .($reduction > 0
-                    ? ' ('.self::decimal($estimator->settings()->irsCoefficient()).' com redução de '.self::percent($reduction).' — '.($reduction === 0.5 ? '1.º' : '2.º').' ano)'
-                    : '')),
+                .match (true) {
+                    $reduction > 0 => ' ('.self::decimal($estimator->settings()->irsCoefficient()).' com redução de '.self::percent($reduction).' — '.($reduction === 0.5 ? '1.º' : '2.º').' ano)',
+                    $estimator->irsCoefficientReductionBlocker() === 'dependent_income' => ' (sem redução: ano com salário ou pensão)',
+                    $estimator->irsCoefficientReductionBlocker() === 'recent_restart' => ' (sem redução: reinício a menos de 5 anos da cessação)',
+                    default => '',
+                }),
             $jovemPercent > 0 && $reduction > 0
                 ? $line('irs_interpretation', 'Somar o IRS Jovem à redução dos primeiros anos é uma interpretação dos art. 12.º-B e 31.º do CIRS, sem informação vinculativa da AT.')
                 : null,
