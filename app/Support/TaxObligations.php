@@ -31,7 +31,8 @@ use Illuminate\Support\Collection;
  * - irs-modelo3:YYYY — the year's IRS return, from 1 April to 30 June of the next year.
  *
  * An obligation not marked done stays listed after its deadline as overdue, for at most
- * OVERDUE_MONTHS back and never from before the account existed (it could not have been marked).
+ * OVERDUE_MONTHS back and never from before the account existed (it could not have been marked),
+ * unless the account set the date to track them from (Definições fiscais).
  */
 final class TaxObligations
 {
@@ -151,9 +152,11 @@ final class TaxObligations
     {
         $from = $this->month->subMonths(self::OVERDUE_MONTHS);
         $created = CurrentAccount::get()?->created_at;
+        // Obligations before the account existed are listed only from the date it chose to track.
+        $since = $this->settings->obligationsTrackedFrom() ?? ($created === null ? null : CarbonImmutable::instance($created));
 
-        if ($created !== null) {
-            $from = $from->max(CarbonImmutable::instance($created)->startOfMonth());
+        if ($since !== null) {
+            $from = $from->max($since->startOfMonth());
         }
 
         $obligations = [];

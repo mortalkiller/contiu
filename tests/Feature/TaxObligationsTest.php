@@ -195,6 +195,31 @@ it('reminds the SS annex with the IRS return', function () {
     expect(byKey(obligationsOn('2027-06-02')->thisMonth())['irs-modelo3:2026']->detail)->toContain('anexo SS');
 });
 
+it('lists overdue obligations from the date the account tracks them, before the account existed', function () {
+    serviceBoughtAbroad('2026-04-25', 7921);
+    serviceBoughtAbroad('2026-10-27', 8374);
+
+    // Created in November 2026: without a tracking date, April's purchases are not listed.
+    expect(byKey(obligationsOn('2026-11-09', OBLIGATIONS_COMPLETE_SETTINGS, since: '2026-11-08')->thisMonth()))
+        ->not->toHaveKey('vat-reverse:2026-04')
+        ->toHaveKey('vat-reverse:2026-10');
+
+    $rows = byKey(obligationsOn('2026-11-09', [...OBLIGATIONS_COMPLETE_SETTINGS, 'obligations_tracked_from' => '2025-08-01'], since: '2026-11-08')->thisMonth());
+
+    expect($rows['vat-reverse:2026-04'])->toMatchObject(['status' => 'overdue', 'amount' => 1822])
+        ->and($rows['vat-reverse:2026-04']->dueOn->toDateString())->toBe('2026-05-31')
+        ->and($rows)->toHaveKey('vat-reverse:2026-10');
+});
+
+it('still goes back at most 12 months from the tracking date', function () {
+    serviceBoughtAbroad('2025-09-10', 5000);
+
+    $rows = byKey(obligationsOn('2026-11-09', [...OBLIGATIONS_COMPLETE_SETTINGS, 'obligations_tracked_from' => '2025-01-01'], since: '2026-11-08')->thisMonth());
+
+    // September 2025's VAT was due on 31 October 2025: more than 12 months before November 2026.
+    expect($rows)->not->toHaveKey('vat-reverse:2025-09');
+});
+
 it('shows the IRS return in June and as upcoming from April', function () {
     expect(byKey(obligationsOn('2027-03-10')->upcoming()))->not->toHaveKey('irs-modelo3:2026')
         ->and(byKey(obligationsOn('2027-04-10')->upcoming()))->toHaveKey('irs-modelo3:2026')

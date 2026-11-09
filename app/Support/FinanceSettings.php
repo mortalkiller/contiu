@@ -32,6 +32,8 @@ final class FinanceSettings
         'irs_jovem_year' => null, // {"year": 2026, "number": 2}: the IRS Jovem year number in a reference year
         'ss_contribution_exempt' => false,
         'reverse_charge_vat_rate' => 0.23,
+        // From when the obligations card lists overdue obligations (default: the account's creation).
+        'obligations_tracked_from' => null,
     ];
 
     /** @var array<string, mixed>|null */
@@ -163,6 +165,12 @@ final class FinanceSettings
     public function ssContributionExempt(): bool
     {
         return (bool) $this->all()['ss_contribution_exempt'];
+    }
+
+    /** From when overdue obligations are listed; null: since the account was created. */
+    public function obligationsTrackedFrom(): ?CarbonImmutable
+    {
+        return $this->date('obligations_tracked_from');
     }
 
     public function reverseChargeVatRate(): float

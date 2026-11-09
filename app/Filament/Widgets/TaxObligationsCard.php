@@ -124,7 +124,7 @@ class TaxObligationsCard extends Widget
 
         return [
             'key' => $obligation->key,
-            'title' => $obligation->title,
+            'title' => $obligation->title.self::monthOf($obligation),
             'tooltip' => $obligation->detail,
             'url' => $obligation->url,
             'when' => match (true) {
@@ -244,6 +244,26 @@ class TaxObligationsCard extends Widget
             $obligation->opensOn !== null => $title.' · '.mb_strtolower(Period::SHORT_MONTHS[$obligation->opensOn->month - 1]).'–'.mb_strtolower(Period::SHORT_MONTHS[$obligation->dueOn->month - 1]),
             default => $title.' · até '.self::shortDate($obligation->dueOn),
         };
+    }
+
+    /**
+     * " · abril" for a monthly obligation, so several months of the same one can be told apart: the
+     * month of the purchases (IVA), of the sales (recapitulativa) or of the payment (SS); " · 2025"
+     * for the IRS return of that year's income.
+     */
+    private static function monthOf(TaxObligation $obligation): string
+    {
+        if ($obligation->kind === 'irs-modelo3') {
+            return ' · '.substr($obligation->key, -4);
+        }
+
+        if (! in_array($obligation->kind, ['ss', 'vat-reverse', 'recapitulativa'], true)) {
+            return '';
+        }
+
+        $month = (int) substr($obligation->key, -2);
+
+        return ' · '.mb_strtolower(Period::MONTHS[$month - 1]);
     }
 
     /** "30 nov". */

@@ -258,3 +258,19 @@ it('estimates Pedro\'s account from his settings: exempt from SS, IRS at 0,75 wi
         ->assertSee('Coeficiente 0,75 (sem redução: ano com salário ou pensão)')
         ->assertDontSee('Definições fiscais incompletas');
 });
+
+it('saves from when the obligations are tracked', function () {
+    $this->travelTo(\Carbon\Carbon::parse('2026-11-09'));
+    actingAsAdmin();
+
+    Livewire\Livewire::test(FinanceSettingsPage::class)
+        ->assertSchemaStateSet(['obligations_tracked_from' => null], 'form')
+        ->fillForm(['obligations_tracked_from' => '2025-08-01'])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect(app(FinanceSettings::class)->obligationsTrackedFrom()?->toDateString())->toBe('2025-08-01');
+
+    Livewire\Livewire::test(FinanceSettingsPage::class)
+        ->assertSchemaStateSet(['obligations_tracked_from' => '2025-08-01'], 'form');
+});

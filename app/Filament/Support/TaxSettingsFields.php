@@ -121,6 +121,16 @@ final class TaxSettingsFields
             $withPreviousYear ? Toggle::make('dependent_income_previous_year')
                 ->label('Tive salário ou pensão em '.($year - 1))
                 ->columnSpanFull() : null,
+            $withPreviousYear ? self::whereToFind(
+                DatePicker::make('obligations_tracked_from')
+                    ->label('Acompanhar obrigações desde')
+                    ->helperText('Opcional. As obrigações por cumprir desde esta data aparecem no painel como em atraso (até 12 meses para trás). Em branco: desde que criaste a conta na Contiu.')
+                    ->native(false)
+                    ->displayFormat('d/m/Y')
+                    ->maxDate(now())
+                    ->columnSpanFull(),
+                'Põe a data em que começaste (ou reiniciaste) a atividade se havia obrigações antes de usares a Contiu, por exemplo IVA das compras ao estrangeiro por entregar.',
+            ) : null,
         ]));
     }
 
@@ -230,6 +240,7 @@ final class TaxSettingsFields
             'activity_start_kind' => $settings->activityStartKind(),
             'previous_activity_ended_on' => $settings->previousActivityEndedOn()?->toDateString(),
             'ss_enrolled_from' => $settings->ssEnrolledFrom()?->toDateString(),
+            'obligations_tracked_from' => $settings->obligationsTrackedFrom()?->toDateString(),
             'dependent_income_current_year' => in_array($year, $settings->dependentIncomeYears(), true),
             'dependent_income_previous_year' => in_array($year - 1, $settings->dependentIncomeYears(), true),
             'irs_coefficient' => (string) $settings->irsCoefficient(),
@@ -281,6 +292,10 @@ final class TaxSettingsFields
 
         if (array_key_exists('previous_activity_ended_on', $data)) {
             $values['previous_activity_ended_on'] = self::date($data['previous_activity_ended_on']);
+        }
+
+        if (array_key_exists('obligations_tracked_from', $data)) {
+            $values['obligations_tracked_from'] = self::date($data['obligations_tracked_from']);
         }
 
         if (array_key_exists('birth_date', $data)) {
