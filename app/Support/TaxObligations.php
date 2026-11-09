@@ -107,6 +107,27 @@ final class TaxObligations
         return array_values(array_filter($upcoming, fn (?TaxObligation $obligation) => $obligation !== null && $obligation->status !== 'done'));
     }
 
+    /**
+     * Every obligation with a deadline between the two dates (inclusive), by deadline, for the
+     * calendar: past and future months alike, from the first tracked month on. Exempt ones have no
+     * deadline and are left out.
+     *
+     * @return list<TaxObligation>
+     */
+    public function between(CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        $from = $from->startOfDay();
+        $to = $to->startOfDay();
+        $obligations = [];
+
+        for ($month = $from->startOfMonth()->max($this->trackedFrom()); $month->lte($to); $month = $month->addMonth()) {
+            array_push($obligations, ...$this->dueIn($month));
+        }
+
+        return $this->byDeadline(array_filter($obligations, fn (TaxObligation $obligation) => $obligation->dueOn !== null
+            && $obligation->dueOn->betweenIncluded($from, $to)));
+    }
+
     /** @return list<TaxObligation> */
     public function pending(): array
     {
@@ -150,22 +171,26 @@ final class TaxObligations
      */
     private function dueEarlier(): array
     {
-        $from = $this->month->subMonths(self::OVERDUE_MONTHS);
-        $created = CurrentAccount::get()?->created_at;
-        // Obligations before the account existed are listed only from the date it chose to track.
-        $since = $this->settings->obligationsTrackedFrom() ?? ($created === null ? null : CarbonImmutable::instance($created));
-
-        if ($since !== null) {
-            $from = $from->max($since->startOfMonth());
-        }
-
         $obligations = [];
 
-        for ($month = $from; $month->lt($this->month); $month = $month->addMonth()) {
+        for ($month = $this->trackedFrom(); $month->lt($this->month); $month = $month->addMonth()) {
             array_push($obligations, ...$this->dueIn($month));
         }
 
         return $obligations;
+    }
+
+    /**
+     * The first month whose obligations are listed: at most OVERDUE_MONTHS back, and never before
+     * the date the account chose to track from (or, without one, the month it was created).
+     */
+    private function trackedFrom(): CarbonImmutable
+    {
+        $from = $this->month->subMonths(self::OVERDUE_MONTHS);
+        $created = CurrentAccount::get()?->created_at;
+        $since = $this->settings->obligationsTrackedFrom() ?? ($created === null ? null : CarbonImmutable::instance($created));
+
+        return $since === null ? $from : $from->max($since->startOfMonth());
     }
 
     private function ss(CarbonImmutable $month): TaxObligation
@@ -183,11 +208,16 @@ final class TaxObligations
             return new TaxObligation($key, 'ss', self::SS_TITLE, null, null, null, $detail, $url, 'exempt');
         }
 
-        $amount = $this->estimator()->ssPaymentInMonth($month);
+        // While the quarter of income is still open its figure would be partial (or the minimum).
+        $amount = $source->endOfQuarter()->gt($this->today) ? null : $this->estimator()->ssPaymentInMonth($month);
         $detail = 'Pagar entre 10 e 20 de '.self::monthName($month)
             .' · contribuição de '.self::monthName($contributionMonth)
             .' · rendimentos de '.self::quarterName($source)
-            .($amount === TaxEstimator::SS_MINIMUM_CONTRIBUTION ? ' · contribuição mínima' : '');
+            .match (true) {
+                $amount === null => ' · valor por apurar',
+                $amount === TaxEstimator::SS_MINIMUM_CONTRIBUTION => ' · contribuição mínima',
+                default => '',
+            };
         $dueOn = $month->setDay(20);
 
         return new TaxObligation($key, 'ss', self::SS_TITLE, $amount, $dueOn, $month->setDay(10), $detail, $url, $this->status($key, $dueOn));

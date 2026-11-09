@@ -12,6 +12,7 @@ use App\Models\TaxObligationCompletion;
 use App\Models\User;
 use App\Support\CurrentAccount;
 use App\Support\FinanceSettings;
+use App\Support\TaxEstimator;
 use App\Support\TaxObligation;
 use App\Support\TaxObligations;
 use Carbon\CarbonImmutable;
@@ -274,4 +275,57 @@ it('makes the first payment the month after enrolment', function () {
     expect($may)->toMatchObject(['status' => 'exempt', 'amount' => null, 'detail' => 'Isento (1.º enquadramento)'])
         ->and($june)->toMatchObject(['status' => 'due', 'amount' => 2000])
         ->and($june->detail)->toContain('contribuição de maio');
+});
+
+// Calendário: obligations of any range ------------------------------------------------------
+
+/** @param list<TaxObligation> $obligations @return list<string> */
+function keysOf(array $obligations): array
+{
+    return array_map(fn (TaxObligation $obligation) => $obligation->key, $obligations);
+}
+
+it('lists the obligations of any range, past and future, by deadline', function () {
+    serviceBoughtAbroad('2026-10-15', 1000);
+    $obligations = obligationsOn('2026-11-09', since: '2026-01-01');
+
+    $keys = keysOf($obligations->between(CarbonImmutable::parse('2026-11-01'), CarbonImmutable::parse('2027-01-31')));
+
+    expect($keys)->toBe(['ss:2026-11', 'vat-reverse:2026-10', 'ss:2026-12', 'ss:2027-01', 'ss-declaration:2026-Q4']);
+});
+
+it('leaves out what is before the tracking start or more than 12 months back', function () {
+    $obligations = obligationsOn('2026-11-09', since: '2026-06-15');
+
+    $keys = keysOf($obligations->between(CarbonImmutable::parse('2025-01-01'), CarbonImmutable::parse('2026-07-31')));
+
+    expect($keys)->toBe(['ss:2026-06', 'irs-modelo3:2025', 'ss:2026-07', 'ss-declaration:2026-Q2']);
+});
+
+it('stops 12 months back even when tracking started earlier', function () {
+    $obligations = obligationsOn('2026-11-09', since: '2024-01-01');
+
+    $keys = keysOf($obligations->between(CarbonImmutable::parse('2025-09-01'), CarbonImmutable::parse('2025-12-31')));
+
+    expect($keys)->toBe(['ss:2025-11', 'ss:2025-12']);
+});
+
+it('leaves out exempt obligations, which have no deadline', function () {
+    // First enrolment: the SS of November is exempt (no deadline).
+    $obligations = obligationsOn('2026-11-09', ['activity_started_on' => '2026-09-01', 'activity_start_kind' => 'first']);
+
+    expect(keysOf($obligations->between(CarbonImmutable::parse('2026-11-01'), CarbonImmutable::parse('2026-11-30'))))
+        ->not->toContain('ss:2026-11');
+});
+
+it('shows the SS amount only once its income quarter has closed', function () {
+    $rows = byKey(obligationsOn('2026-11-09', since: '2026-01-01')
+        ->between(CarbonImmutable::parse('2026-12-01'), CarbonImmutable::parse('2027-02-28')));
+
+    expect($rows['ss:2026-12']->amount)->toBe(TaxEstimator::SS_MINIMUM_CONTRIBUTION)
+        ->and($rows['ss:2027-01']->amount)->toBe(TaxEstimator::SS_MINIMUM_CONTRIBUTION)
+        ->and($rows['ss:2027-02']->amount)->toBeNull()
+        ->and($rows['ss:2027-02']->detail)->toContain('Pagar entre 10 e 20 de fevereiro')->toContain('valor por apurar')->not->toContain('contribuição mínima')
+        ->and($rows['ss:2027-02']->dueOn->toDateString())->toBe('2027-02-20')
+        ->and($rows['ss:2027-02']->status)->toBe('due');
 });
