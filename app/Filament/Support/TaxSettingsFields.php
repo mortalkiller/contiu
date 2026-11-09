@@ -98,7 +98,8 @@ final class TaxSettingsFields
                     ->helperText('Opcional. Sem esta data não aplicamos a redução do IRS dos primeiros anos (só existe se o reinício foi 5 ou mais anos depois da cessação).')
                     ->native(false)
                     ->displayFormat('d/m/Y')
-                    ->visible(fn (Get $get): bool => $get('activity_start_kind') === 'restart'),
+                    ->visible(fn (Get $get): bool => $get('activity_start_kind') === 'restart')
+                    ->columnSpanFull(),
                 'No comprovativo da declaração de cessação da atividade anterior. O Portal das Finanças pode não a mostrar em Declarações de Atividade; nesse caso pede o histórico no e-balcão, ou deixa em branco.',
             ),
             self::whereToFind(
