@@ -195,7 +195,9 @@ final class TaxObligations
     {
         $dueOn = $quarter->addMonths(3)->endOfMonth()->startOfDay();
 
-        if ($this->settings->isIncomplete() || $this->estimator()->ssMonthStatus($dueOn) === 'first_enrolment') {
+        // Only workers who must contribute declare (art. 151.º-A, n.º 1): not during the first
+        // enrolment, nor with a contribution exemption such as the art. 157.º accumulation.
+        if ($this->settings->isIncomplete() || $this->estimator()->ssMonthStatus($dueOn) !== 'charged') {
             return null;
         }
 
@@ -297,7 +299,7 @@ final class TaxObligations
             null,
             $dueOn,
             CarbonImmutable::create($year + 1, 4, 1),
-            'Entrega de 1 de abril a 30 de junho · rendimentos de '.$year,
+            'Entrega de 1 de abril a 30 de junho, com o anexo SS · rendimentos de '.$year,
             $this->url(fn (Account $account) => TaxEstimate::getUrl(['year' => $year], panel: 'admin', tenant: $account)),
             $this->status($key, $dueOn),
         );

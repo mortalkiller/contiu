@@ -182,6 +182,19 @@ it('keeps completions per account', function () {
         ->and(byKey($obligations->thisMonth()))->not->toHaveKey('ss:2026-11');
 });
 
+it('does not ask for the quarterly SS declaration from an account exempt from contributing', function () {
+    // Art. 151.º-A, n.º 1: the quarterly declaration is for workers who must contribute.
+    $exempt = [...OBLIGATIONS_COMPLETE_SETTINGS, 'ss_contribution_exempt' => true];
+
+    expect(byKey(obligationsOn('2027-01-05', $exempt, since: '2026-01-01')->thisMonth()))->not->toHaveKey('ss-declaration:2026-Q4')
+        ->and(byKey(obligationsOn('2026-11-09', $exempt)->upcoming()))->not->toHaveKey('ss-declaration:2026-Q4')
+        ->and(byKey(obligationsOn('2026-11-09', [...OBLIGATIONS_COMPLETE_SETTINGS, 'ss_contribution_exempt' => false])->upcoming()))->toHaveKey('ss-declaration:2026-Q4');
+});
+
+it('reminds the SS annex with the IRS return', function () {
+    expect(byKey(obligationsOn('2027-06-02')->thisMonth())['irs-modelo3:2026']->detail)->toContain('anexo SS');
+});
+
 it('shows the IRS return in June and as upcoming from April', function () {
     expect(byKey(obligationsOn('2027-03-10')->upcoming()))->not->toHaveKey('irs-modelo3:2026')
         ->and(byKey(obligationsOn('2027-04-10')->upcoming()))->toHaveKey('irs-modelo3:2026')
