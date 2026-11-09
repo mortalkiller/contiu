@@ -208,7 +208,7 @@ it('leaves the IRS Jovem number blank once the 10 years are over', function () {
     expect(app(FinanceSettings::class)->irsJovem())->toBeFalse();
 });
 
-it('asks for the cessation date on a restart and the birth date with IRS Jovem', function () {
+it('asks for the birth date with IRS Jovem but not for the cessation date of a restart', function () {
     actingAsAdmin();
 
     // An account that has not said how it started is not assumed a first start.
@@ -219,8 +219,20 @@ it('asks for the cessation date on a restart and the birth date with IRS Jovem',
         ->fillForm(['activity_start_kind' => 'restart', 'irs_jovem' => true, 'previous_activity_ended_on' => null, 'birth_date' => null])
         ->assertFormFieldVisible('previous_activity_ended_on')
         ->assertFormFieldVisible('birth_date')
+        ->assertSee('Sem esta data não aplicamos a redução')
         ->call('save')
-        ->assertHasFormErrors(['previous_activity_ended_on' => 'required', 'birth_date' => 'required', 'irs_jovem_year_number' => 'required']);
+        ->assertHasFormErrors(['birth_date' => 'required', 'irs_jovem_year_number' => 'required'])
+        ->assertHasNoFormErrors(['previous_activity_ended_on']);
+});
+
+it('says where to find each fiscal answer in the settings', function () {
+    actingAsAdmin();
+
+    Livewire\Livewire::test(FinanceSettingsPage::class)
+        ->assertSee('Onde ver?')
+        ->assertSee('Declarações de Atividade')
+        ->assertSee('Situação atual')
+        ->assertSee('Enquadramento em IVA');
 });
 
 it('estimates Pedro\'s account from his settings: exempt from SS, IRS at 0,75 without reduction', function () {

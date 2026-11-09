@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Seat;
+use App\Filament\Support\FinanceFields;
 use App\Filament\Resources\Clients\Pages\EditClient;
 use App\Filament\Resources\Clients\Pages\ListClients;
 use App\Filament\Resources\Expenses\Pages\CreateExpense;
@@ -103,4 +104,15 @@ it('shows the goods question only for foreign suppliers', function () {
     Livewire::test(EditExpense::class, ['record' => $service->getRouteKey()])
         ->assertFormFieldVisible('is_goods')
         ->assertSchemaStateSet(['is_goods' => false], 'form');
+});
+
+it('says where to see a supplier\'s seat and what counts as goods', function () {
+    expect(FinanceFields::seat()->getHint())->toBe('Onde ver?')
+        ->and(FinanceFields::seat()->getHintIconTooltip())->toContain('número de IVA');
+
+    $supplier = Supplier::factory()->create(['seat' => Seat::EuropeanUnion]);
+
+    Livewire::test(CreateExpense::class)
+        ->fillForm(['supplier_id' => $supplier->id])
+        ->assertSee('Software, alojamento');
 });

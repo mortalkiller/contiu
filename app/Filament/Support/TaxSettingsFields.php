@@ -4,6 +4,7 @@ namespace App\Filament\Support;
 
 use App\Support\FinanceSettings;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -11,6 +12,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Utilities\Get;
 use Illuminate\Support\Carbon;
+use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 /**
  * The activity, IRS and Segurança Social questions, shared by the fiscal settings page and the
@@ -35,13 +37,33 @@ final class TaxSettingsFields
         '0.252' => 'Empresário em nome individual ou EIRL (25,2 %)',
     ];
 
+    /** Where the Segurança Social shows the activity data (rate, enrolment, exemption). */
+    public const SS_DIRECTA_ACTIVITY = 'Segurança Social Direta → Trabalho → Remunerações e contribuições → Trabalhadores independentes → Consultar e alterar os dados de atividade';
+
+    /**
+     * "Onde ver?" next to the label, with where the freelancer finds the answer in a tooltip: the
+     * fiscal questions are facts from the Finanças or the Segurança Social, not choices.
+     *
+     * @template T of Field
+     *
+     * @param  T  $field
+     * @return T
+     */
+    public static function whereToFind(Field $field, string $where): Field
+    {
+        return $field->hint('Onde ver?')->hintIcon(Phosphor::Question, tooltip: $where);
+    }
+
     public static function activityStartedOn(): DatePicker
     {
-        return DatePicker::make('activity_started_on')
-            ->label('Início de atividade')
-            ->helperText('A data em que abriste (ou reabriste) atividade nas Finanças.')
-            ->native(false)
-            ->displayFormat('d/m/Y');
+        return self::whereToFind(
+            DatePicker::make('activity_started_on')
+                ->label('Início de atividade')
+                ->helperText('A data em que abriste (ou reabriste) atividade nas Finanças.')
+                ->native(false)
+                ->displayFormat('d/m/Y'),
+            'No Portal das Finanças, em Declarações de Atividade: a data da declaração de início (ou de reinício). Também está no comprovativo que recebeste.',
+        );
     }
 
     /**
@@ -56,34 +78,45 @@ final class TaxSettingsFields
         $year = (int) now()->year;
 
         return array_values(array_filter([
-            Radio::make('activity_start_kind')
-                ->label('É o primeiro início ou um reinício?')
-                ->options(self::START_KINDS)
-                ->default('first')
-                ->required($requireKind)
-                ->descriptions([
-                    'first' => 'Nunca tiveste atividade aberta nas Finanças.',
-                    'restart' => 'Já tiveste atividade aberta, cessaste-a e voltaste a abrir.',
-                ])
-                ->live()
-                ->columnSpanFull(),
-            DatePicker::make('previous_activity_ended_on')
-                ->label('Cessação da atividade anterior')
-                ->helperText('Se o reinício foi menos de 5 anos depois desta data, não há redução do IRS nos primeiros anos.')
-                ->native(false)
-                ->displayFormat('d/m/Y')
-                ->visible(fn (Get $get): bool => $get('activity_start_kind') === 'restart')
-                ->required(fn (Get $get): bool => $get('activity_start_kind') === 'restart'),
-            DatePicker::make('ss_enrolled_from')
-                ->label('Enquadrado na Segurança Social a partir de')
-                ->helperText('Opcional. Está na Segurança Social Direta → Trabalho → Remunerações e contribuições → Trabalhadores independentes → Consultar e alterar os dados de atividade. Em branco, a app calcula: 12 meses depois de um primeiro início, logo no mês de um reinício.')
-                ->native(false)
-                ->displayFormat('d/m/Y')
-                ->columnSpanFull(),
-            Toggle::make('dependent_income_current_year')
-                ->label("Tive salário ou pensão em {$year}")
-                ->helperText('Trabalho por conta de outrem ou pensão. Num ano com salário ou pensão não há redução do IRS dos primeiros anos de atividade.')
-                ->columnSpanFull(),
+            self::whereToFind(
+                Radio::make('activity_start_kind')
+                    ->label('É o primeiro início ou um reinício?')
+                    ->options(self::START_KINDS)
+                    ->default('first')
+                    ->required($requireKind)
+                    ->descriptions([
+                        'first' => 'Nunca tiveste atividade aberta nas Finanças.',
+                        'restart' => 'Já tiveste atividade aberta, cessaste-a e voltaste a abrir.',
+                    ])
+                    ->live()
+                    ->columnSpanFull(),
+                'No comprovativo da declaração, o título diz «Início» ou «Reinício de Atividade». Se já tiveste atividade aberta e a fechaste, é um reinício (o Portal pode chamar-lhe «Início de atividade» na lista).',
+            ),
+            self::whereToFind(
+                DatePicker::make('previous_activity_ended_on')
+                    ->label('Cessação da atividade anterior')
+                    ->helperText('Opcional. Sem esta data não aplicamos a redução do IRS dos primeiros anos (só existe se o reinício foi 5 ou mais anos depois da cessação).')
+                    ->native(false)
+                    ->displayFormat('d/m/Y')
+                    ->visible(fn (Get $get): bool => $get('activity_start_kind') === 'restart'),
+                'No comprovativo da declaração de cessação da atividade anterior. O Portal das Finanças pode não a mostrar em Declarações de Atividade; nesse caso pede o histórico no e-balcão, ou deixa em branco.',
+            ),
+            self::whereToFind(
+                DatePicker::make('ss_enrolled_from')
+                    ->label('Enquadrado na Segurança Social a partir de')
+                    ->helperText('Opcional. Em branco, a app calcula: 12 meses depois de um primeiro início, logo no mês de um reinício.')
+                    ->native(false)
+                    ->displayFormat('d/m/Y')
+                    ->columnSpanFull(),
+                self::SS_DIRECTA_ACTIVITY.': «Enquadrado a partir de».',
+            ),
+            self::whereToFind(
+                Toggle::make('dependent_income_current_year')
+                    ->label("Tive salário ou pensão em {$year}")
+                    ->helperText('Trabalho por conta de outrem ou pensão. Num ano com salário ou pensão não há redução do IRS dos primeiros anos de atividade.')
+                    ->columnSpanFull(),
+                'Basta um mês desse ano com salário (trabalho por conta de outrem) ou pensão. Vês nos recibos de vencimento ou no anexo A da tua declaração de IRS.',
+            ),
             $withPreviousYear ? Toggle::make('dependent_income_previous_year')
                 ->label('Tive salário ou pensão em '.($year - 1))
                 ->columnSpanFull() : null,
@@ -102,22 +135,28 @@ final class TaxSettingsFields
         $irsJovemEnded = ($stored?->irsJovemYearNumber($year) ?? 0) > self::IRS_JOVEM_YEARS;
 
         return [
-            Radio::make('irs_coefficient')
-                ->label('Que serviços prestas?')
-                ->options(self::IRS_COEFFICIENTS)
-                ->default('0.75')
-                ->descriptions([
-                    '0.75' => 'As profissões da tabela do art. 151.º do CIRS, por exemplo programadores, designers, consultores.',
-                    '0.35' => 'Serviços que não estão na tabela.',
-                ])
-                ->helperText('Conta a natureza do serviço que prestas, não o código CAE ou CIRS da atividade (Circular AT 2/2016). O coeficiente diz que parte do rendimento é tributada.')
-                ->required()
-                ->columnSpanFull(),
-            Toggle::make('irs_jovem')
-                ->label('Aderiste ao IRS Jovem?')
-                ->helperText('Isenção de parte do rendimento nos primeiros 10 anos, até aos 35 anos (art. 12.º-B do CIRS). Não muda a Segurança Social.')
-                ->live()
-                ->columnSpanFull(),
+            self::whereToFind(
+                Radio::make('irs_coefficient')
+                    ->label('Que serviços prestas?')
+                    ->options(self::IRS_COEFFICIENTS)
+                    ->default('0.75')
+                    ->descriptions([
+                        '0.75' => 'As profissões da tabela do art. 151.º do CIRS, por exemplo programadores, designers, consultores.',
+                        '0.35' => 'Serviços que não estão na tabela.',
+                    ])
+                    ->helperText('Conta a natureza do serviço que prestas, não o código CAE ou CIRS da atividade (Circular AT 2/2016). O coeficiente diz que parte do rendimento é tributada.')
+                    ->required()
+                    ->columnSpanFull(),
+                'A tabela do art. 151.º do CIRS (Portaria 1011/2001) lista as profissões, por exemplo 1332 Programadores informáticos. Na dúvida, pergunta ao contabilista: a escolha muda muito o IRS.',
+            ),
+            self::whereToFind(
+                Toggle::make('irs_jovem')
+                    ->label('Aderiste ao IRS Jovem?')
+                    ->helperText('Isenção de parte do rendimento nos primeiros 10 anos, até aos 35 anos (art. 12.º-B do CIRS). Não muda a Segurança Social.')
+                    ->live()
+                    ->columnSpanFull(),
+                'Escolhe-se na declaração anual de IRS (modelo 3, anexo B). Se o pediste na última declaração, estás aderido.',
+            ),
             DatePicker::make('birth_date')
                 ->label('Data de nascimento')
                 ->helperText('Para o limite dos 35 anos.')
@@ -125,7 +164,7 @@ final class TaxSettingsFields
                 ->displayFormat('d/m/Y')
                 ->visible(fn (Get $get): bool => (bool) $get('irs_jovem'))
                 ->required(fn (Get $get): bool => (bool) $get('irs_jovem')),
-            TextInput::make('irs_jovem_year_number')
+            self::whereToFind(TextInput::make('irs_jovem_year_number')
                 ->label("Em {$year}, és no ano n.º")
                 ->helperText($irsJovemEnded
                     ? 'O IRS Jovem dura 10 anos: já terminou. Desliga a opção acima.'
@@ -135,6 +174,8 @@ final class TaxSettingsFields
                 ->maxValue(self::IRS_JOVEM_YEARS)
                 ->visible(fn (Get $get): bool => (bool) $get('irs_jovem'))
                 ->required(fn (Get $get): bool => (bool) $get('irs_jovem')),
+                'Conta os anos com rendimentos de trabalho ou de atividade (categorias A ou B), desde o primeiro. Não contam os anos sem rendimentos nem os anos em que eras dependente dos teus pais.',
+            ),
         ];
     }
 
@@ -142,26 +183,35 @@ final class TaxSettingsFields
     public static function socialSecurity(): array
     {
         return [
-            Select::make('ss_rate')
-                ->label('Taxa contributiva')
-                ->options(self::SS_RATES)
-                ->default('0.214')
-                ->required(),
+            self::whereToFind(
+                Select::make('ss_rate')
+                    ->label('Taxa contributiva')
+                    ->options(self::SS_RATES)
+                    ->default('0.214')
+                    ->required(),
+                self::SS_DIRECTA_ACTIVITY.': «Forma de atividade (taxa)».',
+            ),
             // Stored as a fraction (0.70); typed as a percentage.
-            TextInput::make('ss_relevant_income_share_percent')
-                ->label('Rendimento relevante')
-                ->helperText('70% para prestação de serviços.')
-                ->numeric()
-                ->step(1)
-                ->minValue(0)
-                ->maxValue(100)
-                ->suffix('%')
-                ->default(70)
-                ->required(),
-            Toggle::make('ss_contribution_exempt')
-                ->label('A Segurança Social reconheceu-te isenção de contribuições?')
-                ->helperText('Isenção do art. 157.º do Código Contributivo, por exemplo se acumulas com trabalho por conta de outrem, se és pensionista, ou se no ano anterior só pagaste o mínimo. Vês se a tens na Segurança Social Direta, em Trabalho → Remunerações e contribuições → Trabalhadores independentes.')
-                ->columnSpanFull(),
+            self::whereToFind(
+                TextInput::make('ss_relevant_income_share_percent')
+                    ->label('Rendimento relevante')
+                    ->helperText('70% para prestação de serviços.')
+                    ->numeric()
+                    ->step(1)
+                    ->minValue(0)
+                    ->maxValue(100)
+                    ->suffix('%')
+                    ->default(70)
+                    ->required(),
+                '70% para prestação de serviços e 20% para venda de bens (art. 162.º do Código Contributivo). Na dúvida, deixa 70%.',
+            ),
+            self::whereToFind(
+                Toggle::make('ss_contribution_exempt')
+                    ->label('A Segurança Social reconheceu-te isenção de contribuições?')
+                    ->helperText('Isenção do art. 157.º do Código Contributivo, por exemplo se acumulas com trabalho por conta de outrem, se és pensionista, ou se no ano anterior só pagaste o mínimo.')
+                    ->columnSpanFull(),
+                self::SS_DIRECTA_ACTIVITY.': em «Situação atual», se disser «Não tem obrigação de contribuir», liga esta opção.',
+            ),
         ];
     }
 

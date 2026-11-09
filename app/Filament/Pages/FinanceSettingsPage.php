@@ -90,24 +90,30 @@ class FinanceSettingsPage extends Page
                         Toggle::make('payments_exempt_by_default')
                             ->label('Recebimentos isentos por defeito')
                             ->helperText('Os recebimentos e as avenças novos vêm marcados como isentos de impostos (não contam para a estimativa). Podes desmarcar caso a caso.'),
-                        Toggle::make('vat_exempt')
-                            ->label('Isento de IVA (art. 53.º)')
-                            ->live(),
+                        TaxSettingsFields::whereToFind(
+                            Toggle::make('vat_exempt')
+                                ->label('Isento de IVA (art. 53.º)')
+                                ->live(),
+                            'No comprovativo de início ou de alteração de atividade, em «Enquadramento em IVA»: «Isenção artigo 53.º». No Portal das Finanças, em Declarações de Atividade.',
+                        ),
                         MoneyInput::make('vat_exemption_threshold')
                             ->label('Limite anual de isenção de IVA (art. 53.º)')
                             ->minValue(0)
                             ->visible(fn ($get) => (bool) $get('vat_exempt'))
                             ->required(fn ($get) => (bool) $get('vat_exempt')),
                         // Stored as a fraction (0.23); typed as a percentage.
-                        TextInput::make('reverse_charge_vat_rate_percent')
-                            ->label('Taxa de IVA na autoliquidação')
-                            ->helperText('O IVA que liquidas nas compras de serviços a fornecedores com sede fora de Portugal. 23 % no continente.')
-                            ->numeric()
-                            ->step(1)
-                            ->minValue(0)
-                            ->maxValue(100)
-                            ->suffix('%')
-                            ->required(),
+                        TaxSettingsFields::whereToFind(
+                            TextInput::make('reverse_charge_vat_rate_percent')
+                                ->label('Taxa de IVA na autoliquidação')
+                                ->helperText('O IVA que liquidas nas compras de serviços a fornecedores com sede fora de Portugal. 23 % no continente.')
+                                ->numeric()
+                                ->step(1)
+                                ->minValue(0)
+                                ->maxValue(100)
+                                ->suffix('%')
+                                ->required(),
+                            'A taxa normal da tua região: 23 % no continente, 16 % nos Açores, 22 % na Madeira (art. 18.º do CIVA).',
+                        ),
                     ]),
                 Section::make('Banco')
                     ->description('A conta da atividade é a conta bancária onde recebes e pagas o que é do trabalho. O extrato importado dá o saldo e confirma que o dinheiro registado chegou lá.')

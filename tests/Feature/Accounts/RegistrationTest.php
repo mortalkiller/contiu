@@ -175,12 +175,30 @@ it('stores a first start without the restart, IRS Jovem or salary answers', func
     });
 });
 
-it('asks for the cessation date on a restart and the birth date with IRS Jovem', function () {
-    registrationWizard(['previous_activity_ended_on' => null, 'birth_date' => null, 'irs_jovem_year_number' => null])
+it('asks for the birth date and the year number with IRS Jovem', function () {
+    registrationWizard(['birth_date' => null, 'irs_jovem_year_number' => null])
         ->call('register')
-        ->assertHasFormErrors(['previous_activity_ended_on' => 'required', 'birth_date' => 'required', 'irs_jovem_year_number' => 'required']);
+        ->assertHasFormErrors(['birth_date' => 'required', 'irs_jovem_year_number' => 'required']);
 
     expect(Account::where('nif', '501964843')->exists())->toBeFalse();
+});
+
+it('takes a restart without the cessation date, which few freelancers can find', function () {
+    registrationWizard(['previous_activity_ended_on' => null])
+        ->call('register')
+        ->assertHasNoFormErrors();
+
+    CurrentAccount::run(Account::firstWhere('nif', '501964843'), function () {
+        expect(app(FinanceSettings::class)->previousActivityEndedOn())->toBeNull();
+    });
+});
+
+it('says where to find each fiscal answer', function () {
+    registrationWizard()
+        ->assertSee('Onde ver?')
+        ->assertSee('Declarações de Atividade')
+        ->assertSee('Enquadramento em IVA')
+        ->assertSee('Forma de atividade (taxa)');
 });
 
 it('sums up the tax answers before creating the account', function () {

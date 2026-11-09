@@ -128,10 +128,13 @@ class RegisterAccount extends Register
             Step::make('IVA')
                 ->icon(Phosphor::Percent)
                 ->schema([
-                    Toggle::make('vat_exempt')
-                        ->label('Isento de IVA (art. 53.º)')
-                        ->helperText('Os recebimentos novos vêm marcados como isentos; podes mudar caso a caso.')
-                        ->live(),
+                    TaxSettingsFields::whereToFind(
+                        Toggle::make('vat_exempt')
+                            ->label('Isento de IVA (art. 53.º)')
+                            ->helperText('Os recebimentos novos vêm marcados como isentos; podes mudar caso a caso.')
+                            ->live(),
+                        'No comprovativo de início ou de alteração de atividade, em «Enquadramento em IVA»: «Isenção artigo 53.º». No Portal das Finanças, em Declarações de Atividade.',
+                    ),
                     MoneyInput::make('vat_exemption_threshold')
                         ->label('Limite anual de isenção de IVA')
                         ->helperText('Faturação anual até à qual a isenção se mantém.')

@@ -40,18 +40,24 @@ final class FinanceFields
     /** Where a supplier (or client) is seated: decides the VAT on what is bought from or sold to it. */
     public static function seat(string $label = 'Onde fica a sede da empresa?'): Select
     {
-        return Select::make('seat')
-            ->label($label)
-            ->options(Seat::class)
-            ->default(Seat::Portugal)
-            ->required();
+        return TaxSettingsFields::whereToFind(
+            Select::make('seat')
+                ->label($label)
+                ->options(Seat::class)
+                ->default(Seat::Portugal)
+                ->required(),
+            'Na fatura: a morada e o número de IVA da empresa. Um número de IVA começado por IE, FR, DE, ES… é de outro país da UE; uma empresa dos EUA ou do Reino Unido é de fora da UE.',
+        );
     }
 
     public static function isBusiness(): Toggle
     {
-        return Toggle::make('is_business')
-            ->label('É uma empresa?')
-            ->helperText('Os serviços a empresas de outro país da UE entram na declaração recapitulativa.');
+        return TaxSettingsFields::whereToFind(
+            Toggle::make('is_business')
+                ->label('É uma empresa?')
+                ->helperText('Os serviços a empresas de outro país da UE entram na declaração recapitulativa.'),
+            'Uma empresa tem número de IVA (VAT) e pede-o na fatura; um particular não.',
+        );
     }
 
     public static function clientSelect(): Select

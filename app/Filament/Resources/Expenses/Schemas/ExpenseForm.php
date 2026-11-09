@@ -6,6 +6,7 @@ use App\Enums\ExpenseKind;
 use App\Enums\PaymentMethod;
 use App\Filament\Support\FinanceFields;
 use App\Filament\Support\ReconciliationColumns;
+use App\Filament\Support\TaxSettingsFields;
 use App\Models\Supplier;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Radio;
@@ -48,11 +49,14 @@ class ExpenseForm
                             ->default(today())
                             ->required(),
                         // Services bought abroad are self-assessed (autoliquidação); goods are not.
-                        Toggle::make('is_goods')
-                            ->label('É uma compra de bens (material)?')
-                            ->helperText('Desligado, é um serviço (software, alojamento, publicidade…): o IVA paga-se por autoliquidação.')
-                            ->visible(fn (Get $get): bool => (bool) Supplier::find($get('supplier_id'))?->seat?->isForeign())
-                            ->columnSpanFull(),
+                        TaxSettingsFields::whereToFind(
+                            Toggle::make('is_goods')
+                                ->label('É uma compra de bens (material)?')
+                                ->helperText('Desligado, é um serviço (software, alojamento, publicidade…): sem IVA na fatura, o IVA paga-se por autoliquidação.')
+                                ->visible(fn (Get $get): bool => (bool) Supplier::find($get('supplier_id'))?->seat?->isForeign())
+                                ->columnSpanFull(),
+                            'Bens são coisas físicas (um portátil, um monitor). Software, alojamento, publicidade e subscrições são serviços.',
+                        ),
                     ]),
 
                 Section::make('Valor')
