@@ -7,6 +7,7 @@ use App\Filament\Resources\Expenses\Pages\EditExpense;
 use App\Filament\Resources\Expenses\Pages\ListExpenses;
 use App\Filament\Resources\Expenses\Schemas\ExpenseForm;
 use App\Filament\Resources\Expenses\Tables\ExpensesTable;
+use App\Filament\Resources\Expenses\Widgets\ExpensesSummary;
 use App\Models\Expense;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -58,6 +59,11 @@ class ExpenseResource extends Resource
         return [
             AuditsRelationManager::class,
         ];
+    }
+
+    public static function getWidgets(): array
+    {
+        return [ExpensesSummary::class];
     }
 
     public static function getPages(): array

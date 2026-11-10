@@ -5,7 +5,7 @@
 @endphp
 
 <x-filament-widgets::widget>
-    <div class="grid overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 md:grid-cols-[15rem_1fr] dark:bg-gray-900 dark:ring-white/10">
+    <div class="contiu-edge-to-edge grid overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 md:grid-cols-[15rem_1fr] dark:bg-gray-900 dark:ring-white/10">
         {{-- Summary: the month's total and the next deadline. --}}
         <div class="flex flex-col bg-(--contiu-brand-surface) p-5 text-white">
             <p class="text-xs">{{ $month }}</p>

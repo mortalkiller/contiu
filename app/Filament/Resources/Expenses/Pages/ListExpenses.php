@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Expenses\Pages;
 
 use App\Enums\ExpenseKind;
 use App\Filament\Resources\Expenses\ExpenseResource;
+use App\Filament\Resources\Expenses\Widgets\ExpensesSummary;
 use App\Models\Expense;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
@@ -19,6 +20,11 @@ class ListExpenses extends ListRecords
         return [
             CreateAction::make()->label('Nova despesa'),
         ];
+    }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [ExpensesSummary::class];
     }
 
     public function getTabs(): array

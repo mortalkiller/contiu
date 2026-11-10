@@ -139,7 +139,7 @@ class BankStatementImport extends Page implements HasTable
     public function content(Schema $schema): Schema
     {
         return $schema->components([
-            ...$this->getWidgetsSchemaComponents([CompanyAccountStats::class]),
+            ...$this->getWidgetsSchemaComponents([CompanyAccountStats::make(['withLineProgress' => true])]),
             $this->getTabsContentComponent(),
             EmbeddedTable::make(),
         ]);
@@ -196,6 +196,14 @@ class BankStatementImport extends Page implements HasTable
                     ->label(fn () => $this->activeTab === 'pending' ? 'Sugestão' : 'Tratado como')
                     ->state(fn (BankTransaction $record) => $this->describe($record))
                     ->listWithLineBreaks()
+                    // On "Por tratar" the suggestion stands out: it is what the user came to confirm.
+                    ->icon(fn (BankTransaction $record) => match ($this->suggestionTone($record)) {
+                        'match' => Phosphor::CheckCircle,
+                        'choose' => Phosphor::ListMagnifyingGlass,
+                        'none' => Phosphor::MinusCircle,
+                        default => null,
+                    })
+                    ->extraCellAttributes(fn (BankTransaction $record): array => array_filter(['data-suggestion' => $this->suggestionTone($record)]))
                     ->color(fn (BankTransaction $record) => $record->status === BankTransactionStatus::Pending && $this->suggestionFor($record)->best() === null ? 'gray' : null)
                     ->wrap(),
                 TextColumn::make('status')->label('Estado')->badge()->toggleable(isToggledHiddenByDefault: true),
@@ -638,6 +646,25 @@ class BankStatementImport extends Page implements HasTable
         }
 
         return $plan;
+    }
+
+    /**
+     * For a pending line: "match" when there is one clear suggestion, "choose" when there are
+     * several possibilities, "none" when nothing fits. Null for lines already treated.
+     */
+    private function suggestionTone(BankTransaction $record): ?string
+    {
+        if ($record->status !== BankTransactionStatus::Pending) {
+            return null;
+        }
+
+        $suggestion = $this->suggestionFor($record);
+
+        return match (true) {
+            $suggestion->best() !== null => 'match',
+            $suggestion->candidates->isNotEmpty() => 'choose',
+            default => 'none',
+        };
     }
 
     private function suggestionFor(BankTransaction $record): BankSuggestion

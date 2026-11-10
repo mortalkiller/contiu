@@ -16,6 +16,7 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Text;
 use Filament\Schemas\Schema;
+use Illuminate\Support\HtmlString;
 use InvalidArgumentException;
 use RuntimeException;
 use Stripe\Exception\ApiErrorException;
@@ -141,7 +142,13 @@ class AccountSubscription extends Page
         return $schema->components([
             Section::make('Estado')
                 ->icon(Phosphor::Info)
-                ->schema([Text::make(fn (): string => $this->statusText())]),
+                ->schema([
+                    Text::make(fn (): string => $this->statusText()),
+                    Text::make(fn (): HtmlString => new HtmlString(
+                        '<span class="contiu-progress" role="img" aria-label="'.e($this->trialProgress()['label']).'"><i style="width: '.$this->trialProgress()['percent'].'%"></i></span>'
+                        .'<span class="mt-1 block text-sm text-gray-500 dark:text-gray-400">'.e($this->trialProgress()['label']).'</span>',
+                    ))->visible(fn (): bool => $this->trialProgress() !== null),
+                ]),
             Grid::make(['md' => 2])
                 ->visible(fn (): bool => $this->isMember() && ! $this->account()->subscribed('default'))
                 ->schema([
@@ -154,6 +161,29 @@ class AccountSubscription extends Page
                 ->visible(fn (): bool => $this->isMember() && $this->account()->subscription('default') !== null)
                 ->schema([Actions::make([$this->manageAction()])]),
         ]);
+    }
+
+    /**
+     * How much of the free trial is used, counted in days from the account's creation to the end
+     * of the trial. Null once subscribed, after the trial, or for an account without one.
+     *
+     * @return array{percent: int, label: string}|null
+     */
+    public function trialProgress(): ?array
+    {
+        $account = $this->account();
+
+        if ($account->trial_ends_at === null || $account->trial_ends_at->isPast() || $account->created_at === null || $account->subscription('default') !== null) {
+            return null;
+        }
+
+        $total = max(1, (int) ceil($account->created_at->diffInDays($account->trial_ends_at)));
+        $left = min($total, (int) ceil(now()->diffInDays($account->trial_ends_at)));
+
+        return [
+            'percent' => (int) round(($total - $left) * 100 / $total),
+            'label' => trans_choice('{1} Falta 1 dia de experiência|[2,*] Faltam :count dias de experiência', max(1, $left)).' · '.($total - $left).' de '.$total.' usados',
+        ];
     }
 
     public function subscribeMonthlyAction(): Action

@@ -3,7 +3,9 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Analysis\Widgets\ActivityCalendarWidget;
+use App\Filament\Analysis\Widgets\MonthAhead;
 use App\Filament\Analysis\Widgets\UpcomingDeadlines;
+use App\Filament\Analysis\Widgets\WeekAhead;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Grid;
@@ -41,7 +43,7 @@ class Calendar extends Page
                     ->columnSpan(['default' => 1, 'lg' => 3])
                     ->schema(fn (): array => $this->getWidgetsSchemaComponents([ActivityCalendarWidget::class])),
                 Grid::make(1)
-                    ->schema(fn (): array => $this->getWidgetsSchemaComponents([UpcomingDeadlines::class])),
+                    ->schema(fn (): array => $this->getWidgetsSchemaComponents([WeekAhead::class, MonthAhead::class, UpcomingDeadlines::class])),
             ]),
         ]);
     }

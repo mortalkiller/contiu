@@ -2,16 +2,19 @@
 
 namespace App\Filament\Widgets;
 
+use App\Enums\BankTransactionStatus;
 use App\Enums\ReconciliationStatus;
 use App\Filament\Pages\BankStatementImport;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\Payments\PaymentResource;
+use App\Models\BankTransaction;
 use App\Support\CompanyAccount;
 use App\Support\FinanceSettings;
 use App\Support\Money;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\HtmlString;
 use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
@@ -38,9 +41,15 @@ class CompanyAccountStats extends StatsOverviewWidget
 
     public ?string $month = null;
 
+    /**
+     * On "Extrato bancário": a fourth card with how many statement lines are already explained.
+     * The dashboard and "Fecho do mês" leave it out.
+     */
+    public bool $withLineProgress = false;
+
     protected function getColumns(): int|array
     {
-        return ['md' => 3];
+        return $this->withLineProgress ? ['md' => 2, 'xl' => 4] : ['md' => 3];
     }
 
     protected function getDescription(): ?string
@@ -104,6 +113,24 @@ class CompanyAccountStats extends StatsOverviewWidget
                     ->color($pending > 0 ? 'warning' : 'success')
                     ->icon(Phosphor::CheckCircle),
             },
+            ...($this->withLineProgress ? [$this->lineProgressStat()] : []),
         ];
+    }
+
+    /** Ignored lines are out of the count: they were set aside, not explained. */
+    private function lineProgressStat(): Stat
+    {
+        $treated = BankTransaction::query()
+            ->whereIn('status', [BankTransactionStatus::Matched, BankTransactionStatus::OwnTransfer])
+            ->count();
+        $total = $treated + BankTransaction::pending()->count();
+        $percent = $total === 0 ? 0 : (int) floor($treated / $total * 100);
+
+        return Stat::make('Linhas tratadas', "{$treated} de {$total}")
+            ->description(new HtmlString(
+                '<span class="contiu-progress" role="img" aria-label="'.$percent.'% das linhas tratadas"><i style="width: '.$percent.'%"></i></span>',
+            ))
+            ->color($treated === $total ? 'success' : null)
+            ->icon(Phosphor::ListChecks);
     }
 }

@@ -77,3 +77,21 @@ it('updates the summary when moving from a closed month to one with items left',
         ->assertDontSee('Mês fechado')
         ->tap(fn ($page) => expect($page->instance()->getWidgetData())->toBe(['month' => '2026-04']));
 });
+
+it('breaks what is left into steps, with how many are done', function () {
+    Receivable::factory()->create(['due_on' => '2026-03-05']);
+    Expense::factory()->unpaid()->create(['spent_on' => '2026-03-02']);
+    Expense::factory()->unpaid()->create(['spent_on' => '2026-03-09']);
+
+    Livewire::test(MonthClose::class)
+        ->assertSee('O que falta para fechar')
+        ->assertSeeInOrder(['1. Recebido', '1 por receber', '2. Despesas', '2 por pagar']);
+});
+
+it('marks every step as done in a closed month', function () {
+    Livewire::test(MonthClose::class, ['month' => '2026-01'])
+        ->assertSeeInOrder(['1. Recebido', 'Tudo recebido', '2. Despesas', 'Todas pagas'])
+        ->assertSee('Completos')
+        ->assertDontSee('por receber')
+        ->assertDontSee('por pagar');
+});

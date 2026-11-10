@@ -15,7 +15,7 @@ use Saade\FilamentFullCalendar\Data\FetchInfo;
 use Saade\FilamentFullCalendar\Widgets\FullCalendarWidget;
 
 /**
- * The "Calendário" page's calendar: read-only, in European Portuguese, month / list / year, with
+ * The "Calendário" page's calendar: read-only, in European Portuguese, month / week / list / year, with
  * the kinds of rows to show as checkboxes above it. The rows come from App\Support\ActivityCalendar.
  */
 class ActivityCalendarWidget extends FullCalendarWidget
@@ -125,6 +125,7 @@ class ActivityCalendarWidget extends FullCalendarWidget
             'firstDay' => 1,
             'buttons' => [
                 'dayGridMonth' => ['text' => 'Mês'],
+                'dayGridWeek' => ['text' => 'Semana'],
                 'listMonth' => ['text' => 'Agenda'],
                 'multiMonthYear' => ['text' => 'Ano'],
             ],
@@ -137,7 +138,7 @@ class ActivityCalendarWidget extends FullCalendarWidget
         return [
             'start' => [['prev', 'next'], 'today'],
             'center' => ['title'],
-            'end' => [['dayGridMonth', 'listMonth', 'multiMonthYear']],
+            'end' => [['dayGridMonth', 'dayGridWeek', 'listMonth', 'multiMonthYear']],
         ];
     }
 }

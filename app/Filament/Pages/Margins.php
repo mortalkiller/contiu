@@ -9,11 +9,13 @@ use App\Filament\Analysis\Widgets\MarginsByLineChart;
 use App\Filament\Analysis\Widgets\MarginsByLineTable;
 use App\Filament\Analysis\Widgets\MarginsChart;
 use App\Filament\Analysis\Widgets\MarginsSummaryStats;
+use App\Support\MarginReport;
 use App\Support\Period;
 use App\Support\PeriodSummary;
 use BackedEnum;
 use Filament\Forms\Components\Select;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -72,6 +74,12 @@ class Margins extends Page
                         ->live(),
                 ]),
             ...$this->getWidgetsSchemaComponents([MarginsSummaryStats::class]),
+            // Half or more of the billing from one client is a dependence worth saying out loud.
+            Callout::make(fn (): string => $this->biggestClient()['label'].' representa '.$this->biggestClient()['percent'].'% do faturado')
+                ->description('Com um só cliente a pesar tanto, um atraso ou uma saída mexe no ano inteiro. Vê o cenário em Qualidade das receitas.')
+                ->icon(Phosphor::WarningCircle)
+                ->status('warning')
+                ->visible(fn (): bool => $this->biggestClient()['percent'] >= 50),
             // Two stacked columns: each widget keeps its natural height (no half-empty cards).
             Grid::make(['default' => 1, 'xl' => 3])->schema([
                 Grid::make(1)
@@ -81,6 +89,23 @@ class Margins extends Page
                     ->schema(fn (): array => $this->getWidgetsSchemaComponents([MarginsByLineChart::class, MarginsByClientChart::class, MarginsBreakdownChart::class])),
             ]),
         ]);
+    }
+
+    /**
+     * The client with the most billing in the period and their share of it, in whole percent.
+     *
+     * @return array{label: string, percent: int}
+     */
+    private function biggestClient(): array
+    {
+        $report = new MarginReport(Period::of($this->year ?? today()->year, $this->month ?: null));
+        $invoiced = $report->totals()['invoiced'];
+        $top = collect($report->byClient())->sortByDesc('invoiced')->first();
+
+        return [
+            'label' => $top['label'] ?? '—',
+            'percent' => $invoiced > 0 && $top !== null ? (int) round($top['invoiced'] / $invoiced * 100) : 0,
+        ];
     }
 
     /** Read lazily by the widgets, so a new year/month reaches them in the same request. */

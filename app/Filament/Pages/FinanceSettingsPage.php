@@ -141,6 +141,8 @@ class FinanceSettingsPage extends Page
                 ->description('As regras de Segurança Social, IRS e IVA são simplificadas e servem apenas para planear.')
                 ->icon(Phosphor::WarningCircle)
                 ->status('warning'),
+            Callout::make('Mudar estas definições recalcula a estimativa de impostos e a previsão de tesouraria.')
+                ->icon(Phosphor::Info),
             Form::make([EmbeddedSchema::make('form')])
                 ->id('form')
                 ->livewireSubmitHandler('save')

@@ -13,6 +13,7 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Callout;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Carbon;
 use Livewire\Attributes\On;
@@ -114,6 +115,8 @@ class MonthClose extends Page
                 ->description(fn (): string => $this->summary())
                 ->icon(fn () => $this->pendingMovements() === 0 ? Phosphor::CheckCircle : Phosphor::ListChecks)
                 ->status(fn (): string => $this->pendingMovements() === 0 ? 'success' : 'warning'),
+            View::make('filament.pages.partials.month-close-steps')
+                ->viewData(fn (): array => ['steps' => $this->steps()]),
             Callout::make(fn (): string => $this->pending()['data'] === 1
                 ? '1 registo com dados por completar'
                 : $this->pending()['data'].' registos com dados por completar')
@@ -148,6 +151,44 @@ class MonthClose extends Page
             $expenses > 0 ? $expenses.($expenses === 1 ? ' despesa por pagar' : ' despesas por pagar') : null,
             $bank > 0 ? $bank.($bank === 1 ? ' linha do extrato por tratar' : ' linhas do extrato por tratar') : null,
         ]));
+    }
+
+    /**
+     * The same counts as the callout, one step per kind of record, in the order they are usually
+     * dealt with. The statement step only exists with a bank account for the activity.
+     *
+     * @return list<array{label: string, done: bool, state: string, url: string|null}>
+     */
+    private function steps(): array
+    {
+        ['receivables' => $receivables, 'expenses' => $expenses, 'bank' => $bank, 'data' => $data] = $this->pending();
+
+        return [
+            [
+                'label' => 'Recebido',
+                'done' => $receivables === 0,
+                'state' => $receivables === 0 ? 'Tudo recebido' : $receivables.' por receber',
+                'url' => null,
+            ],
+            [
+                'label' => 'Despesas',
+                'done' => $expenses === 0,
+                'state' => $expenses === 0 ? 'Todas pagas' : $expenses.' por pagar',
+                'url' => null,
+            ],
+            ...(BankStatementImport::canAccess() ? [[
+                'label' => 'Extrato',
+                'done' => $bank === 0,
+                'state' => $bank === 0 ? 'Tratado' : $bank.($bank === 1 ? ' linha por tratar' : ' linhas por tratar'),
+                'url' => BankStatementImport::getUrl(),
+            ]] : []),
+            [
+                'label' => 'Dados dos registos',
+                'done' => $data === 0,
+                'state' => $data === 0 ? 'Completos' : $data.' por completar',
+                'url' => null,
+            ],
+        ];
     }
 
     private function pendingMovements(): int

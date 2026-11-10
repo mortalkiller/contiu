@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Suppliers;
 use App\Filament\Resources\Suppliers\Pages\ManageSuppliers;
 use App\Filament\Resources\Suppliers\Schemas\SupplierForm;
 use App\Filament\Resources\Suppliers\Tables\SuppliersTable;
+use App\Filament\Resources\Suppliers\Widgets\SuppliersSummary;
 use App\Models\Supplier;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -42,7 +43,12 @@ class SupplierResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with('expenses')->withCount('expenses');
+        return parent::getEloquentQuery()->with('expenses.category')->withCount('expenses');
+    }
+
+    public static function getWidgets(): array
+    {
+        return [SuppliersSummary::class];
     }
 
     public static function getPages(): array

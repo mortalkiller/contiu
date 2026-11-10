@@ -4,6 +4,7 @@ namespace App\Filament\Analysis\Widgets;
 
 use App\Filament\Analysis\Concerns\UsesMarginPeriod;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 
@@ -43,17 +44,10 @@ abstract class MarginsTable extends TableWidget
                     ->alignEnd()
                     ->weight('semibold')
                     ->color(fn (float $state) => $state < 0 ? 'danger' : null),
-                TextColumn::make('marginPercent')
+                // A bar with the number beside it: red below zero, amber below 30%.
+                ViewColumn::make('marginPercent')
                     ->label('Margem %')
-                    ->alignEnd()
-                    ->formatStateUsing(fn (?float $state) => $state === null ? '—' : number_format($state, 1, ',', ' ').'%')
-                    ->placeholder('—')
-                    ->color(fn (?float $state) => match (true) {
-                        $state === null => 'gray',
-                        $state < 0 => 'danger',
-                        $state < 30 => 'warning',
-                        default => 'success',
-                    }),
+                    ->view('filament.tables.columns.percent-bar'),
             ])
             ->emptyStateHeading('Sem movimentos neste período');
     }

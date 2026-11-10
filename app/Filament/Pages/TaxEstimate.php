@@ -3,7 +3,9 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Analysis\Widgets\TaxQuartersTable;
+use App\Filament\Pages\Concerns\HasTaxSubNavigation;
 use App\Filament\Resources\FiscalDocuments\FiscalDocumentResource;
+use App\Filament\Widgets\TaxObligationsCard;
 use App\Support\DocumentedTurnover;
 use App\Support\FinanceSettings;
 use App\Support\Money;
@@ -31,6 +33,8 @@ use UnitEnum;
  */
 class TaxEstimate extends Page
 {
+    use HasTaxSubNavigation;
+
     protected static ?string $title = 'Estimativa de impostos';
 
     protected static ?string $slug = 'estimativa-de-impostos';
@@ -139,6 +143,8 @@ class TaxEstimate extends Page
                 Callout::make('Limiar de IVA ultrapassado no ano anterior')->description($previousYearNotice)->icon(Phosphor::WarningCircle)->status('warning'),
             ]),
             ...$this->getWidgetsSchemaComponents([TaxQuartersTable::class], ['year' => $this->year]),
+            // The month's obligations and what comes next only make sense for the running year.
+            ...($estimator->year === today()->year ? $this->getWidgetsSchemaComponents([TaxObligationsCard::class]) : []),
         ]);
     }
 

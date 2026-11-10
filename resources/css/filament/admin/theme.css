@@ -1,5 +1,6 @@
 @import '../../../../vendor/filament/filament/resources/css/theme.css';
 @import '../../../../vendor/saade/filament-fullcalendar/resources/css/filament-fullcalendar.css';
+@import './partials/project-detail.css';
 
 @source '../../../../app/Filament/**/*';
 @source '../../../../resources/views/filament/**/*';
@@ -757,7 +758,23 @@
     /* App bar: logo on the left; "Mais" opens the menu and "+" is in the tab bar. */
     body:has(.contiu-tab-bar) .fi-topbar-start {
         display: flex;
+        flex: none;
         margin-inline-end: auto;
+    }
+
+    /* The search field takes what is left after the logo instead of running under it. */
+    body:has(.contiu-tab-bar) .fi-topbar-end {
+        flex: 1;
+        min-width: 0;
+        justify-content: flex-end;
+        margin-inline-start: 0.75rem;
+    }
+
+    body:has(.contiu-tab-bar) .fi-topbar .fi-global-search,
+    body:has(.contiu-tab-bar) .fi-topbar .fi-global-search-field {
+        flex: 1;
+        min-width: 0;
+        width: auto;
     }
 
     body:has(.contiu-tab-bar) :is(.fi-topbar-open-sidebar-btn, .fi-topbar-close-sidebar-btn),
@@ -1207,4 +1224,465 @@
         flex: 1 0 100%;
         font-weight: 600;
     }
+}
+
+/*
+ * Phone (below 768px): sections go from one edge of the screen to the other, with square
+ * corners, so the content gets the whole width. The page keeps its 1rem side padding for loose
+ * content (headings, buttons, filters); cards cancel it with a negative margin and keep their
+ * own inner padding, so the text stays where it was. Cards nested in another card or in a modal
+ * are left as they are.
+ */
+@media (max-width: 767.98px) {
+    .fi-main :is(.fi-section, .fi-ta-ctn, .fi-wi-stats-overview-stat, .contiu-edge-to-edge):not(:is(.fi-section, .fi-ta-ctn, .fi-modal, .contiu-edge-to-edge) *) {
+        margin-inline: -1rem;
+        border-block: 1px solid var(--gray-200);
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    .dark .fi-main :is(.fi-section, .fi-ta-ctn, .fi-wi-stats-overview-stat, .contiu-edge-to-edge):not(:is(.fi-section, .fi-ta-ctn, .fi-modal, .contiu-edge-to-edge) *) {
+        border-color: rgb(255 255 255 / 0.1);
+    }
+
+    /*
+     * Stat cards: two per row, as one block divided by hairlines, instead of a tall stack of
+     * separate cards. Filament wraps them in a section with no padding, which is already
+     * edge to edge, so the cards only lose their own corners, shadow and gaps.
+     */
+    .fi-wi-stats-overview .fi-section-content.fi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0;
+    }
+
+    .fi-wi-stats-overview .fi-grid-col > .fi-sc-component,
+    .fi-wi-stats-overview .fi-grid-col .fi-wi-stats-overview-stat {
+        height: 100%;
+    }
+
+    .fi-wi-stats-overview .fi-grid-col .fi-wi-stats-overview-stat {
+        padding: 0.75rem 1rem;
+        border-block-end: 1px solid var(--gray-200);
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    .fi-wi-stats-overview .fi-grid-col:nth-child(odd) .fi-wi-stats-overview-stat {
+        border-inline-end: 1px solid var(--gray-200);
+    }
+
+    .fi-wi-stats-overview .fi-grid-col:nth-last-child(-n + 2):nth-child(odd) .fi-wi-stats-overview-stat,
+    .fi-wi-stats-overview .fi-grid-col:last-child .fi-wi-stats-overview-stat {
+        border-block-end: 0;
+    }
+
+    .dark .fi-wi-stats-overview .fi-grid-col .fi-wi-stats-overview-stat {
+        border-color: rgb(255 255 255 / 0.1);
+    }
+
+    .fi-wi-stats-overview .fi-wi-stats-overview-stat-value {
+        font-size: 1.25rem;
+        line-height: 1.75rem;
+    }
+
+    /* Nothing may push the page sideways. */
+    .fi-main {
+        overflow-x: clip;
+    }
+}
+
+/*
+ * Proportion bar inside a stat card (App\Filament\Support\ProportionBar): a thin bar split by
+ * amount, with a legend. The tones follow the user's palette, darkest first; "danger" is the
+ * only status colour, for what is already late, and "clay" is for overhead costs.
+ */
+.contiu-proportion {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    width: 100%;
+}
+
+.contiu-proportion-bar {
+    display: flex;
+    gap: 2px;
+    height: 0.5rem;
+    overflow: hidden;
+    border-radius: 9999px;
+    background-color: var(--gray-100);
+
+    & > i {
+        min-width: 2px;
+    }
+}
+
+.dark .contiu-proportion-bar {
+    background-color: rgb(255 255 255 / 0.08);
+}
+
+.contiu-proportion-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.125rem 0.875rem;
+    font-size: 0.75rem;
+    line-height: 1.125rem;
+    color: var(--gray-600);
+
+    & i {
+        display: inline-block;
+        width: 0.5rem;
+        height: 0.5rem;
+        margin-inline-end: 0.25rem;
+        border-radius: 2px;
+    }
+
+    & strong {
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        color: var(--gray-950);
+    }
+}
+
+.dark .contiu-proportion-legend {
+    color: var(--gray-300);
+
+    & strong {
+        color: white;
+    }
+}
+
+.contiu-proportion i[data-tone="danger"] {
+    background-color: var(--danger-600);
+}
+
+.contiu-proportion i[data-tone="strong"] {
+    background-color: var(--primary-700);
+}
+
+.contiu-proportion i[data-tone="medium"] {
+    background-color: var(--primary-500);
+}
+
+.contiu-proportion i[data-tone="soft"] {
+    background-color: var(--primary-300);
+}
+
+.contiu-proportion i[data-tone="clay"] {
+    background-color: var(--clay-500);
+}
+
+.dark .contiu-proportion i[data-tone="danger"] {
+    background-color: var(--danger-400);
+}
+
+.dark .contiu-proportion i[data-tone="strong"] {
+    background-color: var(--primary-300);
+}
+
+.dark .contiu-proportion i[data-tone="soft"] {
+    background-color: var(--primary-700);
+}
+
+/* The stat's description holds the bar: let it use the card's full width. */
+.fi-wi-stats-overview-stat-description:has(.contiu-proportion),
+.fi-wi-stats-overview-stat-description:has(.contiu-proportion) > span {
+    display: block;
+    width: 100%;
+}
+
+/* A plain progress bar inside a stat card (e.g. "Linhas tratadas" on Extrato bancário). */
+.contiu-progress {
+    display: block;
+    width: 100%;
+    height: 0.5rem;
+    overflow: hidden;
+    border-radius: 9999px;
+    background-color: var(--gray-100);
+
+    & > i {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background-color: var(--primary-500);
+    }
+}
+
+.dark .contiu-progress {
+    background-color: rgb(255 255 255 / 0.08);
+}
+
+.fi-wi-stats-overview-stat-description:has(.contiu-progress),
+.fi-wi-stats-overview-stat-description:has(.contiu-progress) > span {
+    display: block;
+    width: 100%;
+}
+
+/*
+ * Extrato bancário, "Por tratar": the suggestion is what the user came to confirm, so it sits
+ * in a soft box. A clear match takes the palette colour; several possibilities ask for a
+ * choice (amber); no suggestion stays quiet.
+ */
+.fi-ta-cell[data-suggestion] :is(.fi-ta-text, .fi-ta-text-item) {
+    border-radius: 0.5rem;
+}
+
+.fi-ta-cell[data-suggestion="match"] .fi-ta-text {
+    margin: 0.5rem 0.75rem;
+    padding: 0.375rem 0.625rem;
+    background-color: var(--primary-50);
+    color: var(--primary-700);
+}
+
+.fi-ta-cell[data-suggestion="choose"] .fi-ta-text {
+    margin: 0.5rem 0.75rem;
+    padding: 0.375rem 0.625rem;
+    background-color: var(--warning-50);
+    color: var(--warning-800);
+}
+
+.dark .fi-ta-cell[data-suggestion="match"] .fi-ta-text {
+    background-color: rgb(255 255 255 / 0.06);
+    color: var(--primary-300);
+}
+
+.dark .fi-ta-cell[data-suggestion="choose"] .fi-ta-text {
+    background-color: rgb(255 255 255 / 0.06);
+    color: var(--warning-300);
+}
+
+.fi-ta-cell[data-suggestion] .fi-ta-text :is(.fi-icon, svg) {
+    color: currentColor;
+}
+
+/*
+ * Fecho do mês: "O que falta para fechar" (month-close-steps.blade.php). One card per step, in
+ * a row; a step still open is outlined in amber, a done one is quiet with a green check.
+ */
+.contiu-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem 1.25rem 1.25rem;
+    border-radius: 0.75rem;
+    background-color: white;
+    box-shadow: var(--shadow-sm), 0 0 0 1px rgb(0 0 0 / 0.05);
+}
+
+.dark .contiu-steps {
+    background-color: var(--gray-900);
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.1);
+}
+
+.contiu-steps-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+
+    & > h2 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--gray-950);
+    }
+}
+
+.dark .contiu-steps-head > h2 {
+    color: white;
+}
+
+.contiu-steps-progress {
+    display: flex;
+    flex: 0 1 14rem;
+    align-items: center;
+    gap: 0.625rem;
+    font-size: 0.8125rem;
+    white-space: nowrap;
+    color: var(--gray-600);
+}
+
+.dark .contiu-steps-progress {
+    color: var(--gray-300);
+}
+
+.contiu-steps-list {
+    display: grid;
+    grid-template-columns: repeat(var(--contiu-steps, 4), minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.contiu-step {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    height: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 0.5rem;
+
+    &[data-done="false"] {
+        border-color: var(--warning-500);
+        box-shadow: inset 0 0 0 1px var(--warning-500);
+    }
+}
+
+a.contiu-step:hover {
+    background-color: var(--gray-50);
+}
+
+.dark .contiu-step {
+    border-color: rgb(255 255 255 / 0.1);
+}
+
+.dark a.contiu-step:hover {
+    background-color: rgb(255 255 255 / 0.05);
+}
+
+.contiu-step-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--gray-950);
+}
+
+.dark .contiu-step-title {
+    color: white;
+}
+
+.contiu-step-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.8125rem;
+    color: var(--success-700);
+
+    & > svg {
+        flex: none;
+        width: 1rem;
+        height: 1rem;
+    }
+}
+
+.contiu-step[data-done="false"] .contiu-step-state {
+    color: var(--warning-800);
+}
+
+.dark .contiu-step-state {
+    color: var(--success-400);
+}
+
+.dark .contiu-step[data-done="false"] .contiu-step-state {
+    color: var(--warning-300);
+}
+
+@media (max-width: 767.98px) {
+    .contiu-steps-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .contiu-steps {
+        padding-inline: 1rem;
+    }
+}
+
+/*
+ * Tabs, everywhere: a row of labels on the page with a line under the active one, instead of
+ * Filament's floating pill card. Covers list tabs, sub-navigation tabs and schema tabs.
+ */
+.fi-main .fi-tabs:not(.fi-vertical) {
+    gap: 0.25rem;
+
+    &:not(.fi-contained) {
+        width: 100%;
+        margin-inline: 0;
+        padding: 0;
+        border-radius: 0;
+        background-color: transparent;
+        box-shadow: none;
+        border-bottom: 1px solid var(--gray-200);
+    }
+
+    &.fi-contained {
+        padding-block: 0;
+    }
+
+    & .fi-tabs-item {
+        border-radius: 0;
+        padding: 0.75rem 0.875rem;
+        margin-bottom: -1px;
+        border-bottom: 2px solid transparent;
+        background-color: transparent;
+
+        &:hover,
+        &:focus-visible {
+            background-color: transparent;
+            border-bottom-color: var(--gray-300);
+        }
+
+        &.fi-active {
+            border-bottom-color: var(--primary-600);
+
+            & .fi-tabs-item-label {
+                font-weight: 600;
+            }
+        }
+    }
+}
+
+.dark .fi-main .fi-tabs:not(.fi-vertical) {
+    &:not(.fi-contained) {
+        border-bottom-color: rgb(255 255 255 / 0.1);
+    }
+
+    & .fi-tabs-item:is(:hover, :focus-visible) {
+        border-bottom-color: rgb(255 255 255 / 0.25);
+    }
+
+    & .fi-tabs-item.fi-active {
+        border-bottom-color: var(--primary-400);
+    }
+}
+
+/* A receber, "Quem deve": the clients who owe the most, each with a bar. */
+.contiu-debtors {
+    display: grid;
+    gap: 0.625rem;
+    width: 100%;
+}
+
+.fi-wi-stats-overview-stat-description:has(.contiu-debtors),
+.fi-wi-stats-overview-stat-description:has(.contiu-debtors) > span {
+    display: block;
+    width: 100%;
+}
+
+.contiu-debtor {
+    display: grid;
+    gap: 0.25rem;
+}
+
+.contiu-debtor-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    color: var(--gray-700);
+
+    & > strong {
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+}
+
+.dark .contiu-debtor-head {
+    color: var(--gray-200);
+}
+
+.contiu-debtor-late {
+    font-size: 0.75rem;
+    color: var(--danger-700);
+}
+
+.dark .contiu-debtor-late {
+    color: var(--danger-400);
 }

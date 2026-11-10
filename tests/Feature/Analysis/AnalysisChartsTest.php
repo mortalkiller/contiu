@@ -5,10 +5,12 @@ use App\Filament\Analysis\Widgets\ForecastInflowsChart;
 use App\Filament\Analysis\Widgets\ForecastOutflowsChart;
 use App\Filament\Analysis\Widgets\MarginsBreakdownChart;
 use App\Filament\Analysis\Widgets\MarginsByClientChart;
+use App\Filament\Analysis\Widgets\MarginsByClientTable;
 use App\Filament\Analysis\Widgets\MarginsByLineChart;
 use App\Filament\Analysis\Widgets\MarginsChart;
 use App\Filament\Pages\CashForecast as CashForecastPage;
 use App\Filament\Pages\Margins;
+use App\Models\Client;
 use App\Models\Expense;
 use App\Models\Project;
 use App\Models\Receivable;
@@ -101,4 +103,26 @@ it('adds the by-client doughnut only for the 6-month horizon', function () {
 
     Livewire::test(ForecastInflowsByClientChart::class, ['months' => 6])
         ->assertSee('Entradas previstas por cliente');
+});
+
+it('draws the margin percentage as a bar and warns when one client carries half the billing', function () {
+    // The setup above bills 1 300,00 € to other clients; 3 900,00 € more to one makes them 75%.
+    $big = Client::factory()->create(['name' => 'Estúdio Atlântico']);
+    Receivable::factory()->for(Project::factory()->for($big)->create(['quoted_on' => '2026-10-01', 'net_amount' => 390000]), 'billable')->create(['amount' => 390000, 'due_on' => '2026-10-07']);
+
+    Livewire::test(MarginsByClientTable::class, ['year' => 2026])
+        ->loadTable()
+        ->assertSeeHtml('contiu-percent-bar');
+
+    Livewire::test(Margins::class, ['year' => 2026])
+        ->assertSee('Estúdio Atlântico representa 75% do faturado');
+});
+
+it('says nothing about dependence when the billing is spread out', function () {
+    // Two more clients at 1 000,00 € each leave the biggest one at 30%.
+    foreach (range(1, 2) as $ignored) {
+        Receivable::factory()->for(Project::factory()->create(['quoted_on' => '2026-10-01', 'net_amount' => 100000]), 'billable')->create(['amount' => 100000, 'due_on' => '2026-10-07']);
+    }
+
+    Livewire::test(Margins::class, ['year' => 2026])->assertDontSee('representa');
 });

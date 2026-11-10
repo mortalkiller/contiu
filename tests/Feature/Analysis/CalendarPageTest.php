@@ -2,7 +2,9 @@
 
 use App\Enums\CalendarEntryType;
 use App\Filament\Analysis\Widgets\ActivityCalendarWidget;
+use App\Filament\Analysis\Widgets\MonthAhead;
 use App\Filament\Analysis\Widgets\UpcomingDeadlines;
+use App\Filament\Analysis\Widgets\WeekAhead;
 use App\Filament\Pages\Calendar;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Models\Expense;
@@ -143,4 +145,51 @@ it('says when nothing is pending', function () {
 
 it('shows the column beside the calendar on the page', function () {
     $this->get(Calendar::getUrl())->assertOk()->assertSeeLivewire(UpcomingDeadlines::class);
+});
+
+it('offers a week view between the month and the list', function () {
+    $widget = Livewire::test(ActivityCalendarWidget::class)->instance();
+
+    expect($widget->config()['buttons'])->toHaveKey('dayGridWeek')
+        ->and($widget->config()['buttons']['dayGridWeek'])->toBe(['text' => 'Semana']);
+
+    Livewire::test(ActivityCalendarWidget::class)->assertSeeHtml('dayGridWeek');
+});
+
+it('adds up what is still to come in and go out until the end of the month', function () {
+    Receivable::factory()->create(['amount' => 40000, 'due_on' => '2026-11-15']);
+    Receivable::factory()->create(['amount' => 99900, 'due_on' => '2026-12-02']); // next month
+    $paid = Receivable::factory()->create(['amount' => 5000, 'due_on' => '2026-11-20']);
+    Payment::factory()->for($paid)->create(['amount' => 5000, 'paid_on' => '2026-11-09']);
+    Expense::factory()->unpaid()->create(['spent_on' => '2026-11-10', 'net_amount' => 6150, 'vat_rate' => 0]);
+    Expense::factory()->create(['spent_on' => '2026-11-12', 'net_amount' => 2000]); // already paid
+
+    Livewire::test(MonthAhead::class)
+        ->assertSee('O resto de')
+        ->assertSeeInOrder(['Ainda vai entrar', Money::format(40000)])
+        ->assertSeeInOrder(['Ainda vai sair', Money::format(6150)])
+        ->assertSeeInOrder(['Diferença prevista', Money::format(33850)]);
+});
+
+it('shows the rest of the month beside the calendar', function () {
+    $this->get(Calendar::getUrl())->assertOk()->assertSeeLivewire(MonthAhead::class);
+});
+
+it('sums up the current week beside the calendar: in, out, deadlines and what is late', function () {
+    $this->travelTo(Carbon::parse('2026-11-10')); // Tuesday; the week is 9 to 15 November
+    actingAsAdmin();
+    Payment::factory()->create(['amount' => 40000, 'paid_on' => '2026-11-12']);
+    Receivable::factory()->create(['amount' => 30000, 'due_on' => '2026-11-15']);
+    Receivable::factory()->create(['amount' => 18000, 'due_on' => '2026-10-28']); // late, from before
+    Expense::factory()->unpaid()->create(['spent_on' => '2026-11-10', 'net_amount' => 5000, 'vat_rate' => 0.23]);
+    Expense::factory()->create(['spent_on' => '2026-11-10', 'net_amount' => 2000, 'vat_rate' => 0]);
+    Expense::factory()->unpaid()->create(['spent_on' => '2026-11-20', 'net_amount' => 99900]); // next week
+
+    Livewire::test(WeekAhead::class)
+        ->assertSee('9 a 15 de novembro')
+        ->assertSeeInOrder(['Entra esta semana', Money::format(40000).' já recebidos'])
+        ->assertSeeInOrder(['Sai esta semana', Money::format(6150).' por pagar', Money::format(8150)])
+        ->assertSeeInOrder(['Em atraso de semanas anteriores', '1']);
+
+    $this->get(Calendar::getUrl())->assertOk()->assertSeeLivewire(WeekAhead::class);
 });

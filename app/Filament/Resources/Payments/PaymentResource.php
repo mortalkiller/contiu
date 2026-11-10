@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Payments;
 
 use App\Enums\PaymentMethod;
 use App\Filament\Resources\Payments\Pages\ManagePayments;
+use App\Filament\Resources\Payments\Widgets\PaymentsSummary;
 use App\Filament\Support\MoneyInput;
 use App\Filament\Support\ReconciliationColumns;
 use App\Models\Client;
@@ -148,6 +149,11 @@ class PaymentResource extends Resource
             ])
             ->emptyStateHeading('Sem recebimentos')
             ->emptyStateDescription('Regista o que entrou com "Registar recebimento".');
+    }
+
+    public static function getWidgets(): array
+    {
+        return [PaymentsSummary::class];
     }
 
     public static function getPages(): array

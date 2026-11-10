@@ -6,12 +6,14 @@ use App\Filament\Resources\Projects\Pages\CreateProject;
 use App\Filament\Resources\Projects\Pages\EditProject;
 use App\Filament\Resources\Projects\Pages\ListProjects;
 use App\Filament\Resources\Projects\Pages\ViewProject;
+use App\Filament\Resources\Projects\RelationManagers\ProjectDocumentsRelationManager;
+use App\Filament\Resources\Projects\RelationManagers\ProjectExpensesRelationManager;
+use App\Filament\Resources\Projects\RelationManagers\ProjectPaymentsRelationManager;
+use App\Filament\Resources\Projects\RelationManagers\ProjectReceivablesRelationManager;
 use App\Filament\Resources\Projects\Schemas\ProjectForm;
 use App\Filament\Resources\Projects\Schemas\ProjectInfolist;
 use App\Filament\Resources\Projects\Tables\ProjectsTable;
-use App\Filament\Resources\Shared\RelationManagers\ExpensesRelationManager;
-use App\Filament\Resources\Shared\RelationManagers\PaymentsRelationManager;
-use App\Filament\Resources\Shared\RelationManagers\ReceivablesRelationManager;
+use App\Filament\Resources\Projects\Widgets\ProjectsSummary;
 use App\Models\Project;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -66,11 +68,17 @@ class ProjectResource extends Resource
     public static function getRelations(): array
     {
         return [
-            ReceivablesRelationManager::class,
-            PaymentsRelationManager::class,
-            ExpensesRelationManager::class,
+            ProjectReceivablesRelationManager::class,
+            ProjectPaymentsRelationManager::class,
+            ProjectExpensesRelationManager::class,
+            ProjectDocumentsRelationManager::class,
             AuditsRelationManager::class,
         ];
+    }
+
+    public static function getWidgets(): array
+    {
+        return [ProjectsSummary::class];
     }
 
     public static function getPages(): array

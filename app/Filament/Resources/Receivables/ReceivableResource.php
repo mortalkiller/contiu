@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Receivables;
 
 use App\Filament\Resources\Receivables\Pages\ListReceivables;
 use App\Filament\Resources\Receivables\Tables\ReceivablesTable;
+use App\Filament\Resources\Receivables\Widgets\ReceivablesSummary;
 use App\Models\Receivable;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -64,6 +65,11 @@ class ReceivableResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()->excludingCancelled()->with(['payments', 'billable.client']);
+    }
+
+    public static function getWidgets(): array
+    {
+        return [ReceivablesSummary::class];
     }
 
     public static function getPages(): array

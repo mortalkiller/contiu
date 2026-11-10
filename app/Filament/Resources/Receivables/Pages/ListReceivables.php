@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Receivables\Pages;
 
 use App\Filament\Resources\Receivables\ReceivableResource;
+use App\Filament\Resources\Receivables\Widgets\ReceivablesSummary;
 use App\Models\Receivable;
 use App\Support\Money;
 use Filament\Resources\Pages\ListRecords;
@@ -20,6 +21,11 @@ class ListReceivables extends ListRecords
 
         return 'Em aberto: '.Money::format($open->sum(fn (Receivable $receivable) => $receivable->outstanding))
             .' · Vencido: '.Money::format($overdue->sum(fn (Receivable $receivable) => $receivable->outstanding));
+    }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [ReceivablesSummary::class];
     }
 
     public function getDefaultActiveTab(): string|int|null

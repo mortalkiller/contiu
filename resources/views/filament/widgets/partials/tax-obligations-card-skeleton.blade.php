@@ -3,7 +3,7 @@
 <div role="status" aria-busy="true" class="fsl-skeleton col-span-full">
     <span class="fi-sr-only">{{ __('filament::components/loading-section.label') }}</span>
 
-    <div class="grid overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 md:grid-cols-[15rem_1fr] dark:bg-gray-900 dark:ring-white/10" aria-hidden="true">
+    <div class="contiu-edge-to-edge grid overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 md:grid-cols-[15rem_1fr] dark:bg-gray-900 dark:ring-white/10" aria-hidden="true">
         <div class="flex flex-col gap-2.5 bg-(--contiu-brand-surface) p-5" style="--fsl-bone: rgb(255 255 255 / 0.18)">
             <span class="fsl-bone fsl-line" style="width: 40%"></span>
             <span class="fsl-bone" style="width: 70%; height: 1.75rem"></span>

@@ -1,0 +1,107 @@
+/*
+ * Detalhe de trabalho, "Linha do tempo": one row per event with a dot that says whether it
+ * already happened (palette colour), is late (danger) or is still to come (hollow).
+ */
+.contiu-timeline {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.contiu-timeline-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding-block: 0.75rem;
+    border-top: 1px solid var(--gray-200);
+
+    &:first-child {
+        border-top: 0;
+        padding-top: 0;
+    }
+
+    &:last-child {
+        padding-bottom: 0;
+    }
+}
+
+.contiu-timeline-mark {
+    flex: none;
+    width: 0.625rem;
+    height: 0.625rem;
+    margin-top: 0.3125rem;
+    border-radius: 9999px;
+    border: 2px solid var(--gray-300);
+    background-color: transparent;
+}
+
+.contiu-timeline-item[data-state="done"] .contiu-timeline-mark {
+    border-color: var(--primary-600);
+    background-color: var(--primary-600);
+}
+
+.contiu-timeline-item[data-state="late"] .contiu-timeline-mark {
+    border-color: var(--danger-600);
+    background-color: var(--danger-600);
+}
+
+.contiu-timeline-text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.contiu-timeline-title {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--gray-950);
+}
+
+.contiu-timeline-meta {
+    font-size: 0.8125rem;
+    color: var(--gray-500);
+}
+
+.contiu-timeline-item[data-state="late"] .contiu-timeline-meta {
+    color: var(--danger-700);
+}
+
+.contiu-timeline-amount {
+    flex: none;
+    font-size: 0.875rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--gray-950);
+}
+
+.dark .contiu-timeline-item {
+    border-top-color: rgb(255 255 255 / 0.1);
+}
+
+.dark .contiu-timeline-mark {
+    border-color: var(--gray-600);
+}
+
+.dark .contiu-timeline-item[data-state="done"] .contiu-timeline-mark {
+    border-color: var(--primary-400);
+    background-color: var(--primary-400);
+}
+
+.dark .contiu-timeline-item[data-state="late"] .contiu-timeline-mark {
+    border-color: var(--danger-400);
+    background-color: var(--danger-400);
+}
+
+.dark :is(.contiu-timeline-title, .contiu-timeline-amount) {
+    color: white;
+}
+
+.dark .contiu-timeline-meta {
+    color: var(--gray-400);
+}
+
+.dark .contiu-timeline-item[data-state="late"] .contiu-timeline-meta {
+    color: var(--danger-400);
+}

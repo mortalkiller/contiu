@@ -35,6 +35,15 @@ class SuppliersTable
                     ->label('Sede')
                     ->badge()
                     ->color('gray'),
+                TextColumn::make('usual_category')
+                    ->label('Categoria habitual')
+                    ->state(fn (Supplier $record): ?string => $record->expenses
+                        ->countBy(fn (Expense $expense): string => $expense->category?->name ?? '')
+                        ->forget('')
+                        ->sortDesc()
+                        ->keys()
+                        ->first())
+                    ->placeholder('—'),
                 TextColumn::make('expenses_count')
                     ->label('Despesas')
                     ->numeric()
@@ -44,6 +53,19 @@ class SuppliersTable
                     ->state(fn (Supplier $record) => $record->expenses->sum(fn (Expense $expense) => $expense->total))
                     ->money('EUR', divideBy: 100)
                     ->alignEnd(),
+                TextColumn::make('unpaid')
+                    ->label('Por pagar')
+                    ->state(fn (Supplier $record): ?int => $record->expenses->reject(fn (Expense $expense): bool => (bool) $expense->is_paid)->sum(fn (Expense $expense) => $expense->total) ?: null)
+                    ->money('EUR', divideBy: 100)
+                    ->placeholder('—')
+                    ->color('warning')
+                    ->weight('semibold')
+                    ->alignEnd(),
+                TextColumn::make('last_expense_on')
+                    ->label('Última despesa')
+                    ->state(fn (Supplier $record) => $record->expenses->max('spent_on'))
+                    ->date('d/m/Y')
+                    ->placeholder('—'),
             ])
             ->recordActions([
                 ActionGroup::make([
