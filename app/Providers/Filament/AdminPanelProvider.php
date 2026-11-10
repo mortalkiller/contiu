@@ -147,6 +147,11 @@ class AdminPanelProvider extends PanelProvider
                     ? ''
                     : view('filament.partials.account-status-banner', ['banner' => $banner])->render(),
             )
+            // Phone: tables become lists of cards; this labels each cell with its column heading.
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn (): string => view('filament.partials.mobile-tables')->render(),
+            )
             // Phone and tablet: shortcuts at the bottom of the screen, as in a phone app.
             ->renderHook(
                 PanelsRenderHook::BODY_END,

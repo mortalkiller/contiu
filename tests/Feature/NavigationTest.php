@@ -3,6 +3,7 @@
 use App\Filament\Pages\Dashboard;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\Receivables\ReceivableResource;
+use App\Support\MobileMenu;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
@@ -50,4 +51,48 @@ it('has no tab bar on the sign-in page', function () {
     $this->get(route('filament.admin.auth.login'))
         ->assertOk()
         ->assertDontSee('contiu-tab-bar', escape: false);
+});
+
+it('labels table cells with their column heading, for the phone list layout', function () {
+    actingAsAdmin();
+
+    $this->get(ExpenseResource::getUrl())
+        ->assertOk()
+        ->assertSee('cell.dataset.label', escape: false);
+});
+
+it('builds the phone menu from the navigation: open groups as tiles, collapsed groups as rows', function () {
+    actingAsAdmin();
+
+    $sections = collect(MobileMenu::sections())->keyBy(fn (array $section): string => $section['label'] ?? '—');
+
+    expect($sections['Receitas']['collapsed'])->toBeFalse()
+        ->and(array_column($sections['Receitas']['items'], 'label'))->toContain('A receber', 'Trabalhos', 'Avenças')
+        ->and($sections['Impostos']['collapsed'])->toBeTrue()
+        ->and($sections['Definições']['collapsed'])->toBeTrue()
+        ->and($sections['—']['collapsed'])->toBeFalse();
+});
+
+it('leaves the pages already on the tab bar out of the phone menu', function () {
+    actingAsAdmin();
+
+    $labels = collect(MobileMenu::sections(excludedUrls: [
+        Dashboard::getUrl(),
+        ReceivableResource::getUrl(),
+    ]))->flatMap(fn (array $section): array => array_column($section['items'], 'label'));
+
+    expect($labels)->not->toContain('Hoje')
+        ->not->toContain('A receber')
+        ->toContain('Fecho do mês', 'Trabalhos');
+});
+
+it('puts the phone menu sheet on the page, with tiles and a row per collapsed group', function () {
+    actingAsAdmin();
+
+    $this->get(Dashboard::getUrl())
+        ->assertOk()
+        ->assertSee('contiu-menu-sheet', escape: false)
+        ->assertSee('contiu-menu-tile', escape: false)
+        ->assertSee('contiu-menu-row', escape: false)
+        ->assertSee('Ir para…');
 });
