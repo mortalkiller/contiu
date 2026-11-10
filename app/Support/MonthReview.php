@@ -2,9 +2,15 @@
 
 namespace App\Support;
 
+use App\Enums\FiscalDocumentDirection;
+use App\Enums\FiscalDocumentStatus;
+use App\Enums\FiscalDocumentType;
 use App\Models\BankTransaction;
+use App\Models\CustomerRefund;
 use App\Models\Expense;
+use App\Models\FiscalDocument;
 use App\Models\Payment;
+use App\Models\PaymentAllocation;
 use App\Models\Receivable;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -21,6 +27,8 @@ final class MonthReview
 
     public readonly CarbonImmutable $end;
 
+    private ?Reconciliation $reconciliation = null;
+
     public function __construct(CarbonInterface $month)
     {
         $this->start = CarbonImmutable::parse($month)->startOfMonth();
@@ -28,18 +36,30 @@ final class MonthReview
     }
 
     /** @return Builder<Receivable> */
-    public function receivablesQuery(): Builder
+    public function receivablesQuery(bool $withFiscalReference = false): Builder
     {
+        $issuedInvoice = fn (): Builder => $this->fiscalReferenceQuery(FiscalDocumentDirection::Issued, [
+            FiscalDocumentType::Invoice, FiscalDocumentType::InvoiceReceipt, FiscalDocumentType::DebitNote,
+        ])->whereHas('links', fn (Builder $links) => $links
+            ->whereColumn('receivable_id', 'receivables.id')
+            ->orWhere(fn (Builder $links) => $links
+                ->where('fiscal_documents.type', FiscalDocumentType::InvoiceReceipt)
+                ->whereExists(PaymentAllocation::query()
+                    ->whereColumn('payment_id', 'fiscal_document_links.payment_id')
+                    ->whereColumn('receivable_id', 'receivables.id'))));
+
         return Receivable::query()
             ->excludingCancelled()
             ->where(fn (Builder $query) => $query
                 ->whereBetween('due_on', $this->range())
+                ->orWhereExists($issuedInvoice()->whereBetween('document_date', $this->range()))
                 ->orWhere(fn (Builder $query) => $query->whereDate('due_on', '<', $this->start)->open())
                 // Due later, but part of it was paid this month (e.g. an advance on a January instalment).
                 ->orWhere(fn (Builder $query) => $query
                     ->whereDate('due_on', '>', $this->end)
                     ->whereHas('payments', fn (Builder $query) => $query->whereBetween('paid_on', $this->range()))))
             ->with(['payments', 'billable.client'])
+            ->when($withFiscalReference, fn (Builder $query) => $query->addSelect(['fiscal_reference' => $issuedInvoice()]))
             ->orderBy('due_on')
             ->orderBy('id');
     }
@@ -51,13 +71,18 @@ final class MonthReview
     }
 
     /** @return Builder<Expense> */
-    public function expensesQuery(): Builder
+    public function expensesQuery(bool $withFiscalReference = false): Builder
     {
         return Expense::query()
             ->where(fn (Builder $query) => $query
                 ->whereBetween('spent_on', $this->range())
                 ->orWhere(fn (Builder $query) => $query->whereDate('spent_on', '<', $this->start)->where('is_paid', false)))
             ->with(['supplier', 'category', 'project', 'retainer'])
+            ->when($withFiscalReference, fn (Builder $query) => $query->addSelect([
+                'fiscal_reference' => $this->fiscalReferenceQuery(FiscalDocumentDirection::Received, [
+                    FiscalDocumentType::Invoice, FiscalDocumentType::InvoiceReceipt,
+                ])->whereHas('links', fn (Builder $links) => $links->whereColumn('expense_id', 'expenses.id')),
+            ]))
             ->orderBy('spent_on')
             ->orderBy('id');
     }
@@ -68,10 +93,114 @@ final class MonthReview
         return $this->expensesQuery()->get();
     }
 
-    /** @return array{0: string, 1: string} Last second included: SQLite stores dates with a time part. */
+    /** @return Builder<Payment> */
+    public function paymentsQuery(): Builder
+    {
+        $paymentDocument = $this->fiscalReferenceQuery(FiscalDocumentDirection::Issued, [
+            FiscalDocumentType::Receipt, FiscalDocumentType::InvoiceReceipt,
+        ]);
+        $allocationDocument = (clone $paymentDocument)->whereHas('links', fn (Builder $links) => $links
+            ->whereColumn('payment_id', 'payments.id')
+            ->where(fn (Builder $coverage) => $coverage
+                ->where(fn (Builder $whole) => $whole->whereNull('receivable_id')->whereNull('related_fiscal_document_id'))
+                ->orWhere(fn (Builder $partial) => $partial
+                    ->whereColumn('fiscal_documents.total_amount', 'payment_allocations.amount')
+                    ->where(fn (Builder $target) => $target->whereColumn('receivable_id', 'payment_allocations.receivable_id')
+                        ->orWhereHas('relatedFiscalDocument.links', fn (Builder $original) => $original
+                            ->whereColumn('receivable_id', 'payment_allocations.receivable_id'))))));
+
+        return Payment::query()
+            ->whereBetween('paid_on', $this->range())
+            ->with(['advanceClient', 'allocations.receivable.billable'])
+            ->addSelect([
+                'fiscal_reference' => $paymentDocument->whereHas('links', fn (Builder $links) => $links->whereColumn('payment_id', 'payments.id')),
+                'uncovered_allocation' => PaymentAllocation::query()->select('id')->limit(1)
+                    ->whereColumn('payment_id', 'payments.id')
+                    ->whereNotExists($allocationDocument),
+            ])
+            ->orderBy('paid_on')
+            ->orderBy('id');
+    }
+
+    /**
+     * @param  list<FiscalDocumentType>  $types
+     * @return Builder<FiscalDocument>
+     */
+    private function fiscalReferenceQuery(FiscalDocumentDirection $direction, array $types): Builder
+    {
+        return FiscalDocument::query()
+            ->select('number')
+            ->where('status', FiscalDocumentStatus::Active)
+            ->where('direction', $direction)
+            ->whereIn('type', $types)
+            ->orderByDesc('document_date')
+            ->orderByDesc('id')
+            ->limit(1);
+    }
+
+    public static function missingDocumentLabel(Receivable|Payment|Expense $record): string
+    {
+        if ($record instanceof Payment && filled($record->fiscal_reference) && $record->uncovered_allocation !== null) {
+            return 'Falta recibo para parte do recebimento';
+        }
+
+        return $record instanceof Payment ? 'Falta recibo ou fatura-recibo' : 'Falta fatura ou fatura-recibo';
+    }
+
+    public static function hasCompleteFiscalReference(Receivable|Payment|Expense $record): bool
+    {
+        return filled($record->fiscal_reference) && (! $record instanceof Payment || $record->uncovered_allocation === null);
+    }
+
+    public static function unconfirmedLegacyReference(Payment|Expense $record): ?string
+    {
+        return filled($record->invoice_number) && $record->invoice_number !== $record->fiscal_reference
+            ? $record->invoice_number
+            : null;
+    }
+
+    public function reconciliationFor(Payment|Expense $record): ?ReconciliationResult
+    {
+        if (! app(FinanceSettings::class)->hasBusinessAccount() || ($record instanceof Expense && ! $record->is_paid)) {
+            return null;
+        }
+
+        $reconciliation = $this->reconciliation ??= new Reconciliation;
+
+        return $record instanceof Payment ? $reconciliation->forPayment($record) : $reconciliation->forExpense($record);
+    }
+
+    /** @return list<string> */
+    public function dataIssues(Receivable|Payment|Expense $record): array
+    {
+        $issues = [];
+
+        if (! self::hasCompleteFiscalReference($record)) {
+            $issues[] = self::missingDocumentLabel($record);
+        }
+
+        if ($record instanceof Expense && ! $record->hasProof()) {
+            $issues[] = 'Sem comprovativo';
+        }
+
+        if (! $record instanceof Receivable && $this->reconciliationFor($record)?->isReconciled() === false) {
+            $issues[] = 'Por reconciliar';
+        }
+
+        return $issues;
+    }
+
+    public function pendingDataCount(): int
+    {
+        return $this->receivablesQuery(withFiscalReference: true)->withoutEagerLoads()->get()->filter($this->dataIssues(...))->count()
+            + $this->paymentsQuery()->withoutEagerLoads()->get()->filter($this->dataIssues(...))->count()
+            + $this->expensesQuery(withFiscalReference: true)->withoutEagerLoads()->get()->filter($this->dataIssues(...))->count();
+    }
+
+    /** @return array{0: string, 1: string} SQLite data can include dates with or without a time part. */
     private function range(): array
     {
-        return [$this->start->startOfDay()->toDateTimeString(), $this->end->endOfDay()->toDateTimeString()];
+        return [$this->start->toDateString(), $this->end->toDateTimeString()];
     }
 
     public function isCarriedOver(Receivable|Expense $item): bool
@@ -85,6 +214,11 @@ final class MonthReview
     public function isDueLater(Receivable $receivable): bool
     {
         return $receivable->due_on->gt($this->end);
+    }
+
+    public function outstandingAtClose(Receivable $receivable): int
+    {
+        return $receivable->outstandingAt($this->end);
     }
 
     public function received(): int
@@ -103,7 +237,12 @@ final class MonthReview
 
     public function result(): int
     {
-        return $this->received() - $this->paidExpenses();
+        return $this->received() - $this->paidExpenses() - $this->refunded();
+    }
+
+    public function refunded(): int
+    {
+        return (int) CustomerRefund::query()->whereBetween('paid_on', $this->range())->sum('amount');
     }
 
     public function expected(): int
@@ -128,11 +267,17 @@ final class MonthReview
     /** Statement lines of the month not treated yet; none without a bank account for the activity. */
     public function pendingBankLines(): int
     {
+        return $this->pendingBankLinesQuery()->count();
+    }
+
+    /** @return Builder<BankTransaction> */
+    public function pendingBankLinesQuery(): Builder
+    {
         if (! app(FinanceSettings::class)->hasBusinessAccount()) {
-            return 0;
+            return BankTransaction::query()->whereRaw('1 = 0');
         }
 
-        return BankTransaction::query()->pending()->whereBetween('booked_on', $this->range())->count();
+        return BankTransaction::query()->pending()->whereBetween('booked_on', $this->range());
     }
 
     public function pendingCount(): int

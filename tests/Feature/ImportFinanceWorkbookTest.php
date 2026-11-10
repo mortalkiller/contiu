@@ -8,12 +8,14 @@ use App\Enums\ProjectStatus;
 use App\Filament\Pages\ImportWorkbook;
 use App\Models\Client;
 use App\Models\Expense;
+use App\Models\FiscalDocument;
 use App\Models\Payment;
 use App\Models\Project;
 use App\Models\Receivable;
 use App\Models\Retainer;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 
@@ -117,6 +119,42 @@ it('refuses to import over existing data unless asked to replace it', function (
         ->and(Client::count())->toBe(2)
         ->and(Payment::count())->toBe(5);
 });
+
+it('refuses to replace workbook data linked to fiscal documents', function () {
+    importFixture();
+    $payment = Payment::query()->firstOrFail();
+    FiscalDocument::factory()->create()->links()->create(['payment_id' => $payment->id]);
+
+    expect(fn () => importFixture(replace: true))
+        ->toThrow(ImportRefusedException::class, 'documentos fiscais');
+
+    expect(Payment::count())->toBe(5)
+        ->and($payment->fresh())->not->toBeNull()
+        ->and(FiscalDocument::count())->toBe(1);
+});
+
+it('refuses to replace expenses with private proofs', function () {
+    importFixture();
+    $expense = Expense::query()->firstOrFail();
+    $expense->forceFill(['proof_path' => 'expense-proofs/'.$expense->account_id.'/'.Str::uuid().'.pdf'])->save();
+
+    expect(fn () => importFixture(replace: true))
+        ->toThrow(ImportRefusedException::class, 'comprovativos');
+
+    expect($expense->fresh()->proof_path)->toBe($expense->proof_path);
+});
+
+it('refuses to discard manual data that is absent from the workbook', function (string $model, array $data) {
+    importFixture();
+    $record = $model::query()->firstOrFail();
+    $record->forceFill($data)->save();
+
+    expect(fn () => importFixture(replace: true))->toThrow(ImportRefusedException::class, 'dados manuais');
+    expect($record->fresh())->not->toBeNull();
+})->with([
+    'client' => [Client::class, ['fiscal_country_code' => 'ES']],
+    'expense' => [Expense::class, ['is_reviewed' => true]],
+]);
 
 it('previews without saving anything', function () {
     $result = importFixture(dryRun: true);

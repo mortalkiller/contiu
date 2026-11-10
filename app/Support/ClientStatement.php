@@ -3,8 +3,12 @@
 namespace App\Support;
 
 use App\Models\Client;
+use App\Models\CreditApplication;
+use App\Models\CustomerRefund;
+use App\Models\FiscalDocument;
 use App\Models\Payment;
 use App\Models\Receivable;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
@@ -38,12 +42,12 @@ final class ClientStatement
 
     public function charged(): int
     {
-        return (int) $this->entries()->sum('debit');
+        return (int) $this->entries()->where('kind', 'charge')->sum('debit');
     }
 
     public function received(): int
     {
-        return (int) $this->entries()->sum('credit');
+        return (int) $this->entries()->where('kind', 'payment')->sum('credit');
     }
 
     public function balance(): int
@@ -65,7 +69,7 @@ final class ClientStatement
         return Receivable::query()
             ->forClient($this->client->getKey())
             ->excludingCancelled()
-            ->with(['billable', 'payments'])
+            ->with(['billable', 'payments', 'creditApplications'])
             ->get();
     }
 
@@ -85,10 +89,21 @@ final class ClientStatement
             'order' => 0,
         ]);
 
-        $payments = $receivables->flatMap(fn (Receivable $receivable) => $receivable->payments)->map(fn (Payment $payment) => [
-            'key' => 'p'.$payment->getKey(),
+        $payments = $receivables->flatMap(fn (Receivable $receivable) => $receivable->payments->reject(fn (Payment $payment): bool => $payment->isAdvance())->map(fn (Payment $payment) => [
+            'key' => 'p'.$payment->getKey().($payment->is_split ? '-'.$receivable->id : ''),
             'date' => $payment->paid_on,
             'description' => collect(['Recebimento', $payment->method?->getLabel(), $payment->invoice_number])->filter()->implode(' · '),
+            'debit' => 0,
+            'credit' => (int) $payment->pivot->amount,
+            'is_future' => false,
+            'kind' => 'payment',
+            'order' => 1,
+        ]));
+
+        $advances = Payment::query()->where('advance_client_id', $this->client->getKey())->get()->map(fn (Payment $payment): array => [
+            'key' => 'p'.$payment->getKey(),
+            'date' => $payment->paid_on,
+            'description' => collect(['Sinal recebido', $payment->method?->getLabel(), $payment->invoice_number])->filter()->implode(' · '),
             'debit' => 0,
             'credit' => $payment->amount,
             'is_future' => false,
@@ -96,7 +111,10 @@ final class ClientStatement
             'order' => 1,
         ]);
 
-        $all = $charges->concat($payments)
+        $credits = $this->creditEntries($receivables->flatMap->creditApplications);
+
+        $all = $charges->concat($payments)->concat($advances)->concat($credits)->concat($this->refundEntries($receivables))
+            ->concat($this->withholdingEntries($receivables))
             ->filter(fn (array $entry) => $this->to === null || $entry['date']->lte($this->to))
             ->sortBy([
                 fn (array $a, array $b) => $a['date']->getTimestamp() <=> $b['date']->getTimestamp(),
@@ -136,5 +154,67 @@ final class ClientStatement
         }
 
         return $entries->values();
+    }
+
+    /**
+     * @param  Collection<int, Receivable>  $receivables
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function refundEntries(Collection $receivables): Collection
+    {
+        return CustomerRefund::query()->whereIntegerInRaw('receivable_id', $receivables->modelKeys())->with('creditNote')->get()
+            ->flatMap(function (CustomerRefund $refund): array {
+                $entry = ['date' => $refund->paid_on, 'is_future' => false];
+
+                return [[
+                    ...$entry, 'key' => 'rf'.$refund->id, 'description' => 'Reembolso · '.$refund->reference,
+                    'debit' => $refund->amount, 'credit' => 0, 'kind' => 'refund', 'order' => 3,
+                ], [
+                    ...$entry, 'key' => 'rfc'.$refund->id, 'description' => 'Nota de crédito reembolsada · '.$refund->creditNote->number,
+                    'debit' => 0, 'credit' => $refund->amount, 'kind' => 'credit', 'order' => 4,
+                ]];
+            });
+    }
+
+    /** @param Collection<int, Receivable> $receivables @return Collection<int, array<string, mixed>> */
+    private function withholdingEntries(Collection $receivables): Collection
+    {
+        return WithholdingReview::settlementsOn($this->to?->toDateString() ?? today()->toDateString())
+            ->whereIntegerInRaw('withholding_records.receivable_id', $receivables->modelKeys())
+            ->get(['withholding_records.id', 'withholding_records.paid_on', 'withholding_records.retained_amount', 'withholding_records.document_number'])
+            ->map(fn (object $record): array => [
+                'key' => 'w'.$record->id,
+                'date' => CarbonImmutable::parse($record->paid_on),
+                'description' => 'Retenção na fonte · '.$record->document_number,
+                'debit' => 0,
+                'credit' => (int) $record->retained_amount,
+                'is_future' => false,
+                'kind' => 'withholding',
+                'order' => 2,
+            ]);
+    }
+
+    /** @param Collection<int, CreditApplication> $applications @return Collection<int, array<string, mixed>> */
+    private function creditEntries(Collection $applications): Collection
+    {
+        $references = FiscalDocument::query()->whereKey($applications->pluck('credit_note_id')->unique()->all())->pluck('number', 'id');
+
+        return $applications->flatMap(function (CreditApplication $application) use ($references): array {
+            $label = $references[$application->credit_note_id];
+            $entry = ['is_future' => false, 'kind' => 'credit', 'order' => 2];
+            $applied = [
+                ...$entry, 'key' => 'c'.$application->id, 'date' => $application->applied_on,
+                'description' => 'Nota de crédito · '.$label, 'debit' => 0, 'credit' => $application->amount,
+            ];
+
+            if ($application->reversed_on === null) {
+                return [$applied];
+            }
+
+            return [$applied, [
+                ...$entry, 'key' => 'cr'.$application->id, 'date' => $application->reversed_on,
+                'description' => 'Aplicação revertida · '.$label, 'debit' => $application->amount, 'credit' => 0,
+            ]];
+        });
     }
 }

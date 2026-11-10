@@ -8,6 +8,7 @@ use App\Enums\PaymentMethod;
 use App\Models\Category;
 use App\Models\Expense;
 use App\Models\OneOffIncome;
+use App\Models\Payment;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -47,7 +48,8 @@ class RecordOneOffIncome
                 'due_on' => $receivedOn,
             ]);
 
-            $receivable->payments()->create([
+            Payment::create([
+                'receivable_id' => $receivable->id,
                 'paid_on' => $receivedOn,
                 'amount' => $gross,
                 'method' => $data['method'] ?? PaymentMethod::Transfer,

@@ -24,6 +24,7 @@ class MonthCloseStats extends StatsOverviewWidget
     protected function getStats(): array
     {
         $review = $this->review();
+        $refunded = $review->refunded();
 
         return [
             Stat::make('Previsto receber', Money::format($review->expected()))
@@ -33,6 +34,7 @@ class MonthCloseStats extends StatsOverviewWidget
                 ->icon(Phosphor::HandCoins),
             Stat::make('Despesas pagas', Money::format($review->paidExpenses()))
                 ->icon(Phosphor::Receipt),
+            ...($refunded > 0 ? [Stat::make('Reembolsos a clientes', Money::format($refunded))] : []),
             Stat::make('Resultado do mês', Money::format($review->result()))
                 ->color($review->result() < 0 ? 'danger' : null)
                 ->icon(Phosphor::Scales),

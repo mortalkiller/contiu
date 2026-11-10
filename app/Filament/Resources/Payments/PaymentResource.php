@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Payments;
 
+use App\Actions\ManageCustomerAdvance;
 use App\Enums\PaymentMethod;
 use App\Filament\Resources\Payments\Pages\ManagePayments;
 use App\Filament\Resources\Payments\Widgets\PaymentsSummary;
@@ -10,6 +11,7 @@ use App\Filament\Support\ReconciliationColumns;
 use App\Models\Client;
 use App\Models\Payment;
 use App\Models\Receivable;
+use App\Support\CurrentAccount;
 use App\Support\Money;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -17,6 +19,7 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -54,14 +57,14 @@ class PaymentResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['receivable.billable.client']);
+        return parent::getEloquentQuery()->with(['advanceClient', 'receivable.billable.client', 'allocations.receivable.billable']);
     }
 
     public static function form(Schema $schema): Schema
     {
         return $schema->columns(2)->components([
             DatePicker::make('paid_on')->label('Data')->native(false)->displayFormat('d/m/Y')->required(),
-            MoneyInput::make('amount')->label('Montante')->required(),
+            MoneyInput::make('amount')->label('Montante')->required()->disabled(fn (?Payment $record): bool => (bool) $record?->is_split),
             ToggleButtons::make('method')->label('Método')->options(PaymentMethod::class)->inline()->required()->columnSpanFull(),
             Toggle::make('tax_exempt')
                 ->label('Isento de impostos')
@@ -97,14 +100,21 @@ class PaymentResource extends Resource
                 TextColumn::make('paid_on')->label('Data')->date()->sortable(),
                 TextColumn::make('client')
                     ->label('Cliente')
-                    ->state(fn (Payment $record) => $record->receivable->client?->name)
+                    ->state(fn (Payment $record) => $record->client?->name)
                     ->limit(28),
                 TextColumn::make('receivable.billable.code')
                     ->label('Referente a')
-                    ->description(fn (Payment $record) => $record->receivable->description)
-                    ->searchable(query: fn (Builder $query, string $search) => $query->whereHas('receivable', fn (Builder $query) => $query->whereHasMorph(
-                        'billable', '*', fn (Builder $query) => $query->where('code', 'like', "%{$search}%")->orWhereRelation('client', 'name', 'like', "%{$search}%"),
-                    ))),
+                    ->description(fn (Payment $record) => $record->is_split || $record->isAdvance() ? $record->receivableLabels() : $record->receivable?->description)
+                    ->state(fn (Payment $record): ?string => match (true) {
+                        $record->isAdvance() => 'Sinal',
+                        $record->is_split => 'Recebimento repartido',
+                        default => $record->receivable?->billable?->code,
+                    })
+                    ->searchable(query: fn (Builder $query, string $search) => $query->where(fn (Builder $query) => $query
+                        ->whereRelation('advanceClient', 'name', 'like', "%{$search}%")
+                        ->orWhereHas('allocations.receivable', fn (Builder $query) => $query->whereHasMorph(
+                            'billable', '*', fn (Builder $query) => $query->where('code', 'like', "%{$search}%")->orWhereRelation('client', 'name', 'like', "%{$search}%"),
+                        )))),
                 TextColumn::make('method')->label('Método')->badge()->color('gray'),
                 IconColumn::make('tax_exempt')
                     ->label('Isento')
@@ -128,7 +138,9 @@ class PaymentResource extends Resource
                 SelectFilter::make('client')
                     ->label('Cliente')
                     ->options(fn () => Client::query()->orderBy('name')->pluck('name', 'id')->all())
-                    ->query(fn (Builder $query, array $data) => $query->when($data['value'] ?? null, fn (Builder $query, $client) => $query->whereIn('receivable_id', Receivable::query()->forClient((int) $client)->select('id')))),
+                    ->query(fn (Builder $query, array $data) => $query->when($data['value'] ?? null, fn (Builder $query, $client) => $query
+                        ->where(fn (Builder $query) => $query->where('advance_client_id', $client)
+                            ->orWhereHas('allocations', fn (Builder $query) => $query->whereIn('receivable_id', Receivable::query()->forClient((int) $client)->select('id')))))),
                 SelectFilter::make('year')
                     ->label('Ano')
                     ->options(fn () => Payment::query()->pluck('paid_on')->map->year->unique()->sortDesc()->mapWithKeys(fn ($year) => [$year => $year])->all())
@@ -141,7 +153,21 @@ class PaymentResource extends Resource
             ])
             ->recordActions([
                 ActionGroup::make([
-                    EditAction::make()->modalHeading('Editar recebimento'),
+                    EditAction::make()->modalHeading('Editar recebimento')->visible(fn (Payment $record): bool => ! $record->isAdvance()),
+                    Action::make('applyCustomerAdvance')
+                        ->label('Afetar sinal a cobrança')
+                        ->visible(fn (Payment $record): bool => $record->isAdvance() && $record->allocations->isEmpty())
+                        ->authorize('update')
+                        ->disabled(fn (): bool => CurrentAccount::readOnly())
+                        ->schema([
+                            Select::make('receivable_id')->label('Cobrança')->searchable()->required()
+                                ->options(fn (Payment $record): array => Receivable::query()->forClient($record->advance_client_id)
+                                    ->excludingCancelled()->open()->with(['payments', 'billable'])->orderBy('due_on')->get()
+                                    ->filter(fn (Receivable $receivable): bool => $receivable->outstanding >= $record->amount)
+                                    ->mapWithKeys(fn (Receivable $receivable): array => [$receivable->id => $receivable->label.' · '.Money::format($receivable->outstanding)])->all()),
+                            DatePicker::make('allocated_on')->label('Data da afetação')->default(today())->maxDate(today())->required(),
+                        ])
+                        ->action(fn (Payment $record, array $data, ManageCustomerAdvance $service) => $service->apply($record->id, (int) $data['receivable_id'], $data['allocated_on'])),
                     ReconciliationColumns::detailsAction(),
                     static::historyAction(),
                     DeleteAction::make(),

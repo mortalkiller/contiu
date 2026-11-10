@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Expense;
+use App\Models\FiscalProfile;
 use App\Models\Payment;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -43,11 +44,55 @@ final class TaxEstimator
     /** @var array<string, int> */
     private array $incomeCache = [];
 
+    /** @var array<int, Collection<int, FiscalProfile>> */
+    private array $fiscalProfilesByAccount = [];
+
     public function __construct(private readonly FinanceSettings $settings, public readonly int $year) {}
 
     public function settings(): FinanceSettings
     {
         return $this->settings;
+    }
+
+    /**
+     * Fields outside confirmed_fields use the current FinanceSettings.
+     *
+     * @return array{profile_id: ?int, effective_from: ?string, confirmed_fields: list<string>}
+     */
+    public function fiscalBasisOn(?CarbonImmutable $date = null): array
+    {
+        $profile = $this->fiscalProfileOn($date ?? $this->annualReferenceDate());
+
+        return [
+            'profile_id' => $profile?->id,
+            'effective_from' => $profile?->effective_from->toDateString(),
+            'confirmed_fields' => $profile?->confirmedEstimateFields() ?? [],
+        ];
+    }
+
+    /** @return Collection<int, FiscalProfile> */
+    private function fiscalProfiles(): Collection
+    {
+        return $this->fiscalProfilesByAccount[CurrentAccount::id()] ??= FiscalProfile::query()
+            ->inEffectiveOrder()
+            ->get(['id', 'effective_from', ...FiscalProfile::ESTIMATE_FIELDS]);
+    }
+
+    private function fiscalProfileOn(CarbonImmutable $date): ?FiscalProfile
+    {
+        $day = $date->toDateString();
+
+        return $this->fiscalProfiles()->first(fn (FiscalProfile $profile): bool => $profile->effective_from->toDateString() <= $day);
+    }
+
+    private function annualReferenceDate(): CarbonImmutable
+    {
+        return $this->year === today()->year ? CarbonImmutable::today() : CarbonImmutable::create($this->year, 12, 31);
+    }
+
+    private function activityStartedOn(CarbonImmutable $date): ?CarbonImmutable
+    {
+        return $this->fiscalProfileOn($date)?->activity_started_on ?? $this->settings->activityStartedOn();
     }
 
     public function income(): int
@@ -133,13 +178,13 @@ final class TaxEstimator
      * from the activity start (a first start when the kind is not said yet). Null without a start
      * date: every month is charged.
      */
-    public function ssObligationStartsOn(): ?CarbonImmutable
+    public function ssObligationStartsOn(?CarbonImmutable $date = null): ?CarbonImmutable
     {
         if ($enrolled = $this->settings->ssEnrolledFrom()) {
             return $enrolled->startOfMonth();
         }
 
-        $start = $this->settings->activityStartedOn()?->startOfMonth();
+        $start = $this->activityStartedOn($date ?? $this->annualReferenceDate())?->startOfMonth();
 
         return match ($this->settings->activityStartKind()) {
             'restart' => $start,
@@ -156,13 +201,15 @@ final class TaxEstimator
     /** Of a month's contribution: charged | first_enrolment (before the obligation starts) | exempt (art. 157.º). */
     public function ssMonthStatus(CarbonImmutable $month): string
     {
-        if ($this->settings->ssContributionExempt()) {
+        $month = $month->startOfMonth();
+
+        if ($this->fiscalProfileOn($month)?->ss_contribution_exempt ?? $this->settings->ssContributionExempt()) {
             return 'exempt';
         }
 
-        $startsOn = $this->ssObligationStartsOn();
+        $startsOn = $this->ssObligationStartsOn($month);
 
-        return $startsOn !== null && $month->startOfMonth()->lt($startsOn) ? 'first_enrolment' : 'charged';
+        return $startsOn !== null && $month->lt($startsOn) ? 'first_enrolment' : 'charged';
     }
 
     /** Indexante dos Apoios Sociais of the year in cents; the closest known year when missing. */
@@ -260,7 +307,7 @@ final class TaxEstimator
         if ($this->settings->activityStartKind() === 'restart') {
             $ended = $this->settings->previousActivityEndedOn();
 
-            if ($ended === null || $ended->addYears(5)->gt($this->settings->activityStartedOn())) {
+            if ($ended === null || $ended->addYears(5)->gt($this->activityStartedOn($this->annualReferenceDate()))) {
                 return 'recent_restart';
             }
         }
@@ -271,7 +318,7 @@ final class TaxEstimator
     /** 50 % in the start year, 25 % in the next, before any blocker. */
     private function irsEarlyYearReduction(): float
     {
-        $start = $this->settings->activityStartedOn();
+        $start = $this->activityStartedOn($this->annualReferenceDate());
 
         return match ($start === null ? null : $this->year - $start->year) {
             0 => 0.5,
@@ -291,9 +338,56 @@ final class TaxEstimator
         return Money::share($this->income() - $this->irsJovemExempt(), $this->effectiveIrsCoefficient());
     }
 
-    public function vatExempt(): bool
+    public function vatExempt(?CarbonImmutable $date = null): bool
     {
-        return $this->settings->vatExempt();
+        return $this->fiscalProfileOn($date ?? $this->annualReferenceDate())?->vat_exempt ?? $this->settings->vatExempt();
+    }
+
+    /** Annual threshold in cents for the version in force on the given date. */
+    public function vatExemptionThreshold(?CarbonImmutable $date = null): int
+    {
+        return $this->fiscalProfileOn($date ?? $this->annualReferenceDate())?->vat_exemption_threshold
+            ?? $this->settings->vatExemptionThreshold();
+    }
+
+    /**
+     * Calendar-year intervals, inclusive, with the estimate and source for each version.
+     * Exemption progress uses the annual receipts proxy up to the end of the interval.
+     *
+     * @return list<array{from: string, to: string, exempt: bool, threshold: int, thresholdPercent: ?float,
+     *     collected: ?int, paid: ?int, balance: ?int, basis: array{profile_id: ?int, effective_from: ?string, confirmed_fields: list<string>}}>
+     */
+    public function vatPeriods(): array
+    {
+        $start = CarbonImmutable::create($this->year, 1, 1);
+        $end = $start->endOfYear();
+        $starts = $this->fiscalProfiles()
+            ->pluck('effective_from')
+            ->filter(fn (CarbonImmutable $date): bool => $date->gt($start) && $date->lte($end))
+            ->unique(fn (CarbonImmutable $date): string => $date->toDateString())
+            ->reverse()
+            ->prepend($start)
+            ->values();
+
+        return $starts->map(function (CarbonImmutable $from, int $index) use ($starts, $start, $end): array {
+            $to = $starts->get($index + 1)?->subDay() ?? $end;
+            $exempt = $this->vatExempt($from);
+            $threshold = $this->vatExemptionThreshold($from);
+            $collected = $exempt ? null : $this->vatCollectedBetween($from, $to);
+            $paid = $exempt ? null : $this->vatPaidBetween($from, $to);
+
+            return [
+                'from' => $from->toDateString(),
+                'to' => $to->toDateString(),
+                'exempt' => $exempt,
+                'threshold' => $threshold,
+                'thresholdPercent' => $exempt ? $this->vatThresholdProgress($this->incomeBetween($start, $to), $threshold) : null,
+                'collected' => $collected,
+                'paid' => $paid,
+                'balance' => $exempt ? null : $collected - $paid,
+                'basis' => $this->fiscalBasisOn($from),
+            ];
+        })->all();
     }
 
     /** Payments received in the year but marked tax-exempt, left out of every figure above. */
@@ -307,9 +401,12 @@ final class TaxEstimator
 
     public function vatThresholdPercent(): float
     {
-        $threshold = $this->settings->vatExemptionThreshold();
+        return $this->vatThresholdProgress($this->income(), $this->vatExemptionThreshold());
+    }
 
-        return $threshold > 0 ? round($this->income() / $threshold * 100, 1) : 0.0;
+    private function vatThresholdProgress(int $income, int $threshold): float
+    {
+        return $threshold > 0 ? round($income / $threshold * 100, 1) : 0.0;
     }
 
     /** ok, warning (≥ 80%), danger (≥ 100%) or critical (≥ 125%). */
@@ -328,19 +425,31 @@ final class TaxEstimator
     /** VAT inside the payments received (payment − its net), per payment to the cent. */
     public function vatCollected(): int
     {
-        return (int) $this->payments(CarbonImmutable::create($this->year, 1, 1), CarbonImmutable::create($this->year, 12, 31))
-            ->sum(function (Payment $payment): int {
-                $rate = (string) ($payment->receivable?->billable?->vat_rate ?? 0);
+        return $this->vatCollectedBetween(CarbonImmutable::create($this->year, 1, 1), CarbonImmutable::create($this->year, 12, 31));
+    }
 
-                return (float) $rate > 0 ? $payment->amount - Money::netFromGross($payment->amount, $rate) : 0;
+    private function vatCollectedBetween(CarbonImmutable $from, CarbonImmutable $to): int
+    {
+        return (int) $this->payments($from, $to)
+            ->sum(function (Payment $payment): int {
+                return $payment->allocations->sum(function ($allocation): int {
+                    $rate = (string) ($allocation->receivable->billable?->vat_rate ?? 0);
+
+                    return (float) $rate > 0 ? $allocation->amount - Money::netFromGross($allocation->amount, $rate) : 0;
+                });
             });
     }
 
     public function vatPaid(): int
     {
+        return $this->vatPaidBetween(CarbonImmutable::create($this->year, 1, 1), CarbonImmutable::create($this->year, 12, 31));
+    }
+
+    private function vatPaidBetween(CarbonImmutable $from, CarbonImmutable $to): int
+    {
         return (int) Expense::query()
             ->where('is_paid', true)
-            ->whereBetween('spent_on', Period::of($this->year)->range())
+            ->whereBetween('spent_on', [$from->startOfDay()->toDateTimeString(), $to->endOfDay()->toDateTimeString()])
             ->get()
             ->sum(fn (Expense $expense) => $expense->vat_amount);
     }
@@ -372,7 +481,7 @@ final class TaxEstimator
     private function payments(CarbonImmutable $from, CarbonImmutable $to): Collection
     {
         return Payment::query()
-            ->with('receivable.billable')
+            ->with('allocations.receivable.billable')
             ->whereBetween('paid_on', [$from->startOfDay()->toDateTimeString(), $to->endOfDay()->toDateTimeString()])
             ->where('tax_exempt', false)
             ->get();

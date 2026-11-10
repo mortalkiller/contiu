@@ -69,7 +69,8 @@ class CashForecastTable extends TableWidget
             $out = array_filter([
                 $row['overdueOutflows'] > 0 ? 'inclui '.Money::format($row['overdueOutflows']).' em atraso' : null,
                 $row['projectedOutflows'] > 0 ? Money::format($row['projectedOutflows']).' de recorrentes por gerar' : null,
-                $row['socialSecurity'] > 0 ? 'Seg. Social '.Money::format($row['socialSecurity']) : null,
+                $row['socialSecurity'] > 0 ? 'Seg. Social '.Money::format($row['socialSecurity']).($row['socialSecurityConfirmed'] ? ' confirmada' : ' estimada') : null,
+                $row['confirmedVat'] > 0 ? 'IVA confirmado '.Money::format($row['confirmedVat']) : null,
             ]);
 
             $rows[$row['month']->format('Y-m')] = [

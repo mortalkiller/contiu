@@ -2,22 +2,22 @@
 
 namespace App\Support;
 
+use App\Models\Expense;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * Owners hold no Shield permissions: being a member of the current account is what lets them
- * use everything in it. Runs as a Gate::before callback, so it only ever grants (true) or
- * abstains (null) — never denies — and the system subjects stay with Shield and the
- * super-admin checks. Super admins keep their own path (Shield's gate) untouched.
+ * use it. Accountants get access through the review pages and may view individual expense proofs.
+ * System subjects stay with Shield and the super-admin checks.
  */
 final class AccountMemberAccess
 {
     /** Subjects that span every account: never granted by membership. */
     public const SYSTEM_SUBJECTS = ['User', 'Role', 'Audit', 'Account', 'SubscriptionPayment', 'Backups', 'ImportWorkbook'];
 
-    /** @var array<string, bool> membership per "user:account", for the many checks of one page */
-    private array $memberships = [];
+    /** @var array<string, string|null> role per "user:account" for the many checks of one page */
+    private array $roles = [];
 
     /** @param array<int, mixed> $arguments */
     public function before(mixed $user, string $ability, array $arguments): ?bool
@@ -34,11 +34,26 @@ final class AccountMemberAccess
 
         $account = CurrentAccount::get();
 
-        if ($account === null || ! $this->isMember($user, $account->getKey())) {
+        if ($account === null) {
             return null;
         }
 
-        return true;
+        $key = "{$user->getKey()}:{$account->getKey()}";
+        if (! array_key_exists($key, $this->roles)) {
+            $this->roles[$key] = AccountantAccess::role($user, $account);
+        }
+
+        $role = $this->roles[$key];
+        if ($role === AccountantAccess::ROLE) {
+            $record = $arguments[0] ?? null;
+
+            return $ability === 'view'
+                && $record instanceof Expense
+                && (int) $record->account_id === $account->getKey()
+                && $user->hasVerifiedEmail();
+        }
+
+        return $role === null ? null : true;
     }
 
     /**
@@ -63,11 +78,5 @@ final class AccountMemberAccess
         }
 
         return null;
-    }
-
-    private function isMember(User $user, int $accountId): bool
-    {
-        return $this->memberships["{$user->getKey()}:{$accountId}"]
-            ??= $user->accounts()->whereKey($accountId)->exists();
     }
 }

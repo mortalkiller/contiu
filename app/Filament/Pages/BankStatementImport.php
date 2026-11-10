@@ -179,7 +179,7 @@ class BankStatementImport extends Page implements HasTable
             // Rows load right after the page; a skeleton shows meanwhile (filament-skeleton-loading).
             ->deferLoading()
             ->query(fn () => $this->modifyQueryWithActiveTab(BankTransaction::query()
-                ->with('links.linkable')
+                ->with(['links.linkable', 'customerRefund.creditNote'])
                 ->addSelect(['platform_payout_history_id' => PlatformPayout::query()->select('id')
                     ->whereColumn('bank_transaction_id', 'bank_transactions.id')->latest('id')->limit(1)])))
             ->defaultSort('booked_on', 'desc')
@@ -746,13 +746,20 @@ class BankStatementImport extends Page implements HasTable
         $rows = $line->links()->with('linkable')->get()->pluck('linkable')->filter()
             ->map(fn (Payment|Expense $record) => $row($record, $record instanceof Payment ? $record->amount : $record->total, $record instanceof Payment ? $record->amount : $record->total, 'Completo', 'success'))
             ->values()->all();
+        if ($refund = $line->customerRefund) {
+            $rows[] = [
+                'type' => 'Reembolso', 'reference' => $refund->creditNote->number,
+                'party' => $refund->creditNote->party_name, 'date' => $refund->paid_on->format('d/m/Y'),
+                'covered' => Money::format($refund->amount), 'total' => null, 'situation' => 'Completo', 'color' => 'success',
+            ];
+        }
         $difference = $line->difference();
 
         return [
             'line' => $line,
             'kind' => $payouts->contains(fn (PlatformPayout $payout): bool => $payout->undone_at === null && $payout->one_off_income_id !== null)
                 ? 'Depósito de plataforma'
-                : $line->status->getLabel(),
+                : ($line->customerRefund !== null ? 'Reembolso' : $line->status->getLabel()),
             'rows' => $rows,
             'leftover' => null,
             'difference' => match (true) {
@@ -781,6 +788,9 @@ class BankStatementImport extends Page implements HasTable
                     ? 'Recebimento · '.($linked->is_split ? $linked->receivableLabels() : $linked->receivable?->label).' · '.Money::format($linked->amount)
                     : 'Despesa · '.$linked->supplier?->name.' · '.$linked->description.' · '.Money::format($linked->total))
                 ->values()->all();
+            if ($refund = $record->customerRefund) {
+                $records[] = 'Reembolso · '.$refund->creditNote->number.' · '.Money::format($refund->amount);
+            }
             $difference = $record->difference();
 
             if ($difference === 0) {

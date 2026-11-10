@@ -8,10 +8,14 @@ use App\Exceptions\HasPaymentsException;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Resources\Retainers\RetainerResource;
 use App\Models\Concerns\BelongsToAccount;
+use App\Models\Scopes\AccountScope;
+use App\Support\WithholdingReview;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use OwenIt\Auditing\Auditable;
@@ -49,10 +53,16 @@ class Receivable extends Model implements AuditableContract
         return $this->morphTo();
     }
 
-    /** @return HasMany<Payment, $this> */
-    public function payments(): HasMany
+    /** @return BelongsToMany<Payment, $this> */
+    public function payments(): BelongsToMany
     {
-        return $this->hasMany(Payment::class)->orderBy('paid_on');
+        return $this->belongsToMany(Payment::class, 'payment_allocations')->withPivot(['amount', 'allocated_on'])->orderBy('paid_on');
+    }
+
+    /** @return HasMany<CreditApplication, $this> */
+    public function creditApplications(): HasMany
+    {
+        return $this->hasMany(CreditApplication::class);
     }
 
     /** @param Builder<Receivable> $query */
@@ -65,7 +75,20 @@ class Receivable extends Model implements AuditableContract
     /** @param Builder<Receivable> $query */
     public function scopeOpen(Builder $query): void
     {
-        $query->whereRaw('amount > (select coalesce(sum(payments.amount), 0) from payments where payments.receivable_id = receivables.id)');
+        $credit = CreditApplication::withoutGlobalScope(AccountScope::class)->effectiveAt(today()->toDateString())
+            ->whereColumn('credit_applications.receivable_id', 'receivables.id')
+            ->whereColumn('credit_applications.account_id', 'receivables.account_id')
+            ->selectRaw('coalesce(sum(credit_applications.amount), 0)')
+            ->toBase();
+        $withholding = WithholdingReview::settlementsOn(today()->toDateString())
+            ->whereColumn('withholding_records.receivable_id', 'receivables.id')
+            ->whereColumn('withholding_records.account_id', 'receivables.account_id')
+            ->selectRaw('coalesce(sum(withholding_records.retained_amount), 0)');
+
+        $query->whereRaw(
+            'receivables.amount > (select coalesce(sum(payment_allocations.amount), 0) from payment_allocations where payment_allocations.receivable_id = receivables.id and payment_allocations.account_id = receivables.account_id) + ('.$credit->toSql().') + ('.$withholding->toSql().')',
+            [...$credit->getBindings(), ...$withholding->getBindings()],
+        );
     }
 
     /** @param Builder<Receivable> $query */
@@ -77,12 +100,35 @@ class Receivable extends Model implements AuditableContract
 
     protected function received(): Attribute
     {
-        return Attribute::get(fn (): int => (int) $this->payments->sum('amount'));
+        return Attribute::get(fn (): int => (int) $this->payments->sum('pivot.amount'));
     }
 
     protected function outstanding(): Attribute
     {
-        return Attribute::get(fn (): int => max(0, (int) $this->amount - $this->received));
+        return Attribute::get(fn (): int => $this->balanceAfter($this->received, today()->toDateString()));
+    }
+
+    /** Closing balance for the given date. Both credits and allocations use their effective dates. */
+    public function outstandingAt(CarbonInterface|string $date): int
+    {
+        $day = $date instanceof CarbonInterface ? $date->toDateString() : $date;
+        $allocated = PaymentAllocation::query()->where('receivable_id', $this->getKey())
+            ->whereDate('allocated_on', '<=', $day)->sum('amount');
+
+        return $this->balanceAfter((int) $allocated, $day);
+    }
+
+    private function balanceAfter(int $cash, string $day): int
+    {
+        $withholding = (int) WithholdingReview::settlementsOn($day)->where('withholding_records.receivable_id', $this->getKey())
+            ->sum('withholding_records.retained_amount');
+
+        return max(0, $this->amount - $cash - $this->creditAppliedAt($day) - $withholding);
+    }
+
+    private function creditAppliedAt(string $day): int
+    {
+        return (int) $this->creditApplications()->effectiveAt($day)->sum('amount');
     }
 
     protected function status(): Attribute

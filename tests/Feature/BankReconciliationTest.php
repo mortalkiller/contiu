@@ -12,6 +12,7 @@ use App\Models\BankTransactionLink;
 use App\Models\Category;
 use App\Models\Client;
 use App\Models\Expense;
+use App\Models\FiscalDocument;
 use App\Models\OneOffIncome;
 use App\Models\Payment;
 use App\Models\Project;
@@ -21,6 +22,7 @@ use App\Models\Supplier;
 use App\Models\User;
 use App\Support\FinanceSettings;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 beforeEach(fn () => $this->travelTo(Carbon::parse('2026-11-06')));
 
@@ -394,6 +396,33 @@ it('undo deletes a payment created from the line and keeps one that already exis
         ->and(BankTransactionLink::count())->toBe(0);
 });
 
+it('keeps a reconciled line intact when undo would delete a payment linked to a fiscal document', function () {
+    $receivable = receivableFor('Cliente', 40000, '2026-12-10');
+    $line = BankTransaction::create(['hash' => 'undo-with-document', 'booked_on' => '2026-12-10', 'description' => 'TRF', 'amount' => 40000, 'import_batch' => 'x']);
+    app(ApplyBankTransaction::class)->toReceivable($line, $receivable);
+    $payment = $receivable->payments()->sole();
+    $status = $line->refresh()->status;
+    FiscalDocument::factory()->create()->links()->create(['payment_id' => $payment->id]);
+
+    expect(fn () => app(ApplyBankTransaction::class)->undo($line))
+        ->toThrow(DomainException::class, 'documento fiscal');
+
+    expect($line->refresh()->status)->toBe($status)
+        ->and($line->links()->count())->toBe(1)
+        ->and($payment->fresh())->not->toBeNull();
+});
+
+it('keeps the expense when undo would delete its proof', function () {
+    $line = BankTransaction::create(['hash' => 'undo-with-proof', 'booked_on' => '2026-12-10', 'description' => 'Despesa', 'amount' => -4000, 'import_batch' => 'x']);
+    $expense = app(ApplyBankTransaction::class)->createExpense($line, ['supplier_id' => Supplier::factory()->create()->id]);
+    $expense->forceFill(['proof_path' => 'expense-proofs/'.$expense->account_id.'/'.Str::uuid().'.pdf'])->save();
+
+    expect(fn () => app(ApplyBankTransaction::class)->undo($line))->toThrow(DomainException::class, 'comprovativo');
+
+    expect($line->refresh()->links()->count())->toBe(1)
+        ->and($expense->fresh()->proof_path)->toBe($expense->proof_path);
+});
+
 it('undo puts an expense marked paid by the line back to unpaid', function () {
     $expense = Expense::factory()->unpaid()->create(['net_amount' => 4000]);
     $transaction = BankTransaction::create(['hash' => 'u3', 'booked_on' => '2026-11-02', 'description' => 'DD', 'amount' => -4000, 'import_batch' => 'x']);
@@ -548,4 +577,25 @@ it('offers only the explanations that fit each case', function () {
         ->and(DifferenceExplanation::optionsFor(credit: false, lineExceeds: true))->toBe([DifferenceExplanation::BankFee])
         ->and(DifferenceExplanation::optionsFor(credit: false, lineExceeds: false))->toBe([]);
     expect(DifferenceExplanation::cases())->toHaveCount(2);
+});
+
+it('does not overwrite a reconciliation from a stale bank line', function () {
+    $transaction = BankTransaction::create([
+        'hash' => 'stale-reconciliation', 'booked_on' => '2026-11-06', 'description' => 'Despesa',
+        'amount' => -2460, 'import_batch' => 'teste',
+    ]);
+    $stale = $transaction->fresh();
+    $expense = Expense::factory()->unpaid()->create(['net_amount' => 2000, 'vat_rate' => 0.23]);
+    $other = Expense::factory()->unpaid()->create(['net_amount' => 2000, 'vat_rate' => 0.23]);
+    $action = app(ApplyBankTransaction::class);
+
+    $action->linkRecords($transaction, [$expense]);
+
+    expect(fn () => $action->applyTargets($stale, ['expense:'.$other->id]))
+        ->toThrow(DomainException::class, 'Esta linha do extrato já foi tratada.');
+    expect(fn () => $action->ignore($stale))
+        ->toThrow(DomainException::class, 'Esta linha do extrato já foi tratada.');
+    expect($transaction->fresh()->status)->toBe(BankTransactionStatus::Matched)
+        ->and($transaction->difference())->toBe(0)
+        ->and($other->fresh()->is_paid)->toBeFalse();
 });

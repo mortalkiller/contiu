@@ -44,7 +44,7 @@ it('keeps an instalment plan made in the app when re-importing', function () {
     $single = $project->receivables()->sole();
     $single->update(['description' => 'Prestação 1/2', 'amount' => 75000, 'due_on' => '2026-03-31']);
     $second = $project->receivables()->create(['description' => 'Prestação 2/2', 'amount' => 165000, 'due_on' => '2026-08-15', 'sort' => 1]);
-    $single->payments()->where('amount', 165000)->update(['receivable_id' => $second->id]);
+    $single->payments()->where('payments.amount', 165000)->firstOrFail()->update(['receivable_id' => $second->id]);
 
     $result = importFixture(replace: true);
 

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\FiscalProfilePartyType;
+use App\Enums\FiscalProfileViesStatus;
 use App\Enums\ReceivableStatus;
 use App\Enums\Seat;
 use App\Models\Concerns\BelongsToAccount;
@@ -18,11 +20,48 @@ class Client extends Model implements AuditableContract
 {
     use Auditable, BelongsToAccount, HasFactory;
 
-    protected $guarded = ['id'];
+    protected $guarded = ['id', 'vat_validation_status', 'vat_validated_at'];
+
+    protected $attributes = ['vat_validation_status' => 'pending'];
 
     protected function casts(): array
     {
-        return ['seat' => Seat::class, 'is_business' => 'boolean'];
+        return [
+            'seat' => Seat::class,
+            'is_business' => 'boolean',
+            'fiscal_party_type' => FiscalProfilePartyType::class,
+            'vat_validation_status' => FiscalProfileViesStatus::class,
+            'vat_validated_at' => 'immutable_datetime',
+        ];
+    }
+
+    protected static function booted(): void
+    {
+        static::updating(function (Client $client): void {
+            if ($client->isDirty(['fiscal_country_code', 'fiscal_party_type', 'vat_number'])) {
+                $client->vat_validation_status = FiscalProfileViesStatus::Pending;
+                $client->vat_validated_at = null;
+            }
+        });
+    }
+
+    protected function fiscalCountryCode(): Attribute
+    {
+        return Attribute::set(fn (?string $value): ?string => filled($value) ? strtoupper(trim($value)) : null);
+    }
+
+    /** @return array{country: string, party: string, vat: string}|null */
+    public function viesIdentity(): ?array
+    {
+        if (blank($this->fiscal_country_code) || $this->fiscal_party_type === null || blank($this->vat_number)) {
+            return null;
+        }
+
+        return [
+            'country' => $this->fiscal_country_code,
+            'party' => $this->fiscal_party_type->value,
+            'vat' => $this->vat_number,
+        ];
     }
 
     /** @var Collection<int, Receivable>|null */

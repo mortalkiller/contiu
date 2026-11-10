@@ -4,7 +4,9 @@ namespace App\Support;
 
 use App\Enums\Seat;
 use App\Filament\Pages\FinanceSettingsPage;
+use App\Filament\Pages\SocialSecurity as SocialSecurityPage;
 use App\Filament\Pages\TaxEstimate;
+use App\Filament\Pages\TerritorialTurnoverPage;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Models\Account;
 use App\Models\Expense;
@@ -14,6 +16,7 @@ use App\Models\Project;
 use App\Models\Retainer;
 use App\Models\TaxObligationCompletion;
 use App\Models\User;
+use App\Models\VatPeriodConfirmation;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -45,6 +48,11 @@ final class TaxObligations
     private readonly CarbonImmutable $month;
 
     private ?TaxEstimator $estimator = null;
+
+    private bool $vatThresholdLoaded = false;
+
+    /** @var array{label: string, amount: int, percent: float, status: string, detail: string, notice: ?string, advisory: ?string, usesReceipts: bool}|null */
+    private ?array $vatThreshold = null;
 
     /** @var Collection<string, TaxObligationCompletion>|null */
     private ?Collection $completions = null;
@@ -146,6 +154,39 @@ final class TaxObligations
         $this->completions = null;
     }
 
+    /** @return array{amount: int, confirmed: bool} */
+    public function forecastSocialSecurity(CarbonImmutable $month): array
+    {
+        if ($this->completions()->has('ss:'.$month->format('Y-m'))) {
+            return ['amount' => 0, 'confirmed' => false];
+        }
+
+        $confirmed = app(SocialSecurity::class)->confirmedPaymentInMonth($month);
+
+        return [
+            'amount' => $confirmed ?? $this->estimator()->ssPaymentInMonth($month),
+            'confirmed' => $confirmed !== null,
+        ];
+    }
+
+    /** @return list<array{dueOn: CarbonImmutable, amount: int}> */
+    public function forecastVat(CarbonImmutable $until): array
+    {
+        $confirmations = VatPeriodConfirmation::query()->get()
+            ->map(fn (VatPeriodConfirmation $row): VatPeriodReview => VatPeriodReview::forPeriod($row->starts_on->year, $row->starts_on->month, $row->months))
+            ->filter(fn (VatPeriodReview $review): bool => $review->confirmedBalance() !== null);
+
+        return $confirmations
+            ->filter(fn (VatPeriodReview $review): bool => ($review->amountDue() ?? 0) > 0
+                && $review->dueOn()?->lte($until)
+                && ! $review->isPaid()
+                && ! $confirmations->contains(fn (VatPeriodReview $other): bool => $other !== $review
+                    && $other->start->lt($review->start->addMonths($review->months))
+                    && $review->start->lt($other->start->addMonths($other->months))))
+            ->map(fn (VatPeriodReview $review): array => ['dueOn' => $review->dueOn(), 'amount' => $review->amountDue()])
+            ->values()->all();
+    }
+
     /**
      * Every obligation whose deadline falls in the month (the month's SS also when exempt).
      *
@@ -197,23 +238,31 @@ final class TaxObligations
     {
         $key = 'ss:'.$month->format('Y-m');
         $contributionMonth = $month->subMonth();
-        // The quarter of income that set the contribution: the Estimativa of its year shows it.
         $source = $contributionMonth->firstOfQuarter()->subMonths(3);
-        $url = $this->url(fn (Account $account) => TaxEstimate::getUrl(['year' => $source->year], panel: 'admin', tenant: $account));
+        $sourceClosed = $source->endOfQuarter()->lt($this->today);
+        $url = $sourceClosed
+            ? $this->ssReviewUrl($source)
+            : $this->url(fn (Account $account) => TaxEstimate::getUrl(['year' => $source->year], panel: 'admin', tenant: $account));
+        $confirmed = app(SocialSecurity::class)->confirmedPaymentInMonth($month);
         $status = $this->estimator()->ssPaymentStatus($month);
 
-        if ($status !== 'charged') {
-            $detail = $status === 'exempt' ? 'Isento (art. 157.º)' : 'Isento (1.º enquadramento)';
+        if ($confirmed === 0 || ($confirmed === null && $status !== 'charged')) {
+            $detail = match (true) {
+                $confirmed === 0 => 'Sem contribuição a pagar · valor confirmado',
+                $status === 'exempt' => 'Isento (art. 157.º)',
+                default => 'Isento (1.º enquadramento)',
+            };
 
             return new TaxObligation($key, 'ss', self::SS_TITLE, null, null, null, $detail, $url, 'exempt');
         }
 
         // While the quarter of income is still open its figure would be partial (or the minimum).
-        $amount = $source->endOfQuarter()->gt($this->today) ? null : $this->estimator()->ssPaymentInMonth($month);
+        $amount = $confirmed ?? ($sourceClosed ? $this->estimator()->ssPaymentInMonth($month) : null);
         $detail = 'Pagar entre 10 e 20 de '.self::monthName($month)
             .' · contribuição de '.self::monthName($contributionMonth)
             .' · rendimentos de '.self::quarterName($source)
             .match (true) {
+                $confirmed !== null => ' · valor confirmado',
                 $amount === null => ' · valor por apurar',
                 $amount === TaxEstimator::SS_MINIMUM_CONTRIBUTION => ' · contribuição mínima',
                 default => '',
@@ -244,9 +293,16 @@ final class TaxObligations
             $dueOn,
             null,
             'Até '.$dueOn->day.' de '.self::monthName($dueOn).' · rendimentos de '.self::quarterName($quarter).' '.$quarter->year,
-            null,
+            $quarter->endOfQuarter()->lt($this->today) ? $this->ssReviewUrl($quarter) : null,
             $this->status($key, $dueOn),
         );
+    }
+
+    private function ssReviewUrl(CarbonImmutable $quarter): ?string
+    {
+        return $this->url(fn (Account $account): string => SocialSecurityPage::getUrl([
+            'quarter' => $quarter->year.'-Q'.$quarter->quarter,
+        ], panel: 'admin', tenant: $account));
     }
 
     /** Only for a month with foreign services to self-assess. */
@@ -270,7 +326,6 @@ final class TaxObligations
             null,
             'Declaração periódica e pagamento até '.$dueOn->day.' de '.self::monthName($dueOn)
                 .' · compras de '.self::monthName($month).' ('.Money::format($vat['base']).' sem IVA)',
-            // The expenses list filtered to the month (it has no filter by supplier seat).
             $this->url(fn (Account $account) => ExpenseResource::getUrl('index', [
                 'tableFilters' => ['year' => ['value' => $month->year], 'month' => ['value' => $month->month]],
             ], panel: 'admin', tenant: $account)),
@@ -284,7 +339,7 @@ final class TaxObligations
         $hasEuBusinessPayments = Payment::query()
             ->where('tax_exempt', false)
             ->whereBetween('paid_on', Period::of($month->year, $month->month)->range())
-            ->whereHas('receivable', fn (Builder $query) => $query->whereHasMorph(
+            ->whereHas('allocations.receivable', fn (Builder $query) => $query->whereHasMorph(
                 'billable',
                 [Project::class, Retainer::class, OneOffIncome::class],
                 fn (Builder $query) => $query->whereHas('client', fn (Builder $query) => $query
@@ -338,6 +393,26 @@ final class TaxObligations
         );
     }
 
+    /** @return array{label: string, amount: int, percent: float, status: string, detail: string, notice: ?string, advisory: ?string, usesReceipts: bool}|null */
+    public function vatThreshold(): ?array
+    {
+        if ($this->vatThresholdLoaded) {
+            return $this->vatThreshold;
+        }
+
+        $this->vatThresholdLoaded = true;
+        $estimator = $this->estimator();
+
+        return $this->vatThreshold = $estimator->vatExempt($this->today)
+            ? TerritorialTurnover::forYear($this->today->year, $this->today)->threshold($estimator)
+            : null;
+    }
+
+    private function territorialReviewUrl(int $year): ?string
+    {
+        return $this->url(fn (Account $account): string => TerritorialTurnoverPage::getUrl(['year' => $year], panel: 'admin', tenant: $account));
+    }
+
     /**
      * Rows without a deadline: what is missing in the settings, the art. 53.º threshold and the
      * foreign services of last month that carry VAT (not self-assessed: worth a look).
@@ -362,27 +437,49 @@ final class TaxObligations
             );
         }
 
-        if ($this->settings->vatExempt()) {
-            $estimator = new TaxEstimator($this->settings, $this->today->year);
-            $share = Money::format($estimator->income()).' de '.Money::format($this->settings->vatExemptionThreshold())
-                .' ('.number_format($estimator->vatThresholdPercent(), 1, ',', ' ').' %)';
-
+        if (($threshold = $this->vatThreshold()) !== null) {
+            $year = $this->today->year;
             $notes[] = new TaxObligation(
-                'vat-threshold:'.$this->today->year,
+                'vat-threshold:'.$year,
                 'vat-threshold',
-                'Limite da isenção de IVA',
-                $estimator->income(),
+                $threshold['label'],
+                $threshold['amount'],
                 null,
                 null,
-                match ($estimator->vatThresholdStatus()) {
-                    'critical' => $share.' · passaste 125 % do limite: tens 15 dias úteis para entregar a declaração de alterações',
-                    'danger' => $share.' · sais da isenção no próximo ano: declaração de alterações em janeiro',
-                    'warning' => $share.' · estás perto do limite',
-                    default => $share,
-                },
-                $this->url(fn (Account $account) => TaxEstimate::getUrl(panel: 'admin', tenant: $account)),
+                trim(($threshold['usesReceipts'] ? 'Limite de isenção de IVA · aproximação por recebimentos. ' : '').$threshold['detail']
+                    .' '.($threshold['notice'] ?? $threshold['advisory'] ?? '')),
+                $this->territorialReviewUrl($year),
                 'info',
             );
+
+            if ($threshold['notice'] !== null) {
+                $notes[] = new TaxObligation(
+                    'vat-threshold-alert:'.$year,
+                    'vat-threshold-alert',
+                    'Limiar de IVA ultrapassado',
+                    null,
+                    null,
+                    null,
+                    $threshold['notice'],
+                    $this->territorialReviewUrl($year),
+                    'info',
+                );
+            }
+
+            $previous = TerritorialTurnover::forYear($year - 1, $this->today);
+            if (($notice = $previous->nextYearNotice()) !== null) {
+                $notes[] = new TaxObligation(
+                    'vat-threshold-previous:'.($year - 1),
+                    'vat-threshold-previous',
+                    'Limiar de IVA ultrapassado no ano anterior',
+                    $previous->subtotal(),
+                    null,
+                    null,
+                    $notice.' '.$previous->coverageLabel().'.',
+                    $this->territorialReviewUrl($year - 1),
+                    'info',
+                );
+            }
         }
 
         foreach ((new ReverseChargeVat($this->settings))->foreignWithVat($this->month->subMonth()) as $expense) {

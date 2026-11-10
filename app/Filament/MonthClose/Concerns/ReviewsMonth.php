@@ -18,7 +18,7 @@ trait ReviewsMonth
 
     protected function review(): MonthReview
     {
-        return new MonthReview(Carbon::createFromFormat('Y-m', $this->month ?? today()->format('Y-m'))->startOfMonth());
+        return new MonthReview(Carbon::createFromFormat('!Y-m', $this->month ?? today()->format('Y-m')));
     }
 
     #[On('month-close-updated')]

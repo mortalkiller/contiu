@@ -3,6 +3,7 @@
 namespace App\Filament\MonthClose\Widgets;
 
 use App\Filament\Actions\RecordPaymentAction;
+use App\Filament\MonthClose\Columns\FiscalDocumentColumn;
 use App\Filament\MonthClose\Concerns\ReviewsMonth;
 use App\Models\Receivable;
 use Filament\Tables\Columns\TextColumn;
@@ -22,8 +23,8 @@ class MonthReceivablesTable extends TableWidget
     {
         return $table
             ->heading('A receber')
-            ->description('O que vence este mês, o que ficou em aberto de meses anteriores e o que, vencendo mais tarde, já foi pago em parte este mês.')
-            ->query(fn () => $this->review()->receivablesQuery())
+            ->description('Cobranças com vencimento, fatura ou adiantamento no mês e valores ainda em aberto de meses anteriores.')
+            ->query(fn () => $this->review()->receivablesQuery(withFiscalReference: true))
             ->paginated(false)
             ->columns([
                 TextColumn::make('due_on')
@@ -31,7 +32,7 @@ class MonthReceivablesTable extends TableWidget
                     ->date()
                     ->description(fn (Receivable $record) => match (true) {
                         $this->review()->isCarriedOver($record) => 'de meses anteriores',
-                        $this->review()->isDueLater($record) => 'pago em parte este mês',
+                        $this->review()->isDueLater($record) => 'vence após o mês',
                         default => null,
                     })
                     ->color(fn (Receivable $record) => $record->status->value === 'overdue' ? 'danger' : null),
@@ -43,10 +44,13 @@ class MonthReceivablesTable extends TableWidget
                     ->description(fn (Receivable $record) => $record->description)
                     ->url(fn (Receivable $record) => $record->billableUrl()),
                 TextColumn::make('amount')->label('Valor')->money('EUR', divideBy: 100)->alignEnd(),
-                TextColumn::make('outstanding')->label('Em aberto')->money('EUR', divideBy: 100)->alignEnd()
+                TextColumn::make('outstanding')->label('Saldo atual em aberto')->money('EUR', divideBy: 100)->alignEnd()
                     ->weight('medium')
                     ->color(fn (float $state) => $state > 0 ? 'warning' : 'gray'),
-                TextColumn::make('status')->label('Estado')->badge(),
+                TextColumn::make('outstandingAtClose')->label('Saldo no fim do mês')->money('EUR', divideBy: 100)->alignEnd()
+                    ->state(fn (Receivable $record): int => $this->review()->outstandingAtClose($record)),
+                TextColumn::make('status')->label('Estado atual')->badge(),
+                FiscalDocumentColumn::make(),
             ])
             ->recordActions([
                 RecordPaymentAction::make()

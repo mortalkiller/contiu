@@ -6,6 +6,14 @@ use Illuminate\Support\Facades\Schema;
 /** The database as it was before accounts: the migration rolled back and no account left. */
 function beforeAccounts(): object
 {
+    $fiscalDocuments = database_path('migrations/2026_11_10_100001_create_fiscal_documents.php');
+    foreach (array_reverse(glob(database_path('migrations/*.php'))) as $migrationFile) {
+        if ($migrationFile < $fiscalDocuments) {
+            break;
+        }
+        (require $migrationFile)->down();
+    }
+
     $migration = require database_path('migrations/2026_11_08_100100_add_account_id_to_business_tables.php');
     $migration->down();
     DB::table('account_user')->delete();

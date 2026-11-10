@@ -24,9 +24,12 @@ use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 /**
@@ -116,11 +119,19 @@ class RecordPaymentAction extends Action
                     ->label('Notas')
                     ->rows(2),
             ])
-            ->action(function (array $data, ?Model $record): void {
-                Payment::create([
-                    ...$data,
-                    'receivable_id' => $record instanceof Receivable ? $record->getKey() : $data['receivable_id'],
-                ]);
+            ->action(function (array $data, ?Model $record, Schema $schema): void {
+                DB::transaction(function () use ($data, $record, $schema): void {
+                    $id = $record instanceof Receivable ? $record->getKey() : $data['receivable_id'];
+                    $receivable = Receivable::query()->lockForUpdate()->findOrFail($id);
+
+                    if ($data['amount'] > $receivable->outstanding) {
+                        throw ValidationException::withMessages([
+                            $schema->getStatePath().'.amount' => 'O montante excede o que falta receber nesta cobrança.',
+                        ]);
+                    }
+
+                    Payment::create([...$data, 'receivable_id' => $id]);
+                });
 
                 Notification::make()
                     ->title('Recebimento registado')

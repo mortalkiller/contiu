@@ -2,13 +2,16 @@
 
 namespace App\Filament\Resources\Expenses\Schemas;
 
+use App\Enums\ExpenseAttribution;
 use App\Enums\ExpenseKind;
 use App\Enums\PaymentMethod;
 use App\Filament\Support\FinanceFields;
 use App\Filament\Support\ReconciliationColumns;
 use App\Filament\Support\TaxSettingsFields;
+use App\Models\Expense;
 use App\Models\Supplier;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -23,7 +26,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ExpenseForm
 {
-    public static function configure(Schema $schema): Schema
+    public static function configure(Schema $schema, bool $withEvidence = false): Schema
     {
         return $schema
             ->columns(3)
@@ -68,6 +71,38 @@ class ExpenseForm
                     ]),
 
                 ...static::classificationAndPayment(),
+                ...($withEvidence ? [self::evidenceSection()] : []),
+            ]);
+    }
+
+    private static function evidenceSection(): Section
+    {
+        return Section::make('Comprovativo e afetação')
+            ->columnSpanFull()
+            ->columns(2)
+            ->schema([
+                FileUpload::make('proof_upload')
+                    ->label(fn (?Expense $record): string => $record?->hasProof() ? 'Substituir comprovativo PDF' : 'Comprovativo PDF')
+                    ->acceptedFileTypes(['application/pdf'])
+                    ->maxSize(10240)
+                    ->maxFiles(1)
+                    ->storeFiles(false)
+                    ->preventFilePathTampering()
+                    ->getUploadedFileUsing(null)
+                    ->previewable(false),
+                TextInput::make('proof_reference')
+                    ->label('Referência do comprovativo')
+                    ->maxLength(255),
+                Select::make('attribution')
+                    ->label('Afetação')
+                    ->options(ExpenseAttribution::class)
+                    ->native(false),
+                Toggle::make('is_reviewed')
+                    ->label('Revista')
+                    ->default(false),
+                Toggle::make('remove_proof')
+                    ->label('Remover comprovativo atual')
+                    ->visible(fn (?Expense $record): bool => $record?->hasProof() ?? false),
             ]);
     }
 

@@ -103,7 +103,7 @@ class TaxObligationsCard extends Widget
         $obligations = $this->obligations();
         $rows = $obligations->thisMonth();
         $pending = array_values(array_filter($rows, fn (TaxObligation $obligation) => in_array($obligation->status, ['due', 'overdue'], true)));
-        $notes = array_values(array_filter($rows, fn (TaxObligation $obligation) => in_array($obligation->kind, ['incomplete-settings', 'foreign-vat-warning'], true)));
+        $notes = array_values(array_filter($rows, fn (TaxObligation $obligation) => in_array($obligation->kind, ['incomplete-settings', 'foreign-vat-warning', 'vat-threshold-alert', 'vat-threshold-previous'], true)));
         $next = collect($pending)->filter(fn (TaxObligation $obligation) => $obligation->dueOn !== null)->sortBy(fn (TaxObligation $obligation) => $obligation->dueOn)->first();
 
         return [
@@ -114,7 +114,7 @@ class TaxObligationsCard extends Widget
             'socialSecurity' => $this->socialSecurityLine($rows),
             'tasks' => array_map(fn (TaxObligation $obligation) => $this->row($obligation, $today), [...$pending, ...$notes]),
             'nothingToPay' => $pending === [] && ! $this->settings()->isIncomplete(),
-            'limits' => array_values(array_filter([$this->socialSecurityLimit($today), $this->vatLimit($today)])),
+            'limits' => array_values(array_filter([$this->socialSecurityLimit($today), $this->vatLimit($obligations)])),
             'upcoming' => implode(' · ', array_map(fn (TaxObligation $obligation) => $this->upcomingLabel($obligation), $obligations->upcoming())),
             'done' => array_map(fn (TaxObligation $obligation) => $this->row($obligation, $today), $obligations->done()),
             'readOnly' => CurrentAccount::readOnly(),
@@ -157,7 +157,7 @@ class TaxObligationsCard extends Widget
             // The dot: overdue, due within a week (or a note to check), or later.
             'tone' => match (true) {
                 $obligation->status === 'done' => 'success',
-                $obligation->status === 'overdue' => 'danger',
+                $obligation->status === 'overdue', $obligation->kind === 'vat-threshold-alert' => 'danger',
                 $obligation->status === 'info' => 'warning',
                 $days !== null && $days <= 7 => 'warning',
                 default => 'gray',
@@ -219,34 +219,20 @@ class TaxObligationsCard extends Widget
     }
 
     /** @return array{label: string, percent: string, width: float, color: string, tooltip: string}|null */
-    private function vatLimit(CarbonImmutable $today): ?array
+    private function vatLimit(TaxObligations $obligations): ?array
     {
-        if (! $this->settings()->vatExempt()) {
+        $threshold = $obligations->vatThreshold();
+        if ($threshold === null) {
             return null;
         }
 
-        $estimator = new TaxEstimator($this->settings(), $today->year);
-        $percent = $estimator->vatThresholdPercent();
-        $status = $estimator->vatThresholdStatus();
-
         return [
-            'label' => 'Isenção de IVA',
-            'percent' => self::percent($percent),
-            'width' => min(100.0, $percent),
-            'color' => match ($status) {
-                'ok' => 'primary',
-                'warning' => 'warning',
-                default => 'danger',
-            },
-            'tooltip' => implode(' ', array_filter([
-                Money::format($estimator->income()).' de '.Money::format($this->settings()->vatExemptionThreshold()).' em '.$today->year.' (art. 53.º).',
-                match ($status) {
-                    'critical' => 'Passaste 125 % do limite: tens 15 dias úteis para a declaração de alterações.',
-                    'danger' => 'Passaste o limite: sais da isenção de IVA no próximo ano (declaração em janeiro).',
-                    'warning' => 'Estás perto do limite de isenção de IVA.',
-                    default => null,
-                },
-            ])),
+            'label' => $threshold['label'],
+            'percent' => self::percent($threshold['percent']),
+            'width' => max(0.0, min(100.0, $threshold['percent'])),
+            'color' => $threshold['status'] === 'ok' ? 'primary' : $threshold['status'],
+            'tooltip' => trim(($threshold['usesReceipts'] ? 'Aproximação por recebimentos. ' : '').$threshold['detail']
+                .' '.($threshold['notice'] ?? $threshold['advisory'] ?? '')),
         ];
     }
 

@@ -120,10 +120,10 @@ class MatchBankTransactions
         return Payment::query()
             ->doesntHave('bankLink')
             ->whereBetween('paid_on', [$from, $until])
-            ->with('receivable.billable.client')
+            ->with(['advanceClient', 'receivable.billable.client'])
             ->get()
             ->filter(fn (Payment $payment) => $payment->amount === $transaction->absolute_amount)
-            ->map(fn (Payment $payment) => new BankCandidate('payment', $payment, $this->nameScore($payment->receivable?->client?->name, $description), $this->daysApart($transaction, $payment->paid_on)))
+            ->map(fn (Payment $payment) => new BankCandidate('payment', $payment, $this->nameScore($payment->client?->name, $description), $this->daysApart($transaction, $payment->paid_on)))
             ->values();
     }
 

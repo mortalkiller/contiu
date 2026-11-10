@@ -40,7 +40,7 @@ final class BankCandidate
             'expense' => 'Despesa por pagar · '.$this->model->supplier->name.' · '.$this->model->description,
             'template' => 'Despesa recorrente · '.$this->model->supplier->name.' · '.$this->model->description,
             'supplier' => 'Criar despesa · '.$this->model->name,
-            'payment' => 'Já registado · Recebimento de '.$this->model->paid_on->format('d/m/Y').' · '.$this->model->receivable?->label.' ('.($this->model->receivable?->client?->name ?? '—').')',
+            'payment' => 'Já registado · Recebimento de '.$this->model->paid_on->format('d/m/Y').' · '.($this->model->is_split ? $this->model->receivableLabels() : $this->model->receivable?->label).' ('.($this->model->receivable?->client?->name ?? '—').')',
             'paid' => 'Já registado · Despesa paga em '.($this->model->paid_on ?? $this->model->spent_on)->format('d/m/Y').' · '.$this->model->supplier->name.' · '.$this->model->description,
         };
     }

@@ -16,6 +16,8 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
  */
 trait HasReceivables
 {
+    use DeletesAtomically;
+
     /**
      * Receivables are polymorphic (no foreign key), so they are removed with their owner here —
      * unless money was already received against any of them.
@@ -23,7 +25,7 @@ trait HasReceivables
     protected static function bootHasReceivables(): void
     {
         static::deleting(function (self $owner): void {
-            if (Payment::query()->whereIn('receivable_id', $owner->receivables()->select('id'))->exists()) {
+            if ($owner->receivables()->whereHas('payments')->exists()) {
                 throw HasPaymentsException::for($owner instanceof Retainer ? 'esta avença' : 'este trabalho');
             }
 

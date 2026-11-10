@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Expenses;
 
 use App\Filament\Resources\Expenses\Pages\CreateExpense;
+use App\Filament\Resources\Expenses\Pages\DownloadExpenseEvidence;
 use App\Filament\Resources\Expenses\Pages\EditExpense;
 use App\Filament\Resources\Expenses\Pages\ListExpenses;
 use App\Filament\Resources\Expenses\Schemas\ExpenseForm;
@@ -36,7 +37,7 @@ class ExpenseResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return ExpenseForm::configure($schema);
+        return ExpenseForm::configure($schema, withEvidence: true);
     }
 
     public static function table(Table $table): Table
@@ -72,6 +73,7 @@ class ExpenseResource extends Resource
             'index' => ListExpenses::route('/'),
             'create' => CreateExpense::route('/create'),
             'edit' => EditExpense::route('/{record}/edit'),
+            'download-proof' => DownloadExpenseEvidence::route('/{record}/comprovativo'),
         ];
     }
 }

@@ -48,6 +48,9 @@ class CashFlowChart extends ChartWidget
             'datasets' => [
                 ['label' => 'Recebido', 'data' => Money::toEurosList(array_column($flow, 'received')), 'order' => 2],
                 ['label' => 'Despesas pagas', 'data' => Money::toEurosList(array_column($flow, 'paid')), 'order' => 2],
+                ...($this->summary()->refunded() > 0 ? [
+                    ['label' => 'Reembolsos a clientes', 'data' => Money::toEurosList(array_column($flow, 'refunded')), 'order' => 2, 'backgroundColor' => '#986174'],
+                ] : []),
                 ['label' => 'Resultado', 'data' => Money::toEurosList(array_column($flow, 'result')), 'type' => 'line', 'order' => 1],
             ],
         ];

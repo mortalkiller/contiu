@@ -2,11 +2,13 @@
 
 namespace App\Support;
 
+use App\Models\Client;
 use App\Models\Expense;
 use App\Models\Receivable;
 use App\Models\RecurringExpense;
 use App\Models\Retainer;
 use Carbon\CarbonImmutable;
+use InvalidArgumentException;
 
 /**
  * Cash forecast for the current month and the following ones.
@@ -20,6 +22,8 @@ use Carbon\CarbonImmutable;
  */
 final class CashForecast
 {
+    public const MAX_DELAY_DAYS = 365;
+
     /** @var array<int, array<string, mixed>>|null */
     private ?array $rows = null;
 
@@ -54,6 +58,22 @@ final class CashForecast
         return $this->account()->contiuBalanceAt(CarbonImmutable::today()) ?? 0;
     }
 
+    /** @return array{reserved: int, available: ?int, paidThisYear: int} */
+    public function reserve(): array
+    {
+        $today = CarbonImmutable::today();
+        $reserved = $this->settings->taxReservedAmount();
+        $paid = AnnualFiscalReview::taxPayments($today->year, through: $today)
+            ->get()
+            ->sum(fn (Expense $expense) => $expense->total);
+
+        return [
+            'reserved' => $reserved,
+            'available' => $this->showsBalance() && $this->startsFromBankBalance() ? $this->startingBalance() - $reserved : null,
+            'paidThisYear' => (int) $paid,
+        ];
+    }
+
     public function account(): CompanyAccount
     {
         return $this->account ??= new CompanyAccount;
@@ -62,7 +82,7 @@ final class CashForecast
     private ?CompanyAccount $account = null;
 
     /**
-     * @return array<int, array{month: CarbonImmutable, label: string, inflows: int, overdueInflows: int, projectedInflows: int, outflows: int, overdueOutflows: int, projectedOutflows: int, socialSecurity: int, net: int, balance: int}> (cents)
+     * @return array<int, array{month: CarbonImmutable, label: string, inflows: int, overdueInflows: int, projectedInflows: int, outflows: int, overdueOutflows: int, projectedOutflows: int, socialSecurity: int, socialSecurityConfirmed: bool, confirmedVat: int, net: int, balance: int}> (cents)
      */
     public function months(): array
     {
@@ -101,28 +121,108 @@ final class CashForecast
     /** @return array<string, int> expected money (cents) in per client (same rules as the inflows), largest first */
     public function inflowsByClient(): array
     {
-        $byClient = [];
-        $add = function (?string $client, int $amount) use (&$byClient): void {
-            $client ??= '—';
-            $byClient[$client] = ($byClient[$client] ?? 0) + $amount;
-        };
+        return $this->groupClientInflows(fn (?Client $client): string => $client?->name ?? '—');
+    }
 
-        Receivable::query()->open()->excludingCancelled()->with(['payments', 'billable.client'])
-            ->whereDate('due_on', '<=', $this->end)
-            ->get()
-            ->each(fn (Receivable $receivable) => $add($receivable->client?->name, $receivable->outstanding));
+    /** @return array<int, int> */
+    public function inflowsByClientId(): array
+    {
+        return $this->groupClientInflows(fn (?Client $client): int => $client?->id ?? 0);
+    }
 
-        $projector = new ScheduleProjector;
+    /** @return array{inflows: int, clientInflows: int, withoutClient: int, withDelay?: int, beyondHorizon?: int, months?: list<array{label: string, inflows: int, withDelay: int}>} */
+    public function clientInflowScenario(int $clientId, ?int $delayDays): array
+    {
+        if ($delayDays !== null && ($delayDays < 0 || $delayDays > self::MAX_DELAY_DAYS)) {
+            throw new InvalidArgumentException('Delay days are outside the forecast simulation range.');
+        }
 
-        Retainer::query()->where('is_active', true)->with('client')->get()->each(function (Retainer $retainer) use ($projector, $add): void {
-            foreach ($projector->retainerDueDates($retainer, $this->end) as $date) {
-                $add($retainer->client?->name, $retainer->total);
+        $inflows = 0;
+        $clientInflows = 0;
+        $beyondHorizon = 0;
+        $months = [];
+
+        if ($delayDays !== null) {
+            for ($month = $this->start; $month->lte($this->end); $month = $month->addMonth()) {
+                $months[$month->format('Y-m')] = [
+                    'label' => Period::MONTHS[$month->month - 1].' '.$month->year,
+                    'inflows' => 0,
+                    'withDelay' => 0,
+                ];
             }
-        });
+        }
+
+        foreach ($this->expectedInflows() as [$date, $amount, $client]) {
+            $belongsToClient = ($client?->id ?? 0) === $clientId;
+            $inflows += $amount;
+            $clientInflows += $belongsToClient ? $amount : 0;
+
+            if ($delayDays === null) {
+                continue;
+            }
+
+            $months[$this->inflowMonth($date)]['inflows'] += $amount;
+            $delayedDate = $belongsToClient ? $date->addDays($delayDays) : $date;
+
+            if ($delayedDate->gt($this->end)) {
+                $beyondHorizon += $amount;
+            } else {
+                $months[$this->inflowMonth($delayedDate)]['withDelay'] += $amount;
+            }
+        }
+
+        $scenario = ['inflows' => $inflows, 'clientInflows' => $clientInflows, 'withoutClient' => $inflows - $clientInflows];
+
+        return $delayDays === null ? $scenario : [
+            ...$scenario,
+            'withDelay' => $inflows - $beyondHorizon,
+            'beyondHorizon' => $beyondHorizon,
+            'months' => array_values($months),
+        ];
+    }
+
+    private function inflowMonth(CarbonImmutable $date): string
+    {
+        return $date->max($this->start)->format('Y-m');
+    }
+
+    /** @return array<array-key, int> */
+    private function groupClientInflows(callable $key): array
+    {
+        $byClient = [];
+
+        foreach ($this->expectedInflows() as [, $amount, $client]) {
+            $group = $key($client);
+            $byClient[$group] = ($byClient[$group] ?? 0) + $amount;
+        }
 
         arsort($byClient);
 
         return $byClient;
+    }
+
+    /** @return iterable<array{CarbonImmutable, int, ?Client, bool}> Date, amount, client and whether still to be generated. */
+    private function expectedInflows(bool $withClient = true): iterable
+    {
+        $receivables = Receivable::query()->open()->excludingCancelled()->with('payments')
+            ->when($withClient, fn ($query) => $query->with('billable.client'))
+            ->whereDate('due_on', '<=', $this->end)
+            ->get();
+
+        foreach ($receivables as $receivable) {
+            yield [CarbonImmutable::parse($receivable->due_on), $receivable->outstanding, $withClient ? $receivable->client : null, false];
+        }
+
+        $projector = new ScheduleProjector;
+        $retainers = Retainer::query()->where('is_active', true)
+            ->when($withClient, fn ($query) => $query->with('client'))
+            ->get();
+
+        foreach ($retainers as $retainer) {
+            foreach ($projector->retainerDueDates($retainer, $this->end) as $date) {
+                yield [$date, $retainer->total, $withClient ? $retainer->client : null, true];
+            }
+        }
     }
 
     /** @return array<string, int> where the expected money (cents) goes, over the whole horizon */
@@ -132,10 +232,11 @@ final class CashForecast
         $sum = fn (string $field) => (int) array_sum(array_column($rows, $field));
 
         return [
-            'Despesas por pagar' => $sum('outflows') - $sum('overdueOutflows') - $sum('projectedOutflows') - $sum('socialSecurity'),
+            'Despesas por pagar' => $sum('outflows') - $sum('overdueOutflows') - $sum('projectedOutflows') - $sum('socialSecurity') - $sum('confirmedVat'),
             'Despesas em atraso' => $sum('overdueOutflows'),
             'Recorrentes previstas' => $sum('projectedOutflows'),
             'Segurança Social' => $sum('socialSecurity'),
+            'IVA confirmado' => $sum('confirmedVat'),
         ];
     }
 
@@ -155,6 +256,8 @@ final class CashForecast
                 'overdueOutflows' => 0,
                 'projectedOutflows' => 0,
                 'socialSecurity' => 0,
+                'socialSecurityConfirmed' => false,
+                'confirmedVat' => 0,
             ];
         }
 
@@ -173,20 +276,11 @@ final class CashForecast
             }
         };
 
-        // In: existing open receivables.
-        Receivable::query()->open()->excludingCancelled()->with('payments')
-            ->whereDate('due_on', '<=', $this->end)
-            ->get()
-            ->each(fn (Receivable $receivable) => $add(CarbonImmutable::parse($receivable->due_on), $receivable->outstanding, 'inflows'));
+        foreach ($this->expectedInflows(withClient: false) as [$date, $amount, , $projected]) {
+            $add($date, $amount, 'inflows', $projected);
+        }
 
-        // In: retainer periods the daily job has not generated yet.
         $projector = new ScheduleProjector;
-
-        Retainer::query()->where('is_active', true)->get()->each(function (Retainer $retainer) use ($projector, $add): void {
-            foreach ($projector->retainerDueDates($retainer, $this->end) as $date) {
-                $add($date, $retainer->total, 'inflows', projected: true);
-            }
-        });
 
         // Out: unpaid expenses.
         Expense::query()->where('is_paid', false)
@@ -201,13 +295,19 @@ final class CashForecast
             }
         });
 
-        // Out: Segurança Social paid in the month (the contribution of the month before).
-        $estimator = new TaxEstimator($this->settings, $this->start->year);
+        $obligations = new TaxObligations($this->settings, CarbonImmutable::today());
 
         foreach ($buckets as $key => $bucket) {
-            $payment = $estimator->ssPaymentInMonth($bucket['month']);
-            $buckets[$key]['socialSecurity'] = $payment;
-            $buckets[$key]['outflows'] += $payment;
+            $contribution = $obligations->forecastSocialSecurity($bucket['month']);
+            $buckets[$key]['socialSecurity'] = $contribution['amount'];
+            $buckets[$key]['socialSecurityConfirmed'] = $contribution['confirmed'];
+            $buckets[$key]['outflows'] += $contribution['amount'];
+        }
+
+        foreach ($obligations->forecastVat($this->end) as $vat) {
+            $key = $vat['dueOn']->max($this->start)->format('Y-m');
+            $buckets[$key]['confirmedVat'] += $vat['amount'];
+            $buckets[$key]['outflows'] += $vat['amount'];
         }
 
         $balance = $this->startingBalance();

@@ -1,8 +1,11 @@
 <?php
 
+use App\Enums\FiscalDocumentType;
 use App\Enums\PaymentMethod;
 use App\Enums\ProjectStatus;
 use App\Models\Client;
+use App\Models\CreditApplication;
+use App\Models\FiscalDocument;
 use App\Models\Payment;
 use App\Models\Project;
 use App\Models\Receivable;
@@ -80,4 +83,23 @@ it('leaves out cancelled projects', function () {
     Receivable::factory()->for($cancelled, 'billable')->create(['amount' => 99900, 'due_on' => '2026-01-20']);
 
     expect((new ClientStatement($client))->charged())->toBe(102000);
+});
+
+it('reduces the balance for applied credit without counting it as cash and shows a reversal on its date', function () {
+    $client = Client::factory()->create();
+    $project = Project::factory()->for($client)->create(['code' => 'DEMO-03']);
+    $charge = Receivable::factory()->for($project, 'billable')->create(['amount' => 80000, 'due_on' => '2026-02-03']);
+    $invoice = FiscalDocument::factory()->create();
+    $credit = FiscalDocument::factory()->create(['number' => 'NC DEMO/1', 'type' => FiscalDocumentType::CreditNote]);
+    CreditApplication::query()->create([
+        'receivable_id' => $charge->id, 'invoice_id' => $invoice->id, 'credit_note_id' => $credit->id,
+        'amount' => 15000, 'applied_on' => '2026-02-10', 'reversed_on' => '2026-03-01',
+    ]);
+
+    $february = new ClientStatement($client, to: Carbon::parse('2026-02-28'));
+
+    expect($february->balance())->toBe(65000)
+        ->and($february->received())->toBe(0)
+        ->and($february->entries()->last()['description'])->toContain('NC DEMO/1')
+        ->and((new ClientStatement($client))->balance())->toBe(80000);
 });

@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Enums\BankTransactionStatus;
 use App\Models\BankTransaction;
+use App\Models\CustomerRefund;
 use App\Models\Expense;
 use App\Models\Payment;
 use Carbon\CarbonInterface;
@@ -120,7 +121,9 @@ final class CompanyAccount
             ->get()
             ->sum(fn (Expense $expense) => $expense->total);
 
-        return $opening + $received - $paid;
+        $refunded = (int) $within(CustomerRefund::query(), 'paid_on')->sum('amount');
+
+        return $opening + $received - $paid - $refunded;
     }
 
     /** Bank − Contiu: negative = still to transfer to the company, positive = the company owes Pedro. */

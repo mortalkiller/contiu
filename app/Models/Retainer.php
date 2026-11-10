@@ -47,7 +47,7 @@ class Retainer extends Model implements AuditableContract
         // The retainer's exemption defines its payments': keep existing ones in line when it changes.
         static::updated(function (Retainer $retainer): void {
             if ($retainer->wasChanged('tax_exempt')) {
-                Payment::query()
+                Payment::query()->where('is_split', false)
                     ->whereIn('receivable_id', $retainer->receivables()->select('receivables.id'))
                     ->update(['tax_exempt' => $retainer->tax_exempt]);
             }

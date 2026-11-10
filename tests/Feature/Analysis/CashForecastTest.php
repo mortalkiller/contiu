@@ -1,20 +1,36 @@
 <?php
 
+use App\Actions\ApplyBankTransaction;
 use App\Actions\GenerateRecurringExpenses;
 use App\Actions\GenerateRetainerPeriods;
+use App\Actions\RecordTaxPayment;
+use App\Enums\BankTransactionStatus;
+use App\Enums\CategoryType;
 use App\Enums\ProjectStatus;
+use App\Filament\Pages\CashForecast as CashForecastPage;
+use App\Models\Account;
 use App\Models\BankTransaction;
+use App\Models\Category;
 use App\Models\Expense;
 use App\Models\Payment;
 use App\Models\Project;
 use App\Models\Receivable;
 use App\Models\RecurringExpense;
 use App\Models\Retainer;
+use App\Models\TaxObligationCompletion;
 use App\Support\CashForecast;
+use App\Support\CurrentAccount;
 use App\Support\FinanceSettings;
+use App\Support\FiscalReserve;
+use App\Support\Money;
 use App\Support\ScheduleProjector;
+use App\Support\SocialSecurity;
+use App\Support\VatPeriodReview;
 use Carbon\CarbonImmutable;
+use Filament\Facades\Filament;
 use Illuminate\Support\Carbon;
+use Livewire\Livewire;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-11-06'));
@@ -124,4 +140,166 @@ it('projects the same dates the generators would create', function () {
 
     expect($projectedPeriods)->toBe($retainer->receivables()->pluck('due_on')->map->toDateString()->all())
         ->and($projectedExpenses)->toBe($template->expenses()->orderBy('spent_on')->pluck('spent_on')->map->toDateString()->all());
+});
+
+it('keeps reserved money separate from the bank balance and tax payments already recorded', function () {
+    actingAsAdmin();
+    $taxCategory = Category::factory()->create([
+        'type' => CategoryType::Expense,
+        'name' => RecordTaxPayment::CATEGORY,
+    ]);
+    Expense::factory()->for($taxCategory)->create(['net_amount' => 9001, 'paid_on' => '2026-11-05']);
+    Expense::factory()->for($taxCategory)->unpaid()->create(['net_amount' => 1100]);
+    BankTransaction::create([
+        'hash' => 'reserve-test', 'booked_on' => '2026-11-06', 'description' => 'Saldo',
+        'amount' => 10000, 'balance' => 110000, 'import_batch' => 'b',
+    ]);
+
+    Livewire::test(CashForecastPage::class)
+        ->callAction('setTaxReserve', data: ['amount' => '200,03'])
+        ->assertHasNoActionErrors()
+        ->assertSee('Reserva fiscal');
+
+    expect(forecast()->reserve())->toBe(['reserved' => 20003, 'available' => 79997, 'paidThisYear' => 9001])
+        ->and(forecast()->startingBalance())->toBe(100000);
+});
+
+it('keeps the available balance unknown without a statement and rejects invalid reserves', function () {
+    actingAsAdmin();
+    Livewire::test(CashForecastPage::class)
+        ->callAction('setTaxReserve', data: ['amount' => '-20,03'])
+        ->assertHasActionErrors(['amount']);
+    Livewire::test(CashForecastPage::class)
+        ->callAction('setTaxReserve', data: ['amount' => '200,03'])
+        ->assertHasNoActionErrors();
+
+    expect(forecast()->reserve())->toBe(['reserved' => 20003, 'available' => null, 'paidThisYear' => 0])
+        ->and(CurrentAccount::run(Account::factory()->create(), fn () => (new CashForecast(new FinanceSettings))->reserve()['reserved']))->toBe(0);
+});
+
+it('uses confirmed fiscal amounts and omits an already paid contribution and overlapping VAT reviews', function () {
+    actingAsAdmin();
+    app(FinanceSettings::class)->set(['activity_started_on' => '2024-01-01']);
+    $security = app(SocialSecurity::class);
+    $security->confirmContribution('2026-Q3', '2026-10', 12345);
+    $security->confirmContribution('2026-Q3', '2026-11', 14001);
+    TaxObligationCompletion::query()->create(['key' => 'ss:2026-11', 'completed_at' => now()]);
+    VatPeriodReview::forPeriod(2026, 8)->confirm(9501, 500, 0, 'Confirmado', '2026-11-30');
+    VatPeriodReview::forPeriod(2026, 9)->confirm(9001, 500, 0, 'Pago', '2026-11-30', '2026-11-04');
+    VatPeriodReview::forPeriod(2026, 10)->confirm(7000, 0, 0, 'Mensal', '2026-12-05');
+    VatPeriodReview::forPeriod(2026, 10, 3)->confirm(21000, 0, 0, 'Trimestral', '2027-01-10');
+
+    $forecast = forecast();
+
+    expect(row($forecast, 0))->toMatchArray(['socialSecurity' => 0, 'confirmedVat' => 9001])
+        ->and(row($forecast, 1))->toMatchArray(['socialSecurity' => 14001, 'socialSecurityConfirmed' => true, 'confirmedVat' => 0])
+        ->and(row($forecast, 2)['confirmedVat'])->toBe(0);
+});
+
+it('shows the part of the fiscal reserve supported by an explicitly linked outgoing own transfer', function () {
+    actingAsAdmin();
+    $transfer = BankTransaction::create([
+        'hash' => 'reserve-out', 'booked_on' => '2026-11-06', 'description' => 'Transferência para poupança',
+        'amount' => -12001, 'balance' => 87999, 'import_batch' => 'b', 'status' => BankTransactionStatus::OwnTransfer,
+    ]);
+
+    Livewire::test(CashForecastPage::class)
+        ->callAction('setTaxReserve', data: ['amount' => '200,03', 'transfer_id' => $transfer->id])
+        ->assertHasNoActionErrors()
+        ->assertSee('Parcialmente comprovada')
+        ->assertSee(Money::format(12001))
+        ->assertSee(Money::format(8002));
+
+    expect(forecast()->reserve())->toBe(['reserved' => 20003, 'available' => 79997, 'paidThisYear' => 0])
+        ->and(forecast()->totals())->toMatchArray(['inflows' => 0, 'outflows' => 0, 'endBalance' => 100000])
+        ->and($transfer->fresh()->status)->toBe(BankTransactionStatus::OwnTransfer);
+    $this->assertDatabaseCount('payments', 0);
+    $this->assertDatabaseCount('expenses', 0);
+
+    Livewire::test(CashForecastPage::class)
+        ->mountAction('setTaxReserve')
+        ->assertSchemaStateSet(['transfer_id' => (string) $transfer->id])
+        ->fillForm(['amount' => '80,02', 'transfer_id' => $transfer->id])
+        ->callMountedAction()
+        ->assertHasNoActionErrors()
+        ->assertSee('Comprovada pela transferência');
+
+    Livewire::test(CashForecastPage::class)
+        ->callAction('setTaxReserve', data: ['amount' => '80,02', 'transfer_id' => null])
+        ->assertHasNoActionErrors()
+        ->assertSee('Valor declarado manualmente');
+});
+
+it('flags a linked transfer that has been undone or removed and keeps the reserve as declared', function (string $change) {
+    actingAsAdmin();
+    $transfer = BankTransaction::create([
+        'hash' => 'reserve-invalidated', 'booked_on' => '2026-11-06', 'description' => 'Transferência para poupança',
+        'amount' => -15000, 'balance' => 85000, 'import_batch' => 'b', 'status' => BankTransactionStatus::OwnTransfer,
+    ]);
+
+    Livewire::test(CashForecastPage::class)
+        ->callAction('setTaxReserve', data: ['amount' => '150', 'transfer_id' => $transfer->id])
+        ->assertHasNoActionErrors()
+        ->assertSee('Comprovada pela transferência');
+
+    match ($change) {
+        'undo' => app(ApplyBankTransaction::class)->undo($transfer),
+        'delete' => $transfer->delete(),
+        'amount' => $transfer->update(['amount' => -14000]),
+    };
+
+    Livewire::test(CashForecastPage::class)
+        ->assertSee('Comprovativo inválido')
+        ->assertDontSee('Comprovada pela transferência');
+    expect(forecast()->reserve()['reserved'])->toBe(15000);
+})->with(['undo', 'delete', 'amount']);
+
+it('refuses an ineligible fiscal reserve transfer without changing the saved amount', function (string $kind) {
+    actingAsAdmin();
+    app(FinanceSettings::class)->set(['tax_reserved_amount' => 9000]);
+    $account = $kind === 'other account' ? Account::factory()->create() : $this->account;
+    $transfer = CurrentAccount::run($account, fn () => BankTransaction::create([
+        'hash' => 'reserve-ineligible', 'booked_on' => $kind === 'future' ? '2026-11-07' : '2026-11-06',
+        'description' => 'Transferência', 'amount' => $kind === 'incoming' ? 12000 : -12000,
+        'import_batch' => 'b',
+        'status' => $kind === 'pending' ? BankTransactionStatus::Pending : BankTransactionStatus::OwnTransfer,
+    ]));
+
+    Livewire::test(CashForecastPage::class)
+        ->callAction('setTaxReserve', data: ['amount' => '100', 'transfer_id' => $transfer->id])
+        ->assertHasActionErrors(['transfer_id']);
+
+    expect(forecast()->reserve()['reserved'])->toBe(9000);
+})->with(['other account', 'pending', 'incoming', 'future']);
+
+it('requires a positive reserve to save a transfer as evidence', function () {
+    actingAsAdmin();
+    app(FinanceSettings::class)->set(['tax_reserved_amount' => 9000]);
+    $transfer = BankTransaction::create([
+        'hash' => 'reserve-zero', 'booked_on' => '2026-11-06', 'description' => 'Transferência',
+        'amount' => -9000, 'import_batch' => 'b', 'status' => BankTransactionStatus::OwnTransfer,
+    ]);
+
+    $page = Livewire::test(CashForecastPage::class)
+        ->callAction('setTaxReserve', data: ['amount' => '0', 'transfer_id' => $transfer->id])
+        ->assertHasActionErrors(['amount']);
+
+    expect($page->instance()->getErrorBag()->first('mountedActions.0.data.amount'))
+        ->toBe('Indica um montante superior a zero para associar a transferência.');
+    expect(forecast()->reserve()['reserved'])->toBe(9000);
+});
+
+it('keeps the fiscal reserve read-only after the account loses write access', function () {
+    app(FinanceSettings::class)->set(['tax_reserved_amount' => 9000]);
+    $this->actingAs(ownerOf($this->account));
+    Filament::setCurrentPanel('admin');
+    Filament::setTenant($this->account);
+    $this->account->update(['trial_ends_at' => now()->subDay()]);
+
+    Livewire::test(CashForecastPage::class)
+        ->assertSee(Money::format(9000))
+        ->assertActionHidden('setTaxReserve');
+
+    expect(fn () => app(FiscalReserve::class)->save(15000, null))->toThrow(HttpException::class);
+    expect(forecast()->reserve()['reserved'])->toBe(9000);
 });

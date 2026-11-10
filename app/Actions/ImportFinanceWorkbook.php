@@ -10,6 +10,7 @@ use App\Enums\ProjectStatus;
 use App\Models\Category;
 use App\Models\Client;
 use App\Models\Expense;
+use App\Models\FiscalDocumentLink;
 use App\Models\Payment;
 use App\Models\Project;
 use App\Models\Receivable;
@@ -356,13 +357,14 @@ class ImportFinanceWorkbook
             }
 
             $amount = $this->cents($row['Valor recebido']);
-            $outstanding = $receivable->amount - (int) $receivable->payments()->sum('amount');
+            $outstanding = $receivable->amount - $receivable->received;
 
             if ($amount > $outstanding) {
                 $this->warn($row, $id, 'o recebimento ('.Money::format($amount).') é maior do que o valor em aberto ('.Money::format($outstanding).').', 'Pagamentos');
             }
 
-            $receivable->payments()->create([
+            Payment::create([
+                'receivable_id' => $receivable->id,
                 'paid_on' => $this->date($row['Data pagamento']) ?? today(),
                 'amount' => $amount,
                 'method' => $this->method($row['Método'], $row, $id, 'Pagamentos') ?? PaymentMethod::Other,
@@ -459,7 +461,7 @@ class ImportFinanceWorkbook
             }
 
             $single = $this->receivablesById[$code];
-            $payments = $single->payments()->orderBy('paid_on')->orderBy('id')->get();
+            $payments = Payment::query()->where('receivable_id', $single->id)->orderBy('paid_on')->orderBy('id')->get();
             $instalments = collect($plan)->sortBy([['due_on', 'asc'], ['sort', 'asc']])
                 ->map(fn (array $row) => $project->receivables()->create($row))
                 ->values();
@@ -539,8 +541,35 @@ class ImportFinanceWorkbook
     /** Query deletes on purpose: model events would (rightly) refuse to delete paid receivables one by one. */
     private function wipeFinanceData(): void
     {
+        if (Payment::query()->where('is_split', true)->exists()) {
+            throw new ImportRefusedException('Existem recebimentos repartidos que o Excel não repõe. A substituição foi interrompida para os preservar.');
+        }
+
+        if (FiscalDocumentLink::query()->where(fn ($query) => $query
+            ->whereNotNull('payment_id')
+            ->orWhereNotNull('receivable_id')
+            ->orWhereNotNull('expense_id'))->exists()) {
+            throw new ImportRefusedException('Existem documentos fiscais associados a estes dados. Revê as ligações antes de substituir os dados pelo Excel.');
+        }
+
+        $expenses = Expense::query()->lockForUpdate()->get(['id', 'proof_path', 'proof_reference', 'attribution', 'is_reviewed']);
+        $clients = Client::query()->lockForUpdate()->get(['id', 'fiscal_country_code', 'fiscal_party_type', 'vat_validated_at']);
+
+        if ($expenses->contains(fn (Expense $expense): bool => $expense->proof_path !== null)) {
+            throw new ImportRefusedException('Existem despesas com comprovativos. Revê os comprovativos antes de substituir os dados pelo Excel.');
+        }
+
+        if ($expenses->contains(fn (Expense $expense): bool => $expense->proof_reference !== null || $expense->attribution !== null || $expense->is_reviewed)
+            || $clients->contains(fn (Client $client): bool => $client->fiscal_country_code !== null || $client->fiscal_party_type !== null || $client->vat_validated_at !== null)) {
+            throw new ImportRefusedException('Existem dados manuais em clientes ou despesas que o Excel não repõe. A substituição foi interrompida para os preservar.');
+        }
+
         foreach ([Payment::class, Receivable::class, Expense::class, RecurringExpense::class, Project::class, Retainer::class, Client::class, Supplier::class, Category::class] as $model) {
-            $model::query()->delete();
+            match ($model) {
+                Expense::class => Expense::query()->whereKey($expenses->modelKeys())->delete(),
+                Client::class => Client::query()->whereKey($clients->modelKeys())->delete(),
+                default => $model::query()->delete(),
+            };
         }
 
         $this->result->info[] = 'Os dados financeiros anteriores foram apagados antes da importação.';

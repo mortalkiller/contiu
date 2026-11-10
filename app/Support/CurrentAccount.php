@@ -40,20 +40,20 @@ final class CurrentAccount
     }
 
     /**
-     * The current account has no access (trial over, nothing paying): it can be seen and exported,
-     * not changed. Super admins are never held back; with no account there is nothing to protect.
+     * Finance writes are blocked for accountants and for accounts without an active trial or subscription.
+     * Super admins retain their existing support access.
      */
     public static function readOnly(): bool
     {
         $account = self::get();
+        $user = auth()->user();
 
-        if ($account === null || $account->hasAccess()) {
+        if ($account === null || ($user instanceof User && $user->isSuperAdmin())) {
             return false;
         }
 
-        $user = auth()->user();
-
-        return ! ($user instanceof User && $user->isSuperAdmin());
+        return ! $account->hasAccess()
+            || ($user instanceof User && AccountantAccess::role($user, $account) === AccountantAccess::ROLE);
     }
 
     /** Runs the callback as the given account and always restores the previous one. */

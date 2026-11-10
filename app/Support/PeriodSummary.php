@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Enums\ProjectStatus;
+use App\Models\CustomerRefund;
 use App\Models\Expense;
 use App\Models\OneOffIncome;
 use App\Models\Payment;
@@ -79,7 +80,12 @@ final class PeriodSummary
 
     public function cashResult(): int
     {
-        return $this->received() - $this->paidExpenses();
+        return $this->received() - $this->paidExpenses() - $this->refunded();
+    }
+
+    public function refunded(): int
+    {
+        return $this->remember(__FUNCTION__, fn () => CustomerRefund::query()->whereBetween('paid_on', $this->period->range())->sum('amount'));
     }
 
     public function forecastResult(): int
@@ -98,7 +104,7 @@ final class PeriodSummary
     /**
      * Months of the year, or days of the month.
      *
-     * @return array<int, array{label: string, received: int, paid: int, result: int}>
+     * @return array<int, array{label: string, received: int, paid: int, refunded: int, result: int}>
      */
     public function cashFlow(): array
     {
@@ -111,6 +117,7 @@ final class PeriodSummary
                 'label' => $this->period->isMonth() ? (string) $cursor->day : Period::SHORT_MONTHS[$cursor->month - 1],
                 'received' => 0,
                 'paid' => 0,
+                'refunded' => 0,
                 'result' => 0,
             ];
             $cursor = $this->period->isMonth() ? $cursor->addDay() : $cursor->addMonth();
@@ -124,11 +131,15 @@ final class PeriodSummary
             $buckets[$this->bucketKey($expense->spent_on)]['paid'] += $expense->total;
         }
 
+        foreach (CustomerRefund::query()->whereBetween('paid_on', $this->period->range())->get() as $refund) {
+            $buckets[$this->bucketKey($refund->paid_on)]['refunded'] += $refund->amount;
+        }
+
         return array_values(array_map(fn (array $bucket) => [
             ...$bucket,
             'received' => $bucket['received'],
             'paid' => $bucket['paid'],
-            'result' => $bucket['received'] - $bucket['paid'],
+            'result' => $bucket['received'] - $bucket['paid'] - $bucket['refunded'],
         ], $buckets));
     }
 
@@ -136,10 +147,11 @@ final class PeriodSummary
     public function receivedByCategory(): array
     {
         return Payment::query()
-            ->with('receivable.billable.category')
+            ->with('allocations.receivable.billable.category')
             ->whereBetween('paid_on', $this->period->range())
             ->get()
-            ->groupBy(fn (Payment $payment) => $payment->receivable?->billable?->category?->name ?? 'Sem categoria')
+            ->flatMap->allocations
+            ->groupBy(fn ($allocation) => $allocation->receivable->billable?->category?->name ?? 'Sem categoria')
             ->map(fn (Collection $payments) => (int) $payments->sum('amount'))
             ->sortDesc()
             ->all();

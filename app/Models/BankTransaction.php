@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
 
 /**
@@ -43,6 +44,12 @@ class BankTransaction extends Model
         return $this->hasMany(BankTransactionLink::class);
     }
 
+    /** @return HasOne<CustomerRefund, $this> */
+    public function customerRefund(): HasOne
+    {
+        return $this->hasOne(CustomerRefund::class);
+    }
+
     /** @return Collection<int, Payment|Expense> */
     public function records(): Collection
     {
@@ -54,7 +61,7 @@ class BankTransaction extends Model
     {
         $linked = $this->records()->sum(fn (Payment|Expense $record) => $record instanceof Payment ? $record->amount : -$record->total);
 
-        return (int) $this->amount - (int) $linked;
+        return (int) $this->amount - (int) $linked + (int) $this->customerRefund?->amount;
     }
 
     /** @param Builder<BankTransaction> $query */

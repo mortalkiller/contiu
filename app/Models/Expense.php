@@ -2,15 +2,18 @@
 
 namespace App\Models;
 
+use App\Enums\ExpenseAttribution;
 use App\Enums\ExpenseKind;
 use App\Enums\PaymentMethod;
 use App\Models\Concerns\BelongsToAccount;
 use App\Models\Concerns\ExplainsBankLine;
 use App\Models\Concerns\HasVatAmounts;
+use App\Support\ExpenseEvidence;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 use OwenIt\Auditing\Auditable;
 use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
 
@@ -18,7 +21,22 @@ class Expense extends Model implements AuditableContract
 {
     use Auditable, BelongsToAccount, ExplainsBankLine, HasFactory, HasVatAmounts;
 
-    protected $guarded = ['id'];
+    protected $guarded = ['id', 'proof_path'];
+
+    protected $hidden = ['proof_path'];
+
+    protected $auditExclude = ['proof_path'];
+
+    protected static function booted(): void
+    {
+        static::deleted(function (Expense $expense): void {
+            $path = ExpenseEvidence::path($expense);
+
+            if ($path !== null) {
+                $expense->getConnection()->afterCommit(fn () => Storage::disk(ExpenseEvidence::DISK)->delete($path));
+            }
+        });
+    }
 
     protected function casts(): array
     {
@@ -31,7 +49,14 @@ class Expense extends Model implements AuditableContract
             'is_goods' => 'boolean',
             'kind' => ExpenseKind::class,
             'method' => PaymentMethod::class,
+            'attribution' => ExpenseAttribution::class,
+            'is_reviewed' => 'boolean',
         ];
+    }
+
+    public function hasProof(): bool
+    {
+        return ExpenseEvidence::path($this) !== null;
     }
 
     /** @return BelongsTo<Supplier, $this> */

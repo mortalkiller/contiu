@@ -2,11 +2,13 @@
 
 namespace App\Filament\MonthClose\Widgets;
 
+use App\Filament\MonthClose\Columns\FiscalDocumentColumn;
 use App\Filament\MonthClose\Concerns\ReviewsMonth;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Support\ReconciliationColumns;
 use App\Models\Expense;
 use App\Support\CurrentAccount;
+use App\Support\MonthReview;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
@@ -28,8 +30,8 @@ class MonthExpensesTable extends TableWidget
     {
         return $table
             ->heading('Despesas')
-            ->description('Despesas deste mês e as que ficaram por pagar. Confirma o pagamento e escreve o n.º da fatura na própria linha.')
-            ->query(fn () => $this->review()->expensesQuery())
+            ->description('Despesas deste mês e as que ficaram por pagar.')
+            ->query(fn () => $this->review()->expensesQuery(withFiscalReference: true))
             ->paginated(false)
             ->columns([
                 TextColumn::make('spent_on')
@@ -43,9 +45,17 @@ class MonthExpensesTable extends TableWidget
                 TextColumn::make('total')->label('Total')->money('EUR', divideBy: 100)->alignEnd(),
                 IconColumn::make('is_paid')->label('Paga')->boolean(),
                 ReconciliationColumns::expenseColumn(),
+                FiscalDocumentColumn::make(),
+                TextColumn::make('proof')
+                    ->label('Comprovativo')
+                    ->state(fn (Expense $record): string => $record->hasProof() ? 'Com comprovativo' : 'Sem comprovativo')
+                    ->badge()
+                    ->color(fn (Expense $record): string => $record->hasProof() ? 'success' : 'warning'),
                 TextInputColumn::make('invoice_number')
-                    ->label('N.º da fatura')
+                    ->label('Referência anterior por confirmar')
+                    ->state(fn (Expense $record): ?string => MonthReview::unconfirmedLegacyReference($record))
                     ->placeholder('Ex.: FT 2026/12')
+                    ->disabled(fn (): bool => CurrentAccount::readOnly())
                     ->rules(['nullable', 'max:100'])
                     ->afterStateUpdated(fn () => $this->monthChanged()),
             ])
@@ -70,6 +80,7 @@ class MonthExpensesTable extends TableWidget
                     ->icon(Phosphor::PencilSimple)
                     ->iconButton()
                     ->color('gray')
+                    ->visible(fn (Expense $record): bool => ! CurrentAccount::readOnly() && ExpenseResource::canEdit($record))
                     ->url(fn (Expense $record) => ExpenseResource::getUrl('edit', ['record' => $record])),
             ])
             ->emptyStateHeading('Sem despesas neste mês')

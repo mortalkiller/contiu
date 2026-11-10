@@ -23,7 +23,7 @@ final class TransferCover
             : Money::format($this->amount);
 
         if ($this->record instanceof Payment) {
-            return 'Recebimento '.$this->record->receivable?->label.' · '.$this->record->paid_on->format('d/m/Y').' · '.$value;
+            return 'Recebimento '.($this->record->is_split ? $this->record->receivableLabels() : $this->record->receivable?->label).' · '.$this->record->paid_on->format('d/m/Y').' · '.$value;
         }
 
         return 'Despesa '.$this->record->description.' · '.($this->record->paid_on ?? $this->record->spent_on)->format('d/m/Y').' · '.$value

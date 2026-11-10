@@ -6,7 +6,9 @@ use App\Enums\ExpenseKind;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Support\ReconciliationColumns;
 use App\Models\Expense;
+use App\Support\AnnualFiscalReview;
 use App\Support\CurrentAccount;
+use App\Support\PeriodSummary;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
@@ -79,6 +81,17 @@ class ExpensesTable
                 IconColumn::make('is_paid')
                     ->label('Paga')
                     ->boolean(),
+                IconColumn::make('has_proof')
+                    ->label('Documentada')
+                    ->state(fn (Expense $record): bool => $record->hasProof())
+                    ->boolean(),
+                IconColumn::make('is_reviewed')
+                    ->label('Revista')
+                    ->boolean(),
+                TextColumn::make('attribution')
+                    ->label('Afetação')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('method')
                     ->label('Método')
                     ->badge()
@@ -87,6 +100,10 @@ class ExpensesTable
                     ->toggleable(),
                 TextColumn::make('invoice_number')
                     ->label('Fatura')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('proof_reference')
+                    ->label('Referência do comprovativo')
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
                 ReconciliationColumns::expenseColumn(),
@@ -128,6 +145,13 @@ class ExpensesTable
                     ->label('Ano')
                     ->options(fn () => Expense::query()->pluck('spent_on')->map->year->unique()->sortDesc()->mapWithKeys(fn ($year) => [$year => $year])->all())
                     ->query(fn (Builder $query, array $data) => $query->when($data['value'] ?? null, fn (Builder $query, $year) => $query->whereYear('spent_on', $year))),
+                SelectFilter::make('paid_tax_year')
+                    ->label('Impostos e contribuições pagos no ano')
+                    ->options(fn (): array => PeriodSummary::availableYears())
+                    ->query(fn (Builder $query, array $data) => $query->when(
+                        $data['value'] ?? null,
+                        fn (Builder $query, int|string $year): Builder => AnnualFiscalReview::taxPayments((int) $year, $query),
+                    )),
                 SelectFilter::make('month')
                     ->label('Mês')
                     ->options(collect(range(1, 12))->mapWithKeys(fn (int $month) => [$month => ucfirst(Carbon::create(2000, $month)->locale('pt')->translatedFormat('F'))])->all())
@@ -150,10 +174,17 @@ class ExpensesTable
                     }),
                 ActionGroup::make([
                     EditAction::make(),
+                    Action::make('downloadProof')
+                        ->label('Descarregar comprovativo')
+                        ->extraAttributes(['download' => true])
+                        ->icon(Phosphor::DownloadSimple)
+                        ->visible(fn (Expense $record): bool => $record->hasProof() && ExpenseResource::canView($record))
+                        ->url(fn (Expense $record): string => ExpenseResource::getUrl('download-proof', ['record' => $record])),
                     ReconciliationColumns::detailsAction(),
                     ReplicateAction::make()
                         ->label('Duplicar')
                         ->modalDescription('Cria uma cópia com a data de hoje, por pagar, para corrigires o que mudou.')
+                        ->excludeAttributes(['proof_path', 'proof_reference', 'is_reviewed'])
                         ->beforeReplicaSaved(fn (Model $replica) => $replica->fill([
                             'spent_on' => today(),
                             'is_paid' => false,

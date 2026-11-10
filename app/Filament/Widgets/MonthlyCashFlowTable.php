@@ -46,6 +46,9 @@ class MonthlyCashFlowTable extends TableWidget
                     ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->weight(fn (array $record) => $record['is_total'] ? 'bold' : null),
+                TextColumn::make('refunded')->label('Reembolsos a clientes')
+                    ->money('EUR', divideBy: 100)->alignEnd()
+                    ->visible(fn (): bool => $this->summary()->refunded() > 0),
                 TextColumn::make('result')
                     ->label('Cash flow')
                     ->money('EUR', divideBy: 100)
@@ -66,7 +69,7 @@ class MonthlyCashFlowTable extends TableWidget
         $rows = [];
 
         foreach ($flow as $index => $bucket) {
-            if ($period->isMonth() && $bucket['received'] == 0 && $bucket['paid'] == 0) {
+            if ($period->isMonth() && $bucket['received'] == 0 && $bucket['paid'] == 0 && $bucket['refunded'] == 0) {
                 continue;
             }
 
@@ -81,6 +84,7 @@ class MonthlyCashFlowTable extends TableWidget
             'label' => 'Total',
             'received' => round(array_sum(array_column($flow, 'received')), 2),
             'paid' => round(array_sum(array_column($flow, 'paid')), 2),
+            'refunded' => array_sum(array_column($flow, 'refunded')),
             'result' => round(array_sum(array_column($flow, 'result')), 2),
             'is_total' => true,
             'is_current' => false,

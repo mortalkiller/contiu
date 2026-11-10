@@ -4,11 +4,15 @@ namespace App\Models;
 
 use App\Enums\PaymentMethod;
 use App\Models\Concerns\BelongsToAccount;
+use App\Models\Concerns\DeletesAtomically;
 use App\Models\Concerns\ExplainsBankLine;
 use App\Support\FinanceSettings;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Validation\ValidationException;
 use OwenIt\Auditing\Auditable;
 use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
 
@@ -17,7 +21,7 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  */
 class Payment extends Model implements AuditableContract
 {
-    use Auditable, BelongsToAccount, ExplainsBankLine, HasFactory;
+    use Auditable, BelongsToAccount, DeletesAtomically, ExplainsBankLine, HasFactory;
 
     protected $guarded = ['id'];
 
@@ -44,7 +48,42 @@ class Payment extends Model implements AuditableContract
             }
         });
 
+        static::updating(function (Payment $payment): void {
+            if ($payment->isDirty('advance_client_id')
+                || ($payment->isAdvance() && $payment->isDirty(['amount', 'paid_on', 'receivable_id', 'is_split']))) {
+                throw ValidationException::withMessages(['amount' => 'A data, o cliente e o montante de um sinal não podem ser alterados.']);
+            }
+
+            if ($payment->isDirty('is_split') || ($payment->is_split && $payment->isDirty(['amount', 'receivable_id']))) {
+                throw ValidationException::withMessages(['amount' => 'O montante de um recebimento repartido é definido pelas suas afetações.']);
+            }
+        });
+
+        static::saved(function (Payment $payment): void {
+            if ($payment->isAdvance()) {
+                return;
+            }
+
+            if ($payment->is_split) {
+                if ($payment->wasChanged('paid_on')) {
+                    $payment->allocations()->update(['allocated_on' => $payment->paid_on->toDateString()]);
+                }
+
+                return;
+            }
+
+            $payment->allocations()->where('receivable_id', '!=', $payment->receivable_id)->delete();
+            $payment->allocations()->updateOrCreate(['receivable_id' => $payment->receivable_id], [
+                'amount' => $payment->amount,
+                'allocated_on' => $payment->paid_on,
+            ]);
+        });
+
         static::creating(function (Payment $payment): void {
+            if ($payment->isAdvance() === filled($payment->receivable_id) || ($payment->isAdvance() && $payment->is_split)) {
+                throw ValidationException::withMessages(['receivable_id' => 'O recebimento deve indicar uma cobrança ou o cliente do sinal.']);
+            }
+
             if ($payment->tax_exempt === null) {
                 $billable = $payment->receivable?->billable;
                 $payment->tax_exempt = $billable instanceof Retainer
@@ -61,10 +100,48 @@ class Payment extends Model implements AuditableContract
             'amount' => 'integer',
             'method' => PaymentMethod::class,
             'tax_exempt' => 'boolean',
+            'is_split' => 'boolean',
         ];
     }
 
-    /** @return BelongsTo<Receivable, $this> */
+    public function save(array $options = []): bool
+    {
+        return $this->getConnection()->transaction(fn (): bool => parent::save($options));
+    }
+
+    /** @return HasMany<PaymentAllocation, $this> */
+    public function allocations(): HasMany
+    {
+        return $this->hasMany(PaymentAllocation::class);
+    }
+
+    public function receivableLabels(): string
+    {
+        return $this->isAdvance() && $this->allocations->isEmpty()
+            ? 'Sinal por afetar · '.$this->client?->name
+            : $this->allocations->map(fn (PaymentAllocation $allocation): string => $allocation->receivable->label)->implode(' · ');
+    }
+
+    public function isAdvance(): bool
+    {
+        return $this->advance_client_id !== null;
+    }
+
+    protected function client(): Attribute
+    {
+        return Attribute::get(fn (): ?Client => $this->isAdvance() ? $this->advanceClient : $this->receivable?->client);
+    }
+
+    /** @return BelongsTo<Client, $this> */
+    public function advanceClient(): BelongsTo
+    {
+        return $this->belongsTo(Client::class);
+    }
+
+    /** Compatibility anchor for legacy single-payment writers and the client of a split.
+     *
+     * @return BelongsTo<Receivable, $this>
+     */
     public function receivable(): BelongsTo
     {
         return $this->belongsTo(Receivable::class);

@@ -6,20 +6,30 @@ use App\Enums\BankTransactionStatus;
 use App\Enums\CategoryType;
 use App\Enums\DifferenceExplanation;
 use App\Enums\ExpenseKind;
+use App\Enums\FiscalDocumentDirection;
+use App\Enums\FiscalDocumentStatus;
 use App\Enums\PaymentMethod;
+use App\Exceptions\AccountIsReadOnly;
+use App\Models\Account;
 use App\Models\BankTransaction;
 use App\Models\Category;
 use App\Models\Expense;
+use App\Models\FiscalDocument;
+use App\Models\FiscalDocumentLink;
 use App\Models\OneOffIncome;
 use App\Models\Payment;
+use App\Models\PlatformPayout;
 use App\Models\Receivable;
 use App\Models\RecurringExpense;
 use App\Models\Supplier;
 use App\Support\BankCandidate;
+use App\Support\CurrentAccount;
 use App\Support\Money;
+use App\Support\PlatformPayoutAmounts;
 use DomainException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 /**
  * Turns a pending bank line into what it is: a payment received, an expense paid, a new expense,
@@ -51,7 +61,6 @@ class ApplyBankTransaction
      */
     public function linkRecords(BankTransaction $transaction, array $records, ?DifferenceExplanation $explanation = null): array
     {
-        $this->ensurePending($transaction);
         $records = array_values($records);
 
         if ($records === []) {
@@ -70,6 +79,8 @@ class ApplyBankTransaction
         }
 
         DB::transaction(function () use ($transaction, $records, $explanation): void {
+            $this->ensurePending($transaction);
+
             foreach ($records as $record) {
                 $this->attach($transaction, $record);
             }
@@ -141,14 +152,14 @@ class ApplyBankTransaction
     /** @param array<int, string> $targets */
     public function applyTargets(BankTransaction $transaction, array $targets, ?DifferenceExplanation $explanation = null): void
     {
-        $this->ensurePending($transaction);
-        $plan = $this->planTargets($transaction, $targets);
+        DB::transaction(function () use ($transaction, $targets, $explanation): void {
+            $this->ensurePending($transaction);
+            $plan = $this->planTargets($transaction, $targets);
 
-        if ($plan === []) {
-            throw new DomainException('Escolhe pelo menos um registo.');
-        }
+            if ($plan === []) {
+                throw new DomainException('Escolhe pelo menos um registo.');
+            }
 
-        DB::transaction(function () use ($transaction, $plan, $explanation): void {
             foreach ($plan as $step) {
                 match (true) {
                     $step['model'] instanceof Payment, $step['model'] instanceof Expense => $this->attach($transaction, $step['model']),
@@ -165,8 +176,6 @@ class ApplyBankTransaction
 
     public function toReceivable(BankTransaction $transaction, Receivable $receivable): Payment
     {
-        $this->ensurePending($transaction);
-
         if (! $transaction->is_credit) {
             throw new DomainException('Só uma entrada de dinheiro pode ser um recebimento.');
         }
@@ -177,10 +186,13 @@ class ApplyBankTransaction
             throw new DomainException('O valor do extrato ('.Money::format($transaction->absolute_amount).') é maior do que o que falta receber ('.Money::format($receivable->outstanding).').');
         }
 
-        return DB::transaction(fn (): Payment => tap(
-            $this->createPayment($transaction, $receivable, $transaction->absolute_amount),
-            fn () => $this->markMatched($transaction),
-        ));
+        return DB::transaction(function () use ($transaction, $receivable): Payment {
+            $this->ensurePending($transaction);
+            $payment = $this->createPayment($transaction, $receivable, $transaction->absolute_amount);
+            $this->markMatched($transaction);
+
+            return $payment;
+        });
     }
 
     public function toExpense(BankTransaction $transaction, Expense $expense): Expense
@@ -191,17 +203,26 @@ class ApplyBankTransaction
             throw new DomainException('Esta despesa já está paga.');
         }
 
-        return DB::transaction(fn (): Expense => tap($this->attach($transaction, $expense), fn () => $this->markMatched($transaction)));
+        return DB::transaction(function () use ($transaction, $expense): Expense {
+            $this->ensurePending($transaction);
+            $this->attach($transaction, $expense);
+            $this->markMatched($transaction);
+
+            return $expense;
+        });
     }
 
     public function fromTemplate(BankTransaction $transaction, RecurringExpense $template): Expense
     {
         $this->ensureDebit($transaction);
 
-        return DB::transaction(fn (): Expense => tap(
-            $this->createFromTemplate($transaction, $template, $transaction->absolute_amount),
-            fn () => $this->markMatched($transaction),
-        ));
+        return DB::transaction(function () use ($transaction, $template): Expense {
+            $this->ensurePending($transaction);
+            $expense = $this->createFromTemplate($transaction, $template, $transaction->absolute_amount);
+            $this->markMatched($transaction);
+
+            return $expense;
+        });
     }
 
     private function createFromTemplate(BankTransaction $transaction, RecurringExpense $template, int $amount): Expense
@@ -233,10 +254,13 @@ class ApplyBankTransaction
     {
         $this->ensureDebit($transaction);
 
-        return DB::transaction(fn (): Expense => tap(
-            $this->createExpenseFor($transaction, $data, $transaction->absolute_amount),
-            fn () => $this->markMatched($transaction),
-        ));
+        return DB::transaction(function () use ($transaction, $data): Expense {
+            $this->ensurePending($transaction);
+            $expense = $this->createExpenseFor($transaction, $data, $transaction->absolute_amount);
+            $this->markMatched($transaction);
+
+            return $expense;
+        });
     }
 
     /** @param array<string, mixed> $data */
@@ -269,9 +293,10 @@ class ApplyBankTransaction
     /** Money between Pedro's own accounts: neither income nor expense. */
     public function markOwnTransfer(BankTransaction $transaction): BankTransaction
     {
-        $this->ensurePending($transaction);
-
-        $transaction->update(['status' => BankTransactionStatus::OwnTransfer]);
+        DB::transaction(function () use ($transaction): void {
+            $this->ensurePending($transaction);
+            $transaction->update(['status' => BankTransactionStatus::OwnTransfer]);
+        });
 
         return $transaction;
     }
@@ -282,11 +307,11 @@ class ApplyBankTransaction
      */
     public function undo(BankTransaction $transaction): void
     {
-        if ($transaction->status === BankTransactionStatus::Pending) {
-            throw new DomainException('Esta linha ainda está por tratar.');
-        }
-
         DB::transaction(function () use ($transaction): void {
+            if ($this->lockedStatus($transaction) === BankTransactionStatus::Pending) {
+                throw new DomainException('Esta linha ainda está por tratar.');
+            }
+
             foreach ($transaction->links()->with('linkable')->get() as $link) {
                 $record = $link->linkable;
                 $link->delete();
@@ -302,6 +327,10 @@ class ApplyBankTransaction
                 }
             }
 
+            PlatformPayout::query()->where('bank_transaction_id', $transaction->id)->whereNull('undone_at')
+                ->each(fn (PlatformPayout $payout) => $payout->update(['undone_at' => now(), 'undone_by' => auth()->id()]));
+
+            $transaction->customerRefund()->update(['bank_transaction_id' => null]);
             $transaction->update(['status' => BankTransactionStatus::Pending, 'difference_explanation' => null]);
         });
     }
@@ -373,6 +402,34 @@ class ApplyBankTransaction
     {
         $income = $record instanceof Payment ? $record->receivable?->billable : null;
 
+        $links = FiscalDocumentLink::query()
+            ->where($record instanceof Payment ? 'payment_id' : 'expense_id', $record->getKey());
+
+        if ($income instanceof OneOffIncome) {
+            $receivables = $income->receivables()->pluck('id');
+            $links->orWhereIn('receivable_id', $receivables)
+                ->orWhereIn('payment_id', Payment::query()->whereIn('receivable_id', $receivables)->select('id'));
+
+            if ($income->commission_expense_id !== null) {
+                $links->orWhere('expense_id', $income->commission_expense_id);
+            }
+        }
+
+        if ($links->exists()) {
+            throw new DomainException('Um dos registos criados está associado a um documento fiscal. Revê a ligação antes de voltar a tratar esta linha.');
+        }
+
+        $expenseId = match (true) {
+            $record instanceof Expense => $record->getKey(),
+            $income instanceof OneOffIncome => $income->commission_expense_id,
+            default => null,
+        };
+        $expense = $expenseId === null ? null : Expense::query()->lockForUpdate()->find($expenseId);
+
+        if ($expense?->proof_path !== null) {
+            throw new DomainException('A despesa criada tem um comprovativo. Revê o comprovativo antes de voltar a tratar esta linha.');
+        }
+
         $income instanceof OneOffIncome ? $income->delete() : $record->fresh()?->delete();
     }
 
@@ -384,8 +441,6 @@ class ApplyBankTransaction
      */
     public function createOneOffIncome(BankTransaction $transaction, array $data): OneOffIncome
     {
-        $this->ensurePending($transaction);
-
         if (! $transaction->is_credit) {
             throw new DomainException('Só uma entrada de dinheiro pode ser uma receita.');
         }
@@ -397,32 +452,166 @@ class ApplyBankTransaction
         }
 
         return DB::transaction(function () use ($transaction, $data): OneOffIncome {
-            $income = app(RecordOneOffIncome::class)->handle([...$data, 'received_on' => $transaction->booked_on]);
-
-            foreach ($income->receivables()->with('payments')->get()->flatMap->payments as $payment) {
-                $this->link($transaction, $payment, createdFromLine: true);
-            }
-
-            if ($income->commissionExpense !== null) {
-                $this->link($transaction, $income->commissionExpense, createdFromLine: true);
-            }
-
+            $this->ensurePending($transaction);
+            $income = $this->recordIncome($transaction, $data);
             $this->markMatched($transaction);
 
             return $income;
         });
     }
 
+    /**
+     * @param  array<array{platform_id: int, title: string, reference?: ?string, currency: string,
+     *     original_gross: int, original_commission: int, fx_rate?: ?string, fx_reference?: ?string,
+     *     fx_confirmed?: bool, commission_document_id?: ?int, invoice_number?: ?string}>  $payouts
+     * @return list<PlatformPayout>
+     */
+    public function createPlatformPayouts(BankTransaction $transaction, array $payouts): array
+    {
+        if (CurrentAccount::readOnly()) {
+            throw new AccountIsReadOnly;
+        }
+
+        if (count($payouts) < 1 || count($payouts) > 50) {
+            throw new DomainException('Indica entre 1 e 50 depósitos.');
+        }
+
+        return DB::transaction(function () use ($transaction, $payouts): array {
+            Account::query()->lockForUpdate()->findOrFail(CurrentAccount::id());
+            $this->ensurePending($transaction);
+
+            if (! $transaction->is_credit) {
+                throw new DomainException('Só uma entrada de dinheiro pode ser um depósito de plataforma.');
+            }
+
+            $remaining = $transaction->amount;
+            $records = [];
+
+            foreach ($payouts as $data) {
+                $amounts = PlatformPayoutAmounts::from($data);
+                $remaining -= $amounts->netEur();
+
+                if ($remaining < 0) {
+                    throw new DomainException('Há uma diferença entre o líquido dos depósitos e a entrada no banco.');
+                }
+
+                $records[] = $this->recordPlatformPayout($transaction, $data, $amounts);
+            }
+
+            if ($remaining !== 0) {
+                throw new DomainException('Há uma diferença entre o líquido dos depósitos e a entrada no banco.');
+            }
+
+            $this->markMatched($transaction);
+
+            return $records;
+        });
+    }
+
+    /** @param array<string, mixed> $data */
+    private function recordPlatformPayout(BankTransaction $transaction, array $data, PlatformPayoutAmounts $amounts): PlatformPayout
+    {
+        $metadata = Validator::make($data, [
+            'platform_id' => ['required', 'integer', 'min:1'],
+            'title' => ['required', 'string', 'max:255'],
+            'reference' => ['nullable', 'string', 'max:255'],
+            'fx_reference' => ['nullable', 'string', 'max:255'],
+            'commission_document_id' => ['nullable', 'integer', 'min:1'],
+            'invoice_number' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        if ($metadata->fails()) {
+            throw new DomainException('Confere a plataforma, a descrição e as referências do depósito.');
+        }
+
+        $fxReference = $amounts->fxRate === null ? null : trim($data['fx_reference'] ?? '');
+
+        if ($amounts->fxRate !== null && ($fxReference === '' || ! in_array($data['fx_confirmed'] ?? null, [true, 1, '1'], true))) {
+            throw new DomainException('Indica a referência e confirma a conversão para euros.');
+        }
+
+        $platform = Supplier::find($data['platform_id']);
+
+        if ($platform === null) {
+            throw new DomainException('Escolhe uma plataforma desta conta.');
+        }
+
+        $document = null;
+
+        if (filled($data['commission_document_id'] ?? null)) {
+            $document = FiscalDocument::query()
+                ->where('direction', FiscalDocumentDirection::Received)
+                ->where('status', FiscalDocumentStatus::Active)
+                ->lockForUpdate()
+                ->find($data['commission_document_id']);
+
+            if ($document === null || $amounts->commissionEur === 0) {
+                throw new DomainException('Escolhe um documento recebido e ativo para comprovar a comissão.');
+            }
+        }
+
+        $income = $this->recordIncome($transaction, [
+            'title' => $data['title'],
+            'gross_amount' => $amounts->grossEur,
+            'commission' => $amounts->commissionEur,
+            'commission_supplier_id' => $platform->id,
+            'invoice_number' => $data['invoice_number'] ?? null,
+        ]);
+
+        return PlatformPayout::create([
+            'bank_transaction_id' => $transaction->id,
+            'one_off_income_id' => $income->id,
+            'platform_id' => $platform->id,
+            'platform_name' => $platform->name,
+            'title' => $data['title'],
+            'reference' => $data['reference'] ?? null,
+            'currency' => $amounts->currency,
+            'original_gross' => $amounts->originalGross,
+            'original_commission' => $amounts->originalCommission,
+            'gross_eur' => $amounts->grossEur,
+            'commission_eur' => $amounts->commissionEur,
+            'fx_rate' => $amounts->fxRate,
+            'fx_reference' => $fxReference,
+            'commission_document_id' => $document?->id,
+            'commission_document_number' => $document?->number,
+            'reconciled_by' => auth()->id(),
+        ]);
+    }
+
+    /** @param array<string, mixed> $data */
+    private function recordIncome(BankTransaction $transaction, array $data): OneOffIncome
+    {
+        $income = app(RecordOneOffIncome::class)->handle([...$data, 'received_on' => $transaction->booked_on]);
+
+        foreach ($income->receivables()->with('payments')->get()->flatMap->payments as $payment) {
+            $this->link($transaction, $payment, createdFromLine: true);
+        }
+
+        if ($income->commissionExpense !== null) {
+            $this->link($transaction, $income->commissionExpense, createdFromLine: true);
+        }
+
+        return $income;
+    }
+
     public function ignore(BankTransaction $transaction): void
     {
-        $this->ensurePending($transaction);
-
-        $transaction->update(['status' => BankTransactionStatus::Ignored]);
+        DB::transaction(function () use ($transaction): void {
+            $this->ensurePending($transaction);
+            $transaction->update(['status' => BankTransactionStatus::Ignored]);
+        });
     }
 
     private function createPayment(BankTransaction $transaction, Receivable $receivable, int $amount): Payment
     {
-        $payment = $receivable->payments()->create([
+        $receivable = Receivable::query()->lockForUpdate()->findOrFail($receivable->id);
+
+        if ($amount > $receivable->outstanding) {
+            throw new DomainException('O montante excede o que falta receber nesta cobrança.');
+        }
+
+        $payment = Payment::create([
+            'receivable_id' => $receivable->id,
             'paid_on' => $transaction->booked_on,
             'amount' => $amount,
             'method' => PaymentMethod::Transfer,
@@ -473,15 +662,21 @@ class ApplyBankTransaction
 
     private function ensurePending(BankTransaction $transaction): void
     {
-        if ($transaction->status !== BankTransactionStatus::Pending) {
+        if ($this->lockedStatus($transaction) !== BankTransactionStatus::Pending) {
             throw new DomainException('Esta linha do extrato já foi tratada.');
         }
     }
 
+    private function lockedStatus(BankTransaction $transaction): BankTransactionStatus
+    {
+        $locked = BankTransaction::query()->lockForUpdate()->findOrFail($transaction->getKey());
+        $transaction->setRawAttributes($locked->getAttributes(), sync: true);
+
+        return $locked->status;
+    }
+
     private function ensureDebit(BankTransaction $transaction): void
     {
-        $this->ensurePending($transaction);
-
         if ($transaction->is_credit) {
             throw new DomainException('Só uma saída de dinheiro pode ser uma despesa.');
         }

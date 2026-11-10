@@ -40,6 +40,15 @@ final class MarginReport
         return $this->cache['client'] ??= $this->group(fn (?Model $billable) => $billable?->client?->name ?? '—');
     }
 
+    /** @return array<int, array{label: string, invoiced: int, received: int, directCosts: int, margin: int, marginPercent: ?float}> */
+    public function byClientId(): array
+    {
+        return $this->cache['clientId'] ??= $this->group(
+            fn (?Model $billable): int => $billable?->client?->id ?? 0,
+            fn (?Model $billable): string => $billable?->client?->name ?? '—',
+        );
+    }
+
     /** @return array{invoiced: int, received: int, directCosts: int, margin: int, marginPercent: ?float, overhead: int, result: int} (cents) */
     public function totals(): array
     {
@@ -69,24 +78,25 @@ final class MarginReport
             ->sum(fn (Expense $expense) => $expense->total);
     }
 
-    /** @return array<string, array<string, mixed>> */
-    private function group(callable $key): array
+    /** @return array<array-key, array<string, mixed>> */
+    private function group(callable $key, ?callable $labelFor = null): array
     {
         $rows = [];
 
-        $add = function (?Model $billable, string $field, int $amount) use (&$rows, $key): void {
-            $label = $key($billable);
-            $rows[$label] ??= ['label' => $label, 'invoiced' => 0, 'received' => 0, 'directCosts' => 0];
-            $rows[$label][$field] += $amount;
+        $add = function (?Model $billable, string $field, int $amount) use (&$rows, $key, $labelFor): void {
+            $group = $key($billable);
+            $rows[$group] ??= ['label' => $labelFor ? $labelFor($billable) : $group, 'invoiced' => 0, 'received' => 0, 'directCosts' => 0];
+            $rows[$group][$field] += $amount;
         };
 
         (new PeriodSummary($this->period))->contractedReceivablesQuery()->with('billable.client')->get()
             ->each(fn (Receivable $receivable) => $add($receivable->billable, 'invoiced', $receivable->amount));
 
-        Payment::query()->with('receivable.billable.client')
+        Payment::query()->with('allocations.receivable.billable.client')
             ->whereBetween('paid_on', $this->period->range())
             ->get()
-            ->each(fn (Payment $payment) => $add($payment->receivable?->billable, 'received', $payment->amount));
+            ->flatMap->allocations
+            ->each(fn ($allocation) => $add($allocation->receivable->billable, 'received', $allocation->amount));
 
         Expense::query()->with(['project.client', 'retainer.client'])
             ->where('kind', ExpenseKind::Direct)

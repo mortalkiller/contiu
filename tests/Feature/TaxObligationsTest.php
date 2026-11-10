@@ -12,6 +12,7 @@ use App\Models\TaxObligationCompletion;
 use App\Models\User;
 use App\Support\CurrentAccount;
 use App\Support\FinanceSettings;
+use App\Support\SocialSecurity;
 use App\Support\TaxEstimator;
 use App\Support\TaxObligation;
 use App\Support\TaxObligations;
@@ -92,6 +93,19 @@ it('shows the January set across the year boundary', function () {
         ->and($rows['ss:2026-12']->status)->toBe('overdue')
         // Overdue ones come first: ordered by deadline.
         ->and(array_key_first($rows))->toBe('ss:2026-12');
+});
+
+it('opens only closed declarations and uses the confirmed SS amount on the calendar deadline', function () {
+    $obligations = obligationsOn('2026-11-09', since: '2026-09-01');
+    actingAsAdmin();
+    app(SocialSecurity::class)->confirmContribution('2026-Q3', '2026-10', 12345);
+
+    $rows = byKey($obligations->thisMonth());
+
+    expect($rows['ss:2026-11']->amount)->toBe(12345)
+        ->and($rows['ss:2026-11']->url)->toContain('seguranca-social', 'quarter=2026-Q3')
+        ->and($rows['ss-declaration:2026-Q3']->url)->toContain('seguranca-social', 'quarter=2026-Q3')
+        ->and(byKey($obligations->upcoming())['ss-declaration:2026-Q4']->url)->toBeNull();
 });
 
 it('drops completed obligations and reopens them', function () {
@@ -240,6 +254,7 @@ it('shows the VAT threshold and foreign VAT warnings as info', function () {
     $rows = byKey(obligationsOn('2026-11-09', [...OBLIGATIONS_COMPLETE_SETTINGS, 'vat_exempt' => true])->thisMonth());
 
     expect($rows['vat-threshold:2026'])->toMatchObject(['kind' => 'vat-threshold', 'status' => 'info', 'amount' => 1200000])
+        ->and($rows['vat-threshold:2026']->detail)->toContain('aproximação por recebimentos')
         ->and($rows['foreign-vat-warning:'.$withVat->id])->toMatchObject(['kind' => 'foreign-vat-warning', 'status' => 'info'])
         ->and(array_key_last($rows))->toBe('foreign-vat-warning:'.$withVat->id)
         ->and(byKey(obligationsOn('2026-11-09', [...OBLIGATIONS_COMPLETE_SETTINGS, 'vat_exempt' => false])->thisMonth()))->not->toHaveKey('vat-threshold:2026');

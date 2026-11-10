@@ -77,7 +77,7 @@ final class ReconciliationColumns
             ->visible(fn (Payment|Expense $record) => self::enabled() && ($record instanceof Payment || $record->is_paid))
             ->modalHeading('Reconciliação com o banco')
             ->modalDescription(fn (Payment|Expense $record) => $record instanceof Payment
-                ? 'Recebimento '.$record->receivable?->label.' · '.$record->paid_on?->format('d/m/Y').' · '.Money::format($record->amount)
+                ? 'Recebimento '.($record->is_split ? $record->receivableLabels() : $record->receivable?->label).' · '.$record->paid_on?->format('d/m/Y').' · '.Money::format($record->amount)
                 : 'Despesa '.$record->description.' · '.($record->paid_on ?? $record->spent_on)?->format('d/m/Y').' · '.Money::format($record->total))
             ->modalContent(fn (Payment|Expense $record) => view('filament.partials.reconciliation-details', ['result' => self::for($record), 'isExpense' => $record instanceof Expense]))
             ->modalSubmitAction(false)

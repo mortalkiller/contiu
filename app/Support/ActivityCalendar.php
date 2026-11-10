@@ -77,17 +77,17 @@ final class ActivityCalendar
     private function payments(CarbonImmutable $from, CarbonImmutable $to): array
     {
         return Payment::query()
-            ->with('receivable.billable.client')
+            ->with(['advanceClient', 'receivable.billable.client'])
             ->whereBetween('paid_on', [$from->toDateString(), $to->toDateString()])
             ->get()
             ->map(fn (Payment $payment) => new CalendarEntry(
                 id: 'payment:'.$payment->getKey(),
                 type: CalendarEntryType::Payment,
                 date: CarbonImmutable::parse($payment->paid_on),
-                title: 'Recebido · '.($payment->receivable?->client?->name ?? $payment->receivable?->description).' · '.Money::format($payment->amount),
+                title: ($payment->isAdvance() ? 'Sinal recebido · ' : 'Recebido · ').($payment->client?->name ?? $payment->receivable?->description).' · '.Money::format($payment->amount),
                 amount: $payment->amount,
                 status: 'paid',
-                url: $payment->receivable?->billableUrl() ?? PaymentResource::getUrl(),
+                url: ($payment->is_split ? null : $payment->receivable?->billableUrl()) ?? PaymentResource::getUrl(),
             ))
             ->all();
     }

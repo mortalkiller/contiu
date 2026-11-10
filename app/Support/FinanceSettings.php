@@ -32,6 +32,8 @@ final class FinanceSettings
         'irs_jovem_year' => null, // {"year": 2026, "number": 2}: the IRS Jovem year number in a reference year
         'ss_contribution_exempt' => false,
         'reverse_charge_vat_rate' => 0.23,
+        'tax_reserved_amount' => 0,
+        'tax_reserve_transfer' => null,
         // From when the obligations card lists overdue obligations (default: the account's creation).
         'obligations_tracked_from' => null,
     ];
@@ -83,6 +85,17 @@ final class FinanceSettings
     public function hasBusinessAccount(): bool
     {
         return (bool) $this->all()['has_business_account'];
+    }
+
+    public function taxReservedAmount(): int
+    {
+        return (int) $this->all()['tax_reserved_amount'];
+    }
+
+    /** @return array{id: int, amount: int, bookedOn: string}|null */
+    public function taxReserveTransfer(): ?array
+    {
+        return $this->all()['tax_reserve_transfer'];
     }
 
     public function vatExempt(): bool
