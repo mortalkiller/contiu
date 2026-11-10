@@ -21,10 +21,10 @@ beforeEach(function () {
     actingAsAdmin();
 });
 
-it('opens the calendar page in the Análise group', function () {
+it('opens the calendar page from the top of the menu, outside any group', function () {
     $this->get(Calendar::getUrl())->assertOk()->assertSee('Calendário');
 
-    expect(Calendar::getNavigationGroup())->toBe('Análise');
+    expect(Calendar::getNavigationGroup())->toBeNull();
 });
 
 it('shows only Phosphor icons on the calendar page and its toolbar', function () {

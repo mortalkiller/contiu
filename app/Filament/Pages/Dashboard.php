@@ -14,6 +14,7 @@ use App\Filament\Widgets\TaxObligationsCard;
 use App\Filament\Widgets\UpcomingReceivablesTable;
 use App\Support\Period;
 use App\Support\PeriodSummary;
+use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
@@ -36,8 +37,12 @@ class Dashboard extends BaseDashboard
 
     protected static ?string $title = 'Painel';
 
-    /** The logo already leads to the dashboard. */
-    protected static bool $shouldRegisterNavigation = false;
+    /** First in the menu, as "Hoje"; the page and the browser tab keep the "Painel" title. */
+    protected static ?string $navigationLabel = 'Hoje';
+
+    protected static string|BackedEnum|null $navigationIcon = Phosphor::House;
+
+    protected static ?int $navigationSort = -3;
 
     /** Always open on the current year instead of the last period looked at. */
     public function persistsFiltersInSession(): bool

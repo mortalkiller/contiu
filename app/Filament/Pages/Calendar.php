@@ -22,9 +22,10 @@ class Calendar extends Page
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::CalendarDots;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Análise';
+    /** At the top of the menu, with Hoje and Fecho do mês: outside any group. */
+    protected static string|UnitEnum|null $navigationGroup = null;
 
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = -1;
 
     public function getSubheading(): string
     {

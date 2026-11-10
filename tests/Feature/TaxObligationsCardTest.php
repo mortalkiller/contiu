@@ -76,7 +76,8 @@ it('puts the month obligations at the very top of the dashboard, before the filt
 
     // Widgets render lazily: their class names in the page mark where each one sits.
     $card = strpos($html, 'TaxObligationsCard');
-    $filters = strpos($html, 'Fecho do mês');
+    // The last "Fecho do mês" is the button next to the filters; the first is the menu entry.
+    $filters = strrpos($html, 'Fecho do mês');
     $stats = strpos($html, 'FinanceStatsOverview');
 
     expect($card)->not->toBeFalse()
@@ -101,7 +102,8 @@ it('flags overdue rows and shows the VAT exemption threshold', function () {
     Livewire::test(TaxObligationsCard::class)
         ->assertSeeInOrder(['Segurança Social', 'atrasado 36 dias', 'Declaração trimestral', 'atrasado 25 dias', 'Segurança Social', 'atrasado 5 dias'])
         ->assertSeeInOrder([Money::format(4000), 'a pagar · 3 tarefas'])
-        ->assertSeeInOrder(['Isenção de IVA', '0,0 %']);
+        ->assertSeeInOrder(['Isenção de IVA · aproximação', '0,0 %'])
+        ->assertSee('Aproximação por recebimentos');
 });
 
 it('marks an obligation as done and hides it', function () {

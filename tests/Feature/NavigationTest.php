@@ -1,5 +1,8 @@
 <?php
 
+use App\Filament\Pages\Dashboard;
+use App\Filament\Resources\Expenses\ExpenseResource;
+use App\Filament\Resources\Receivables\ReceivableResource;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
@@ -13,11 +16,15 @@ function navigation(): array
         ->all();
 }
 
-it('has no Painel or Fecho do mês entries — the logo and the dashboard button lead there', function () {
-    $labels = collect(navigation())->flatten()->all();
+it('opens with Hoje, Fecho do mês and Calendário, outside any group', function () {
+    expect(array_slice(navigation()['—'], 0, 3))->toBe(['Hoje', 'Fecho do mês', 'Calendário']);
+});
 
-    expect($labels)->not->toContain('Painel')
-        ->not->toContain('Fecho do mês');
+it('groups the bank statement and the tax pages on their own', function () {
+    $navigation = navigation();
+
+    expect($navigation['Banco'])->toBe(['Extrato bancário'])
+        ->and($navigation['Impostos'])->toContain('Estimativa de impostos', 'Segurança Social', 'Revisão de IVA', 'Retenções na fonte', 'Cenário de IRS');
 });
 
 it('keeps the plugin screens under Definições, with no Plugins menu', function () {
@@ -25,4 +32,22 @@ it('keeps the plugin screens under Definições, with no Plugins menu', function
 
     expect($navigation)->not->toHaveKey('Plugins')
         ->and($navigation['Definições'])->toContain('Roles', 'Audits', 'Cópias de Segurança');
+});
+
+it('gives phones a tab bar with the main places and a "+" for new records', function () {
+    actingAsAdmin();
+
+    $this->get(Dashboard::getUrl())
+        ->assertOk()
+        ->assertSee('contiu-tab-bar', escape: false)
+        ->assertSee(ReceivableResource::getUrl(), escape: false)
+        ->assertSee(ExpenseResource::getUrl(), escape: false)
+        ->assertSee('fi-quick-create-fab', escape: false)
+        ->assertSee('Mais');
+});
+
+it('has no tab bar on the sign-in page', function () {
+    $this->get(route('filament.admin.auth.login'))
+        ->assertOk()
+        ->assertDontSee('contiu-tab-bar', escape: false);
 });

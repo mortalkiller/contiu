@@ -26,6 +26,12 @@ class QuickCreateMenu extends Component implements HasActions, HasSchemas
     use InteractsWithActions;
     use InteractsWithSchemas;
 
+    /**
+     * True for the copy in the phone tab bar: a round "+" whose menu opens upwards. The topbar
+     * copy (the default) is a "Novo" button whose menu opens downwards.
+     */
+    public bool $tabBar = false;
+
     public function recordPaymentAction(): Action
     {
         return RecordPaymentAction::make();
@@ -38,7 +44,7 @@ class QuickCreateMenu extends Component implements HasActions, HasSchemas
 
     public function menu(): ActionGroup
     {
-        return ActionGroup::make([
+        $menu = ActionGroup::make([
             $this->recordPaymentAction(),
             $this->oneOffIncomeAction(),
             Action::make('newExpense')
@@ -60,11 +66,19 @@ class QuickCreateMenu extends Component implements HasActions, HasSchemas
         ])
             ->label('Novo')
             ->icon(Phosphor::Plus)
-            ->button()
-            ->color('primary')
-            ->size('sm')
-            ->dropdownPlacement('bottom-end')
-            ->extraAttributes(['class' => 'fi-quick-create-btn']);
+            ->color('primary');
+
+        return $this->tabBar
+            ? $menu
+                ->iconButton()
+                ->size('xl')
+                ->dropdownPlacement('top')
+                ->extraAttributes(['class' => 'fi-quick-create-fab'])
+            : $menu
+                ->button()
+                ->size('sm')
+                ->dropdownPlacement('bottom-end')
+                ->extraAttributes(['class' => 'fi-quick-create-btn']);
     }
 
     public function render(): View

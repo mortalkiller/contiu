@@ -3,11 +3,14 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Analysis\Widgets\TaxQuartersTable;
+use App\Filament\Resources\FiscalDocuments\FiscalDocumentResource;
+use App\Support\DocumentedTurnover;
 use App\Support\FinanceSettings;
 use App\Support\Money;
 use App\Support\Period;
 use App\Support\PeriodSummary;
 use App\Support\TaxEstimator;
+use App\Support\TerritorialTurnover;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
@@ -34,7 +37,7 @@ class TaxEstimate extends Page
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::Calculator;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Análise';
+    protected static string|UnitEnum|null $navigationGroup = 'Impostos';
 
     protected static ?int $navigationSort = 3;
 
@@ -48,12 +51,20 @@ class TaxEstimate extends Page
 
     public function getSubheading(): string
     {
-        return 'ENI em regime simplificado. O rendimento considerado é o que recebeste no ano.';
+        return 'ENI em regime simplificado. A estimativa usa o rendimento recebido no ano.';
     }
 
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('socialSecurity')
+                ->label('Segurança Social')
+                ->color('gray')
+                ->url(SocialSecurity::getUrl()),
+            Action::make('vatReview')
+                ->label('Revisão de IVA')
+                ->color('gray')
+                ->url(fn (): string => VatReviewPage::getUrl(['year' => $this->year])),
             Action::make('settings')
                 ->label('Definições fiscais')
                 ->icon(Phosphor::Sliders)
@@ -65,11 +76,16 @@ class TaxEstimate extends Page
     public function content(Schema $schema): Schema
     {
         $estimator = new TaxEstimator(app(FinanceSettings::class), $this->year ?? today()->year);
+        $territorial = TerritorialTurnover::forYear($estimator->year);
+        $vatThreshold = $estimator->vatExempt() ? $territorial->threshold($estimator) : null;
+        $previousYearNotice = $vatThreshold !== null && $estimator->year >= 2026
+            ? TerritorialTurnover::forYear($estimator->year - 1)->nextYearNotice()
+            : null;
 
         return $schema->components([
             ...($estimator->settings()->isIncomplete() ? [self::incompleteSettingsCallout()] : []),
             Callout::make('Estimativa — confirma os valores com o teu contabilista.')
-                ->description('Regras simplificadas: Segurança Social sobre 70% do rendimento de cada trimestre, IRS pelo coeficiente do regime simplificado e o limite de isenção de IVA, segundo as Definições fiscais.')
+                ->description('Consulta a base de cálculo de cada valor e a cobertura do volume de negócios nacional.')
                 ->icon(Phosphor::WarningCircle)
                 ->status('warning'),
             Section::make()
@@ -77,11 +93,15 @@ class TaxEstimate extends Page
                 ->schema([
                     Select::make('year')
                         ->label('Ano')
-                        ->options(PeriodSummary::availableYears())
+                        ->options(fn (): array => collect(array_keys(PeriodSummary::availableYears()))
+                            ->merge(DocumentedTurnover::issueYears())
+                            ->merge(TerritorialTurnover::reviewYears())
+                            ->unique()->sortDesc()->mapWithKeys(fn (int $year) => [$year => (string) $year])->all())
                         ->selectablePlaceholder(false)
                         ->native(false)
                         ->live(),
                 ]),
+            $this->turnoverSection(DocumentedTurnover::forYear($estimator->year), $territorial),
             Grid::make(['md' => 2, 'xl' => 4])->schema([
                 Section::make('Rendimento')
                     ->icon(Phosphor::HandCoins)
@@ -107,46 +127,128 @@ class TaxEstimate extends Page
                     ->schema($this->irsEntries($estimator)),
                 Section::make('IVA')
                     ->icon(Phosphor::Percent)
-                    ->schema($estimator->vatExempt()
-                        ? [
-                            TextEntry::make('vat')->hiddenLabel()->state(number_format($estimator->vatThresholdPercent(), 1, ',', ' ').'%')->size(TextSize::Large)->weight('bold')
-                                ->color(match ($estimator->vatThresholdStatus()) {
-                                    'critical', 'danger' => 'danger',
-                                    'warning' => 'warning',
-                                    default => 'success',
-                                }),
-                            TextEntry::make('vat_note')->hiddenLabel()->color('gray')
-                                ->state('Limite de isenção de IVA: '.Money::format($estimator->income()).' de '.Money::format($estimator->settings()->vatExemptionThreshold()).'.'),
-                        ]
-                        : [
-                            TextEntry::make('vat')->hiddenLabel()->state(Money::format($estimator->vatBalance()))->size(TextSize::Large)->weight('bold'),
-                            TextEntry::make('vat_note')->hiddenLabel()->color('gray')
-                                ->state('IVA liquidado '.Money::format($estimator->vatCollected()).' − IVA dedutível '.Money::format($estimator->vatPaid()).'.'),
-                        ]),
+                    ->schema($this->vatEntries($estimator, $vatThreshold, $territorial->subtotal() !== null)),
             ]),
-            ...match (true) {
-                $estimator->vatExempt() && $estimator->vatThresholdStatus() === 'critical' => [
-                    Callout::make('Ultrapassaste o limite de isenção de IVA')
-                        ->description('Passaste 125 % do limite: tens 15 dias úteis para entregar a declaração de alterações.')
-                        ->icon(Phosphor::WarningCircle)
-                        ->status('danger'),
-                ],
-                $estimator->vatExempt() && $estimator->vatThresholdStatus() === 'danger' => [
-                    Callout::make('Ultrapassaste o limite de isenção de IVA')
-                        ->description('Sais da isenção no próximo ano: declaração de alterações em janeiro.')
-                        ->icon(Phosphor::WarningCircle)
-                        ->status('danger'),
-                ],
-                $estimator->vatExempt() && $estimator->vatThresholdStatus() === 'warning' => [
-                    Callout::make('Estás perto do limite de isenção de IVA')
-                        ->description('Já usaste '.number_format($estimator->vatThresholdPercent(), 1, ',', ' ').'% do limite anual.')
-                        ->icon(Phosphor::WarningCircle)
-                        ->status('warning'),
-                ],
-                default => [],
-            },
+            ...(($vatThreshold['notice'] ?? null) !== null ? [
+                Callout::make('Limiar de IVA ultrapassado')->description($vatThreshold['notice'])->icon(Phosphor::WarningCircle)->status('danger'),
+            ] : []),
+            ...(($vatThreshold['advisory'] ?? null) !== null ? [
+                Callout::make('Alerta indicativo de IVA')->description($vatThreshold['advisory'])->icon(Phosphor::WarningCircle)->status('warning'),
+            ] : []),
+            ...($previousYearNotice === null ? [] : [
+                Callout::make('Limiar de IVA ultrapassado no ano anterior')->description($previousYearNotice)->icon(Phosphor::WarningCircle)->status('warning'),
+            ]),
             ...$this->getWidgetsSchemaComponents([TaxQuartersTable::class], ['year' => $this->year]),
         ]);
+    }
+
+    private function turnoverSection(DocumentedTurnover $turnover, TerritorialTurnover $territorial): Section
+    {
+        $year = $territorial->year;
+        $subtotal = $territorial->subtotal();
+        $billingNote = 'Indicador operacional pela data de emissão. As notas de crédito reduzem o total.';
+
+        if ($turnover->nonEuroDocumentCount > 0) {
+            $billingNote .= ' Documentos noutras moedas excluídos do total em EUR ('.$turnover->nonEuroDocumentCount.').';
+        }
+
+        return Section::make('Faturação e recebimentos')
+            ->columns(['md' => 3])
+            ->headerActions([
+                Action::make('billedDocuments')->label('Ver documentos incluídos')->link()
+                    ->visible(fn (): bool => $turnover->billedNet !== null && FiscalDocumentResource::canViewAny())
+                    ->url(fn (): string => FiscalDocumentResource::getUrl('index', ['tableFilters' => ['billed_year' => ['value' => $year]]])),
+                Action::make('territorialTurnover')->label('Rever volume nacional')->link()
+                    ->visible(fn (): bool => TerritorialTurnoverPage::canAccess())
+                    ->url(fn (): string => TerritorialTurnoverPage::getUrl(['year' => $year])),
+            ])
+            ->schema([
+                TextEntry::make('billed_net')
+                    ->label('Faturado líquido documentado')
+                    ->state($turnover->billedNet === null ? 'Sem documentos em EUR' : Money::format($turnover->billedNet))
+                    ->size(TextSize::Large)->weight('bold')
+                    ->helperText($billingNote),
+                TextEntry::make('registered_receipts')
+                    ->label('Recebimentos registados')
+                    ->state(Money::format($turnover->received))
+                    ->size(TextSize::Large)->weight('bold')
+                    ->helperText('Total pela data de pagamento, incluindo recebimentos marcados como isentos.'),
+                TextEntry::make('territorial_turnover')
+                    ->label('Volume de negócios em território nacional')
+                    ->state($subtotal === null ? 'Cobertura indisponível' : Money::format($subtotal))
+                    ->size(TextSize::Large)->weight('bold')
+                    ->helperText(($subtotal !== null ? $territorial->subtotalLabel().'. ' : '').$territorial->summary()),
+            ]);
+    }
+
+    /**
+     * @param  array{label: string, amount: int, percent: float, status: string, detail: string, notice: ?string, advisory: ?string, usesReceipts: bool}|null  $threshold
+     * @return list<TextEntry>
+     */
+    private function vatEntries(TaxEstimator $estimator, ?array $threshold, bool $hasTerritorialSubtotal): array
+    {
+        $periods = $estimator->vatPeriods();
+        $entries = [];
+
+        if ($threshold !== null) {
+            $entries[] = TextEntry::make('vat')->hiddenLabel()
+                ->state(number_format($threshold['percent'], 1, ',', ' ').'%')
+                ->size(TextSize::Large)->weight('bold')
+                ->color($threshold['status'] === 'ok' ? 'gray' : $threshold['status']);
+            $label = $threshold['usesReceipts'] ? 'Limite de isenção de IVA · aproximação por recebimentos' : $threshold['label'];
+            $entries[] = TextEntry::make('vat_note')->hiddenLabel()->color('gray')
+                ->state($label.'. '.$threshold['detail']);
+        }
+
+        $mixed = count($periods) > 1;
+        $showPeriodProxy = $mixed && ! $hasTerritorialSubtotal;
+
+        foreach ($periods as $index => $period) {
+            $range = CarbonImmutable::parse($period['from'])->format('d/m').' – '.CarbonImmutable::parse($period['to'])->format('d/m');
+            $basis = $this->vatBasisLabel(
+                $mixed ? $period['basis'] : $estimator->fiscalBasisOn(),
+                includeThreshold: $period['exempt'] && ($showPeriodProxy || ($threshold['usesReceipts'] ?? false)),
+                explainSettings: $mixed || $estimator->year !== today()->year,
+            );
+
+            if ($period['exempt']) {
+                $detail = match (true) {
+                    $showPeriodProxy => 'Isenção de IVA · aproximação por recebimentos até ao fim do período. '
+                        .number_format($period['thresholdPercent'], 1, ',', ' ').'% de '.Money::format($period['threshold']).'.',
+                    $mixed => 'Isenção de IVA.',
+                    default => '',
+                };
+            } else {
+                $detail = 'IVA liquidado '.Money::format($period['collected']).' − IVA dedutível '.Money::format($period['paid']).'.';
+
+                if ($mixed) {
+                    $detail = 'Regime normal · saldo estimado '.Money::format($period['balance']).' · '.$detail;
+                } else {
+                    $entries[] = TextEntry::make('vat_balance')->hiddenLabel()
+                        ->state(Money::format($period['balance']))->size(TextSize::Large)->weight('bold');
+                }
+            }
+
+            if (($line = trim($detail.' '.$basis)) !== '') {
+                $entries[] = TextEntry::make('vat_period_'.$index)->label($range)->hiddenLabel(! $mixed)->color('gray')->state($line);
+            }
+        }
+
+        return $entries;
+    }
+
+    /** @param array{effective_from: ?string, confirmed_fields: list<string>} $basis */
+    private function vatBasisLabel(array $basis, bool $includeThreshold, bool $explainSettings): string
+    {
+        $relevant = $includeThreshold ? ['vat_exempt', 'vat_exemption_threshold'] : ['vat_exempt'];
+        $confirmed = count(array_intersect($relevant, $basis['confirmed_fields']));
+
+        if ($confirmed === 0) {
+            return $explainSettings ? 'Base do enquadramento: definições fiscais atuais.' : '';
+        }
+
+        return 'Perfil fiscal em vigor desde '.CarbonImmutable::parse($basis['effective_from'])->format('d/m/Y').'.'
+            .($confirmed < count($relevant) ? ' Campos em falta: definições fiscais atuais.' : '');
     }
 
     /** Shown on the Estimativa and the Previsão de tesouraria until the start of activity is filled in. */

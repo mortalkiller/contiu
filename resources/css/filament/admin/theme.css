@@ -28,10 +28,10 @@
     --shadow-lifted: 0 18px 48px rgba(30, 24, 18, 0.14);
 }
 
-/* Light mode canvas behind cards and tables. */
+/* Light mode canvas behind cards and tables: the user's palette sets it (brand-head partial). */
 :root:not(.dark) .fi-body,
 :root:not(.dark) .fi-main-ctn {
-    background-color: #e5f3f1;
+    background-color: var(--contiu-canvas, #e5f3f1);
 }
 
 .contiu-dashboard-stats .fi-wi-stats-overview {
@@ -66,10 +66,56 @@
     --chrome-text-muted: rgb(250 250 250 / 0.68);
 }
 
-/* Topbar */
+/*
+ * Topbar. On desktop only the sidebar wears the palette's navigation colour: the topbar is a
+ * plain surface holding the search, "Novo", notifications and the user menu. The rules below
+ * keep reading the --chrome-* variables, so on desktop they are reset to neutral values.
+ * On a phone the topbar is the app bar: it keeps the navigation colour and shows the logo.
+ */
 .fi-topbar {
-    background-color: var(--contiu-action-green);
+    background-color: var(--contiu-chrome, var(--contiu-action-green));
     --tw-ring-color: var(--chrome-ring);
+}
+
+@media (min-width: 1024px) {
+    .fi-topbar {
+        --chrome-text: var(--gray-950);
+        --chrome-text-muted: var(--gray-500);
+        --chrome-hover: var(--gray-100);
+        --chrome-active: var(--gray-100);
+        --chrome-ring: rgb(0 0 0 / 0.08);
+
+        background-color: white;
+    }
+
+    .dark .fi-topbar {
+        --chrome-text: white;
+        --chrome-text-muted: var(--gray-400);
+        --chrome-hover: rgb(255 255 255 / 0.06);
+        --chrome-active: rgb(255 255 255 / 0.1);
+        --chrome-ring: rgb(255 255 255 / 0.1);
+
+        background-color: var(--gray-900);
+    }
+}
+
+/*
+ * On desktop Filament puts the logo at the start of the topbar, above the sidebar. That corner
+ * takes the sidebar's width and the palette's navigation colour, so the logo sits on the same
+ * colour as the menu below it (white or black logo: Palette::hasLightNavigation()).
+ */
+@media (min-width: 1024px) {
+    .fi-body-has-navigation .fi-topbar {
+        padding-inline-start: 0;
+    }
+
+    .fi-body-has-navigation .fi-topbar-start {
+        align-self: stretch;
+        width: var(--sidebar-width);
+        margin-inline-end: 0.5rem;
+        padding-inline-start: 0.75rem;
+        background-color: var(--contiu-chrome, var(--contiu-action-green));
+    }
 }
 
 .fi-topbar .fi-logo,
@@ -150,7 +196,7 @@
 
 /* Global search field on the green topbar */
 .fi-topbar .fi-global-search-field .fi-input-wrp {
-    background-color: rgb(255 255 255 / 0.1);
+    background-color: var(--chrome-hover);
     --tw-ring-color: var(--chrome-ring);
 }
 
@@ -169,7 +215,7 @@
 /* Sidebar */
 .fi-sidebar,
 .fi-body-has-topbar .fi-sidebar-header {
-    background-color: var(--contiu-action-green);
+    background-color: var(--contiu-chrome, var(--contiu-action-green));
 }
 
 .fi-body-has-topbar .fi-sidebar-header {
@@ -227,7 +273,7 @@
 
 .fi-btn.fi-color-primary:not(.fi-outlined):not(label):not([aria-pressed]) {
     background-color: var(--contiu-action-green);
-    color: #ffffff;
+    color: var(--contiu-on-action, #ffffff);
 
     & > .fi-icon {
         color: currentColor;
@@ -433,4 +479,295 @@
 .fc-event.contiu-calendar-done {
     opacity: 0.7;
     text-decoration: line-through;
+}
+
+/*
+ * Perfil → Aparência (resources/views/filament/account/appearance-settings.blade.php).
+ * Each palette card draws a small panel in that palette's own colours (--thumb-*), so those
+ * colours are fixed per card and do not follow the active palette.
+ */
+.contiu-appearance {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.contiu-appearance-mode .fi-theme-switcher {
+    display: inline-grid;
+    grid-template-columns: repeat(3, 2.5rem);
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border-radius: 0.5rem;
+    background-color: var(--gray-100);
+}
+
+.dark .contiu-appearance-mode .fi-theme-switcher {
+    background-color: var(--gray-800);
+}
+
+.contiu-palette-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+    gap: 1rem;
+}
+
+.contiu-palette-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    width: 100%;
+    padding: 0.625rem;
+    border: 1px solid var(--gray-300);
+    border-radius: 0.75rem;
+    background-color: white;
+    text-align: start;
+    cursor: pointer;
+
+    &:hover {
+        background-color: var(--gray-50);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--primary-600);
+        outline-offset: 2px;
+    }
+
+    &[aria-checked="true"] {
+        border-color: var(--primary-600);
+        box-shadow: inset 0 0 0 1px var(--primary-600);
+    }
+}
+
+.dark .contiu-palette-card {
+    border-color: var(--gray-600);
+    background-color: var(--gray-900);
+
+    &:hover {
+        background-color: var(--gray-800);
+    }
+
+    &[aria-checked="true"] {
+        border-color: var(--primary-400);
+        box-shadow: inset 0 0 0 1px var(--primary-400);
+    }
+}
+
+.contiu-palette-thumb {
+    display: flex;
+    flex-direction: column;
+    height: 5.5rem;
+    margin-bottom: 0.5rem;
+    overflow: hidden;
+    border: 1px solid var(--gray-200);
+    border-radius: 0.5rem;
+}
+
+.dark .contiu-palette-thumb {
+    border-color: var(--gray-700);
+}
+
+.contiu-palette-thumb-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    height: 1.125rem;
+    padding-inline: 0.4rem;
+    background-color: var(--thumb-navigation);
+
+    & > i {
+        width: 1.1rem;
+        height: 0.25rem;
+        border-radius: 9999px;
+        background-color: var(--thumb-navigation-text);
+        opacity: 0.45;
+    }
+
+    & > i:first-child {
+        width: 1.6rem;
+        opacity: 1;
+    }
+}
+
+.contiu-palette-thumb-page {
+    display: flex;
+    flex: 1;
+    padding: 0.4rem;
+    background-color: var(--thumb-background);
+
+    & > span {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        gap: 0.3rem;
+        padding: 0.4rem;
+        border-radius: 0.3rem;
+        background-color: #ffffff;
+    }
+
+    & i {
+        height: 0.25rem;
+        border-radius: 9999px;
+        background-color: #d4d4d4;
+    }
+
+    & i:first-child {
+        width: 45%;
+        background-color: var(--thumb-primary);
+    }
+
+    & b {
+        align-self: flex-end;
+        width: 38%;
+        height: 0.7rem;
+        margin-top: auto;
+        border-radius: 0.2rem;
+        background-color: var(--thumb-action);
+    }
+}
+
+.contiu-palette-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--gray-950);
+}
+
+.contiu-palette-note {
+    font-size: 0.8125rem;
+    color: var(--gray-600);
+}
+
+.dark .contiu-palette-name {
+    color: white;
+}
+
+.dark .contiu-palette-note {
+    color: var(--gray-300);
+}
+
+.contiu-palette-own {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.contiu-palette-own-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.25rem;
+}
+
+.contiu-palette-empty {
+    font-size: 0.875rem;
+    color: var(--gray-600);
+}
+
+.dark .contiu-palette-empty {
+    color: var(--gray-300);
+}
+
+.contiu-palette-create {
+    margin-top: 1rem;
+}
+
+/*
+ * Phone and tablet (below 1024px): resources/views/filament/partials/mobile-tab-bar.blade.php.
+ * The tab bar has Hoje, Receber, "+" (Novo), Despesas and Mais (opens the sidebar). While it is
+ * on the page, the topbar shows the logo instead of the menu button and drops its own "Novo".
+ */
+.contiu-tab-bar {
+    display: none;
+}
+
+@media (max-width: 1023.98px) {
+    .contiu-tab-bar {
+        position: fixed;
+        inset: auto 0 0;
+        z-index: 25;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        align-items: center;
+        padding: 0.375rem 0.5rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+        border-top: 1px solid var(--gray-200);
+        background-color: white;
+    }
+
+    .dark .contiu-tab-bar {
+        border-color: rgb(255 255 255 / 0.1);
+        background-color: var(--gray-900);
+    }
+
+    .contiu-tab-bar-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.125rem;
+        min-height: 3rem;
+        border-radius: 0.5rem;
+        font-size: 0.6875rem;
+        line-height: 0.875rem;
+        color: var(--gray-600);
+
+        & > svg {
+            width: 1.375rem;
+            height: 1.375rem;
+        }
+
+        &[aria-current="page"] {
+            font-weight: 600;
+            color: var(--primary-700);
+        }
+
+        &:focus-visible {
+            outline: 2px solid var(--primary-600);
+            outline-offset: -2px;
+        }
+    }
+
+    .dark .contiu-tab-bar-item {
+        color: var(--gray-300);
+
+        &[aria-current="page"] {
+            color: var(--primary-300);
+        }
+    }
+
+    .contiu-tab-bar-new {
+        display: flex;
+        justify-content: center;
+    }
+
+    /* The round "+": the palette's action colour, like the main button of every screen. */
+    .contiu-tab-bar-new .fi-quick-create-fab {
+        width: 3rem;
+        height: 3rem;
+        border-radius: 9999px;
+        background-color: var(--contiu-action-green);
+        color: var(--contiu-on-action, #ffffff);
+
+        & > .fi-icon {
+            color: currentColor;
+        }
+    }
+
+    /* Room for the bar under the page content. */
+    body:has(.contiu-tab-bar) .fi-main {
+        padding-bottom: 5rem;
+    }
+
+    /* App bar: logo on the left; "Mais" opens the menu and "+" is in the tab bar. */
+    body:has(.contiu-tab-bar) .fi-topbar-start {
+        display: flex;
+        margin-inline-end: auto;
+    }
+
+    body:has(.contiu-tab-bar) :is(.fi-topbar-open-sidebar-btn, .fi-topbar-close-sidebar-btn),
+    body:has(.contiu-tab-bar) .fi-topbar .fi-quick-create {
+        display: none !important;
+    }
+
+    /* The open menu stops above the tab bar, so "Mais" stays reachable to close it. */
+    body:has(.contiu-tab-bar) .fi-sidebar {
+        bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+        height: auto;
+    }
 }

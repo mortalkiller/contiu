@@ -2,8 +2,10 @@
 
 namespace App\Filament\Pages;
 
+use App\Actions\ExportMonthCsv;
 use App\Filament\MonthClose\Widgets\MonthCloseStats;
 use App\Filament\MonthClose\Widgets\MonthExpensesTable;
+use App\Filament\MonthClose\Widgets\MonthPaymentsTable;
 use App\Filament\MonthClose\Widgets\MonthReceivablesTable;
 use App\Filament\Widgets\CompanyAccountStats;
 use App\Support\MonthReview;
@@ -15,6 +17,7 @@ use Filament\Schemas\Schema;
 use Illuminate\Support\Carbon;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 /**
@@ -25,6 +28,8 @@ class MonthClose extends Page
 {
     private const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
+    private const MONTH_PATTERN = '/\A(?!0000)[0-9]{4}-(?:0[1-9]|1[0-2])\z/';
+
     protected static string|BackedEnum|null $navigationIcon = Phosphor::CalendarCheck;
 
     protected static ?string $navigationLabel = 'Fecho do mês';
@@ -33,17 +38,20 @@ class MonthClose extends Page
 
     protected static ?string $slug = 'fecho-do-mes';
 
-    protected static ?int $navigationSort = 1;
-
-    /** Reached from the dashboard's "Fecho do mês" button and from notifications, not the menu. */
-    protected static bool $shouldRegisterNavigation = false;
+    /** Second in the menu, after Hoje; also reached from the dashboard button and notifications. */
+    protected static ?int $navigationSort = -2;
 
     #[Url]
     public string $month = '';
 
+    private ?MonthReview $review = null;
+
+    /** @var array{receivables: int, expenses: int, bank: int, data: int}|null */
+    private ?array $pending = null;
+
     public function mount(): void
     {
-        if (! preg_match('/^\d{4}-\d{2}$/', $this->month)) {
+        if (! preg_match(self::MONTH_PATTERN, $this->month)) {
             $this->month = today()->format('Y-m');
         }
     }
@@ -84,6 +92,10 @@ class MonthClose extends Page
                 ->iconPosition('after')
                 ->color('gray')
                 ->action(fn () => $this->month = $this->date()->addMonthNoOverflow()->format('Y-m')),
+            Action::make('exportMonthCsv')
+                ->label('Exportar CSV')
+                ->icon(Phosphor::FileCsv)
+                ->action(fn (): StreamedResponse => app(ExportMonthCsv::class)->handle($this->review())),
         ];
     }
 
@@ -94,18 +106,25 @@ class MonthClose extends Page
     public function content(Schema $schema): Schema
     {
         return $schema->components([
-            Callout::make(fn (): string => match ($pending = $this->review()->pendingCount()) {
-                0 => 'Mês fechado',
+            Callout::make(fn (): string => match ($pending = $this->pendingMovements()) {
+                0 => $this->pending()['data'] === 0 ? 'Mês fechado' : 'Movimentos tratados',
                 1 => 'Falta 1 item',
                 default => 'Faltam '.$pending.' itens',
             })
                 ->description(fn (): string => $this->summary())
-                ->icon(fn () => $this->review()->pendingCount() === 0 ? Phosphor::CheckCircle : Phosphor::ListChecks)
-                ->status(fn (): string => $this->review()->pendingCount() === 0 ? 'success' : 'warning'),
+                ->icon(fn () => $this->pendingMovements() === 0 ? Phosphor::CheckCircle : Phosphor::ListChecks)
+                ->status(fn (): string => $this->pendingMovements() === 0 ? 'success' : 'warning'),
+            Callout::make(fn (): string => $this->pending()['data'] === 1
+                ? '1 registo com dados por completar'
+                : $this->pending()['data'].' registos com dados por completar')
+                ->icon(Phosphor::ListChecks)
+                ->status('warning')
+                ->visible(fn (): bool => $this->pending()['data'] > 0),
             ...$this->getWidgetsSchemaComponents([
                 MonthCloseStats::class,
                 CompanyAccountStats::class,
                 MonthReceivablesTable::class,
+                MonthPaymentsTable::class,
                 MonthExpensesTable::class,
             ]),
         ]);
@@ -116,17 +135,39 @@ class MonthClose extends Page
     {
         $withStatement = BankStatementImport::canAccess();
 
-        if ($this->review()->pendingCount() === 0) {
+        if ($this->pendingMovements() === 0) {
             return $withStatement
                 ? 'Tudo recebido, todas as despesas confirmadas e o extrato tratado.'
                 : 'Tudo recebido e todas as despesas confirmadas.';
         }
 
+        ['receivables' => $receivables, 'expenses' => $expenses, 'bank' => $bank] = $this->pending();
+
         return implode(' · ', array_filter([
-            $this->review()->pendingReceivables().' por receber',
-            $this->review()->pendingExpenses().' despesas por pagar',
-            $withStatement ? $this->review()->pendingBankLines().' linhas do extrato por tratar' : null,
+            $receivables > 0 ? $receivables.' por receber' : null,
+            $expenses > 0 ? $expenses.($expenses === 1 ? ' despesa por pagar' : ' despesas por pagar') : null,
+            $bank > 0 ? $bank.($bank === 1 ? ' linha do extrato por tratar' : ' linhas do extrato por tratar') : null,
         ]));
+    }
+
+    private function pendingMovements(): int
+    {
+        ['receivables' => $receivables, 'expenses' => $expenses, 'bank' => $bank] = $this->pending();
+
+        return $receivables + $expenses + $bank;
+    }
+
+    /** @return array{receivables: int, expenses: int, bank: int, data: int} */
+    private function pending(): array
+    {
+        $review = $this->review();
+
+        return $this->pending ??= [
+            'receivables' => $review->pendingReceivables(),
+            'expenses' => $review->pendingExpenses(),
+            'bank' => $review->pendingBankLines(),
+            'data' => $review->pendingDataCount(),
+        ];
     }
 
     /** Read lazily by the widgets' Livewire data closure, so they always get the current month. */
@@ -135,12 +176,11 @@ class MonthClose extends Page
         return ['month' => $this->month];
     }
 
-    private ?MonthReview $review = null;
-
     private function review(): MonthReview
     {
-        if ($this->review === null || ! $this->review->start->isSameMonth($this->date())) {
+        if ($this->review === null || $this->review->start->format('Y-m') !== $this->month) {
             $this->review = new MonthReview($this->date());
+            $this->pending = null;
         }
 
         return $this->review;
@@ -148,6 +188,8 @@ class MonthClose extends Page
 
     private function date(): Carbon
     {
+        abort_unless(preg_match(self::MONTH_PATTERN, $this->month), 422);
+
         return Carbon::createFromFormat('Y-m-d', $this->month.'-01')->startOfDay();
     }
 }

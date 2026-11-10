@@ -1,8 +1,17 @@
 {{-- Contiu favicons and app icons (from the Contiu logo and favicon kit). --}}
+{{-- Colours of the palette the user chose in Perfil → Aparência (Contiu when signed out). --}}
+@php($palette = \App\Support\Appearance\PaletteRegistry::current())
 <style>
     :root {
-        --contiu-brand-green: {{ \App\Filament\Support\BrandPalette::PRIMARY }};
-        --contiu-action-green: {{ \App\Filament\Support\BrandPalette::ACTION_GREEN }};
+        @foreach ($palette->cssVariables() as $name => $value)
+            {{ $name }}: {{ $value }};
+        @endforeach
+    }
+
+    :root.dark {
+        @foreach ($palette->cssVariables(dark: true) as $name => $value)
+            {{ $name }}: {{ $value }};
+        @endforeach
     }
 </style>
 <link rel="icon" href="{{ asset('brand/contiu/favicon.ico') }}" sizes="16x16 32x32 48x48">

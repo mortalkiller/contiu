@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\AccountantAccess;
 use Database\Factories\UserFactory;
 use Filament\Auth\Notifications\VerifyEmail;
 use Filament\Facades\Filament;
@@ -16,6 +17,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
@@ -40,6 +42,17 @@ class User extends Authenticatable implements FilamentUser, HasDefaultTenant, Ha
     public function accounts(): BelongsToMany
     {
         return $this->belongsToMany(Account::class)->withPivot('role')->withTimestamps();
+    }
+
+    /**
+     * Colour palettes the user made in Perfil → Aparência. The chosen one (theirs or a built-in
+     * one) is in the "palette" column; see App\Support\Appearance\PaletteRegistry.
+     *
+     * @return HasMany<UserPalette, $this>
+     */
+    public function palettes(): HasMany
+    {
+        return $this->hasMany(UserPalette::class);
     }
 
     /**
@@ -73,10 +86,13 @@ class User extends Authenticatable implements FilamentUser, HasDefaultTenant, Ha
             && ($this->isSuperAdmin() || $this->accounts()->whereKey($tenant->getKey())->exists());
     }
 
-    /** "/" opens the user's own account first, even for a super admin who can open them all. */
+    /** Open a regular account first when a user also has review-only memberships. */
     public function getDefaultTenant(Panel $panel): ?Model
     {
-        return $this->accounts()->orderBy('accounts.id')->first();
+        return $this->accounts()
+            ->orderByRaw('case when account_user.role = ? then 1 else 0 end', [AccountantAccess::ROLE])
+            ->orderBy('accounts.id')
+            ->first();
     }
 
     /**

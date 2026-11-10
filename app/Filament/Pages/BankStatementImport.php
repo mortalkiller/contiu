@@ -10,11 +10,13 @@ use App\Enums\DifferenceExplanation;
 use App\Enums\ExpenseKind;
 use App\Enums\PaymentMethod;
 use App\Filament\Actions\OneOffIncomeAction;
+use App\Filament\Actions\PlatformPayoutAction;
 use App\Filament\Widgets\CompanyAccountStats;
 use App\Models\BankTransaction;
 use App\Models\Category;
 use App\Models\Expense;
 use App\Models\Payment;
+use App\Models\PlatformPayout;
 use App\Models\Project;
 use App\Models\Receivable;
 use App\Models\RecurringExpense;
@@ -27,6 +29,7 @@ use App\Support\BankSuggestion;
 use App\Support\CurrentAccount;
 use App\Support\FinanceSettings;
 use App\Support\Money;
+use App\Support\PlatformPayoutAmounts;
 use App\Support\TransferCover;
 use App\Support\TransferCoverage;
 use BackedEnum;
@@ -76,7 +79,7 @@ class BankStatementImport extends Page implements HasTable
 
     protected static ?string $slug = 'extrato-bancario';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Receitas';
+    protected static string|UnitEnum|null $navigationGroup = 'Banco';
 
     protected static ?int $navigationSort = 5;
 
@@ -175,7 +178,10 @@ class BankStatementImport extends Page implements HasTable
         return $table
             // Rows load right after the page; a skeleton shows meanwhile (filament-skeleton-loading).
             ->deferLoading()
-            ->query(fn () => $this->modifyQueryWithActiveTab(BankTransaction::query()->with('links.linkable')))
+            ->query(fn () => $this->modifyQueryWithActiveTab(BankTransaction::query()
+                ->with('links.linkable')
+                ->addSelect(['platform_payout_history_id' => PlatformPayout::query()->select('id')
+                    ->whereColumn('bank_transaction_id', 'bank_transactions.id')->latest('id')->limit(1)])))
             ->defaultSort('booked_on', 'desc')
             ->columns([
                 TextColumn::make('booked_on')->label('Data')->date()->sortable(),
@@ -255,6 +261,14 @@ class BankStatementImport extends Page implements HasTable
                     ])
                     ->schema(fn (BankTransaction $record) => OneOffIncomeAction::formSchema(withDate: false, received: $record->absolute_amount))
                     ->action(fn (BankTransaction $record, array $data) => $this->apply(fn (ApplyBankTransaction $apply) => $apply->createOneOffIncome($record, $data))),
+                PlatformPayoutAction::make()
+                    ->action(fn (BankTransaction $record, array $data, Action $action) => $this->apply(
+                        fn (ApplyBankTransaction $apply) => $apply->createPlatformPayouts(
+                            $record,
+                            array_map(PlatformPayoutAmounts::minorUnitsFromForm(...), $data['payouts']),
+                        ),
+                        $action,
+                    )),
                 Action::make('createExpense')
                     ->label('Criar despesa')
                     ->icon(Phosphor::Receipt)
@@ -320,7 +334,8 @@ class BankStatementImport extends Page implements HasTable
                     ->color('gray')
                     ->iconButton()
                     ->tooltip('Ver detalhes')
-                    ->visible(fn (BankTransaction $record) => in_array($record->status, [BankTransactionStatus::Matched, BankTransactionStatus::OwnTransfer], true))
+                    ->visible(fn (BankTransaction $record) => $record->platform_payout_history_id !== null
+                        || in_array($record->status, [BankTransactionStatus::Matched, BankTransactionStatus::OwnTransfer], true))
                     ->modalHeading('Detalhes da linha do extrato')
                     ->modalWidth(Width::ThreeExtraLarge)
                     ->modalContent(fn (BankTransaction $record) => view('filament.pages.partials.bank-line-details', ['details' => $this->lineDetails($record)]))
@@ -337,7 +352,14 @@ class BankStatementImport extends Page implements HasTable
                     ->modalDescription(fn (BankTransaction $record) => $this->undoDescription($record))
                     ->modalSubmitActionLabel('Voltar a tratar')
                     ->action(function (BankTransaction $record): void {
-                        app(ApplyBankTransaction::class)->undo($record);
+                        try {
+                            app(ApplyBankTransaction::class)->undo($record);
+                        } catch (DomainException $exception) {
+                            Notification::make()->title('Não foi possível voltar a tratar a linha')->body($exception->getMessage())->danger()->send();
+
+                            return;
+                        }
+
                         $this->suggestions = [];
                         Notification::make()->title('A linha voltou a "Por tratar"')->success()->send();
                     }),
@@ -653,11 +675,12 @@ class BankStatementImport extends Page implements HasTable
      */
     private function lineDetails(BankTransaction $line): array
     {
+        $payouts = PlatformPayout::query()->where('bank_transaction_id', $line->id)->latest('id')->get();
         $row = function (Payment|Expense $record, int $covered, int $total, string $situation, string $color): array {
             return [
                 'type' => $record instanceof Payment ? 'Recebimento' : 'Despesa',
-                'reference' => $record instanceof Payment ? (string) $record->receivable?->label : (string) $record->description,
-                'party' => $record instanceof Payment ? $record->receivable?->client?->name : $record->supplier?->name,
+                'reference' => $record instanceof Payment ? $record->receivableLabels() : (string) $record->description,
+                'party' => $record instanceof Payment ? $record->client?->name : $record->supplier?->name,
                 'date' => ($record instanceof Payment ? $record->paid_on : ($record->paid_on ?? $record->spent_on))?->format('d/m/Y') ?? '—',
                 'covered' => Money::format($covered),
                 'total' => $covered < $total ? Money::format($total) : null,
@@ -689,6 +712,7 @@ class BankStatementImport extends Page implements HasTable
                 'rows' => $rows,
                 'leftover' => $leftover > 0 ? 'Sobram '.Money::format($leftover).' que não cobrem nenhum registo por reconciliar.' : null,
                 'difference' => null,
+                'platformPayouts' => $payouts,
             ];
         }
 
@@ -699,10 +723,18 @@ class BankStatementImport extends Page implements HasTable
 
         return [
             'line' => $line,
-            'kind' => 'Registado',
+            'kind' => $payouts->contains(fn (PlatformPayout $payout): bool => $payout->undone_at === null && $payout->one_off_income_id !== null)
+                ? 'Depósito de plataforma'
+                : $line->status->getLabel(),
             'rows' => $rows,
             'leftover' => null,
-            'difference' => $difference === 0 ? null : 'Diferença de '.Money::format(abs($difference)).' entre a linha e os registos: fica no quadro "Conta da empresa".',
+            'difference' => match (true) {
+                $line->status !== BankTransactionStatus::Matched => null,
+                $difference !== 0 => 'Diferença de '.Money::format(abs($difference)).' entre a linha e os registos: fica no quadro "Conta da empresa".',
+                $payouts->contains(fn (PlatformPayout $payout): bool => $payout->undone_at === null) => 'Diferença: '.Money::format(0),
+                default => null,
+            },
+            'platformPayouts' => $payouts,
         ];
     }
 
@@ -719,7 +751,7 @@ class BankStatementImport extends Page implements HasTable
 
             $records = $record->links->pluck('linkable')->filter()
                 ->map(fn (Payment|Expense $linked) => $linked instanceof Payment
-                    ? 'Recebimento · '.$linked->receivable?->label.' · '.Money::format($linked->amount)
+                    ? 'Recebimento · '.($linked->is_split ? $linked->receivableLabels() : $linked->receivable?->label).' · '.Money::format($linked->amount)
                     : 'Despesa · '.$linked->supplier?->name.' · '.$linked->description.' · '.Money::format($linked->total))
                 ->values()->all();
             $difference = $record->difference();
@@ -755,7 +787,7 @@ class BankStatementImport extends Page implements HasTable
                 ->all();
 
             $registered = $this->unlinkedNear(Payment::query()->with('receivable.billable.client'), 'paid_on', $record)
-                ->mapWithKeys(fn (Payment $payment) => ['payment:'.$payment->getKey() => $payment->paid_on->format('d/m/Y').' · '.$payment->receivable?->label.' ('.($payment->receivable?->client?->name ?? '—').') — '.Money::format($payment->amount)])
+                ->mapWithKeys(fn (Payment $payment) => ['payment:'.$payment->getKey() => $payment->paid_on->format('d/m/Y').' · '.$payment->receivableLabels().' ('.($payment->client?->name ?? '—').') — '.Money::format($payment->amount)])
                 ->all();
 
             // A platform payout is the income minus its commission, so expenses can join a credit.
@@ -853,7 +885,7 @@ class BankStatementImport extends Page implements HasTable
             : 'A linha volta a "Por tratar" e é apagado o que foi criado a partir dela: '.$created->implode(', ').'.';
     }
 
-    private function apply(callable $callback): void
+    private function apply(callable $callback, ?Action $action = null): void
     {
         try {
             $callback(app(ApplyBankTransaction::class));
@@ -862,6 +894,7 @@ class BankStatementImport extends Page implements HasTable
             Notification::make()->title('Linha do extrato tratada')->success()->send();
         } catch (DomainException $exception) {
             Notification::make()->title('Não foi possível tratar esta linha')->body($exception->getMessage())->danger()->send();
+            $action?->halt();
         }
     }
 }
