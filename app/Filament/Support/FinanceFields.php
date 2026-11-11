@@ -7,7 +7,6 @@ use App\Models\Project;
 use App\Models\Retainer;
 use App\Support\Money;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
@@ -15,6 +14,7 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\TextSize;
+use Illuminate\Support\HtmlString;
 
 /**
  * Form fields shared by projects, retainers, expenses, recurring expenses, clients and suppliers.
@@ -60,40 +60,26 @@ final class FinanceFields
         );
     }
 
+    /** The client of a record, with "+" to create one from its full form (QuickCreate). */
     public static function clientSelect(): Select
     {
-        return Select::make('client_id')
+        return QuickCreate::client(Select::make('client_id')
             ->label(__('Client'))
             ->relationship('client', 'name')
             ->searchable()
             ->preload()
-            ->required()
-            ->createOptionForm([
-                TextInput::make('name')->label(__('Name'))->required(),
-                TextInput::make('vat_number')->label(__('Tax ID')),
-                TextInput::make('email')->label(__('Email'))->email(),
-                self::seat(__('Where is the client based?')),
-                self::isBusiness(),
-            ])
-            ->createOptionModalHeading(__('New client'));
+            ->required());
     }
 
+    /** The supplier of a record, with "+" to create one from its full form (QuickCreate). */
     public static function supplierSelect(): Select
     {
-        return Select::make('supplier_id')
+        return QuickCreate::supplier(Select::make('supplier_id')
             ->label(__('Supplier'))
             ->relationship('supplier', 'name')
             ->searchable()
             ->preload()
-            ->required()
-            ->createOptionForm([
-                TextInput::make('name')->label(__('Name'))->required(),
-                TextInput::make('vat_number')->label(__('Tax ID')),
-                TextInput::make('website')->label(__('Website'))->url(),
-                self::seat(),
-                Textarea::make('notes')->label(__('Notes'))->rows(2),
-            ])
-            ->createOptionModalHeading(__('New supplier'));
+            ->required());
     }
 
     public static function netAmount(?string $label = null): TextInput
@@ -101,7 +87,6 @@ final class FinanceFields
         return MoneyInput::make('net_amount')
             ->label($label ?? __('Amount excluding VAT'))
             ->minValue(0)
-            ->live(onBlur: true)
             ->required();
     }
 
@@ -113,7 +98,6 @@ final class FinanceFields
             ->default('0.0000')
             ->inline()
             ->grouped()
-            ->live()
             ->required();
     }
 
@@ -121,12 +105,22 @@ final class FinanceFields
     {
         return TextEntry::make('total_preview')
             ->label(__('Total including VAT'))
-            ->state(function (Get $get): string {
+            ->state(function (Get $get): HtmlString {
                 $net = Money::toCents($get('net_amount')) ?? 0;
 
-                return Money::format($net + Money::vat($net, (string) ($get('vat_rate') ?? 0)), locale: app()->getLocale());
+                return self::preview('total', $net + Money::vat($net, (string) ($get('vat_rate') ?? 0)));
             })
             ->size(TextSize::Large)
             ->weight(FontWeight::Bold);
+    }
+
+    /** @param array<string, string> $messages */
+    public static function preview(string $mode, int|string $initial, array $messages = []): HtmlString
+    {
+        return new HtmlString(view('filament.forms.finance-preview', [
+            'mode' => $mode,
+            'initial' => is_int($initial) ? Money::format($initial) : $initial,
+            'messages' => $messages,
+        ])->render());
     }
 }

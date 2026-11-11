@@ -32,7 +32,7 @@ final class InvoiceXpressClient
     {
         $config = $this->configuration();
         if (! self::sandboxDraftsAllowed($config->subdomain) || $config->subdomain !== $expectedSubdomain
-            || ! isset(InvoiceXpressSandboxDrafts::DocumentTypes[$type])) {
+            || ! (isset(InvoiceXpressSandboxDrafts::DocumentTypes[$type]) || isset(InvoiceXpressNoteTerms::Types[$type]))) {
             throw new InvoiceXpressException(__('Drafts can only be created in the configured sandbox.'));
         }
 

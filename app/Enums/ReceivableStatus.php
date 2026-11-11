@@ -3,14 +3,12 @@
 namespace App\Enums;
 
 use Filament\Support\Contracts\HasColor;
-use Filament\Support\Contracts\HasIcon;
 use Filament\Support\Contracts\HasLabel;
-use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 /**
  * Always calculated from amounts, payments and due dates; never stored or chosen by hand.
  */
-enum ReceivableStatus: string implements HasColor, HasIcon, HasLabel
+enum ReceivableStatus: string implements HasColor, HasLabel
 {
     case Paid = 'paid';
     case Partial = 'partial';
@@ -34,16 +32,6 @@ enum ReceivableStatus: string implements HasColor, HasIcon, HasLabel
             self::Partial => 'warning',
             self::Open => 'gray',
             self::Overdue => 'danger',
-        };
-    }
-
-    public function getIcon(): Phosphor
-    {
-        return match ($this) {
-            self::Paid => Phosphor::CheckCircle,
-            self::Partial => Phosphor::CircleHalf,
-            self::Open => Phosphor::Clock,
-            self::Overdue => Phosphor::WarningCircle,
         };
     }
 }

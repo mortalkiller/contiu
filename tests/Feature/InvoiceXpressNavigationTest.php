@@ -8,10 +8,12 @@ use App\Filament\Pages\InvoiceXpressReceiptPage;
 use App\Filament\Pages\InvoiceXpressSettingsPage;
 use App\Models\Account;
 use App\Models\Client;
+use App\Models\FiscalDocumentDraft;
 use App\Models\InvoiceXpressConfig;
 use App\Models\Setting;
 use App\Models\User;
 use App\Support\InvoiceXpressClient;
+use App\Support\InvoiceXpressDraftDelivery;
 use App\Support\InvoiceXpressIssueSettings;
 use Filament\Facades\Filament;
 use Illuminate\Http\Client\Request;
@@ -39,46 +41,41 @@ function invoiceXpressNavigationTabs(DOMXPath $document): array
     return $tabs;
 }
 
-it('renders one InvoiceXpress menu item in Receitas and keeps the legacy tenant routes as tabs', function () {
+it('opens invoicing under fiscal documents and redirects old tenant links', function () {
     $this->actingAs(ownerOf($this->account));
     InvoiceXpressConfig::store('navigation-test', 'fake-key');
     Http::preventStrayRequests();
     asAWebRequest();
 
     $pages = [
-        'Faturas' => InvoiceXpressIssuePage::getUrl(tenant: $this->account),
-        'Recibos' => InvoiceXpressReceiptPage::getUrl(tenant: $this->account),
-        'Notas de crédito e débito' => InvoiceXpressNoteIssuePage::getUrl(tenant: $this->account),
-        'Importar' => InvoiceXpressImport::getUrl(tenant: $this->account),
-        'Configuração' => url('/'.$this->account->slug.'/configurar-invoicexpress'),
+        'Faturas' => [InvoiceXpressIssuePage::class, 'emitir-fatura-invoicexpress', 'documentos-fiscais/faturas/nova'],
+        'Recibos' => [InvoiceXpressReceiptPage::class, 'recibos-invoicexpress', 'documentos-fiscais/recibos'],
+        'Notas de crédito e débito' => [InvoiceXpressNoteIssuePage::class, 'emitir-nota-invoicexpress', 'documentos-fiscais/notas'],
+        'Sincronizar' => [InvoiceXpressImport::class, 'importar-invoicexpress', 'documentos-fiscais/sincronizar'],
     ];
+    $tenantUrl = url('/'.$this->account->slug);
 
-    foreach ($pages as $active => $url) {
+    foreach ($pages as $active => [$page, $legacy, $path]) {
+        $url = $page::getUrl(tenant: $this->account);
+        expect($url)->toBe($tenantUrl.'/'.$path);
+        $this->get($tenantUrl.'/'.$legacy)->assertRedirect($url);
         $response = $this->get($url)->assertOk();
         $document = invoiceXpressNavigationHtml($response->getContent());
-        expect(invoiceXpressNavigationTabs($document))->toBe(
-            collect($pages)->map(fn (string $url, string $label): array => [$url, $label === $active])->all(),
-        );
+        $tabs = invoiceXpressNavigationTabs($document);
+        expect($tabs['Documentos fiscais'])->toBe([$tenantUrl.'/documentos-fiscais', false])
+            ->and($tabs[$active])->toBe([$url, true])
+            ->and($tabs)->not->toHaveKey('Configuração');
 
         $sidebar = $document->query('//li[contains(@class,"fi-sidebar-group")][.//*[contains(@class,"fi-sidebar-group-label") and normalize-space(.)="Receitas"]]//*[contains(@class,"fi-sidebar-item-label")]');
         $items = array_map(fn (DOMNode $label): string => trim($label->textContent), iterator_to_array($sidebar));
-        expect(array_values(array_filter($items, fn (string $label): bool => str_contains($label, 'InvoiceXpress'))))->toBe(['InvoiceXpress']);
-        $link = $document->query('//a[ancestor::li[contains(@class,"fi-active")] and .//*[contains(@class,"fi-sidebar-item-label") and normalize-space(.)="InvoiceXpress"]]')->item(0);
-        expect($link?->getAttribute('href'))->toBe($pages['Faturas']);
-
-        if ($active !== 'Configuração') {
-            $response->assertDontSee('Artigos autorizados')->assertDontSee('Configurar ligação');
-        }
+        expect($items)->toContain('Documentos fiscais')->not->toContain('InvoiceXpress');
     }
 
-    expect(array_map(fn (string $url): string => basename(parse_url($url, PHP_URL_PATH)), $pages))
-        ->toBe([
-            'Faturas' => 'emitir-fatura-invoicexpress',
-            'Recibos' => 'recibos-invoicexpress',
-            'Notas de crédito e débito' => 'emitir-nota-invoicexpress',
-            'Importar' => 'importar-invoicexpress',
-            'Configuração' => 'configurar-invoicexpress',
-        ]);
+    $settingsUrl = InvoiceXpressSettingsPage::getUrl(tenant: $this->account);
+    expect($settingsUrl)->toBe($tenantUrl.'/integracoes/invoicexpress');
+    $this->get($tenantUrl.'/configurar-invoicexpress')->assertRedirect($settingsUrl);
+    $settings = $this->get($settingsUrl)->assertOk();
+    expect(invoiceXpressNavigationTabs(invoiceXpressNavigationHtml($settings->getContent())))->toBe([]);
     Http::assertNothingSent();
 });
 
@@ -161,6 +158,7 @@ it('saves the demo series in settings and creates drafts through the regular inv
     $localClient = Client::factory()->create();
     $series = ['id' => 19, 'serie' => 'INVOICEXPRESSDEMO', 'current_invoice_sequence_id' => 19,
         'current_invoice_receipt_sequence_id' => 20, 'current_invoice_validation_code' => 'N/D'];
+    $remote = null;
 
     Http::preventStrayRequests()->fake([
         '*/sequences.json?*' => Http::response(['sequences' => [$series, ['id' => 25, 'serie' => 'OUTRA']]]),
@@ -170,9 +168,24 @@ it('saves the demo series in settings and creates drafts through the regular inv
         '*/taxes.json?*' => Http::response(['taxes' => [['id' => 1, 'name' => 'IVA23', 'region' => 'PT', 'code' => null, 'value' => 23]]]),
         '*/items.json?*' => Http::response(['items' => [$item]]),
         '*/items/8.json?*' => Http::response(['item' => $item]),
-        "*/{$type}s.json?*" => Http::response([$type => [
-            'id' => 100, 'status' => 'draft', 'before_taxes' => '20.30', 'taxes' => '4.67', 'total' => '24.97',
-        ]]),
+        "*/{$type}s.json?*" => function (Request $request) use ($type, $item, &$remote) {
+            $sent = $request[$type];
+            $remote = [$type => [
+                ...$sent,
+                'id' => 100, 'status' => 'draft', 'type' => $type === 'invoice' ? 'Invoice' : 'InvoiceReceipt',
+                'before_taxes' => '20.30', 'taxes' => '4.67', 'total' => '24.97', 'currency' => 'Euro',
+                'client' => ['id' => 7, 'name' => 'Cliente teste'],
+                'items' => [[
+                    ...$sent['items'][0], 'subtotal' => '20.30', 'tax_amount' => '4.67', 'total' => '24.97',
+                    'tax' => ['id' => 1, ...$item['tax']],
+                ]],
+            ]];
+
+            return Http::response($remote, 201);
+        },
+        "*/{$type}s/100.json?*" => function () use (&$remote) {
+            return Http::response($remote);
+        },
     ]);
 
     Livewire::test(InvoiceXpressSettingsPage::class)
@@ -198,14 +211,16 @@ it('saves the demo series in settings and creates drafts through the regular inv
         ->set('documentType', $type)
         ->call('preview')
         ->assertHasNoErrors()
-        ->assertSee('Criar rascunho')
+        ->assertSee(__('Save draft'))
         ->assertDontSee('Confirmar e emitir')
         ->set('accepted', true)
         ->call('confirm')
         ->assertHasErrors('confirmation')
-        ->call('createDraft')
-        ->assertHasNoErrors()
-        ->assertSee('Rascunho #100 criado');
+        ->call('saveDraft')
+        ->assertHasNoErrors();
+    Http::assertNotSent(fn (Request $request): bool => $request->method() !== 'GET');
+    $draft = FiscalDocumentDraft::query()->sole();
+    expect(app(InvoiceXpressDraftDelivery::class)->send($draft->id)->remote_id)->toBe(100);
 
     $posts = Http::recorded(fn (Request $request): bool => $request->method() !== 'GET');
     expect($posts)->toHaveCount(1);
@@ -225,7 +240,7 @@ it('saves the demo series in settings and creates drafts through the regular inv
     'invoice-receipt' => ['invoice_receipt', '20'],
 ]);
 
-it('keeps read-only owners on the accessible tabs and denies access across tenants and in accountant review', function () {
+it('keeps connection details available to read-only owners and denies access across tenants and in accountant review', function () {
     $this->actingAs(ownerOf($this->account));
     InvoiceXpressConfig::store('navigation-test', 'fake-key');
     $this->account->update(['trial_ends_at' => today()->subDay()]);
@@ -241,11 +256,8 @@ it('keeps read-only owners on the accessible tabs and denies access across tenan
     asAWebRequest();
 
     $configUrl = InvoiceXpressSettingsPage::getUrl(tenant: $this->account);
-    $importUrl = InvoiceXpressImport::getUrl(tenant: $this->account);
     $response = $this->get($configUrl)->assertOk()->assertDontSee('Configurar ligação')->assertDontSee('Artigos autorizados');
-    expect(invoiceXpressNavigationTabs(invoiceXpressNavigationHtml($response->getContent())))->toBe([
-        'Importar' => [$importUrl, false], 'Configuração' => [$configUrl, true],
-    ]);
+    expect(invoiceXpressNavigationTabs(invoiceXpressNavigationHtml($response->getContent())))->toBe([]);
     $this->get(InvoiceXpressIssuePage::getUrl(tenant: $this->account))->assertForbidden();
     $this->get(InvoiceXpressSettingsPage::getUrl(tenant: $foreign))->assertNotFound();
     $this->actingAs($accountant)->get($configUrl)->assertForbidden();

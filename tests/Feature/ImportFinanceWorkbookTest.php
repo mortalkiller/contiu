@@ -306,6 +306,24 @@ describe('Import entry points', function () {
         expect(Project::count())->toBe(0);
     })->group('ui');
 
+    it('requires a fresh preview if the replace option changes', function () {
+        actingAsAdmin();
+        $file = UploadedFile::fake()->createWithContent('controlo.xlsx', file_get_contents(financeWorkbook()));
+
+        $page = Livewire::test(ImportWorkbook::class)
+            ->fillForm(['file' => $file, 'replace' => false])
+            ->call('preview')
+            ->assertSet('preview.counts.projects', 3);
+        $existing = Project::factory()->create();
+
+        $page->set('data.replace', true)
+            ->call('import')
+            ->assertHasFormErrors(['replace']);
+
+        expect(Project::count())->toBe(1)
+            ->and($existing->fresh())->not->toBeNull();
+    })->group('ui');
+
     it('refuses a stored workbook path set from the browser', function () {
         actingAsAdmin();
 

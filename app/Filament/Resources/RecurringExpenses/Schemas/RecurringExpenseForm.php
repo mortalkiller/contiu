@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources\RecurringExpenses\Schemas;
 
+use App\Enums\CategoryType;
 use App\Enums\Frequency;
 use App\Enums\Language;
 use App\Filament\Resources\Expenses\Schemas\ExpenseForm;
 use App\Filament\Support\FinanceFields;
+use App\Filament\Support\QuickCreate;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -29,10 +31,10 @@ class RecurringExpenseForm
                     ->columns(2)
                     ->schema([
                         FinanceFields::supplierSelect(),
-                        Select::make('category_id')
+                        QuickCreate::category(Select::make('category_id')
                             ->label(__('Category'))
                             ->relationship('category', 'name', fn (Builder $query) => $query->expense())
-                            ->native(false),
+                            ->native(false), CategoryType::Expense),
                         TextInput::make('description')
                             ->label(__('Description'))
                             ->required()

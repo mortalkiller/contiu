@@ -6,6 +6,9 @@ use App\Enums\FiscalDocumentDirection;
 use App\Enums\FiscalDocumentStatus;
 use App\Enums\FiscalDocumentType;
 use App\Enums\Language;
+use App\Filament\Pages\InvoiceXpressNoteIssuePage;
+use App\Filament\Pages\InvoiceXpressReceiptPage;
+use App\Filament\Pages\InvoiceXpressSectionPage;
 use App\Filament\Resources\FiscalDocuments\Actions\CreditApplicationActions;
 use App\Filament\Resources\FiscalDocuments\Actions\CustomerRefundAction;
 use App\Filament\Resources\FiscalDocuments\Actions\DebitNoteChargeAction;
@@ -19,9 +22,12 @@ use App\Filament\Resources\FiscalDocuments\Pages\ListFiscalDocuments;
 use App\Filament\Resources\FiscalDocuments\Schemas\FiscalDocumentForm;
 use App\Filament\Resources\FiscalDocuments\Widgets\FiscalDocumentsSummary;
 use App\Models\FiscalDocument;
+use App\Models\InvoiceXpressConfig;
 use App\Support\CurrentAccount;
 use App\Support\DocumentedTurnover;
+use App\Support\InvoiceXpressIssue;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Facades\Filament;
@@ -68,6 +74,11 @@ class FiscalDocumentResource extends Resource
     public static function getNavigationGroup(): string
     {
         return __('Revenue');
+    }
+
+    public static function getNavigationItemActiveRoutePattern(): array
+    {
+        return [...(array) parent::getNavigationItemActiveRoutePattern(), ...InvoiceXpressSectionPage::fiscalDocumentRoutes()];
     }
 
     public static function getAuthorizationResponse(string|UnitEnum $action, ?Model $record = null): Response
@@ -134,6 +145,23 @@ class FiscalDocumentResource extends Resource
                 EditAction::make(),
                 FiscalDocumentPdfActions::download(),
                 FiscalDocumentPdfActions::retrieve(),
+                Action::make('prepareNote')
+                    ->label(fn (FiscalDocument $record): string => $record->type === FiscalDocumentType::InvoiceReceipt
+                        ? __('Prepare credit note') : __('Prepare credit or debit note'))
+                    ->visible(fn (FiscalDocument $record): bool => $record->direction === FiscalDocumentDirection::Issued
+                        && $record->status === FiscalDocumentStatus::Active
+                        && $record->currency === 'EUR' && $record->invoiceXpressSnapshot !== null
+                        && $record->invoiceXpressSnapshot->subdomain === InvoiceXpressConfig::current()?->subdomain
+                        && in_array($record->invoiceXpressSnapshot->source['provider_type'] ?? null, ['Invoice', 'InvoiceReceipt'], true)
+                        && InvoiceXpressNoteIssuePage::canAccess() && InvoiceXpressIssue::options() !== null)
+                    ->url(fn (FiscalDocument $record): string => InvoiceXpressNoteIssuePage::getUrl(['originalId' => $record->id])),
+                Action::make('receipts')
+                    ->label(__('Receipts'))
+                    ->visible(fn (FiscalDocument $record): bool => InvoiceXpressReceiptPage::canAccess()
+                        && $record->direction === FiscalDocumentDirection::Issued && $record->status === FiscalDocumentStatus::Active
+                        && $record->currency === 'EUR' && $record->links?->receivable_id !== null
+                        && in_array($record->type, [FiscalDocumentType::Invoice, FiscalDocumentType::InvoiceReceipt], true))
+                    ->url(fn (FiscalDocument $record): string => InvoiceXpressReceiptPage::getUrl(['invoice' => $record->id])),
                 CreditApplicationActions::apply(),
                 CreditApplicationActions::reverse(),
                 CustomerRefundAction::make(),

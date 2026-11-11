@@ -1,13 +1,17 @@
 <x-filament-panels::page>
-    @include('filament.pages.partials.tax-summary', ['stats' => $summary, 'notice' => ['tone' => 'warning', ...$summaryNotice]])
+    @include('filament.pages.partials.tax-summary', ['stats' => [], 'notice' => ['tone' => 'warning', ...$summaryNotice]])
 
+    {{-- As in the mock: the scenario on the left, what it changes on the right. --}}
+    <div class="grid items-start gap-6 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
     <form wire:submit="compare" class="space-y-4">
         {{ $this->form }}
 
         <x-filament::button type="submit">{{ __('Compare') }}</x-filament::button>
     </form>
 
-    <div aria-live="polite">
+    <div class="space-y-6" aria-live="polite">
+        @include('filament.pages.partials.tax-summary', ['stats' => $summary, 'notice' => null])
+
         @if ($result !== null)
             <div wire:dirty.remove>
                 <x-filament::section :heading="__('Comparison for :year', ['year' => $result['year']])">
@@ -78,5 +82,6 @@
                 @endif
             </div>
         @endif
+    </div>
     </div>
 </x-filament-panels::page>

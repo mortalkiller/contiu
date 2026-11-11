@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Pages\Concerns\HasTaxSubNavigation;
+use App\Filament\Support\PeriodPicker;
 use App\Models\SocialSecurityContribution;
 use App\Support\CurrentAccount;
 use App\Support\Money;
@@ -17,6 +18,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Components\Attributes\Unexposed;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
@@ -50,18 +52,27 @@ class SocialSecurity extends Page
         $this->quarter = $quarter;
     }
 
+    public function getSubheading(): string
+    {
+        return __('Social Security, by closed quarter.');
+    }
+
+    /** As in the mock: the quarter to show, then the way to Segurança Social Direta. */
     protected function getHeaderActions(): array
     {
+        $quarters = app(SocialSecurityService::class)->quarterOptions($this->quarter);
+
         return [
-            Action::make('fiscalSettings')
-                ->label(__('Tax settings'))
-                ->color('gray')
-                ->icon(Phosphor::Sliders)
-                ->url(FinanceSettingsPage::getUrl()),
+            PeriodPicker::links(
+                'quarter',
+                collect($quarters)->mapWithKeys(fn (string $quarter): array => [$quarter => self::quarterRange($quarter)])->all(),
+                $this->quarter,
+                fn (int|string $quarter): string => static::getUrl(['quarter' => $quarter]),
+                __('Quarter closed'),
+            ),
             Action::make('portal')
                 ->label(__('Social Security Direct'))
                 ->color('gray')
-                ->icon(Phosphor::ArrowSquareOut)
                 ->url('https://www.seg-social.pt/ptss/pssd/menu/trabalho/relacoes-trabalho/trabalhadores/trabalhadores-independentes', shouldOpenInNewTab: true),
         ];
     }
@@ -72,6 +83,7 @@ class SocialSecurity extends Page
 
         return Action::make('recordDeclaration')
             ->label(fn (): string => $this->declarationHistory->isEmpty() ? __('Record declared amounts') : __('Correct recorded declaration'))
+            ->color(fn (): string => $this->declarationHistory->isEmpty() ? 'primary' : 'gray')
             ->visible(fn (): bool => $this->canWrite())
             ->modalDescription(fn (): string => $this->declarationHistory->isEmpty()
                 ? __('Copy the monthly totals from the declaration you filed in Social Security Direct.')
@@ -120,6 +132,8 @@ class SocialSecurity extends Page
             ->label(fn (array $arguments): string => $this->contributionRecord($arguments) === null
                 ? __('Confirm amount')
                 : __('Correct confirmed amount'))
+            ->color('gray')
+            ->size('sm')
             ->visible(fn (array $arguments): bool => $this->canWrite() && $this->contributionMonth($arguments) !== null)
             ->modalHeading(fn (array $arguments): string => __('Contribution for :month', ['month' => self::monthLabel($this->contributionMonth($arguments) ?? abort(404))]))
             ->modalDescription(fn (array $arguments): string => $this->contributionRecord($arguments) === null
@@ -164,6 +178,19 @@ class SocialSecurity extends Page
         return Period::of($month->year, $month->month)->label();
     }
 
+    /** "Jul. a set. de 2026", as in the mock's quarter picker. */
+    public static function quarterRange(string $quarter): string
+    {
+        $months = app(SocialSecurityService::class)->incomeMonths($quarter);
+        $short = fn (CarbonImmutable $month): string => rtrim($month->locale(app()->getLocale())->translatedFormat('M'), '.');
+
+        return __(':from to :to :year', [
+            'from' => Str::ucfirst($short($months[0])),
+            'to' => $short($months[2]),
+            'year' => $months[0]->year,
+        ]);
+    }
+
     public static function quarterLabel(string $quarter): string
     {
         return __('Quarter :quarter of :year', ['quarter' => substr($quarter, -1), 'year' => substr($quarter, 0, 4)]);
@@ -175,55 +202,73 @@ class SocialSecurity extends Page
 
         return [
             ...$security->preparation($this->quarter),
-            'quarters' => $security->quarterOptions($this->quarter),
             'incomeMonths' => $security->incomeMonths($this->quarter),
             'contributionMonths' => $security->contributionMonths($this->quarter),
             'declarations' => $this->declarationHistory,
+            'declarationDueOn' => $this->declarationDueOn(),
             'contributionsByMonth' => $this->contributionHistory->groupBy(fn (SocialSecurityContribution $record): string => $record->contribution_month->format('Y-m')),
-            'summary' => $this->summary(),
+            'steps' => $this->steps(),
         ];
     }
 
+    /** The quarterly declaration is due by the end of the month after the quarter. */
+    private function declarationDueOn(): CarbonImmutable
+    {
+        return app(SocialSecurityService::class)->contributionMonths($this->quarter)[0]->endOfMonth()->startOfDay();
+    }
+
     /**
-     * The quarter at a glance, above the detail: what came in, whether the declaration is on
-     * record and how many of the three monthly contributions have a confirmed value.
+     * "O ciclo deste trimestre", as in the mock: the income recorded, the declaration, then each
+     * of the three monthly contributions it sets, each paid by the 20th of the following month.
      *
-     * @return list<array{label: string, value: string, note?: ?string, tone?: ?string, percent?: ?float}>
+     * @return list<array{label: string, state: string, done: bool, tone?: ?string}>
      */
-    private function summary(): array
+    private function steps(): array
     {
         $security = app(SocialSecurityService::class);
         $preparation = $security->preparation($this->quarter);
-        $months = $security->contributionMonths($this->quarter);
-        $confirmed = $this->contributionHistory
-            ->unique(fn (SocialSecurityContribution $record): string => $record->contribution_month->format('Y-m'))
-            ->count();
+        $locale = app()->getLocale();
+        $today = CarbonImmutable::today('Europe/Lisbon');
+        $dueOn = $this->declarationDueOn();
         $declared = $this->declarationHistory->isNotEmpty();
-        $exempt = (int) $preparation['receipts']->sum('amount') - $preparation['estimateIncome'];
+        $confirmed = $this->contributionHistory->groupBy(fn (SocialSecurityContribution $record): string => $record->contribution_month->format('Y-m'));
+        $shortDate = fn (CarbonImmutable $date): string => $date->locale($locale)->translatedFormat(__('j M'));
 
-        return [
+        $steps = [
             [
-                'label' => __('Recorded total'),
-                'value' => Money::format((int) $preparation['receipts']->sum('amount'), locale: app()->getLocale()),
-                'note' => trans_choice('{0} No payments received this quarter|{1} 1 payment received this quarter|[2,*] :count payments received this quarter', $preparation['receipts']->count()),
+                'label' => __('Payments received'),
+                'state' => __(':amount recorded', ['amount' => Money::format((int) $preparation['receipts']->sum('amount'), locale: $locale)]),
+                'done' => true,
             ],
             [
-                'label' => __('Used in the estimate'),
-                'value' => Money::format($preparation['estimateIncome'], locale: app()->getLocale()),
-                'note' => $exempt > 0 ? __(':amount marked exempt is excluded', ['amount' => Money::format($exempt, locale: app()->getLocale())]) : __('No exempt payments received'),
-            ],
-            [
-                'label' => __('Quarterly declaration'),
-                'value' => $declared ? __('Declaration recorded') : __('Awaiting recording'),
-                'note' => $declared ? __('Declared amounts saved in Contiu') : __('Copy the totals from Social Security Direct'),
-                'tone' => $declared ? 'success' : 'warning',
-            ],
-            [
-                'label' => __('Confirmed contributions'),
-                'value' => __(':confirmed of :total', ['confirmed' => $confirmed, 'total' => count($months)]),
-                'percent' => count($months) > 0 ? $confirmed / count($months) * 100 : 0,
+                'label' => __('Declaration'),
+                'state' => match (true) {
+                    $declared => __('Declaration recorded'),
+                    $today->gt($dueOn) => trans_choice('{1} 1 day late|[2,*] :count days late', (int) $dueOn->diffInDays($today)),
+                    default => __('By :date', ['date' => $shortDate($dueOn)]),
+                },
+                'done' => $declared,
+                'tone' => ! $declared && $today->gt($dueOn) ? 'danger' : null,
             ],
         ];
+
+        foreach ($security->contributionMonths($this->quarter) as $month) {
+            $record = $confirmed->get($month->format('Y-m'))?->first();
+            $paymentDue = $month->addMonth()->setDay(20);
+
+            $steps[] = [
+                'label' => Str::ucfirst($month->locale($locale)->translatedFormat('F')),
+                'state' => match (true) {
+                    $record !== null => __('Confirmed · :amount', ['amount' => Money::format($record->amount, locale: $locale)]),
+                    $month->gt($today) => __('Estimate: :amount', ['amount' => Money::format($preparation['estimatedContributions'][$month->format('Y-m')], locale: $locale)]),
+                    default => __('To confirm · by :date', ['date' => $shortDate($paymentDue)]),
+                },
+                'done' => $record !== null,
+                'tone' => $record === null && $month->gt($today) ? 'gray' : null,
+            ];
+        }
+
+        return $steps;
     }
 
     private function canWrite(): bool

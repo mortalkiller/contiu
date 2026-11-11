@@ -12,7 +12,6 @@ use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Database\Eloquent\Collection;
 use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
-use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 /**
  * Above the "Recebimentos" list: what came in this month (with the last six months as a small
@@ -37,11 +36,13 @@ class PaymentsSummary extends StatsOverviewWidget
         $recent = Payment::query()->whereDate('paid_on', '>=', today()->startOfMonth()->subMonths(5))->get();
 
         $byMonth = [];
+        $monthLabels = [];
 
         for ($monthsAgo = 5; $monthsAgo >= 0; $monthsAgo--) {
             $month = today()->startOfMonth()->subMonths($monthsAgo);
 
             $byMonth[] = (int) $recent->filter(fn (Payment $payment): bool => $payment->paid_on->isSameMonth($month))->sum('amount');
+            $monthLabels[] = ucfirst($month->locale(app()->getLocale())->translatedFormat('F'));
         }
 
         /** @var Collection<int, Payment> $thisYear */
@@ -65,17 +66,14 @@ class PaymentsSummary extends StatsOverviewWidget
 
         return [
             Stat::make(__('Received in :period', ['period' => today()->locale(app()->getLocale())->translatedFormat('F')]), Money::format((int) end($byMonth), locale: app()->getLocale()))
-                ->description(__('Last 6 months'))
-                ->chart($byMonth)
-                ->color('primary')
-                ->icon(Phosphor::HandCoins),
+                // As in the mock: one bar per month, the current one in full colour.
+                ->bars($byMonth, label: __('Last 6 months'), labels: $monthLabels, formatValueUsing: fn (int $cents): string => Money::format($cents, locale: app()->getLocale())),
             Stat::make(__('Received in :period', ['period' => today()->year]), Money::format((int) $thisYear->sum('amount'), locale: app()->getLocale()))
-                ->description(trans_choice('{0} No payments|{1} 1 payment|[2,*] :count payments', $thisYear->count()))
-                ->icon(Phosphor::CalendarBlank),
-            Stat::make(__('How clients pay you'), $byMethod->keys()->first() ?? '—')
-                ->description($byMethod->isEmpty() ? __('No payments yet this year') : ProportionBar::render($segments))
-                ->icon(Phosphor::Wallet),
+                ->description(trans_choice('{0} No payments|{1} 1 payment|[2,*] :count payments', $thisYear->count())),
+            // As in the mock: what is still to reconcile before how clients pay.
             ...$this->reconciliationStat(),
+            Stat::make(__('How clients pay you'), $byMethod->keys()->first() ?? '—')
+                ->description($byMethod->isEmpty() ? __('No payments yet this year') : ProportionBar::render($segments)),
         ];
     }
 
@@ -96,9 +94,8 @@ class PaymentsSummary extends StatsOverviewWidget
         return [
             Stat::make(__('Unreconciled with the bank'), (string) $pending)
                 ->description($pending === 0 ? __('All matched to the bank statement') : __('Not yet on the bank statement'))
-                ->color($pending === 0 ? 'success' : 'warning')
-                ->url($pending === 0 ? null : BankStatementImport::getUrl())
-                ->icon(Phosphor::Bank),
+                ->valueColor($pending === 0 ? null : 'warning')
+                ->url($pending === 0 ? null : BankStatementImport::getUrl()),
         ];
     }
 }

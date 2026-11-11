@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Enums\Language;
 use App\Filament\Pages\AccountantReview;
+use App\Filament\Pages\AccountSubscription;
 use App\Filament\Pages\Auth\EditUserProfile;
 use App\Filament\Pages\Auth\RegisterAccount;
 use App\Filament\Pages\Dashboard;
@@ -37,6 +38,7 @@ use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Support\Enums\Platform;
+use Filament\Support\Enums\Width;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -51,6 +53,8 @@ use MortalKiller\FilamentAppearance\Schemas\Components\PalettePicker;
 use Mortalkiller\FilamentCompleteUserProfile\AccountSection;
 use Mortalkiller\FilamentCompleteUserProfile\CompleteUserProfilePlugin;
 use Mortalkiller\FilamentCompleteUserProfile\Features\Profile;
+use MortalKiller\FilamentPageHeader\Components\Header;
+use MortalKiller\FilamentPageHeader\Enums\BreadcrumbPosition;
 use MortalKiller\FilamentPageHeader\PageHeaderPlugin;
 use MortalKiller\FilamentSkeletonLoading\SkeletonLoadingPlugin;
 use ShuvroRoy\FilamentSpatieLaravelBackup\FilamentSpatieLaravelBackupPlugin;
@@ -145,10 +149,11 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::HEAD_END,
                 fn (): string => view('filament.partials.brand-head')->render(),
             )
-            // Trial days left, or that the account is read-only (App\Support\AccountStatus).
+            // Trial days left, or that the account is read-only (App\Support\AccountStatus). Not on
+            // "Assinatura" itself, which says the same in its own card.
             ->renderHook(
                 PanelsRenderHook::CONTENT_START,
-                fn (): string => AccountantAccess::isReviewOnly() || ($banner = AccountStatus::banner()) === null
+                fn (): string => AccountantAccess::isReviewOnly() || request()->routeIs(AccountSubscription::getRouteName()) || ($banner = AccountStatus::banner()) === null
                     ? ''
                     : view('filament.partials.account-status-banner', ['banner' => $banner])->render(),
             )
@@ -201,6 +206,15 @@ class AdminPanelProvider extends PanelProvider
                         "@livewire(\\App\\Livewire\\QuickCreateMenu::class, ['tabBar' => true], key('quick-create-tab-bar'))",
                     )),
                 CompleteUserProfilePlugin::make()
+                    // As in the mock and the other pages: "A minha conta" on the page itself (no
+                    // card, avatar or breadcrumbs), the tabs under it, across the full width.
+                    ->maxContentWidth(Width::Full)
+                    ->modifyHeaderUsing(fn (Header $header): Header => $header
+                        ->contained(false)
+                        ->heading(__('My account'))
+                        ->avatar(null)
+                        ->initials(null)
+                        ->breadcrumbs(BreadcrumbPosition::Hidden))
                     ->profile(fn (Profile $profile): Profile => $profile->locale(false)
                         ->fields(fn (): array => [
                             Select::make('language')->label(__('Language'))->options(Language::options())

@@ -3,7 +3,8 @@
     Filament's stat card classes, so the cards look like the ones on the lists.
 
     $stats:  list<array{label: string, value: string, note?: ?string, tone?: ?string, url?: ?string, percent?: ?float}>
-             tone is danger|warning|success for the note; percent draws a progress bar.
+             tone is danger|warning|success for the note; valueTone puts the figure itself in a
+             status colour (Stat::valueColor()); percent draws a progress bar.
     $notice: ?array{title: string, body?: ?string, tone?: string} (tone info|warning)
 --}}
 @php
@@ -35,7 +36,7 @@
     @if ($stats !== [])
         <div class="grid gap-6 md:grid-cols-2 {{ $columns }}">
             @foreach ($stats as $stat)
-                <{{ filled($stat['url'] ?? null) ? 'a href='.e($stat['url']) : 'div' }} class="fi-wi-stats-overview-stat">
+                <{{ filled($stat['url'] ?? null) ? 'a href='.e($stat['url']) : 'div' }} class="fi-wi-stats-overview-stat" {!! filled($stat['valueTone'] ?? null) ? 'data-fap-value-color="'.e($stat['valueTone']).'"' : '' !!}>
                     <div class="fi-wi-stats-overview-stat-content">
                         <div class="fi-wi-stats-overview-stat-label-ctn">
                             <span class="fi-wi-stats-overview-stat-label">{{ $stat['label'] }}</span>

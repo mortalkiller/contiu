@@ -6,9 +6,7 @@ use App\Enums\Language;
 use App\Filament\Analysis\Widgets\CashForecastChart;
 use App\Filament\Analysis\Widgets\CashForecastStats;
 use App\Filament\Analysis\Widgets\CashForecastTable;
-use App\Filament\Analysis\Widgets\ForecastInflowsByClientChart;
-use App\Filament\Analysis\Widgets\ForecastInflowsChart;
-use App\Filament\Analysis\Widgets\ForecastOutflowsChart;
+use App\Filament\Support\ProportionBar;
 use App\Models\BankTransaction;
 use App\Support\CashForecast as Forecast;
 use App\Support\CurrentAccount;
@@ -17,13 +15,13 @@ use App\Support\FiscalReserve;
 use App\Support\Money;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\Grid;
-use Filament\Schemas\Components\Livewire;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Components\Attributes\Unexposed;
@@ -65,9 +63,19 @@ class CashForecast extends Page
         $reserve = new FiscalReserve($settings);
 
         return [
+            ActionGroup::make([
+                Action::make('threeMonths')
+                    ->label(__('3 months'))
+                    ->color(fn () => $this->months === 3 ? 'primary' : 'gray')
+                    ->action(fn () => $this->months = 3),
+                Action::make('sixMonths')
+                    ->label(__('6 months'))
+                    ->color(fn () => $this->months === 6 ? 'primary' : 'gray')
+                    ->action(fn () => $this->months = 6),
+            ])->buttonGroup(),
             Action::make('setTaxReserve')
                 ->label(__('Set tax reserve'))
-                ->icon(Phosphor::Wallet)
+                ->color('gray')
                 ->visible(fn (): bool => ! CurrentAccount::readOnly())
                 ->fillForm(fn (): array => [
                     'amount' => Money::toEuros($settings->taxReservedAmount()),
@@ -112,14 +120,6 @@ class CashForecast extends Page
                     $this->forecastOverview = [];
                     $this->cacheSchema('content', null);
                 }),
-            Action::make('threeMonths')
-                ->label(__('3 months'))
-                ->color(fn () => $this->months === 3 ? 'primary' : 'gray')
-                ->action(fn () => $this->months = 3),
-            Action::make('sixMonths')
-                ->label(__('6 months'))
-                ->color(fn () => $this->months === 6 ? 'primary' : 'gray')
-                ->action(fn () => $this->months = 6),
         ];
     }
 
@@ -149,57 +149,19 @@ class CashForecast extends Page
             'evidence' => (new FiscalReserve($settings))->evidence(),
         ];
         $transfer = $evidence['transfer'];
-        $statementEnd = once(fn (): ?string => $forecast->startsFromBankBalance() ? $forecast->account()->endsOn()?->format(Language::resolve(app()->getLocale())->dateFormat()) : null);
+
+        $locale = app()->getLocale();
 
         return $schema->components([
             ...($settings->isIncomplete() ? [TaxEstimate::incompleteSettingsCallout()] : []),
-            Section::make(__('Tax reserve'))
-                ->columns(3)
-                ->schema([
-                    TextEntry::make('reserved')
-                        ->label(__('Amount reserved'))
-                        ->state(Money::format($reserve['reserved'], locale: app()->getLocale()))
-                        ->helperText(__('Amount you set aside. Update it when you add to or use the reserve.')),
-                    TextEntry::make('available')
-                        ->label(__('Available balance after reserve'))
-                        ->state($reserve['available'] === null ? __('No reference bank balance') : Money::format($reserve['available'], locale: app()->getLocale())),
-                    TextEntry::make('tax_paid')
-                        ->label(__('Taxes and contributions paid this year'))
-                        ->state(Money::format($reserve['paidThisYear'], locale: app()->getLocale()))
-                        ->helperText(__('Paid expenses in the Taxes and contributions category.')),
-                    TextEntry::make('reserve_evidence')
-                        ->label(__('Proof of reserve'))
-                        ->state(match (true) {
-                            ! $evidence['linked'] => __('Manually declared amount'),
-                            $transfer === null => __('Invalid proof'),
-                            $evidence['unverified'] > 0 => __('Partially verified'),
-                            default => __('Verified by the transfer'),
-                        })
-                        ->helperText(match (true) {
-                            ! $evidence['linked'] => null,
-                            $transfer === null => __('The transfer was removed or changed. The declared amount still applies.'),
-                            default => self::reserveTransferLabel($transfer),
-                        }),
-                    ...($transfer === null ? [] : [
-                        TextEntry::make('reserve_covered')
-                            ->label(__('Verified amount'))
-                            ->state(Money::format($evidence['covered'], locale: app()->getLocale())),
-                        TextEntry::make('reserve_unverified')
-                            ->label(__('Unverified amount'))
-                            ->state(Money::format($evidence['unverified'], locale: app()->getLocale())),
-                    ]),
-                ]),
-            ! $forecast->showsBalance()
-                ? Callout::make(__('No balance'))
+            // Where the running balance starts is in the stats; only a missing balance needs a word here.
+            ...match (true) {
+                ! $forecast->showsBalance() => [Callout::make(__('No balance'))
                     ->description(__('Without a dedicated business account, the forecast shows monthly inflows and outflows only.'))
                     ->icon(Phosphor::Wallet)
-                    ->status('info')
-                : ($forecast->startsFromBankBalance()
-                ? Callout::make(__('Starts at :amount', ['amount' => Money::format($forecast->startingBalance(), locale: app()->getLocale())]))
-                    ->description(__('Statement balance as of :date, plus what you recorded since then. Import your bank statement to keep it accurate.', ['date' => $statementEnd]))
-                    ->icon(Phosphor::Wallet)
-                    ->status('info')
-                : Callout::make(__('The running balance starts at €0'))
+                    ->status('info')],
+                $forecast->startsFromBankBalance() => [],
+                default => [Callout::make(__('The running balance starts at €0'))
                     ->description(__('Import your bank statement to use the actual account balance in the forecast.'))
                     ->icon(Phosphor::Wallet)
                     ->status('warning')
@@ -208,35 +170,95 @@ class CashForecast extends Page
                             ->label(__('Open bank statement'))
                             ->link()
                             ->url(BankStatementImport::getUrl()),
-                    ])),
+                    ])],
+            },
             ...$this->getWidgetsSchemaComponents([CashForecastStats::class]),
-            // Two stacked columns: each widget keeps its natural height (no half-empty cards).
+            // As in the mock: the balance and the months on the left; the reserve and where the
+            // money comes from and goes on the right.
             Grid::make(['default' => 1, 'xl' => 3])->schema([
                 Grid::make(1)
                     ->columnSpan(['default' => 1, 'xl' => 2])
                     ->schema(fn (): array => $this->getWidgetsSchemaComponents([CashForecastChart::class, CashForecastTable::class])),
-                // Keyed by the horizon so the doughnuts are remounted with the new figures when the 3/6
-                // toggle changes (Chart.js keeps its first canvas otherwise).
-                Grid::make(1)
-                    ->schema(fn (): array => collect($this->sideWidgets())
-                        ->map(fn (string $widget): Livewire => Livewire::make($widget, fn (): array => $this->getWidgetData())
-                            ->key($widget.'-'.$this->months.'m'))
-                        ->all()),
+                Grid::make(1)->schema([
+                    Section::make(__('Tax reserve'))
+                        ->inlineLabel()
+                        ->extraAttributes(['class' => 'fap-key-value'])
+                        ->schema([
+                            TextEntry::make('reserved')
+                                ->label(__('Amount reserved'))
+                                ->state(Money::format($reserve['reserved'], locale: $locale)),
+                            TextEntry::make('tax_paid')
+                                ->label(__('Taxes and contributions paid this year'))
+                                ->state(Money::format($reserve['paidThisYear'], locale: $locale)),
+                            TextEntry::make('available')
+                                ->label(__('Available balance after reserve'))
+                                ->weight('semibold')
+                                ->state($reserve['available'] === null ? __('No reference bank balance') : Money::format($reserve['available'], locale: $locale)),
+                            TextEntry::make('reserve_evidence')
+                                ->label(__('Proof of reserve'))
+                                ->state(match (true) {
+                                    ! $evidence['linked'] => __('Manually declared amount'),
+                                    $transfer === null => __('Invalid proof'),
+                                    $evidence['unverified'] > 0 => __('Partially verified'),
+                                    default => __('Verified by the transfer'),
+                                }),
+                            ...($transfer === null ? [] : [
+                                TextEntry::make('reserve_covered')
+                                    ->label(__('Verified amount'))
+                                    ->state(Money::format($evidence['covered'], locale: $locale)),
+                                TextEntry::make('reserve_unverified')
+                                    ->label(__('Unverified amount'))
+                                    ->state(Money::format($evidence['unverified'], locale: $locale)),
+                            ]),
+                            TextEntry::make('reserve_note')
+                                ->hiddenLabel()
+                                ->color('gray')
+                                ->state(match (true) {
+                                    $evidence['linked'] && $transfer === null => __('The transfer was removed or changed. The declared amount still applies.'),
+                                    $transfer !== null => self::reserveTransferLabel($transfer),
+                                    default => __('Amount you set aside. Update it when you add to or use the reserve.'),
+                                }),
+                        ]),
+                    Section::make(__('Where it comes from and where it goes'))
+                        ->schema(fn (): array => $this->flowBars($forecast)),
+                ]),
             ]),
         ]);
     }
 
     /**
-     * Doughnuts beside the chart and table. The 6-month table is longer, so that horizon also gets
-     * the by-client split and both columns end level.
+     * "De onde vem e para onde vai": the expected inflows and outflows split by source, as bars;
+     * over six months, the inflows by client too.
      *
-     * @return array<class-string>
+     * @return list<TextEntry>
      */
-    public function sideWidgets(): array
+    private function flowBars(Forecast $forecast): array
     {
-        return $this->months === 6
-            ? [ForecastInflowsChart::class, ForecastOutflowsChart::class, ForecastInflowsByClientChart::class]
-            : [ForecastInflowsChart::class, ForecastOutflowsChart::class];
+        $segments = function (array $amounts, array $tones): array {
+            $segments = [];
+
+            foreach ($amounts as $label => $cents) {
+                if ($cents > 0) {
+                    $segments[] = ['label' => (string) $label, 'cents' => $cents, 'tone' => $tones[count($segments)] ?? 'soft'];
+                }
+            }
+
+            return $segments;
+        };
+        $bar = fn (string $name, string $label, array $amounts, array $tones): TextEntry => TextEntry::make($name)
+            ->label($label)
+            ->state(array_sum($amounts) > 0 ? ProportionBar::render($segments($amounts, $tones)) : __('Nothing expected'));
+
+        $entries = [
+            $bar('inflow_split', __('Expected inflows'), $forecast->inflowBreakdown(), ['strong', 'danger', 'medium']),
+            $bar('outflow_split', __('Expected outflows'), $forecast->outflowBreakdown(), ['clay', 'danger', 'medium', 'strong', 'soft']),
+        ];
+
+        if ($this->months === 6) {
+            $entries[] = $bar('inflow_clients', __('Expected inflows by client'), array_slice($forecast->inflowsByClient(), 0, 4, true), ['strong', 'medium', 'soft', 'clay']);
+        }
+
+        return $entries;
     }
 
     /** Read lazily by the widgets, so the 3/6-month toggle reaches them in the same request. */

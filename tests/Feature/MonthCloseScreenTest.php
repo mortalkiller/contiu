@@ -103,8 +103,8 @@ describe('Payments and expenses', function () {
         expect($receivable->fresh()->outstanding)->toBe(0);
     });
 
-    it('marks an expense as paid and stores its invoice number inline', function () {
-        $expense = Expense::factory()->unpaid()->create(['spent_on' => '2026-03-02']);
+    it('marks an expense as paid and confirms its old reference inline', function () {
+        $expense = Expense::factory()->unpaid()->create(['spent_on' => '2026-03-02', 'invoice_number' => 'FT ANTIGA']);
 
         Livewire::test(MonthExpensesTable::class, ['month' => '2026-03'])
             ->assertCanSeeTableRecords([$expense])
@@ -134,14 +134,26 @@ describe('Fiscal documents and historical balances', function () {
             ->assertDontSee('Mês fechado');
 
         Livewire::test(MonthReceivablesTable::class, ['month' => '2026-12'])
-            ->assertSee('Saldo atual em aberto')
+            ->assertSee('Em aberto')
             ->assertSee('Falta fatura ou fatura-recibo');
 
         Livewire::test(MonthPaymentsTable::class, ['month' => '2026-12'])
             ->assertCanNotSeeTableRecords([$payment]);
     });
 
+    it('takes the recorded data step to the first table with records to complete', function () {
+        Expense::factory()->create(['spent_on' => '2026-12-02']);
+
+        Livewire::test(MonthClose::class, ['month' => '2026-12'])
+            ->assertSeeHtml('href="#month-expenses"');
+
+        Livewire::test(MonthExpensesTable::class, ['month' => '2026-12'])
+            ->assertSeeHtml('id="month-expenses"');
+    });
+
     it('keeps an invoice issued in December visible with its month-end balance after a January payment', function () {
+        // The end-of-month balance shows once the month is over.
+        $this->travelTo(Carbon::parse('2027-02-01'));
         $receivable = Receivable::factory()->create(['due_on' => '2027-01-31', 'amount' => 120000]);
         FiscalDocument::factory()->create(['document_date' => '2026-12-18', 'number' => 'FT DEZEMBRO'])
             ->links()->create(['receivable_id' => $receivable->id]);
@@ -149,6 +161,7 @@ describe('Fiscal documents and historical balances', function () {
         Payment::factory()->for($receivable)->create(['paid_on' => '2027-01-22', 'amount' => 50000]);
 
         Livewire::test(MonthReceivablesTable::class, ['month' => '2026-12'])
+            ->assertSee('Saldo atual em aberto')
             ->assertCanSeeTableRecords([$receivable])
             ->assertTableColumnStateSet('outstanding', 0, $receivable)
             ->assertTableColumnStateSet('outstandingAtClose', 120000, $receivable);
@@ -231,8 +244,9 @@ describe('Fiscal documents and historical balances', function () {
         $paid->update(['invoice_number' => 'FT FORNECEDOR']);
 
         Livewire::test(MonthClose::class, ['month' => '2026-12'])
-            ->assertSee('1 despesa por pagar')
-            ->assertSee('2 registos com dados por completar');
+            ->assertSee('Falta 1 item para fechar')
+            ->assertSeeInOrder(['2. Despesas', '1 por pagar'])
+            ->assertSee('2 por completar');
 
         Livewire::test(MonthExpensesTable::class, ['month' => '2026-12'])
             ->assertCanSeeTableRecords([$unpaid, $paid])
@@ -240,9 +254,8 @@ describe('Fiscal documents and historical balances', function () {
             ->assertTableColumnStateSet('invoice_number', 'FT LEGADA', $unpaid)
             ->assertSee('Falta fatura ou fatura-recibo')
             ->assertSee('Referência anterior por confirmar')
-            ->assertSee('Sem comprovativo')
-            ->assertSee('Com comprovativo')
-            ->assertSee('FT FORNECEDOR')
-            ->assertSee('Por reconciliar');
+            ->assertSee('Em falta')
+            ->assertSee('Anexado')
+            ->assertSee('FT FORNECEDOR');
     });
 });

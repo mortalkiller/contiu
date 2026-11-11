@@ -1,9 +1,5 @@
-@php
-    use ToneGabes\Filament\Icons\Enums\Phosphor;
-@endphp
-
 <x-filament-widgets::widget>
-    <x-filament::section :heading="__('The rest of :month', ['month' => $month])" :icon="Phosphor::ArrowsDownUp" compact>
+    <x-filament::section :heading="__(':month in numbers', ['month' => \Illuminate\Support\Str::ucfirst($month)])" compact>
         <dl class="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5 text-sm">
             <dt class="text-gray-600 dark:text-gray-300">{{ __('Still to come in') }}</dt>
             <dd class="text-end font-medium tabular-nums text-gray-950 dark:text-white">{{ $incoming }}</dd>

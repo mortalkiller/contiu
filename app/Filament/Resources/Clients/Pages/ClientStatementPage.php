@@ -8,6 +8,9 @@ use App\Filament\Actions\RecordPaymentAction;
 use App\Filament\Actions\SendPaymentReminderAction;
 use App\Filament\Actions\SendStatementEmailAction;
 use App\Filament\Resources\Clients\ClientResource;
+use App\Filament\Resources\Clients\Schemas\ClientHeader;
+use App\Filament\Resources\Clients\Widgets\ClientStatementSummary;
+use App\Models\Client;
 use App\Support\ClientStatement;
 use App\Support\Money;
 use BackedEnum;
@@ -17,12 +20,12 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 use Filament\Schemas\Components\EmbeddedTable;
+use Filament\Schemas\Components\Livewire;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontWeight;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
-use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Support\Carbon;
@@ -69,42 +72,87 @@ class ClientStatementPage extends Page implements HasTable
         return __('Statement');
     }
 
+    /** As in the mock: "Extrato de <cliente>" over the page, with what the statement is. */
+    public function headerSchema(Schema $schema): Schema
+    {
+        return $schema->components([
+            ClientHeader::header()
+                ->heading(fn (Client $record): string => __('Statement of :client', ['client' => $record->name]))
+                ->description(__('What you charged and what you received, by date, with the balance at each step.')),
+        ]);
+    }
+
+    /** As in the mock: the export, sending it to the client and, last, recording a payment. */
     protected function getHeaderActions(): array
     {
         return [
-            RecordPaymentAction::make()->after(function (): void {
+            ActionGroup::make([
+                SendPaymentReminderAction::make(),
+                ViewClient::addClientEmailAction(),
+            ]),
+            Action::make('exportExcel')
+                ->label(__('Export to Excel'))
+                ->icon(Phosphor::DownloadSimple)
+                ->color('gray')
+                ->action(fn () => Excel::download(new ClientStatementExport($this->statement()), ClientStatementExport::filename($this->statement()))),
+            SendStatementEmailAction::make()
+                ->label(__('Send statement'))
+                ->color('gray')
+                ->statement(fn () => $this->statement()),
+            RecordPaymentAction::make()->icon(null)->after(function (): void {
                 $this->statements = [];
                 $this->resetTable();
             }),
-            SendPaymentReminderAction::make(),
-            ViewClient::addClientEmailAction(),
-            ActionGroup::make([
-                Action::make('exportExcel')
-                    ->label(__('Export to Excel'))
-                    ->icon(Phosphor::DownloadSimple)
-                    ->action(fn () => Excel::download(new ClientStatementExport($this->statement()), ClientStatementExport::filename($this->statement()))),
-                SendStatementEmailAction::make()
-                    ->statement(fn () => $this->statement()),
-            ])
-                ->label(__('Statement'))
-                ->icon(Phosphor::Scroll)
-                ->button()
-                ->color('gray'),
         ];
     }
 
+    /** The period's figures in one card, then the movements. */
     public function content(Schema $schema): Schema
     {
         return $schema->components([
+            Livewire::make(ClientStatementSummary::class, fn (): array => ['record' => $this->getRecord(), ...$this->period()])
+                // Remounted when the period or the balance changes, so it never shows stale figures.
+                ->key(fn (): string => 'statement-summary-'.md5(json_encode([$this->period(), $this->statement()->balance(), $this->statement()->received()]))),
             EmbeddedTable::make(),
         ]);
+    }
+
+    /** @return array{from: ?string, until: ?string} the period on screen, as dates */
+    private function period(): array
+    {
+        $period = ($this->tableFilters ?? [])['period'] ?? [];
+
+        return [
+            'from' => filled($period['from'] ?? null) ? Carbon::parse($period['from'])->toDateString() : null,
+            'until' => filled($period['until'] ?? null) ? Carbon::parse($period['until'])->toDateString() : null,
+        ];
+    }
+
+    /** "Este ano", "12 meses" or "Tudo": sets where the statement starts and clears where it ends. */
+    public function showPeriodFrom(?string $from): void
+    {
+        $this->getTableFiltersForm()->fill(['period' => ['from' => $from, 'until' => null]]);
+
+        if ($this->getTable()->hasDeferredFilters()) {
+            $this->applyTableFilters();
+
+            return;
+        }
+
+        $this->handleTableFilterUpdates();
     }
 
     public function table(Table $table): Table
     {
         return $table
             ->heading(__('Transactions'))
-            ->description(fn (): string => $this->summary())
+            ->headerActions([
+                ActionGroup::make([
+                    $this->periodShortcut('thisYear', __('This year'), today()->startOfYear()->toDateString()),
+                    $this->periodShortcut('lastTwelveMonths', __('12 months'), today()->subYear()->addDay()->toDateString()),
+                    $this->periodShortcut('everything', __('Everything'), null),
+                ])->buttonGroup(),
+            ])
             ->records(fn (?array $filters): array => $this->statement($filters)->entries()->keyBy('key')->all())
             ->paginated(false)
             ->columns([
@@ -152,7 +200,7 @@ class ClientStatementPage extends Page implements HasTable
                         filled($data['from'] ?? null) ? __('From :date', ['date' => Carbon::parse($data['from'])->format(Language::resolve(app()->getLocale())->dateFormat())]) : null,
                         filled($data['until'] ?? null) ? __('Until :date', ['date' => Carbon::parse($data['until'])->format(Language::resolve(app()->getLocale())->dateFormat())]) : null,
                     ]))),
-            ], layout: FiltersLayout::AboveContent)
+            ])
             ->emptyStateHeading(__('No transactions in this period'));
     }
 
@@ -167,15 +215,12 @@ class ClientStatementPage extends Page implements HasTable
         return $this->statements[$key] ??= new ClientStatement($this->getRecord(), from: $from, to: $to);
     }
 
-    private function summary(): string
+    private function periodShortcut(string $name, string $label, ?string $from): Action
     {
-        $statement = $this->statement();
-
-        return __('Charged :charged · Received :received · Balance :balance · Past due :overdue', [
-            'charged' => Money::format($statement->charged()),
-            'received' => Money::format($statement->received()),
-            'balance' => Money::format($statement->balance()),
-            'overdue' => Money::format($statement->overdueBalance()),
-        ]);
+        return Action::make($name)
+            ->label($label)
+            ->size('sm')
+            ->color(fn (): string => $this->period() === ['from' => $from, 'until' => null] ? 'primary' : 'gray')
+            ->action(fn () => $this->showPeriodFrom($from));
     }
 }

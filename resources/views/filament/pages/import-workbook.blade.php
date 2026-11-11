@@ -6,6 +6,8 @@
             :heading="$preview['dryRun'] ? __('Preview results') : __('Result')"
             :description="__('Nothing has been saved yet. Review the figures and warnings, then click Import.')"
             icon="phosphor-eye"
+            wire:dirty.remove
+            wire:target="data.replace,data.file"
         >
             <div class="grid gap-6 md:grid-cols-2">
                 <dl class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">

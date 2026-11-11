@@ -17,7 +17,6 @@ use App\Support\CurrentAccount;
 use App\Support\DocumentedTurnover;
 use App\Support\FinanceSettings;
 use App\Support\Money;
-use Filament\Forms\Components\Select;
 use Livewire\Livewire;
 
 pest()->group('fiscal');
@@ -111,7 +110,7 @@ it('shows the operational figures separately and discloses unavailable territori
     FiscalDocument::factory()->create(['document_date' => '2024-06-12', 'currency' => 'USD']);
 
     Livewire::withQueryParams(['year' => 2026])->test(TaxEstimate::class)
-        ->assertSchemaComponentExists('year', 'content', fn (Select $select): bool => isset($select->getOptions()[2024]))
+        ->assertActionExists('year_2024')
         ->assertSee('Sem documentos em EUR')
         ->set('year', 2024)
         ->assertSeeHtmlInOrder(['Faturado líquido documentado', Money::format(9876), 'Recebimentos registados', Money::format(0)])

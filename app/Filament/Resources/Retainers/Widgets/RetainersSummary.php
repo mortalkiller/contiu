@@ -3,13 +3,13 @@
 namespace App\Filament\Resources\Retainers\Widgets;
 
 use App\Enums\Language;
+use App\Filament\Resources\Receivables\ReceivableResource;
 use App\Models\Retainer;
 use App\Support\Money;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Database\Eloquent\Collection;
 use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
-use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 /**
  * Above the "Avenças" list: what the active retainers bring in per month and per year, the next
@@ -42,26 +42,19 @@ class RetainersSummary extends StatsOverviewWidget
 
         return [
             Stat::make(__('Monthly recurring income'), Money::format(Money::round($perYear / 12), locale: app()->getLocale()))
-                ->description(trans_choice('{0} No active retainers|{1} 1 active retainer|[2,*] :count active retainers', $active->count()))
-                ->icon(Phosphor::Repeat),
+                ->description(trans_choice('{0} No active retainers|{1} 1 active retainer|[2,*] :count active retainers', $active->count())),
             Stat::make(__('Per year'), Money::format($perYear, locale: app()->getLocale()))
-                ->description(__('If nothing changes'))
-                ->icon(Phosphor::CalendarBlank),
+                ->description(__('If nothing changes')),
             Stat::make(__('Next due date'), $next === null ? '—' : $next->next_due_on->format(Language::resolve(app()->getLocale())->dateFormat()))
-                ->description($next === null ? __('Nothing due') : $next->client->name)
-                ->icon(Phosphor::Clock),
+                ->description($next === null ? __('Nothing due') : $next->client->name.' · '.Money::format((int) $next->total, locale: app()->getLocale())),
             Stat::make(__('Outstanding'), Money::format($outstanding, locale: app()->getLocale()))
                 ->description(match (true) {
                     $outstanding === 0 => __('All received'),
                     $overdue > 0 => __(':amount overdue', ['amount' => Money::format($overdue, locale: app()->getLocale())]),
                     default => __('No overdue amounts'),
                 })
-                ->color(match (true) {
-                    $outstanding === 0 => 'success',
-                    $overdue > 0 => 'danger',
-                    default => 'warning',
-                })
-                ->icon(Phosphor::HourglassMedium),
+                ->valueColor($outstanding > 0 ? 'warning' : null)
+                ->url(ReceivableResource::getUrl()),
         ];
     }
 }

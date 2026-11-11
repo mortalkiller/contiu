@@ -44,6 +44,8 @@ class TaxObligationsCard extends Widget implements HasActions, HasSchemas
     /** The list shows this many rows; the rest open with "Ver mais". */
     public const int VISIBLE_ROWS = 3;
 
+    private const int LOCAL_ROW_LIMIT = 12;
+
     protected static ?int $sort = 3;
 
     protected static bool $isLazy = true;
@@ -148,6 +150,8 @@ class TaxObligationsCard extends Widget implements HasActions, HasSchemas
             ...array_map(fn (TaxObligation $obligation) => $this->row($obligation, $today), [...$pending, ...$notes]),
             ...$otherTasks,
         ];
+        $localTaskToggle = count($tasks) <= self::LOCAL_ROW_LIMIT;
+        $localDoneToggle = count($done) <= self::LOCAL_ROW_LIMIT;
 
         return [
             'month' => Period::monthName($today->month, inSentence: true),
@@ -156,14 +160,20 @@ class TaxObligationsCard extends Widget implements HasActions, HasSchemas
             'pendingTotal' => Money::format((int) array_sum(array_map(fn (TaxObligation $obligation) => $obligation->amount ?? 0, $pending)), locale: app()->getLocale()),
             'next' => $next === null ? null : self::shortDate($next->dueOn).' · '.self::daysLabel($next->daysLeft($today)),
             'socialSecurity' => $this->socialSecurityLine($rows),
-            'tasks' => $this->showAll ? $tasks : array_slice($tasks, 0, self::VISIBLE_ROWS),
+            'tasks' => array_slice($tasks, 0, self::VISIBLE_ROWS),
+            'extraTasks' => $localTaskToggle || $this->showAll ? array_slice($tasks, self::VISIBLE_ROWS) : [],
             'hiddenCount' => max(0, count($tasks) - self::VISIBLE_ROWS),
             'showAll' => $this->showAll,
+            'localTaskToggle' => $localTaskToggle,
             'calendarUrl' => Calendar::getUrl(),
             'nothingToPay' => $pending === [] && ! $this->settings()->isIncomplete(),
             'limits' => array_values(array_filter([$this->socialSecurityLimit($today), $this->vatLimit($obligations)])),
             'upcoming' => implode(' · ', array_map(fn (TaxObligation $obligation) => $this->upcomingLabel($obligation), $obligations->upcoming())),
-            'done' => array_map(fn (TaxObligation $obligation) => $this->row($obligation, $today), $done),
+            'done' => $localDoneToggle || $this->showDone
+                ? array_map(fn (TaxObligation $obligation) => $this->row($obligation, $today), $done)
+                : [],
+            'doneCount' => count($done),
+            'localDoneToggle' => $localDoneToggle,
             'readOnly' => CurrentAccount::readOnly(),
         ];
     }

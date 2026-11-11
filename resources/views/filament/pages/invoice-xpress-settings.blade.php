@@ -44,7 +44,7 @@
                             @error('approvedItems') <p class="text-sm text-danger-600" role="alert">{{ $message }}</p> @enderror
                         </div>
                         <div class="space-y-1">
-                            <label for="ix-tax-name" class="text-sm font-medium">{{ __('VAT') }}</label>
+                            <label for="ix-tax-name" class="text-sm font-medium">{{ __('Default VAT') }}</label>
                             <x-filament::input.wrapper>
                                 <x-filament::input.select id="ix-tax-name" wire:model="taxName" required>
                                     <option value="">{{ __('Select VAT') }}</option>
@@ -73,6 +73,47 @@
                             @endif
                             @error('sequenceId') <p class="text-sm text-danger-600" role="alert">{{ $message }}</p> @enderror
                         </div>
+                    </div>
+                    <div class="space-y-4">
+                        <h3 class="text-sm font-semibold">{{ __('Regional VAT') }}</h3>
+                        @foreach ($vatRegions as $region)
+                            <fieldset class="space-y-2">
+                                <legend class="text-sm font-medium">{{ $region->label() }}</legend>
+                                <div class="grid gap-4 sm:grid-cols-3">
+                                    @foreach ($region->rates() as $category => $basisPoints)
+                                        @php
+                                            $field = "regionalTaxNames.{$region->value}.{$category}";
+                                            $inputId = "ix-tax-{$region->value}-{$category}";
+                                            $options = array_column($catalogChoices['regionalTaxes'][$region->value][$category] ?? [], 'name');
+                                            $selection = $regionalTaxNames[$region->value][$category] ?? '';
+                                            $hasSelection = is_string($selection) && $selection !== '';
+                                        @endphp
+                                        <div class="space-y-1">
+                                            <label for="{{ $inputId }}" class="text-sm">
+                                                {{ $vatCategories[$category] }} · {{ intdiv($basisPoints, 100) }}%
+                                            </label>
+                                            <x-filament::input.wrapper>
+                                                <x-filament::input.select
+                                                    :id="$inputId"
+                                                    wire:model="{{ $field }}"
+                                                    :disabled="$options === [] && ! $hasSelection"
+                                                >
+                                                    <option value="">{{ $options === [] && ! $hasSelection ? __('No matching VAT in InvoiceXpress') : __('Not configured') }}</option>
+                                                    @if ($hasSelection && ! in_array($selection, $options, true))
+                                                        <option value="{{ $selection }}">{{ __(':name · Unavailable', ['name' => $selection]) }}</option>
+                                                    @endif
+                                                    @foreach ($options as $name)
+                                                        <option value="{{ $name }}">{{ $name }}</option>
+                                                    @endforeach
+                                                </x-filament::input.select>
+                                            </x-filament::input.wrapper>
+                                            @error($field) <p class="text-sm text-danger-600" role="alert">{{ $message }}</p> @enderror
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </fieldset>
+                        @endforeach
+                        @error('regionalTaxNames') <p class="text-sm text-danger-600" role="alert">{{ $message }}</p> @enderror
                     </div>
                     @if ($hasPendingAttempts)
                         <p class="text-sm">{{ __('Resume pending attempts before changing the issuing settings.') }}</p>

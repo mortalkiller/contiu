@@ -137,7 +137,7 @@ it('cannot open a client in another account to record a VIES result', function (
         ->assertNotFound();
 });
 
-it('loads the client list balances in one receivables query', function () {
+it('loads the client list balances without a receivables query per client', function () {
     actingAsAdmin();
     $clients = Client::factory()->count(3)->create();
 
@@ -154,7 +154,8 @@ it('loads the client list balances in one receivables query', function () {
 
         $receivableQueries = collect(DB::getQueryLog())->filter(fn (array $query): bool => str_starts_with($query['query'], 'select "receivables".*,'));
 
-        expect($receivableQueries)->toHaveCount(1);
+        // One for the rows on the page, one shared by the heading and the totals at the foot.
+        expect($receivableQueries)->toHaveCount(2);
     } finally {
         DB::disableQueryLog();
     }

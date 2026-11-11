@@ -7,6 +7,7 @@ use App\Enums\CategoryType;
 use App\Enums\PaymentMethod;
 use App\Filament\Actions\Concerns\DisabledWhenReadOnly;
 use App\Filament\Support\MoneyInput;
+use App\Filament\Support\QuickCreate;
 use App\Models\Category;
 use App\Models\Supplier;
 use App\Support\FinanceSettings;
@@ -23,6 +24,8 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Enums\Width;
+use Illuminate\Support\Facades\Vite;
+use Illuminate\Support\Js;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 /**
@@ -71,15 +74,17 @@ class OneOffIncomeAction extends Action
     /** @param  int|null  $received  cents that reached the bank, when created from a statement line */
     public static function formSchema(bool $withDate = true, ?int $received = null): array
     {
+        $hasCommission = fn (Get $get): bool => $received === null
+            ? (float) $get('commission') > 0
+            : Money::toCents($get('gross_amount')) > $received;
+
         return [
             Grid::make($withDate ? 2 : 1)->schema(array_values(array_filter([
                 $withDate ? DatePicker::make('received_on')->label(__('Date'))->required() : null,
-                Select::make('category_id')
+                QuickCreate::category(Select::make('category_id')
                     ->label(__('Category'))
                     ->options(fn () => Category::query()->where('type', CategoryType::Income)->orderBy('name')->pluck('name', 'id')->all())
-                    ->createOptionForm([TextInput::make('name')->label(__('Name'))->required()])
-                    ->createOptionUsing(fn (array $data) => Category::create([...$data, 'type' => CategoryType::Income])->getKey())
-                    ->placeholder(__('E.g. Donations')),
+                    ->placeholder(__('E.g. Donations')), CategoryType::Income),
             ]))),
             TextInput::make('title')
                 ->label(__('Description'))
@@ -90,8 +95,20 @@ class OneOffIncomeAction extends Action
                     ->label(__('Gross amount'))
                     ->helperText(__('The amount on the invoice-receipt.'))
                     ->minValue($received === null ? 0.01 : Money::toEuros($received))
-                    ->live(onBlur: true)
-                    // From a bank line the commission is what didn't arrive, so the income always matches.
+                    ->afterStateUpdatedJs($received === null ? null : function () use ($received): string {
+                        $asset = Js::from(Vite::asset('resources/js/finance-preview.js'));
+
+                        return <<<JS
+                            const input = \$el;
+                            import({$asset}).then(({ moneyCents }) => {
+                                if (!input.isConnected) return;
+
+                                const cents = moneyCents(\$get('gross_amount')) - BigInt('{$received}');
+                                const fee = cents > 0n ? cents : 0n;
+                                \$set('commission', (fee / 100n) + '.' + String(fee % 100n).padStart(2, '0'));
+                            });
+                            JS;
+                    })
                     ->afterStateUpdated(fn (Set $set, $state) => $received === null ? null : $set('commission', Money::toEuros(max(0, (int) Money::toCents($state) - $received))))
                     ->required(),
                 MoneyInput::make('commission')
@@ -100,17 +117,17 @@ class OneOffIncomeAction extends Action
                         ? __('The amount the platform kept. It is recorded as an expense.')
                         : __('Calculated as the gross amount minus the bank deposit (:amount).', ['amount' => Money::format($received)]))
                     ->minValue(0)
-                    ->readOnly($received !== null)
-                    ->live(onBlur: true),
+                    ->readOnly($received !== null),
             ]),
-            Select::make('commission_supplier_id')
+            QuickCreate::supplier(Select::make('commission_supplier_id')
                 ->label(__('Platform'))
-                ->options(fn () => Supplier::query()->orderBy('name')->pluck('name', 'id')->all())
                 ->searchable()
-                ->createOptionForm([TextInput::make('name')->label(__('Name'))->required()])
-                ->createOptionUsing(fn (array $data) => Supplier::create($data)->getKey())
-                ->visible(fn (Get $get): bool => (float) $get('commission') > 0)
-                ->required(fn (Get $get): bool => (float) $get('commission') > 0),
+                ->getSearchResultsUsing(fn (string $search): array => Supplier::query()
+                    ->whereLike('name', '%'.$search.'%')->orderBy('name')->limit(50)->pluck('name', 'id')->all())
+                ->getOptionLabelUsing(fn ($value): ?string => Supplier::query()->whereKey($value)->value('name')))
+                ->visibleJs("Number(\$get('commission')) > 0")
+                ->dehydrated($hasCommission)
+                ->required($hasCommission),
             ToggleButtons::make('method')
                 ->label(__('Method'))
                 ->options(PaymentMethod::class)

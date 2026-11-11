@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\PortugueseVatRegion;
 use Illuminate\Support\Number;
 
 /**
@@ -77,6 +78,17 @@ final class Money
      */
     public static function vatOptions(): array
     {
-        return ['0.0000' => '0%', '0.0600' => '6%', '0.1300' => '13%', '0.2300' => '23%'];
+        $rates = [0];
+        foreach (PortugueseVatRegion::cases() as $region) {
+            array_push($rates, ...array_values($region->rates()));
+        }
+
+        sort($rates);
+        $options = [];
+        foreach (array_unique($rates) as $rate) {
+            $options[sprintf('0.%04d', $rate)] = intdiv($rate, 100).'%';
+        }
+
+        return $options;
     }
 }

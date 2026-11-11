@@ -82,29 +82,24 @@ it('asks where a client is and whether it is a business', function () {
         ->is_business->toBeTrue();
 });
 
-it('shows the goods question only for foreign suppliers', function () {
+it('keeps the goods classification only for purchases from foreign suppliers', function () {
     $portuguese = Supplier::factory()->create(['seat' => Seat::Portugal]);
     $european = Supplier::factory()->create(['seat' => Seat::EuropeanUnion]);
     $outsideEu = Supplier::factory()->create(['seat' => Seat::OutsideEu]);
 
-    Livewire::test(CreateExpense::class)
-        ->assertFormFieldHidden('is_goods')
-        ->fillForm(['supplier_id' => $portuguese->id])
-        ->assertFormFieldHidden('is_goods')
-        ->fillForm(['supplier_id' => $outsideEu->id])
-        ->assertFormFieldVisible('is_goods')
-        ->fillForm(taxFormsExpenseData($european, ['description' => 'Monitor', 'is_goods' => true]))
-        ->assertFormFieldVisible('is_goods')
-        ->assertSee('É uma compra de bens (material)?')
-        ->call('create')
-        ->assertHasNoFormErrors();
+    foreach ([$portuguese, $european, $outsideEu] as $supplier) {
+        Livewire::test(CreateExpense::class)
+            ->assertSee('É uma compra de bens (material)?')
+            ->fillForm(taxFormsExpenseData($supplier, ['is_goods' => true]))
+            ->call('create')
+            ->assertHasNoFormErrors();
 
-    expect(Expense::firstWhere('description', 'Monitor')->is_goods)->toBeTrue();
+        expect(Expense::whereBelongsTo($supplier)->sole()->is_goods)->toBe($supplier->seat->isForeign());
+    }
 
     $service = Expense::factory()->for($european, 'supplier')->create(['is_goods' => false]);
 
     Livewire::test(EditExpense::class, ['record' => $service->getRouteKey()])
-        ->assertFormFieldVisible('is_goods')
         ->assertSchemaStateSet(['is_goods' => false], 'form');
 });
 

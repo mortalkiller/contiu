@@ -11,7 +11,7 @@
 
     @if ($previewData !== null)
         <x-filament::section>
-            <x-slot name="heading">{{ __('Confirm receipt issuing') }}</x-slot>
+            <x-slot name="heading">{{ $canWrite && ($previewData['canIssue'] ?? true) ? __('Confirm receipt issuing') : __('Preview receipt') }}</x-slot>
 
             <form wire:submit="confirm" class="space-y-4">
                 <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -29,22 +29,32 @@
                         <dd>{{ $previewData['paidOn'] }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm text-gray-500 dark:text-gray-400">{{ __('Amount to issue') }}</dt>
+                        <dt class="text-sm text-gray-500 dark:text-gray-400">{{ isset($previewData['withholding']) ? __('Gross settlement') : __('Amount to issue') }}</dt>
                         <dd class="font-semibold">{{ \App\Support\Money::format($previewData['amount'], app()->getLocale()) }}</dd>
+                        @if (isset($previewData['withholding']))
+                            <dd class="text-sm text-gray-500 dark:text-gray-400">
+                                {{ __('Cash: :amount', ['amount' => \App\Support\Money::format($previewData['withholding']['cash'], app()->getLocale())]) }}
+                                · {{ __('Withholding: :amount', ['amount' => \App\Support\Money::format($previewData['withholding']['retained'], app()->getLocale())]) }}
+                            </dd>
+                        @endif
                     </div>
                 </dl>
 
-                <label class="flex items-center gap-2 text-sm">
-                    <x-filament::input.checkbox wire:model="accepted" />
-                    {{ __('I confirm this payment was received without withholding tax and I want to issue the receipt.') }}
-                </label>
-                @error('accepted')
-                    <p role="alert" class="text-sm text-danger-600 dark:text-danger-400">{{ $message }}</p>
-                @enderror
+                @if ($canWrite && ($previewData['canIssue'] ?? true))
+                    <label class="flex items-center gap-2 text-sm">
+                        <x-filament::input.checkbox wire:model="accepted" />
+                        {{ __('I confirm this payment was received without withholding tax and I want to issue the receipt.') }}
+                    </label>
+                    @error('accepted')
+                        <p role="alert" class="text-sm text-danger-600 dark:text-danger-400">{{ $message }}</p>
+                    @enderror
 
-                <x-filament::button type="submit" wire:loading.attr="disabled">
-                    {{ __('Issue receipt') }}
-                </x-filament::button>
+                    <x-filament::button type="submit" wire:loading.attr="disabled">
+                        {{ __('Issue receipt') }}
+                    </x-filament::button>
+                @elseif (isset($previewData['withholding']))
+                    <p class="text-sm">{{ __('Issuing receipts with withholding requires validation in the InvoiceXpress sandbox.') }}</p>
+                @endif
             </form>
         </x-filament::section>
     @endif
@@ -61,7 +71,7 @@
                         <div>
                             <p class="text-sm font-medium">
                                 #{{ $attempt->id }} · {{ __('Invoice :number', ['number' => $attempt->intent['local']['invoiceNumber']]) }}
-                                · {{ \App\Support\Money::format($attempt->intent['local']['amount'], app()->getLocale()) }}
+                                · {{ \App\Support\Money::format($attempt->intent['withholding']['gross'] ?? $attempt->intent['local']['amount'], app()->getLocale()) }}
                             </p>
                             <p class="text-sm text-gray-500 dark:text-gray-400">
                                 @if ($attempt->provider_receipt_id !== null)

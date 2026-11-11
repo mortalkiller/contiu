@@ -3,9 +3,14 @@
 namespace App\Filament\Resources\Suppliers;
 
 use App\Filament\Resources\Suppliers\Pages\ManageSuppliers;
+use App\Filament\Resources\Suppliers\Pages\ViewSupplier;
+use App\Filament\Resources\Suppliers\RelationManagers\SupplierExpensesRelationManager;
+use App\Filament\Resources\Suppliers\RelationManagers\SupplierRecurringExpensesRelationManager;
 use App\Filament\Resources\Suppliers\Schemas\SupplierForm;
+use App\Filament\Resources\Suppliers\Schemas\SupplierInfolist;
 use App\Filament\Resources\Suppliers\Tables\SuppliersTable;
-use App\Filament\Resources\Suppliers\Widgets\SuppliersSummary;
+use App\Filament\Resources\Suppliers\Widgets\SuppliersBySpend;
+use App\Filament\Resources\Suppliers\Widgets\SupplierSummary;
 use App\Models\Supplier;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -45,6 +50,11 @@ class SupplierResource extends Resource
         return SupplierForm::configure($schema);
     }
 
+    public static function infolist(Schema $schema): Schema
+    {
+        return SupplierInfolist::configure($schema);
+    }
+
     public static function table(Table $table): Table
     {
         return SuppliersTable::configure($table);
@@ -52,18 +62,27 @@ class SupplierResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with('expenses.category')->withCount('expenses');
+        return parent::getEloquentQuery()->with(['expenses.category', 'recurringExpenses'])->withCount('expenses');
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            SupplierExpensesRelationManager::class,
+            SupplierRecurringExpensesRelationManager::class,
+        ];
     }
 
     public static function getWidgets(): array
     {
-        return [SuppliersSummary::class];
+        return [SuppliersBySpend::class, SupplierSummary::class];
     }
 
     public static function getPages(): array
     {
         return [
             'index' => ManageSuppliers::route('/'),
+            'view' => ViewSupplier::route('/{record}'),
         ];
     }
 }

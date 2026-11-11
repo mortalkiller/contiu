@@ -1,0 +1,3597 @@
+code,name,kind,parent_code,vat_region
+01,Aveiro,district,,PT
+02,Beja,district,,PT
+03,Braga,district,,PT
+04,Bragança,district,,PT
+05,Castelo Branco,district,,PT
+06,Coimbra,district,,PT
+07,Évora,district,,PT
+08,Faro,district,,PT
+09,Guarda,district,,PT
+10,Leiria,district,,PT
+11,Lisboa,district,,PT
+12,Portalegre,district,,PT
+13,Porto,district,,PT
+14,Santarém,district,,PT
+15,Setúbal,district,,PT
+16,Viana do Castelo,district,,PT
+17,Vila Real,district,,PT
+18,Viseu,district,,PT
+31,Ilha da Madeira,district,,PT-MA
+32,Ilha de Porto Santo,district,,PT-MA
+41,Ilha de Santa Maria,district,,PT-AC
+42,Ilha de São Miguel,district,,PT-AC
+43,Ilha Terceira,district,,PT-AC
+44,Ilha da Graciosa,district,,PT-AC
+45,Ilha de São Jorge,district,,PT-AC
+46,Ilha do Pico,district,,PT-AC
+47,Ilha do Faial,district,,PT-AC
+48,Ilha das Flores,district,,PT-AC
+49,Ilha do Corvo,district,,PT-AC
+0101,Águeda,municipality,01,PT
+0102,Albergaria-a-Velha,municipality,01,PT
+0103,Anadia,municipality,01,PT
+0104,Arouca,municipality,01,PT
+0105,Aveiro,municipality,01,PT
+0106,Castelo de Paiva,municipality,01,PT
+0107,Espinho,municipality,01,PT
+0108,Estarreja,municipality,01,PT
+0109,Santa Maria da Feira,municipality,01,PT
+0110,Ílhavo,municipality,01,PT
+0111,Mealhada,municipality,01,PT
+0112,Murtosa,municipality,01,PT
+0113,Oliveira de Azeméis,municipality,01,PT
+0114,Oliveira do Bairro,municipality,01,PT
+0115,Ovar,municipality,01,PT
+0116,São João da Madeira,municipality,01,PT
+0117,Sever do Vouga,municipality,01,PT
+0118,Vagos,municipality,01,PT
+0119,Vale de Cambra,municipality,01,PT
+0201,Aljustrel,municipality,02,PT
+0202,Almodôvar,municipality,02,PT
+0203,Alvito,municipality,02,PT
+0204,Barrancos,municipality,02,PT
+0205,Beja,municipality,02,PT
+0206,Castro Verde,municipality,02,PT
+0207,Cuba,municipality,02,PT
+0208,Ferreira do Alentejo,municipality,02,PT
+0209,Mértola,municipality,02,PT
+0210,Moura,municipality,02,PT
+0211,Odemira,municipality,02,PT
+0212,Ourique,municipality,02,PT
+0213,Serpa,municipality,02,PT
+0214,Vidigueira,municipality,02,PT
+0301,Amares,municipality,03,PT
+0302,Barcelos,municipality,03,PT
+0303,Braga,municipality,03,PT
+0304,Cabeceiras de Basto,municipality,03,PT
+0305,Celorico de Basto,municipality,03,PT
+0306,Esposende,municipality,03,PT
+0307,Fafe,municipality,03,PT
+0308,Guimarães,municipality,03,PT
+0309,Póvoa de Lanhoso,municipality,03,PT
+0310,Terras de Bouro,municipality,03,PT
+0311,Vieira do Minho,municipality,03,PT
+0312,Vila Nova de Famalicão,municipality,03,PT
+0313,Vila Verde,municipality,03,PT
+0314,Vizela,municipality,03,PT
+0401,Alfândega da Fé,municipality,04,PT
+0402,Bragança,municipality,04,PT
+0403,Carrazeda de Ansiães,municipality,04,PT
+0404,Freixo de Espada à Cinta,municipality,04,PT
+0405,Macedo de Cavaleiros,municipality,04,PT
+0406,Miranda do Douro,municipality,04,PT
+0407,Mirandela,municipality,04,PT
+0408,Mogadouro,municipality,04,PT
+0409,Torre de Moncorvo,municipality,04,PT
+0410,Vila Flor,municipality,04,PT
+0411,Vimioso,municipality,04,PT
+0412,Vinhais,municipality,04,PT
+0501,Belmonte,municipality,05,PT
+0502,Castelo Branco,municipality,05,PT
+0503,Covilhã,municipality,05,PT
+0504,Fundão,municipality,05,PT
+0505,Idanha-a-Nova,municipality,05,PT
+0506,Oleiros,municipality,05,PT
+0507,Penamacor,municipality,05,PT
+0508,Proença-a-Nova,municipality,05,PT
+0509,Sertã,municipality,05,PT
+0510,Vila de Rei,municipality,05,PT
+0511,Vila Velha de Ródão,municipality,05,PT
+0601,Arganil,municipality,06,PT
+0602,Cantanhede,municipality,06,PT
+0603,Coimbra,municipality,06,PT
+0604,Condeixa-a-Nova,municipality,06,PT
+0605,Figueira da Foz,municipality,06,PT
+0606,Góis,municipality,06,PT
+0607,Lousã,municipality,06,PT
+0608,Mira,municipality,06,PT
+0609,Miranda do Corvo,municipality,06,PT
+0610,Montemor-o-Velho,municipality,06,PT
+0611,Oliveira do Hospital,municipality,06,PT
+0612,Pampilhosa da Serra,municipality,06,PT
+0613,Penacova,municipality,06,PT
+0614,Penela,municipality,06,PT
+0615,Soure,municipality,06,PT
+0616,Tábua,municipality,06,PT
+0617,Vila Nova de Poiares,municipality,06,PT
+0701,Alandroal,municipality,07,PT
+0702,Arraiolos,municipality,07,PT
+0703,Borba,municipality,07,PT
+0704,Estremoz,municipality,07,PT
+0705,Évora,municipality,07,PT
+0706,Montemor-o-Novo,municipality,07,PT
+0707,Mora,municipality,07,PT
+0708,Mourão,municipality,07,PT
+0709,Portel,municipality,07,PT
+0710,Redondo,municipality,07,PT
+0711,Reguengos de Monsaraz,municipality,07,PT
+0712,Vendas Novas,municipality,07,PT
+0713,Viana do Alentejo,municipality,07,PT
+0714,Vila Viçosa,municipality,07,PT
+0801,Albufeira,municipality,08,PT
+0802,Alcoutim,municipality,08,PT
+0803,Aljezur,municipality,08,PT
+0804,Castro Marim,municipality,08,PT
+0805,Faro,municipality,08,PT
+0806,Lagoa,municipality,08,PT
+0807,Lagos,municipality,08,PT
+0808,Loulé,municipality,08,PT
+0809,Monchique,municipality,08,PT
+0810,Olhão,municipality,08,PT
+0811,Portimão,municipality,08,PT
+0812,São Brás de Alportel,municipality,08,PT
+0813,Silves,municipality,08,PT
+0814,Tavira,municipality,08,PT
+0815,Vila do Bispo,municipality,08,PT
+0816,Vila Real de Santo António,municipality,08,PT
+0901,Aguiar da Beira,municipality,09,PT
+0902,Almeida,municipality,09,PT
+0903,Celorico da Beira,municipality,09,PT
+0904,Figueira de Castelo Rodrigo,municipality,09,PT
+0905,Fornos de Algodres,municipality,09,PT
+0906,Gouveia,municipality,09,PT
+0907,Guarda,municipality,09,PT
+0908,Manteigas,municipality,09,PT
+0909,Mêda,municipality,09,PT
+0910,Pinhel,municipality,09,PT
+0911,Sabugal,municipality,09,PT
+0912,Seia,municipality,09,PT
+0913,Trancoso,municipality,09,PT
+0914,Vila Nova de Foz Côa,municipality,09,PT
+1001,Alcobaça,municipality,10,PT
+1002,Alvaiázere,municipality,10,PT
+1003,Ansião,municipality,10,PT
+1004,Batalha,municipality,10,PT
+1005,Bombarral,municipality,10,PT
+1006,Caldas da Rainha,municipality,10,PT
+1007,Castanheira de Pêra,municipality,10,PT
+1008,Figueiró dos Vinhos,municipality,10,PT
+1009,Leiria,municipality,10,PT
+1010,Marinha Grande,municipality,10,PT
+1011,Nazaré,municipality,10,PT
+1012,Óbidos,municipality,10,PT
+1013,Pedrógão Grande,municipality,10,PT
+1014,Peniche,municipality,10,PT
+1015,Pombal,municipality,10,PT
+1016,Porto de Mós,municipality,10,PT
+1101,Alenquer,municipality,11,PT
+1102,Arruda dos Vinhos,municipality,11,PT
+1103,Azambuja,municipality,11,PT
+1104,Cadaval,municipality,11,PT
+1105,Cascais,municipality,11,PT
+1106,Lisboa,municipality,11,PT
+1107,Loures,municipality,11,PT
+1108,Lourinhã,municipality,11,PT
+1109,Mafra,municipality,11,PT
+1110,Oeiras,municipality,11,PT
+1111,Sintra,municipality,11,PT
+1112,Sobral de Monte Agraço,municipality,11,PT
+1113,Torres Vedras,municipality,11,PT
+1114,Vila Franca de Xira,municipality,11,PT
+1115,Amadora,municipality,11,PT
+1116,Odivelas,municipality,11,PT
+1201,Alter do Chão,municipality,12,PT
+1202,Arronches,municipality,12,PT
+1203,Avis,municipality,12,PT
+1204,Campo Maior,municipality,12,PT
+1205,Castelo de Vide,municipality,12,PT
+1206,Crato,municipality,12,PT
+1207,Elvas,municipality,12,PT
+1208,Fronteira,municipality,12,PT
+1209,Gavião,municipality,12,PT
+1210,Marvão,municipality,12,PT
+1211,Monforte,municipality,12,PT
+1212,Nisa,municipality,12,PT
+1213,Ponte de Sor,municipality,12,PT
+1214,Portalegre,municipality,12,PT
+1215,Sousel,municipality,12,PT
+1301,Amarante,municipality,13,PT
+1302,Baião,municipality,13,PT
+1303,Felgueiras,municipality,13,PT
+1304,Gondomar,municipality,13,PT
+1305,Lousada,municipality,13,PT
+1306,Maia,municipality,13,PT
+1307,Marco de Canaveses,municipality,13,PT
+1308,Matosinhos,municipality,13,PT
+1309,Paços de Ferreira,municipality,13,PT
+1310,Paredes,municipality,13,PT
+1311,Penafiel,municipality,13,PT
+1312,Porto,municipality,13,PT
+1313,Póvoa de Varzim,municipality,13,PT
+1314,Santo Tirso,municipality,13,PT
+1315,Valongo,municipality,13,PT
+1316,Vila do Conde,municipality,13,PT
+1317,Vila Nova de Gaia,municipality,13,PT
+1318,Trofa,municipality,13,PT
+1401,Abrantes,municipality,14,PT
+1402,Alcanena,municipality,14,PT
+1403,Almeirim,municipality,14,PT
+1404,Alpiarça,municipality,14,PT
+1405,Benavente,municipality,14,PT
+1406,Cartaxo,municipality,14,PT
+1407,Chamusca,municipality,14,PT
+1408,Constância,municipality,14,PT
+1409,Coruche,municipality,14,PT
+1410,Entroncamento,municipality,14,PT
+1411,Ferreira do Zêzere,municipality,14,PT
+1412,Golegã,municipality,14,PT
+1413,Mação,municipality,14,PT
+1414,Rio Maior,municipality,14,PT
+1415,Salvaterra de Magos,municipality,14,PT
+1416,Santarém,municipality,14,PT
+1417,Sardoal,municipality,14,PT
+1418,Tomar,municipality,14,PT
+1419,Torres Novas,municipality,14,PT
+1420,Vila Nova da Barquinha,municipality,14,PT
+1421,Ourém,municipality,14,PT
+1501,Alcácer do Sal,municipality,15,PT
+1502,Alcochete,municipality,15,PT
+1503,Almada,municipality,15,PT
+1504,Barreiro,municipality,15,PT
+1505,Grândola,municipality,15,PT
+1506,Moita,municipality,15,PT
+1507,Montijo,municipality,15,PT
+1508,Palmela,municipality,15,PT
+1509,Santiago do Cacém,municipality,15,PT
+1510,Seixal,municipality,15,PT
+1511,Sesimbra,municipality,15,PT
+1512,Setúbal,municipality,15,PT
+1513,Sines,municipality,15,PT
+1601,Arcos de Valdevez,municipality,16,PT
+1602,Caminha,municipality,16,PT
+1603,Melgaço,municipality,16,PT
+1604,Monção,municipality,16,PT
+1605,Paredes de Coura,municipality,16,PT
+1606,Ponte da Barca,municipality,16,PT
+1607,Ponte de Lima,municipality,16,PT
+1608,Valença,municipality,16,PT
+1609,Viana do Castelo,municipality,16,PT
+1610,Vila Nova de Cerveira,municipality,16,PT
+1701,Alijó,municipality,17,PT
+1702,Boticas,municipality,17,PT
+1703,Chaves,municipality,17,PT
+1704,Mesão Frio,municipality,17,PT
+1705,Mondim de Basto,municipality,17,PT
+1706,Montalegre,municipality,17,PT
+1707,Murça,municipality,17,PT
+1708,Peso da Régua,municipality,17,PT
+1709,Ribeira de Pena,municipality,17,PT
+1710,Sabrosa,municipality,17,PT
+1711,Santa Marta de Penaguião,municipality,17,PT
+1712,Valpaços,municipality,17,PT
+1713,Vila Pouca de Aguiar,municipality,17,PT
+1714,Vila Real,municipality,17,PT
+1801,Armamar,municipality,18,PT
+1802,Carregal do Sal,municipality,18,PT
+1803,Castro Daire,municipality,18,PT
+1804,Cinfães,municipality,18,PT
+1805,Lamego,municipality,18,PT
+1806,Mangualde,municipality,18,PT
+1807,Moimenta da Beira,municipality,18,PT
+1808,Mortágua,municipality,18,PT
+1809,Nelas,municipality,18,PT
+1810,Oliveira de Frades,municipality,18,PT
+1811,Penalva do Castelo,municipality,18,PT
+1812,Penedono,municipality,18,PT
+1813,Resende,municipality,18,PT
+1814,Santa Comba Dão,municipality,18,PT
+1815,São João da Pesqueira,municipality,18,PT
+1816,São Pedro do Sul,municipality,18,PT
+1817,Sátão,municipality,18,PT
+1818,Sernancelhe,municipality,18,PT
+1819,Tabuaço,municipality,18,PT
+1820,Tarouca,municipality,18,PT
+1821,Tondela,municipality,18,PT
+1822,Vila Nova de Paiva,municipality,18,PT
+1823,Viseu,municipality,18,PT
+1824,Vouzela,municipality,18,PT
+3101,Calheta,municipality,31,PT-MA
+3102,Câmara de Lobos,municipality,31,PT-MA
+3103,Funchal,municipality,31,PT-MA
+3104,Machico,municipality,31,PT-MA
+3105,Ponta do Sol,municipality,31,PT-MA
+3106,Porto Moniz,municipality,31,PT-MA
+3107,Ribeira Brava,municipality,31,PT-MA
+3108,Santa Cruz,municipality,31,PT-MA
+3109,Santana,municipality,31,PT-MA
+3110,São Vicente,municipality,31,PT-MA
+3201,Porto Santo,municipality,32,PT-MA
+4101,Vila do Porto,municipality,41,PT-AC
+4201,Lagoa,municipality,42,PT-AC
+4202,Nordeste,municipality,42,PT-AC
+4203,Ponta Delgada,municipality,42,PT-AC
+4204,Povoação,municipality,42,PT-AC
+4205,Ribeira Grande,municipality,42,PT-AC
+4206,Vila Franca do Campo,municipality,42,PT-AC
+4301,Angra do Heroísmo,municipality,43,PT-AC
+4302,Praia da Vitória,municipality,43,PT-AC
+4401,Santa Cruz da Graciosa,municipality,44,PT-AC
+4501,Calheta de São Jorge,municipality,45,PT-AC
+4502,Velas,municipality,45,PT-AC
+4601,Lajes do Pico,municipality,46,PT-AC
+4602,Madalena,municipality,46,PT-AC
+4603,São Roque do Pico,municipality,46,PT-AC
+4701,Horta,municipality,47,PT-AC
+4801,Lajes das Flores,municipality,48,PT-AC
+4802,Santa Cruz das Flores,municipality,48,PT-AC
+4901,Corvo,municipality,49,PT-AC
+010103,Aguada de Cima,parish,0101,PT
+010109,Fermentelos,parish,0101,PT
+010112,Macinhata do Vouga,parish,0101,PT
+010119,Valongo do Vouga,parish,0101,PT
+010124,União das freguesias de Recardães e Espinhel,parish,0101,PT
+010125,União das freguesias de Travassô e Óis da Ribeira,parish,0101,PT
+010126,"União das freguesias de Trofa, Segadães e Lamas do Vouga",parish,0101,PT
+010127,União das freguesias do Préstimo e Macieira de Alcoba,parish,0101,PT
+010128,Agadão,parish,0101,PT
+010129,Aguada de Baixo,parish,0101,PT
+010130,Águeda,parish,0101,PT
+010131,Barrô,parish,0101,PT
+010132,Belazaima do Chão,parish,0101,PT
+010133,Borralha,parish,0101,PT
+010134,Castanheira do Vouga,parish,0101,PT
+010202,Alquerubim,parish,0102,PT
+010203,Angeja,parish,0102,PT
+010204,Branca,parish,0102,PT
+010206,Ribeira de Fráguas,parish,0102,PT
+010209,Albergaria-a-Velha e Valmaior,parish,0102,PT
+010210,São João de Loure e Frossos,parish,0102,PT
+010304,Avelãs de Caminho,parish,0103,PT
+010305,Avelãs de Cima,parish,0103,PT
+010307,Moita,parish,0103,PT
+010309,Sangalhos,parish,0103,PT
+010310,São Lourenço do Bairro,parish,0103,PT
+010312,Vila Nova de Monsarros,parish,0103,PT
+010313,Vilarinho do Bairro,parish,0103,PT
+010316,"União das freguesias de Amoreira da Gândara, Paredes do Bairro e Ancas",parish,0103,PT
+010317,União das freguesias de Arcos e Mogofores,parish,0103,PT
+010318,"União das freguesias de Tamengos, Aguim e Óis do Bairro",parish,0103,PT
+010402,Alvarenga,parish,0104,PT
+010407,Chave,parish,0104,PT
+010409,Escariz,parish,0104,PT
+010411,Fermedo,parish,0104,PT
+010413,Mansores,parish,0104,PT
+010414,Moldes,parish,0104,PT
+010415,Rossas,parish,0104,PT
+010416,Santa Eulália,parish,0104,PT
+010417,São Miguel do Mato,parish,0104,PT
+010418,Tropeço,parish,0104,PT
+010419,Urrô,parish,0104,PT
+010420,Várzea,parish,0104,PT
+010421,União das freguesias de Arouca e Burgo,parish,0104,PT
+010422,União das freguesias de Cabreiros e Albergaria da Serra,parish,0104,PT
+010423,União das freguesias de Canelas e Espiunca,parish,0104,PT
+010424,União das freguesias de Covelo de Paivó e Janarde,parish,0104,PT
+010501,Aradas,parish,0105,PT
+010502,Cacia,parish,0105,PT
+010505,Esgueira,parish,0105,PT
+010508,Oliveirinha,parish,0105,PT
+010510,São Bernardo,parish,0105,PT
+010511,São Jacinto,parish,0105,PT
+010513,Santa Joana,parish,0105,PT
+010515,Eixo e Eirol,parish,0105,PT
+010516,"Requeixo, Nossa Senhora de Fátima e Nariz",parish,0105,PT
+010517,União das freguesias de Glória e Vera Cruz,parish,0105,PT
+010602,Fornos,parish,0106,PT
+010606,Real,parish,0106,PT
+010607,Santa Maria de Sardoura,parish,0106,PT
+010608,São Martinho de Sardoura,parish,0106,PT
+010612,Bairros,parish,0106,PT
+010613,Paraíso,parish,0106,PT
+010614,Pedorido,parish,0106,PT
+010615,Raiva,parish,0106,PT
+010616,Sobrado,parish,0106,PT
+010702,Espinho,parish,0107,PT
+010704,Paramos,parish,0107,PT
+010705,Silvalde,parish,0107,PT
+010707,Anta,parish,0107,PT
+010708,Guetim,parish,0107,PT
+010801,Avanca,parish,0108,PT
+010805,Pardilhó,parish,0108,PT
+010806,Salreu,parish,0108,PT
+010809,União das freguesias de Canelas e Fermelã,parish,0108,PT
+010810,Beduído,parish,0108,PT
+010811,Veiros,parish,0108,PT
+010901,Argoncilhe,parish,0109,PT
+010902,Arrifana,parish,0109,PT
+010904,Escapães,parish,0109,PT
+010907,Fiães,parish,0109,PT
+010908,Fornos,parish,0109,PT
+010913,Lourosa,parish,0109,PT
+010914,Milheirós de Poiares,parish,0109,PT
+010916,Mozelos,parish,0109,PT
+010917,Nogueira da Regedoura,parish,0109,PT
+010918,São Paio de Oleiros,parish,0109,PT
+010919,Paços de Brandão,parish,0109,PT
+010921,Rio Meão,parish,0109,PT
+010922,Romariz,parish,0109,PT
+010924,Sanguedo,parish,0109,PT
+010925,Santa Maria de Lamas,parish,0109,PT
+010926,São João de Ver,parish,0109,PT
+010935,"União das freguesias de Santa Maria da Feira, Travanca, Sanfins e Espargo",parish,0109,PT
+010937,Caldas de São Jorge,parish,0109,PT
+010938,Canedo,parish,0109,PT
+010939,Gião,parish,0109,PT
+010940,Guisande,parish,0109,PT
+010941,Lobão,parish,0109,PT
+010942,Louredo,parish,0109,PT
+010943,Mosteirô,parish,0109,PT
+010944,Pigeiros,parish,0109,PT
+010945,São Miguel de Souto,parish,0109,PT
+010946,Vale,parish,0109,PT
+010947,Vila Maior,parish,0109,PT
+011005,Gafanha da Encarnação,parish,0110,PT
+011006,Gafanha da Nazaré,parish,0110,PT
+011007,Gafanha do Carmo,parish,0110,PT
+011008,Ílhavo (São Salvador),parish,0110,PT
+011102,Barcouço,parish,0111,PT
+011103,Casal Comba,parish,0111,PT
+011104,Luso,parish,0111,PT
+011106,Pampilhosa,parish,0111,PT
+011107,Vacariça,parish,0111,PT
+011110,Antes,parish,0111,PT
+011111,Mealhada,parish,0111,PT
+011112,Ventosa do Bairro,parish,0111,PT
+011201,Bunheiro,parish,0112,PT
+011202,Monte,parish,0112,PT
+011203,Murtosa,parish,0112,PT
+011204,Torreira,parish,0112,PT
+011301,Carregosa,parish,0113,PT
+011302,Cesar,parish,0113,PT
+011303,Fajões,parish,0113,PT
+011304,Loureiro,parish,0113,PT
+011305,Macieira de Sarnes,parish,0113,PT
+011310,Ossela,parish,0113,PT
+011315,São Martinho da Gândara,parish,0113,PT
+011318,São Roque,parish,0113,PT
+011319,Vila de Cucujães,parish,0113,PT
+011321,"União das freguesias de Oliveira de Azeméis, Santiago de Riba-Ul, Ul, Macinhata da Seixa e Madail",parish,0113,PT
+011322,"União das freguesias de Pinheiro da Bemposta, Travanca e Palmaz",parish,0113,PT
+011323,Nogueira do Cravo,parish,0113,PT
+011324,Pindelo,parish,0113,PT
+011403,Oiã,parish,0114,PT
+011404,Oliveira do Bairro,parish,0114,PT
+011405,Palhaça,parish,0114,PT
+011407,"União das freguesias de Bustos, Troviscal e Mamarrosa",parish,0114,PT
+011502,Cortegaça,parish,0115,PT
+011503,Esmoriz,parish,0115,PT
+011504,Maceda,parish,0115,PT
+011507,Válega,parish,0115,PT
+011510,Arada,parish,0115,PT
+011511,Ovar,parish,0115,PT
+011512,São João,parish,0115,PT
+011513,São Vicente de Pereira Jusã,parish,0115,PT
+011601,São João da Madeira,parish,0116,PT
+011702,Couto de Esteves,parish,0117,PT
+011704,Pessegueiro do Vouga,parish,0117,PT
+011705,Rocas do Vouga,parish,0117,PT
+011706,Sever do Vouga,parish,0117,PT
+011708,Talhadas,parish,0117,PT
+011712,Cedrim,parish,0117,PT
+011713,Dornelas,parish,0117,PT
+011714,Paradela,parish,0117,PT
+011715,Silva Escura,parish,0117,PT
+011801,Calvão,parish,0118,PT
+011804,Gafanha da Boa Hora,parish,0118,PT
+011805,Ouca,parish,0118,PT
+011807,Sosa,parish,0118,PT
+011810,Santo André de Vagos,parish,0118,PT
+011815,Covão do Lobo,parish,0118,PT
+011816,Fonte de Angeão,parish,0118,PT
+011817,Ponte de Vagos,parish,0118,PT
+011818,Santa Catarina,parish,0118,PT
+011819,Santo António,parish,0118,PT
+011820,Vagos,parish,0118,PT
+011901,Arões,parish,0119,PT
+011902,São Pedro de Castelões,parish,0119,PT
+011903,Cepelos,parish,0119,PT
+011905,Junqueira,parish,0119,PT
+011906,Macieira de Cambra,parish,0119,PT
+011907,Roge,parish,0119,PT
+011910,"União das freguesias de Vila Chã, Codal e Vila Cova de Perrinho",parish,0119,PT
+020102,Ervidel,parish,0201,PT
+020103,Messejana,parish,0201,PT
+020104,São João de Negrilhos,parish,0201,PT
+020107,Aljustrel,parish,0201,PT
+020108,Rio de Moinhos,parish,0201,PT
+020203,Rosário,parish,0202,PT
+020205,Santa Cruz,parish,0202,PT
+020206,São Barnabé,parish,0202,PT
+020208,Aldeia dos Fernandes,parish,0202,PT
+020211,Almodôvar,parish,0202,PT
+020212,Gomes Aires,parish,0202,PT
+020213,Santa Clara-a-Nova,parish,0202,PT
+020214,Senhora da Graça dos Padrões,parish,0202,PT
+020301,Alvito,parish,0203,PT
+020302,Vila Nova da Baronia,parish,0203,PT
+020401,Barrancos,parish,0204,PT
+020502,Baleizão,parish,0205,PT
+020503,Beringel,parish,0205,PT
+020504,Cabeça Gorda,parish,0205,PT
+020506,Nossa Senhora das Neves,parish,0205,PT
+020510,Santa Clara de Louredo,parish,0205,PT
+020516,São Matias,parish,0205,PT
+020519,União das freguesias de Albernoa e Trindade,parish,0205,PT
+020520,União das freguesias de Beja (Salvador e Santa Maria da Feira),parish,0205,PT
+020521,União das freguesias de Beja (Santiago Maior e São João Baptista),parish,0205,PT
+020522,União das freguesias de Salvada e Quintos,parish,0205,PT
+020523,União das freguesias de Santa Vitória e Mombeja,parish,0205,PT
+020524,União das freguesias de Trigaches e São Brissos,parish,0205,PT
+020603,Entradas,parish,0206,PT
+020604,Santa Bárbara de Padrões,parish,0206,PT
+020605,São Marcos da Ataboeira,parish,0206,PT
+020606,União das freguesias de Castro Verde e Casével,parish,0206,PT
+020701,Cuba,parish,0207,PT
+020702,Faro do Alentejo,parish,0207,PT
+020703,Vila Alva,parish,0207,PT
+020704,Vila Ruiva,parish,0207,PT
+020803,Figueira dos Cavaleiros,parish,0208,PT
+020804,Odivelas,parish,0208,PT
+020809,Alfundão,parish,0208,PT
+020810,Canhestros,parish,0208,PT
+020811,Ferreira do Alentejo,parish,0208,PT
+020812,Peroguarda,parish,0208,PT
+020901,Alcaria Ruiva,parish,0209,PT
+020902,Corte do Pinto,parish,0209,PT
+020903,Espírito Santo,parish,0209,PT
+020904,Mértola,parish,0209,PT
+020905,Santana de Cambas,parish,0209,PT
+020906,São João dos Caldeireiros,parish,0209,PT
+020910,"União das freguesias de São Miguel do Pinheiro, São Pedro de Solis e São Sebastião dos Carros",parish,0209,PT
+021001,Amareleja,parish,0210,PT
+021002,Póvoa de São Miguel,parish,0210,PT
+021008,Sobral da Adiça,parish,0210,PT
+021009,União das freguesias de Moura (Santo Agostinho e São João Baptista) e Santo Amador,parish,0210,PT
+021011,Safara,parish,0210,PT
+021012,Santo Aleixo da Restauração,parish,0210,PT
+021102,Relíquias,parish,0211,PT
+021103,Sabóia,parish,0211,PT
+021106,São Luís,parish,0211,PT
+021107,São Martinho das Amoreiras,parish,0211,PT
+021111,Vila Nova de Milfontes,parish,0211,PT
+021115,Luzianes-Gare,parish,0211,PT
+021116,Boavista dos Pinheiros,parish,0211,PT
+021117,Longueira/Almograve,parish,0211,PT
+021119,Santa Clara-a-Velha,parish,0211,PT
+021120,São Salvador e Santa Maria,parish,0211,PT
+021121,São Teotónio,parish,0211,PT
+021123,Bicos,parish,0211,PT
+021124,Colos,parish,0211,PT
+021125,Vale de Santiago,parish,0211,PT
+021203,Ourique,parish,0212,PT
+021206,Santana da Serra,parish,0212,PT
+021208,União das freguesias de Panoias e Conceição,parish,0212,PT
+021209,Garvão,parish,0212,PT
+021210,Santa Luzia,parish,0212,PT
+021302,Brinches,parish,0213,PT
+021303,Pias,parish,0213,PT
+021307,Vila Verde de Ficalho,parish,0213,PT
+021308,União das freguesias de Serpa (Salvador e Santa Maria),parish,0213,PT
+021310,Vale de Vargo,parish,0213,PT
+021311,Vila Nova de São Bento,parish,0213,PT
+021401,Pedrógão,parish,0214,PT
+021402,Selmes,parish,0214,PT
+021403,Vidigueira,parish,0214,PT
+021404,Vila de Frades,parish,0214,PT
+030102,Barreiros,parish,0301,PT
+030104,Bico,parish,0301,PT
+030105,Caires,parish,0301,PT
+030107,Carrazedo,parish,0301,PT
+030108,Dornelas,parish,0301,PT
+030111,Fiscal,parish,0301,PT
+030112,Goães,parish,0301,PT
+030113,Lago,parish,0301,PT
+030118,Rendufe,parish,0301,PT
+030119,Bouro (Santa Maria),parish,0301,PT
+030120,Bouro (Santa Marta),parish,0301,PT
+030125,União das freguesias de Amares e Figueiredo,parish,0301,PT
+030126,"União das freguesias de Caldelas, Sequeiros e Paranhos",parish,0301,PT
+030127,"União das freguesias de Ferreiros, Prozelo e Besteiros",parish,0301,PT
+030128,União das freguesias de Torre e Portela,parish,0301,PT
+030129,"União das freguesias de Vilela, Seramil e Paredes Secas",parish,0301,PT
+030201,Abade de Neiva,parish,0302,PT
+030202,Aborim,parish,0302,PT
+030203,Adães,parish,0302,PT
+030205,Airó,parish,0302,PT
+030206,Aldreu,parish,0302,PT
+030208,Alvelos,parish,0302,PT
+030209,Arcozelo,parish,0302,PT
+030210,Areias,parish,0302,PT
+030212,Balugães,parish,0302,PT
+030213,Barcelinhos,parish,0302,PT
+030215,Barqueiros,parish,0302,PT
+030216,Cambeses,parish,0302,PT
+030218,Carapeços,parish,0302,PT
+030220,Carvalhal,parish,0302,PT
+030221,Carvalhas,parish,0302,PT
+030224,Cossourado,parish,0302,PT
+030228,Cristelo,parish,0302,PT
+030234,Fornelos,parish,0302,PT
+030235,Fragoso,parish,0302,PT
+030237,Gilmonde,parish,0302,PT
+030242,Lama,parish,0302,PT
+030243,Lijó,parish,0302,PT
+030244,Macieira de Rates,parish,0302,PT
+030245,Manhente,parish,0302,PT
+030247,Martim,parish,0302,PT
+030252,Moure,parish,0302,PT
+030254,Oliveira,parish,0302,PT
+030255,Palme,parish,0302,PT
+030256,Panque,parish,0302,PT
+030257,Paradela,parish,0302,PT
+030259,Pereira,parish,0302,PT
+030260,Perelhal,parish,0302,PT
+030261,Pousa,parish,0302,PT
+030263,Remelhe,parish,0302,PT
+030264,Roriz,parish,0302,PT
+030265,Rio Covo (Santa Eugénia),parish,0302,PT
+030268,Galegos (Santa Maria),parish,0302,PT
+030272,Galegos (São Martinho),parish,0302,PT
+030277,Tamel (São Veríssimo),parish,0302,PT
+030279,Silva,parish,0302,PT
+030282,Ucha,parish,0302,PT
+030283,Várzea,parish,0302,PT
+030287,Vila Seca,parish,0302,PT
+030290,União das freguesias de Alheira e Igreja Nova,parish,0302,PT
+030291,União das freguesias de Alvito (São Pedro e São Martinho) e Couto,parish,0302,PT
+030292,União das freguesias de Areias de Vilar e Encourados,parish,0302,PT
+030294,União das freguesias de Campo e Tamel (São Pedro Fins),parish,0302,PT
+030295,União das freguesias de Carreira e Fonte Coberta,parish,0302,PT
+030296,"União das freguesias de Chorente, Góios, Courel, Pedra Furada e Gueral",parish,0302,PT
+030297,União das freguesias de Creixomil e Mariz,parish,0302,PT
+030298,União das freguesias de Durrães e Tregosa,parish,0302,PT
+030299,União das freguesias de Gamil e Midões,parish,0302,PT
+0302FA,"União das freguesias de Milhazes, Vilar de Figos e Faria",parish,0302,PT
+0302FB,União das freguesias de Negreiros e Chavão,parish,0302,PT
+0302FC,União das freguesias de Quintiães e Aguiar,parish,0302,PT
+0302FD,União das freguesias de Sequeade e Bastuço (São João e Santo Estevão),parish,0302,PT
+0302FF,União das freguesias de Tamel (Santa Leocádia) e Vilar do Monte,parish,0302,PT
+0302FG,"União das freguesias de Viatodos, Grimancelos, Minhotães e Monte de Fralães",parish,0302,PT
+0302FH,União das freguesias de Vila Cova e Feitos,parish,0302,PT
+0302FI,Barcelos,parish,0302,PT
+0302FJ,Rio Covo (Santa Eulália),parish,0302,PT
+0302FK,Silveiros,parish,0302,PT
+0302FL,Vila Boa,parish,0302,PT
+0302FM,Vila Frescainha (São Martinho),parish,0302,PT
+0302FN,Vila Frescainha (São Pedro),parish,0302,PT
+030301,Adaúfe,parish,0303,PT
+030312,Espinho,parish,0303,PT
+030313,Esporões,parish,0303,PT
+030315,Figueiredo,parish,0303,PT
+030319,Gualtar,parish,0303,PT
+030322,Lamas,parish,0303,PT
+030325,Mire de Tibães,parish,0303,PT
+030330,Padim da Graça,parish,0303,PT
+030331,Palmeira,parish,0303,PT
+030334,Pedralva,parish,0303,PT
+030336,Priscos,parish,0303,PT
+030338,Ruilhe,parish,0303,PT
+030349,Braga (São Vicente),parish,0303,PT
+030351,Braga (São Vítor),parish,0303,PT
+030354,Sequeira,parish,0303,PT
+030355,Sobreposta,parish,0303,PT
+030356,Tadim,parish,0303,PT
+030357,Tebosa,parish,0303,PT
+030363,União das freguesias de Arentim e Cunha,parish,0303,PT
+030364,"União das freguesias de Braga (Maximinos, Sé e Cividade)",parish,0303,PT
+030365,União das freguesias de Braga (São José de São Lázaro e São João do Souto),parish,0303,PT
+030366,União das freguesias de Cabreiros e Passos (São Julião),parish,0303,PT
+030367,"União das freguesias de Celeirós, Aveleda e Vimieiro",parish,0303,PT
+030368,União das freguesias de Crespos e Pousada,parish,0303,PT
+030369,União das freguesias de Escudeiros e Penso (Santo Estêvão e São Vicente),parish,0303,PT
+030370,União das freguesias de Este (São Pedro e São Mamede),parish,0303,PT
+030371,União das freguesias de Ferreiros e Gondizalves,parish,0303,PT
+030372,União das freguesias de Guisande e Oliveira (São Pedro),parish,0303,PT
+030373,União das freguesias de Lomar e Arcos,parish,0303,PT
+030374,"União das freguesias de Merelim (São Paio), Panoias e Parada de Tibães",parish,0303,PT
+030375,União das freguesias de Merelim (São Pedro) e Frossos,parish,0303,PT
+030376,União das freguesias de Morreira e Trandeiras,parish,0303,PT
+030377,"União das freguesias de Nogueira, Fraião e Lamaçães",parish,0303,PT
+030378,União das freguesias de Nogueiró e Tenões,parish,0303,PT
+030379,"União das freguesias de Real, Dume e Semelhe",parish,0303,PT
+030380,União das freguesias de Santa Lucrécia de Algeriz e Navarra,parish,0303,PT
+030381,União das freguesias de Vilaça e Fradelos,parish,0303,PT
+030401,Abadim,parish,0304,PT
+030404,Basto,parish,0304,PT
+030405,Bucos,parish,0304,PT
+030406,Cabeceiras de Basto,parish,0304,PT
+030407,Cavez,parish,0304,PT
+030408,Faia,parish,0304,PT
+030413,Pedraça,parish,0304,PT
+030415,Rio Douro,parish,0304,PT
+030418,União das freguesias de Alvite e Passos,parish,0304,PT
+030419,União das freguesias de Arco de Baúlhe e Vila Nune,parish,0304,PT
+030420,União das freguesias de Gondiães e Vilar de Cunhas,parish,0304,PT
+030422,Outeiro,parish,0304,PT
+030423,Painzela,parish,0304,PT
+030424,Refojos de Basto,parish,0304,PT
+030501,Agilde,parish,0305,PT
+030502,Arnóia,parish,0305,PT
+030503,Borba de Montanha,parish,0305,PT
+030508,Codeçoso,parish,0305,PT
+030510,Fervença,parish,0305,PT
+030515,Moreira do Castelo,parish,0305,PT
+030517,Rego,parish,0305,PT
+030518,Ribas,parish,0305,PT
+030520,Basto (São Clemente),parish,0305,PT
+030521,Vale de Bouro,parish,0305,PT
+030523,"União das freguesias de Britelo, Gémeos e Ourilhe",parish,0305,PT
+030524,União das freguesias de Caçarilhe e Infesta,parish,0305,PT
+030525,União das freguesias de Canedo de Basto e Corgo,parish,0305,PT
+030526,União das freguesias de Carvalho e Basto (Santa Tecla),parish,0305,PT
+030527,"União das freguesias de Veade, Gagos e Molares",parish,0305,PT
+030601,Antas,parish,0306,PT
+030608,Forjães,parish,0306,PT
+030610,Gemeses,parish,0306,PT
+030615,Vila Chã,parish,0306,PT
+030619,União das freguesias de Fonte Boa e Rio Tinto,parish,0306,PT
+030621,Apúlia,parish,0306,PT
+030622,Belinho,parish,0306,PT
+030623,Curvos,parish,0306,PT
+030624,Esposende,parish,0306,PT
+030625,Fão,parish,0306,PT
+030626,Gandra,parish,0306,PT
+030627,Mar,parish,0306,PT
+030628,Marinhas,parish,0306,PT
+030629,Palmeira de Faro,parish,0306,PT
+030705,Armil,parish,0307,PT
+030708,Estorãos,parish,0307,PT
+030709,Fafe,parish,0307,PT
+030712,Fornelos,parish,0307,PT
+030714,Golães,parish,0307,PT
+030716,Medelo,parish,0307,PT
+030719,Paços,parish,0307,PT
+030722,Quinchães,parish,0307,PT
+030723,Regadas,parish,0307,PT
+030724,Revelhe,parish,0307,PT
+030725,Ribeiros,parish,0307,PT
+030726,Arões (Santa Cristina),parish,0307,PT
+030728,São Gens,parish,0307,PT
+030729,Silvares (São Martinho),parish,0307,PT
+030730,Arões (São Romão),parish,0307,PT
+030733,Travassós,parish,0307,PT
+030736,Vinhós,parish,0307,PT
+030737,"União de freguesias de Aboim, Felgueiras, Gontim e Pedraído",parish,0307,PT
+030738,União de freguesias de Agrela e Serafão,parish,0307,PT
+030739,União de freguesias de Antime e Silvares (São Clemente),parish,0307,PT
+030740,"União de freguesias de Ardegão, Arnozela e Seidões",parish,0307,PT
+030741,União de freguesias de Cepães e Fareja,parish,0307,PT
+030742,União de freguesias de Freitas e Vila Cova,parish,0307,PT
+030743,União de freguesias de Monte e Queimadela,parish,0307,PT
+030744,União de freguesias de Moreira do Rei e Várzea Cova,parish,0307,PT
+030801,Aldão,parish,0308,PT
+030804,Azurém,parish,0308,PT
+030806,Barco,parish,0308,PT
+030807,Brito,parish,0308,PT
+030808,Caldelas,parish,0308,PT
+030812,Costa,parish,0308,PT
+030813,Creixomil,parish,0308,PT
+030815,Fermentões,parish,0308,PT
+030820,Gonça,parish,0308,PT
+030821,Gondar,parish,0308,PT
+030823,Guardizela,parish,0308,PT
+030824,Infantas,parish,0308,PT
+030827,Longos,parish,0308,PT
+030828,Lordelo,parish,0308,PT
+030830,Mesão Frio,parish,0308,PT
+030831,Moreira de Cónegos,parish,0308,PT
+030832,Nespereira,parish,0308,PT
+030835,Pencelo,parish,0308,PT
+030836,Pinheiro,parish,0308,PT
+030837,Polvoreira,parish,0308,PT
+030838,Ponte,parish,0308,PT
+030840,Ronfe,parish,0308,PT
+030842,Prazins (Santa Eufémia),parish,0308,PT
+030850,Selho (São Cristóvão),parish,0308,PT
+030854,Selho (São Jorge),parish,0308,PT
+030857,Candoso (São Martinho),parish,0308,PT
+030858,Sande (São Martinho),parish,0308,PT
+030865,São Torcato,parish,0308,PT
+030866,Serzedelo,parish,0308,PT
+030868,Silvares,parish,0308,PT
+030871,Urgezes,parish,0308,PT
+030875,União das freguesias de Abação e Gémeos,parish,0308,PT
+030877,União das freguesias de Arosa e Castelões,parish,0308,PT
+030878,União das freguesias de Atães e Rendufe,parish,0308,PT
+030879,União das freguesias de Briteiros Santo Estêvão e Donim,parish,0308,PT
+030880,União das freguesias de Briteiros São Salvador e Briteiros Santa Leocádia,parish,0308,PT
+030881,União das freguesias de Candoso São Tiago e Mascotelos,parish,0308,PT
+030883,"União das freguesias de Leitões, Oleiros e Figueiredo",parish,0308,PT
+030884,"União das freguesias de Oliveira, São Paio e São Sebastião",parish,0308,PT
+030886,União das freguesias de Sande São Lourenço e Balazar,parish,0308,PT
+030888,União das freguesias de Selho São Lourenço e Gominhães,parish,0308,PT
+030890,"União das freguesias de Souto Santa Maria, Souto São Salvador e Gondomar",parish,0308,PT
+030892,Airão (Santa Maria),parish,0308,PT
+030893,Airão São João,parish,0308,PT
+030894,Calvos,parish,0308,PT
+030895,Conde,parish,0308,PT
+030896,Corvite,parish,0308,PT
+030897,Gandarela,parish,0308,PT
+030898,Prazins Santo Tirso,parish,0308,PT
+030899,Sande (São Clemente),parish,0308,PT
+0308FA,Sande (Vila Nova),parish,0308,PT
+0308FB,São Faustino,parish,0308,PT
+0308FC,Serzedo,parish,0308,PT
+0308FD,Tabuadelo,parish,0308,PT
+0308FE,Vermil,parish,0308,PT
+030906,Covelas,parish,0309,PT
+030908,Ferreiros,parish,0309,PT
+030912,Galegos,parish,0309,PT
+030913,Garfe,parish,0309,PT
+030914,Geraz do Minho,parish,0309,PT
+030915,Lanhoso,parish,0309,PT
+030917,Monsul,parish,0309,PT
+030919,Póvoa de Lanhoso (Nossa Senhora do Amparo),parish,0309,PT
+030921,Rendufinho,parish,0309,PT
+030922,Santo Emilião,parish,0309,PT
+030923,São João de Rei,parish,0309,PT
+030924,Serzedelo,parish,0309,PT
+030925,Sobradelo da Goma,parish,0309,PT
+030926,Taíde,parish,0309,PT
+030927,Travassos,parish,0309,PT
+030929,Vilela,parish,0309,PT
+030930,União das freguesias de Águas Santas e Moure,parish,0309,PT
+030931,União das freguesias de Calvos e Frades,parish,0309,PT
+030932,União das freguesias de Campos e Louredo,parish,0309,PT
+030933,União das freguesias de Esperança e Brunhais,parish,0309,PT
+030934,União das freguesias de Fonte Arcada e Oliveira,parish,0309,PT
+030935,"União das freguesias de Verim, Friande e Ajude",parish,0309,PT
+031001,Balança,parish,0310,PT
+031003,Campo do Gerês,parish,0310,PT
+031004,Carvalheira,parish,0310,PT
+031008,Covide,parish,0310,PT
+031009,Gondoriz,parish,0310,PT
+031010,Moimenta,parish,0310,PT
+031012,Ribeira,parish,0310,PT
+031013,Rio Caldo,parish,0310,PT
+031014,Souto,parish,0310,PT
+031015,Valdosende,parish,0310,PT
+031017,Vilar da Veiga,parish,0310,PT
+031018,União das freguesias de Chamoim e Vilar,parish,0310,PT
+031019,União das freguesias de Chorense e Monte,parish,0310,PT
+031020,União das freguesias de Cibões e Brufe,parish,0310,PT
+031105,Cantelães,parish,0311,PT
+031107,Eira Vedra,parish,0311,PT
+031108,Guilhofrei,parish,0311,PT
+031109,Louredo,parish,0311,PT
+031110,Mosteiro,parish,0311,PT
+031111,Parada de Bouro,parish,0311,PT
+031112,Pinheiro,parish,0311,PT
+031113,Rossas,parish,0311,PT
+031115,Salamonde,parish,0311,PT
+031118,Tabuaças,parish,0311,PT
+031120,Vieira do Minho,parish,0311,PT
+031122,União das freguesias de Anissó e Soutelo,parish,0311,PT
+031123,União das freguesias de Anjos e Vilar do Chão,parish,0311,PT
+031124,União das freguesias de Caniçada e Soengas,parish,0311,PT
+031125,União das freguesias de Ruivães e Campos,parish,0311,PT
+031126,União das freguesias de Ventosa e Cova,parish,0311,PT
+031204,Bairro,parish,0312,PT
+031206,Brufe,parish,0312,PT
+031210,Castelões,parish,0312,PT
+031212,Cruz,parish,0312,PT
+031213,Delães,parish,0312,PT
+031215,Fradelos,parish,0312,PT
+031216,Gavião,parish,0312,PT
+031219,Joane,parish,0312,PT
+031221,Landim,parish,0312,PT
+031223,Louro,parish,0312,PT
+031224,Lousado,parish,0312,PT
+031225,Mogege,parish,0312,PT
+031227,Nine,parish,0312,PT
+031230,Pedome,parish,0312,PT
+031232,Pousada de Saramagos,parish,0312,PT
+031233,Requião,parish,0312,PT
+031234,Riba de Ave,parish,0312,PT
+031235,Ribeirão,parish,0312,PT
+031239,Oliveira (Santa Maria),parish,0312,PT
+031241,Vale (São Martinho),parish,0312,PT
+031242,Oliveira (São Mateus),parish,0312,PT
+031247,Vermoim,parish,0312,PT
+031249,Vilarinho das Cambas,parish,0312,PT
+031250,União das freguesias de Antas e Abade de Vermoim,parish,0312,PT
+031251,União das freguesias de Arnoso (Santa Maria e Santa Eulália) e Sezures,parish,0312,PT
+031253,União das freguesias de Carreira e Bente,parish,0312,PT
+031256,"União das freguesias de Lemenhe, Mouquim e Jesufrei",parish,0312,PT
+031258,União das freguesias de Seide,parish,0312,PT
+031259,"União das freguesias de Vale (São Cosme), Telhado e Portela",parish,0312,PT
+031260,União das freguesias de Vila Nova de Famalicão e Calendário,parish,0312,PT
+031261,Avidos,parish,0312,PT
+031262,Cabeçudos,parish,0312,PT
+031263,Cavalões,parish,0312,PT
+031264,Esmeriz,parish,0312,PT
+031265,Gondifelos,parish,0312,PT
+031266,Lagoa,parish,0312,PT
+031267,Novais,parish,0312,PT
+031268,Outiz,parish,0312,PT
+031269,Ruivães,parish,0312,PT
+031304,Atiães,parish,0313,PT
+031308,Cabanelas,parish,0313,PT
+031309,Cervães,parish,0313,PT
+031311,Coucieiro,parish,0313,PT
+031313,Dossãos,parish,0313,PT
+031316,Freiriz,parish,0313,PT
+031317,Gême,parish,0313,PT
+031323,Lage,parish,0313,PT
+031324,Lanhas,parish,0313,PT
+031325,Loureira,parish,0313,PT
+031328,Moure,parish,0313,PT
+031330,Oleiros,parish,0313,PT
+031331,Parada de Gatim,parish,0313,PT
+031335,Pico,parish,0313,PT
+031337,Ponte,parish,0313,PT
+031340,Sabariz,parish,0313,PT
+031342,Vila de Prado,parish,0313,PT
+031350,Prado (São Miguel),parish,0313,PT
+031352,Soutelo,parish,0313,PT
+031354,Turiz,parish,0313,PT
+031355,Valdreu,parish,0313,PT
+031359,Aboim da Nóbrega e Gondomar,parish,0313,PT
+031360,União das freguesias da Ribeira do Neiva,parish,0313,PT
+031361,União das freguesias de Carreiras (São Miguel) e Carreiras (Santiago),parish,0313,PT
+031362,União das freguesias de Escariz (São Mamede) e Escariz (São Martinho),parish,0313,PT
+031363,"União das freguesias de Esqueiros, Nevogilde e Travassós",parish,0313,PT
+031364,União das freguesias de Marrancos e Arcozelo,parish,0313,PT
+031365,União das freguesias de Oriz (Santa Marinha) e Oriz (São Miguel),parish,0313,PT
+031366,"União das freguesias de Pico de Regalados, Gondiães e Mós",parish,0313,PT
+031367,"União das freguesias de Sande, Vilarinho, Barros e Gomide",parish,0313,PT
+031368,"União das freguesias de Valbom (São Pedro), Passô e Valbom (São Martinho)",parish,0313,PT
+031369,União das freguesias do Vade,parish,0313,PT
+031370,Vila Verde e Barbudo,parish,0313,PT
+031401,Santa Eulália,parish,0314,PT
+031404,Infias,parish,0314,PT
+031406,Vizela (Santo Adrião),parish,0314,PT
+031408,União das freguesias de Caldas de Vizela (São Miguel e São João),parish,0314,PT
+031410,Tagilde,parish,0314,PT
+031411,Vizela (São Paio),parish,0314,PT
+040102,Alfândega da Fé,parish,0401,PT
+040103,Cerejais,parish,0401,PT
+040111,Sambade,parish,0401,PT
+040118,Vilar Chão,parish,0401,PT
+040119,Vilarelhos,parish,0401,PT
+040120,Vilares de Vilariça,parish,0401,PT
+040121,"União das freguesias de Agrobom, Saldonha e Vale Pereiro",parish,0401,PT
+040122,"União das freguesias de Eucisia, Gouveia e Valverde",parish,0401,PT
+040123,União das freguesias de Ferradosa e Sendim da Serra,parish,0401,PT
+040124,União das freguesias de Gebelim e Soeima,parish,0401,PT
+040125,União das freguesias de Parada e Sendim da Ribeira,parish,0401,PT
+040126,União das freguesias de Pombal e Vales,parish,0401,PT
+040201,Alfaião,parish,0402,PT
+040203,Babe,parish,0402,PT
+040204,Baçal,parish,0402,PT
+040206,Carragosa,parish,0402,PT
+040209,Castro de Avelãs,parish,0402,PT
+040210,Coelhoso,parish,0402,PT
+040212,Donai,parish,0402,PT
+040213,Espinhosela,parish,0402,PT
+040215,França,parish,0402,PT
+040216,Gimonde,parish,0402,PT
+040217,Gondesende,parish,0402,PT
+040218,Gostei,parish,0402,PT
+040219,Grijó de Parada,parish,0402,PT
+040221,Macedo do Mato,parish,0402,PT
+040224,Mós,parish,0402,PT
+040225,Nogueira,parish,0402,PT
+040226,Outeiro,parish,0402,PT
+040229,Parâmio,parish,0402,PT
+040230,Pinela,parish,0402,PT
+040232,Quintanilha,parish,0402,PT
+040233,Quintela de Lampaças,parish,0402,PT
+040234,Rabal,parish,0402,PT
+040236,Rebordãos,parish,0402,PT
+040239,Salsas,parish,0402,PT
+040240,Samil,parish,0402,PT
+040241,Santa Comba de Rossas,parish,0402,PT
+040244,São Pedro de Sarracenos,parish,0402,PT
+040246,Sendas,parish,0402,PT
+040247,Serapicos,parish,0402,PT
+040248,Sortes,parish,0402,PT
+040249,Zoio,parish,0402,PT
+040250,União das freguesias de Aveleda e Rio de Onor,parish,0402,PT
+040251,União das freguesias de Castrelos e Carrazedo,parish,0402,PT
+040252,"União das freguesias de Izeda, Calvelhe e Paradinha Nova",parish,0402,PT
+040253,União das freguesias de Parada e Faílde,parish,0402,PT
+040254,União das freguesias de Rebordainhos e Pombares,parish,0402,PT
+040255,União das freguesias de Rio Frio e Milhão,parish,0402,PT
+040256,União das freguesias de São Julião de Palácios e Deilão,parish,0402,PT
+040257,"União das freguesias de Sé, Santa Maria e Meixedo",parish,0402,PT
+040304,Carrazeda de Ansiães,parish,0403,PT
+040306,Fonte Longa,parish,0403,PT
+040308,Linhares,parish,0403,PT
+040309,Marzagão,parish,0403,PT
+040311,Parambos,parish,0403,PT
+040312,Pereiros,parish,0403,PT
+040313,Pinhal do Norte,parish,0403,PT
+040314,Pombal,parish,0403,PT
+040316,Seixo de Ansiães,parish,0403,PT
+040318,Vilarinho da Castanheira,parish,0403,PT
+040320,União das freguesias de Amedo e Zedes,parish,0403,PT
+040321,União das freguesias de Belver e Mogo de Malta,parish,0403,PT
+040322,União das freguesias de Castanheiro do Norte e Ribalonga,parish,0403,PT
+040323,"União das freguesias de Lavandeira, Beira Grande e Selores",parish,0403,PT
+040404,Ligares,parish,0404,PT
+040406,Poiares,parish,0404,PT
+040407,União das freguesias de Freixo de Espada à Cinta e Mazouco,parish,0404,PT
+040408,União das freguesias de Lagoaça e Fornos,parish,0404,PT
+040502,Amendoeira,parish,0405,PT
+040503,Arcas,parish,0405,PT
+040507,Carrapatas,parish,0405,PT
+040509,Chacim,parish,0405,PT
+040510,Cortiços,parish,0405,PT
+040511,Corujas,parish,0405,PT
+040514,Ferreira,parish,0405,PT
+040515,Grijó,parish,0405,PT
+040516,Lagoa,parish,0405,PT
+040517,Lamalonga,parish,0405,PT
+040518,Lamas,parish,0405,PT
+040519,Lombo,parish,0405,PT
+040520,Macedo de Cavaleiros,parish,0405,PT
+040521,Morais,parish,0405,PT
+040523,Olmos,parish,0405,PT
+040524,Peredo,parish,0405,PT
+040526,Salselas,parish,0405,PT
+040528,Sezulfe,parish,0405,PT
+040530,Talhas,parish,0405,PT
+040532,Vale Benfeito,parish,0405,PT
+040533,Vale da Porca,parish,0405,PT
+040534,Vale de Prados,parish,0405,PT
+040536,Vilarinho de Agrochão,parish,0405,PT
+040538,Vinhas,parish,0405,PT
+040539,União das freguesias de Ala e Vilarinho do Monte,parish,0405,PT
+040540,União das freguesias de Bornes e Burga,parish,0405,PT
+040541,União das freguesias de Castelãos e Vilar do Monte,parish,0405,PT
+040542,"União das freguesias de Espadanedo, Edroso, Murçós e Soutelo Mourisco",parish,0405,PT
+040543,União das freguesias de Podence e Santa Combinha,parish,0405,PT
+040544,União das freguesias de Talhinhas e Bagueixe,parish,0405,PT
+040604,Duas Igrejas,parish,0406,PT
+040605,Genísio,parish,0406,PT
+040607,Malhadas,parish,0406,PT
+040608,Miranda do Douro,parish,0406,PT
+040609,Palaçoulo,parish,0406,PT
+040611,Picote,parish,0406,PT
+040612,Póvoa,parish,0406,PT
+040613,São Martinho de Angueira,parish,0406,PT
+040616,Vila Chã de Braciosa,parish,0406,PT
+040618,União das freguesias de Constantim e Cicouro,parish,0406,PT
+040619,União das freguesias de Ifanes e Paradela,parish,0406,PT
+040620,União das freguesias de Sendim e Atenor,parish,0406,PT
+040621,União das freguesias de Silva e Águas Vivas,parish,0406,PT
+040701,Abambres,parish,0407,PT
+040702,Abreiro,parish,0407,PT
+040703,Aguieiras,parish,0407,PT
+040704,Alvites,parish,0407,PT
+040708,Bouça,parish,0407,PT
+040709,Cabanelas,parish,0407,PT
+040710,Caravelas,parish,0407,PT
+040711,Carvalhais,parish,0407,PT
+040712,Cedães,parish,0407,PT
+040713,Cobro,parish,0407,PT
+040714,Fradizela,parish,0407,PT
+040716,Frechas,parish,0407,PT
+040718,Lamas de Orelhão,parish,0407,PT
+040720,Mascarenhas,parish,0407,PT
+040721,Mirandela,parish,0407,PT
+040722,Múrias,parish,0407,PT
+040724,Passos,parish,0407,PT
+040727,São Pedro Velho,parish,0407,PT
+040728,São Salvador,parish,0407,PT
+040729,Suçães,parish,0407,PT
+040730,Torre de Dona Chama,parish,0407,PT
+040731,Vale de Asnes,parish,0407,PT
+040732,Vale de Gouvinhas,parish,0407,PT
+040733,Vale de Salgueiro,parish,0407,PT
+040734,Vale de Telhas,parish,0407,PT
+040738,União das freguesias de Avantos e Romeu,parish,0407,PT
+040739,"União das freguesias de Avidagos, Navalho e Pereira",parish,0407,PT
+040740,"União das freguesias de Barcel, Marmelos e Valverde da Gestosa",parish,0407,PT
+040741,União das freguesias de Franco e Vila Boa,parish,0407,PT
+040742,União das freguesias de Freixeda e Vila Verde,parish,0407,PT
+040801,Azinhoso,parish,0408,PT
+040802,Bemposta,parish,0408,PT
+040803,Bruçó,parish,0408,PT
+040804,Brunhoso,parish,0408,PT
+040807,Castelo Branco,parish,0408,PT
+040808,Castro Vicente,parish,0408,PT
+040809,Meirinhos,parish,0408,PT
+040811,Paradela,parish,0408,PT
+040812,Penas Roias,parish,0408,PT
+040813,Peredo da Bemposta,parish,0408,PT
+040815,Saldanha,parish,0408,PT
+040817,São Martinho do Peso,parish,0408,PT
+040819,Tó,parish,0408,PT
+040820,Travanca,parish,0408,PT
+040821,Urrós,parish,0408,PT
+040822,Vale da Madre,parish,0408,PT
+040826,Vila de Ala,parish,0408,PT
+040829,"União das freguesias de Brunhozinho, Castanheira e Sanhoane",parish,0408,PT
+040830,"União das freguesias de Mogadouro, Valverde, Vale de Porco e Vilar de Rei",parish,0408,PT
+040831,União das freguesias de Remondes e Soutelo,parish,0408,PT
+040832,União das freguesias de Vilarinho dos Galegos e Ventozelo,parish,0408,PT
+040901,Açoreira,parish,0409,PT
+040903,Cabeça Boa,parish,0409,PT
+040905,Carviçais,parish,0409,PT
+040906,Castedo,parish,0409,PT
+040909,Horta da Vilariça,parish,0409,PT
+040910,Larinho,parish,0409,PT
+040911,Lousa,parish,0409,PT
+040913,Mós,parish,0409,PT
+040916,Torre de Moncorvo,parish,0409,PT
+040918,União das freguesias de Adeganha e Cardanha,parish,0409,PT
+040919,União das freguesias de Felgar e Souto da Velha,parish,0409,PT
+040920,União das freguesias de Felgueiras e Maçores,parish,0409,PT
+040921,União das freguesias de Urros e Peredo dos Castelhanos,parish,0409,PT
+041002,Benlhevai,parish,0410,PT
+041005,Freixiel,parish,0410,PT
+041009,Roios,parish,0410,PT
+041010,Samões,parish,0410,PT
+041011,Sampaio,parish,0410,PT
+041012,Santa Comba de Vilariça,parish,0410,PT
+041013,Seixo de Manhoses,parish,0410,PT
+041014,Trindade,parish,0410,PT
+041015,Vale Frechoso,parish,0410,PT
+041020,União das freguesias de Assares e Lodões,parish,0410,PT
+041021,União das freguesias de Candoso e Carvalho de Egas,parish,0410,PT
+041022,União das freguesias de Valtorno e Mourão,parish,0410,PT
+041023,União das freguesias de Vila Flor e Nabo,parish,0410,PT
+041024,União das freguesias de Vilas Boas e Vilarinho das Azenhas,parish,0410,PT
+041103,Argozelo,parish,0411,PT
+041107,Carção,parish,0411,PT
+041108,Matela,parish,0411,PT
+041109,Pinelo,parish,0411,PT
+041110,Santulhão,parish,0411,PT
+041113,Vilar Seco,parish,0411,PT
+041114,Vimioso,parish,0411,PT
+041115,"União das freguesias de Algoso, Campo de Víboras e Uva",parish,0411,PT
+041116,União das freguesias de Caçarelhos e Angueira,parish,0411,PT
+041117,União das freguesias de Vale de Frades e Avelanoso,parish,0411,PT
+041201,Agrochão,parish,0412,PT
+041203,Candedo,parish,0412,PT
+041204,Celas,parish,0412,PT
+041206,Edral,parish,0412,PT
+041207,Edrosa,parish,0412,PT
+041208,Ervedosa,parish,0412,PT
+041215,Paçó,parish,0412,PT
+041216,Penhas Juntas,parish,0412,PT
+041219,Rebordelo,parish,0412,PT
+041221,Santalha,parish,0412,PT
+041226,Tuizelo,parish,0412,PT
+041227,Vale das Fontes,parish,0412,PT
+041229,Vila Boa de Ousilhão,parish,0412,PT
+041230,Vila Verde,parish,0412,PT
+041232,Vilar de Ossos,parish,0412,PT
+041233,Vilar de Peregrinos,parish,0412,PT
+041234,Vilar Seco de Lomba,parish,0412,PT
+041235,Vinhais,parish,0412,PT
+041236,União das freguesias de Curopos e Vale de Janeiro,parish,0412,PT
+041237,União das freguesias de Moimenta e Montouto,parish,0412,PT
+041238,União das freguesias de Nunes e Ousilhão,parish,0412,PT
+041239,União das freguesias de Quirás e Pinheiro Novo,parish,0412,PT
+041240,União das freguesias de Sobreiro de Baixo e Alvaredos,parish,0412,PT
+041241,"União das freguesias de Soeira, Fresulfe e Mofreita",parish,0412,PT
+041242,União das freguesias de Travanca e Santa Cruz,parish,0412,PT
+041243,União das freguesias de Vilar de Lomba e São Jomil,parish,0412,PT
+050102,Caria,parish,0501,PT
+050104,Inguias,parish,0501,PT
+050105,Maçainhas,parish,0501,PT
+050107,Belmonte,parish,0501,PT
+050108,Colmeal da Torre,parish,0501,PT
+050201,Alcains,parish,0502,PT
+050202,Almaceda,parish,0502,PT
+050203,Benquerenças,parish,0502,PT
+050205,Castelo Branco,parish,0502,PT
+050211,Lardosa,parish,0502,PT
+050212,Louriçal do Campo,parish,0502,PT
+050214,Malpica do Tejo,parish,0502,PT
+050216,Monforte da Beira,parish,0502,PT
+050220,Salgueiro do Campo,parish,0502,PT
+050221,Santo André das Tojeiras,parish,0502,PT
+050222,São Vicente da Beira,parish,0502,PT
+050223,Sarzedas,parish,0502,PT
+050225,Tinalhas,parish,0502,PT
+050226,União das freguesias de Cebolais de Cima e Retaxo,parish,0502,PT
+050229,União das freguesias de Freixial e Juncal do Campo,parish,0502,PT
+050231,União das freguesias de Póvoa de Rio de Moinhos e Cafede,parish,0502,PT
+050232,Escalos de Baixo,parish,0502,PT
+050233,Escalos de Cima,parish,0502,PT
+050234,Lousa,parish,0502,PT
+050235,Mata,parish,0502,PT
+050236,Ninho do Açor,parish,0502,PT
+050237,Sobral do Campo,parish,0502,PT
+050302,Aldeia de São Francisco de Assis,parish,0503,PT
+050305,Boidobra,parish,0503,PT
+050308,Cortes do Meio,parish,0503,PT
+050309,Dominguizo,parish,0503,PT
+050310,Erada,parish,0503,PT
+050311,Ferro,parish,0503,PT
+050312,Orjais,parish,0503,PT
+050314,Paul,parish,0503,PT
+050315,Peraboa,parish,0503,PT
+050318,São Jorge da Beira,parish,0503,PT
+050322,Sobral de São Miguel,parish,0503,PT
+050324,Tortosendo,parish,0503,PT
+050325,Unhais da Serra,parish,0503,PT
+050327,Verdelhos,parish,0503,PT
+050335,União das freguesias de Covilhã e Canhoso,parish,0503,PT
+050337,União das freguesias de Teixoso e Sarzedo,parish,0503,PT
+050338,União das freguesias de Vale Formoso e Aldeia do Souto,parish,0503,PT
+050339,Barco,parish,0503,PT
+050340,Cantar-Galo,parish,0503,PT
+050341,Casegas,parish,0503,PT
+050342,Coutada,parish,0503,PT
+050343,Ourondo,parish,0503,PT
+050344,Peso,parish,0503,PT
+050345,Vales do Rio,parish,0503,PT
+050346,Vila do Carvalho,parish,0503,PT
+050401,Alcaide,parish,0504,PT
+050402,Alcaria,parish,0504,PT
+050403,Alcongosta,parish,0504,PT
+050406,Alpedrinha,parish,0504,PT
+050408,Barroca,parish,0504,PT
+050410,Bogas de Cima,parish,0504,PT
+050411,Capinha,parish,0504,PT
+050412,Castelejo,parish,0504,PT
+050413,Castelo Novo,parish,0504,PT
+050416,Fatela,parish,0504,PT
+050419,Lavacolhos,parish,0504,PT
+050420,Orca,parish,0504,PT
+050421,Pêro Viseu,parish,0504,PT
+050424,Silvares,parish,0504,PT
+050425,Soalheira,parish,0504,PT
+050426,Souto da Casa,parish,0504,PT
+050427,Telhado,parish,0504,PT
+050431,Enxames,parish,0504,PT
+050432,Três Povos,parish,0504,PT
+050433,União das freguesias de Janeiro de Cima e Bogas de Baixo,parish,0504,PT
+050434,"União das freguesias de Fundão, Valverde, Donas, Aldeia de Joanes e Aldeia Nova do Cabo",parish,0504,PT
+050435,União das freguesias de Póvoa de Atalaia e Atalaia do Campo,parish,0504,PT
+050436,União das freguesias de Vale de Prazeres e Mata da Rainha,parish,0504,PT
+050502,Aldeia de Santa Margarida,parish,0505,PT
+050505,Ladoeiro,parish,0505,PT
+050506,Medelim,parish,0505,PT
+050509,Oledo,parish,0505,PT
+050510,Penha Garcia,parish,0505,PT
+050511,Proença-a-Velha,parish,0505,PT
+050512,Rosmaninhal,parish,0505,PT
+050514,São Miguel de Acha,parish,0505,PT
+050516,Toulões,parish,0505,PT
+050518,União das freguesias de Idanha-a-Nova e Alcafozes,parish,0505,PT
+050519,União das freguesias de Monfortinho e Salvaterra do Extremo,parish,0505,PT
+050520,União das freguesias de Monsanto e Idanha-a-Velha,parish,0505,PT
+050521,União das freguesias de Zebreira e Segura,parish,0505,PT
+050601,Álvaro,parish,0506,PT
+050603,Cambas,parish,0506,PT
+050605,Isna,parish,0506,PT
+050606,Madeirã,parish,0506,PT
+050607,Mosteiro,parish,0506,PT
+050609,Orvalho,parish,0506,PT
+050610,Sarnadas de São Simão,parish,0506,PT
+050611,Sobral,parish,0506,PT
+050613,Estreito-Vilar Barroco,parish,0506,PT
+050614,Oleiros-Amieira,parish,0506,PT
+050704,Aranhas,parish,0507,PT
+050706,Benquerença,parish,0507,PT
+050707,Meimão,parish,0507,PT
+050708,Meimoa,parish,0507,PT
+050710,Penamacor,parish,0507,PT
+050711,Salvador,parish,0507,PT
+050712,Vale da Senhora da Póvoa,parish,0507,PT
+050713,"União das freguesias de Aldeia do Bispo, Águas e Aldeia de João Pires",parish,0507,PT
+050714,União das freguesias de Pedrógão de São Pedro e Bemposta,parish,0507,PT
+050802,Montes da Senhora,parish,0508,PT
+050805,São Pedro do Esteval,parish,0508,PT
+050807,União das freguesias de Proença-a-Nova e Peral,parish,0508,PT
+050808,União das freguesias de Sobreira Formosa e Alvito da Beira,parish,0508,PT
+050901,Cabeçudo,parish,0509,PT
+050902,Carvalhal,parish,0509,PT
+050903,Castelo,parish,0509,PT
+050911,Pedrógão Pequeno,parish,0509,PT
+050912,Sertã,parish,0509,PT
+050913,Troviscal,parish,0509,PT
+050914,Várzea dos Cavaleiros,parish,0509,PT
+050915,"União das freguesias de Cernache do Bonjardim, Nesperal e Palhais",parish,0509,PT
+050916,União das freguesias de Cumeada e Marmeleiro,parish,0509,PT
+050917,União das freguesias de Ermida e Figueiredo,parish,0509,PT
+051001,Fundada,parish,0510,PT
+051002,São João do Peso,parish,0510,PT
+051003,Vila de Rei,parish,0510,PT
+051101,Fratel,parish,0511,PT
+051102,Perais,parish,0511,PT
+051103,Sarnadas de Ródão,parish,0511,PT
+051104,Vila Velha de Ródão,parish,0511,PT
+060102,Arganil,parish,0601,PT
+060104,Benfeita,parish,0601,PT
+060105,Celavisa,parish,0601,PT
+060109,Folques,parish,0601,PT
+060111,Piódão,parish,0601,PT
+060112,Pomares,parish,0601,PT
+060113,Pombeiro da Beira,parish,0601,PT
+060114,São Martinho da Cortiça,parish,0601,PT
+060115,Sarzedo,parish,0601,PT
+060116,Secarias,parish,0601,PT
+060119,União das freguesias de Cepos e Teixeira,parish,0601,PT
+060120,União das freguesias de Cerdeira e Moura da Serra,parish,0601,PT
+060121,União das freguesias de Côja e Barril de Alva,parish,0601,PT
+060122,União das freguesias de Vila Cova de Alva e Anseriz,parish,0601,PT
+060201,Ançã,parish,0602,PT
+060203,Cadima,parish,0602,PT
+060205,Cordinhã,parish,0602,PT
+060207,Febres,parish,0602,PT
+060208,Murtede,parish,0602,PT
+060209,Ourentã,parish,0602,PT
+060214,Tocha,parish,0602,PT
+060215,São Caetano,parish,0602,PT
+060218,Sanguinheira,parish,0602,PT
+060221,União das freguesias de Covões e Camarneira,parish,0602,PT
+060222,União das freguesias de Portunhos e Outil,parish,0602,PT
+060223,União das freguesias de Sepins e Bolho,parish,0602,PT
+060224,União das freguesias de Vilamar e Corticeiro de Cima,parish,0602,PT
+060225,Cantanhede,parish,0602,PT
+060226,Pocariça,parish,0602,PT
+060301,Almalaguês,parish,0603,PT
+060309,Brasfemes,parish,0603,PT
+060311,Ceira,parish,0603,PT
+060312,Cernache,parish,0603,PT
+060318,Santo António dos Olivais,parish,0603,PT
+060320,São João do Campo,parish,0603,PT
+060324,São Silvestre,parish,0603,PT
+060329,Torres do Mondego,parish,0603,PT
+060332,União das freguesias de Antuzede e Vil de Matos,parish,0603,PT
+060333,União das freguesias de Assafarge e Antanhol,parish,0603,PT
+060334,"União das freguesias de Coimbra (Sé Nova, Santa Cruz, Almedina e São Bartolomeu)",parish,0603,PT
+060335,União das freguesias de Eiras e São Paulo de Frades,parish,0603,PT
+060336,União das freguesias de Santa Clara e Castelo Viegas,parish,0603,PT
+060337,União das freguesias de São Martinho de Árvore e Lamarosa,parish,0603,PT
+060338,União das freguesias de São Martinho do Bispo e Ribeira de Frades,parish,0603,PT
+060339,União das freguesias de Souselas e Botão,parish,0603,PT
+060340,"União das freguesias de Taveiro, Ameal e Arzila",parish,0603,PT
+060341,União das freguesias de Trouxemil e Torre de Vilela,parish,0603,PT
+060401,Anobra,parish,0604,PT
+060406,Ega,parish,0604,PT
+060407,Furadouro,parish,0604,PT
+060410,Zambujal,parish,0604,PT
+060411,União das freguesias de Condeixa-a-Velha e Condeixa-a-Nova,parish,0604,PT
+060412,União das freguesias de Sebal e Belide,parish,0604,PT
+060413,União das freguesias de Vila Seca e Bem da Fé,parish,0604,PT
+060502,Alqueidão,parish,0605,PT
+060507,Maiorca,parish,0605,PT
+060508,Marinha das Ondas,parish,0605,PT
+060512,Tavarede,parish,0605,PT
+060513,Vila Verde,parish,0605,PT
+060514,São Pedro,parish,0605,PT
+060515,Bom Sucesso,parish,0605,PT
+060518,Moinhos da Gândara,parish,0605,PT
+060522,Lavos,parish,0605,PT
+060523,Paião,parish,0605,PT
+060524,Quiaios,parish,0605,PT
+060525,Alhadas,parish,0605,PT
+060526,Brenha,parish,0605,PT
+060527,Buarcos,parish,0605,PT
+060528,Ferreira-a-Nova,parish,0605,PT
+060529,Santana,parish,0605,PT
+060530,São Julião da Figueira da Foz,parish,0605,PT
+060601,Alvares,parish,0606,PT
+060604,Góis,parish,0606,PT
+060605,Vila Nova do Ceira,parish,0606,PT
+060606,União das freguesias de Cadafaz e Colmeal,parish,0606,PT
+060704,Serpins,parish,0607,PT
+060706,Gândaras,parish,0607,PT
+060707,União das freguesias de Foz de Arouce e Casal de Ermio,parish,0607,PT
+060709,Lousã,parish,0607,PT
+060710,Vilarinho,parish,0607,PT
+060801,Mira,parish,0608,PT
+060802,Seixo,parish,0608,PT
+060803,Carapelhos,parish,0608,PT
+060804,Praia de Mira,parish,0608,PT
+060901,Lamas,parish,0609,PT
+060902,Miranda do Corvo,parish,0609,PT
+060905,Vila Nova,parish,0609,PT
+060906,União das freguesias de Semide e Rio Vide,parish,0609,PT
+061002,Arazede,parish,0610,PT
+061003,Carapinheira,parish,0610,PT
+061005,Liceia,parish,0610,PT
+061006,Meãs do Campo,parish,0610,PT
+061008,Pereira,parish,0610,PT
+061009,Santo Varão,parish,0610,PT
+061010,Seixo de Gatões,parish,0610,PT
+061011,Tentúgal,parish,0610,PT
+061014,Ereira,parish,0610,PT
+061015,"União das freguesias de Abrunheira, Verride e Vila Nova da Barca",parish,0610,PT
+061016,União das freguesias de Montemor-o-Velho e Gatões,parish,0610,PT
+061101,Aldeia das Dez,parish,0611,PT
+061102,Alvoco das Várzeas,parish,0611,PT
+061103,Avô,parish,0611,PT
+061104,Bobadela,parish,0611,PT
+061106,Lagares,parish,0611,PT
+061109,Lourosa,parish,0611,PT
+061110,Meruge,parish,0611,PT
+061111,Nogueira do Cravo,parish,0611,PT
+061115,São Gião,parish,0611,PT
+061118,Seixo da Beira,parish,0611,PT
+061119,Travanca de Lagos,parish,0611,PT
+061123,União das freguesias de Lagos da Beira e Lajeosa,parish,0611,PT
+061124,União das freguesias de Oliveira do Hospital e São Paio de Gramaços,parish,0611,PT
+061125,União das freguesias de Penalva de Alva e São Sebastião da Feira,parish,0611,PT
+061126,União das freguesias de Santa Ovaia e Vila Pouca da Beira,parish,0611,PT
+061127,Ervedal,parish,0611,PT
+061128,Vila Franca da Beira,parish,0611,PT
+061201,Cabril,parish,0612,PT
+061202,Dornelas do Zêzere,parish,0612,PT
+061204,Janeiro de Baixo,parish,0612,PT
+061206,Pampilhosa da Serra,parish,0612,PT
+061207,Pessegueiro,parish,0612,PT
+061209,Unhais-o-Velho,parish,0612,PT
+061211,Fajão-Vidual,parish,0612,PT
+061212,Portela do Fojo-Machio,parish,0612,PT
+061301,Carvalho,parish,0613,PT
+061302,Figueira de Lorvão,parish,0613,PT
+061304,Lorvão,parish,0613,PT
+061307,Penacova,parish,0613,PT
+061310,Sazes do Lorvão,parish,0613,PT
+061312,União das freguesias de Friúmes e Paradela,parish,0613,PT
+061313,União das freguesias de Oliveira do Mondego e Travanca do Mondego,parish,0613,PT
+061314,União das freguesias de São Pedro de Alva e São Paio de Mondego,parish,0613,PT
+061401,Cumeeira,parish,0614,PT
+061402,Espinhal,parish,0614,PT
+061403,Podentes,parish,0614,PT
+061407,"União das freguesias de São Miguel, Santa Eufémia e Rabaçal",parish,0614,PT
+061501,Alfarelos,parish,0615,PT
+061504,Figueiró do Campo,parish,0615,PT
+061506,Granja do Ulmeiro,parish,0615,PT
+061508,Samuel,parish,0615,PT
+061509,Soure,parish,0615,PT
+061510,Tapéus,parish,0615,PT
+061511,Vila Nova de Anços,parish,0615,PT
+061512,Vinha da Rainha,parish,0615,PT
+061513,União das freguesias de Degracias e Pombalinho,parish,0615,PT
+061514,União das freguesias de Gesteira e Brunhós,parish,0615,PT
+061602,Candosa,parish,0616,PT
+061603,Carapinha,parish,0616,PT
+061608,Midões,parish,0616,PT
+061609,Mouronho,parish,0616,PT
+061611,Póvoa de Midões,parish,0616,PT
+061612,São João da Boa Vista,parish,0616,PT
+061614,Tábua,parish,0616,PT
+061616,União das freguesias de Ázere e Covelo,parish,0616,PT
+061617,União das freguesias de Covas e Vila Nova de Oliveirinha,parish,0616,PT
+061618,União das freguesias de Espariz e Sinde,parish,0616,PT
+061619,União das freguesias de Pinheiro de Coja e Meda de Mouros,parish,0616,PT
+061701,Arrifana,parish,0617,PT
+061702,Lavegadas,parish,0617,PT
+061703,Poiares (Santo André),parish,0617,PT
+061704,São Miguel de Poiares,parish,0617,PT
+070103,Santiago Maior,parish,0701,PT
+070104,Capelins (Santo António),parish,0701,PT
+070105,Terena (São Pedro),parish,0701,PT
+070107,"União das freguesias de Alandroal (Nossa Senhora da Conceição), São Brás dos Matos (Mina do Bugalho) e Juromenha (Nossa Senhora do Loreto)",parish,0701,PT
+070201,Arraiolos,parish,0702,PT
+070202,Igrejinha,parish,0702,PT
+070206,Vimieiro,parish,0702,PT
+070209,União das freguesias de São Gregório e Santa Justa,parish,0702,PT
+070210,Gafanhoeira (São Pedro),parish,0702,PT
+070211,Sabugueiro,parish,0702,PT
+070301,Borba (Matriz),parish,0703,PT
+070302,Orada,parish,0703,PT
+070303,Rio de Moinhos,parish,0703,PT
+070304,Borba (São Bartolomeu),parish,0703,PT
+070401,Arcos,parish,0704,PT
+070402,Glória,parish,0704,PT
+070404,Évora Monte (Santa Maria),parish,0704,PT
+070411,São Domingos de Ana Loura,parish,0704,PT
+070413,Veiros,parish,0704,PT
+070414,União das freguesias de Estremoz (Santa Maria e Santo André),parish,0704,PT
+070415,União das freguesias de São Bento do Cortiço e Santo Estêvão,parish,0704,PT
+070416,União das freguesias de São Lourenço de Mamporcão e São Bento de Ana Loura,parish,0704,PT
+070417,União das freguesias do Ameixial (Santa Vitória e São Bento),parish,0704,PT
+070502,Nossa Senhora da Graça do Divor,parish,0705,PT
+070503,Nossa Senhora de Machede,parish,0705,PT
+070506,São Bento do Mato,parish,0705,PT
+070509,São Miguel de Machede,parish,0705,PT
+070513,Torre de Coelheiros,parish,0705,PT
+070515,Canaviais,parish,0705,PT
+070522,União das freguesias de Bacelo e Senhora da Saúde,parish,0705,PT
+070523,"União das freguesias de Évora (São Mamede, Sé, São Pedro e Santo Antão)",parish,0705,PT
+070524,União das freguesias de Malagueira e Horta das Figueiras,parish,0705,PT
+070525,União das freguesias de Nossa Senhora da Tourega e Nossa Senhora de Guadalupe,parish,0705,PT
+070526,União das freguesias de São Manços e São Vicente do Pigeiro,parish,0705,PT
+070527,União das freguesias de São Sebastião da Giesteira e Nossa Senhora da Boa Fé,parish,0705,PT
+070601,Cabrela,parish,0706,PT
+070605,Santiago do Escoural,parish,0706,PT
+070606,São Cristóvão,parish,0706,PT
+070607,Ciborro,parish,0706,PT
+070610,Foros de Vale de Figueira,parish,0706,PT
+070613,Cortiçadas de Lavre,parish,0706,PT
+070614,Lavre,parish,0706,PT
+070615,Nossa Senhora da Vila,parish,0706,PT
+070616,Nossa Senhora do Bispo,parish,0706,PT
+070617,Silveiras,parish,0706,PT
+070701,Brotas,parish,0707,PT
+070702,Cabeção,parish,0707,PT
+070703,Mora,parish,0707,PT
+070704,Pavia,parish,0707,PT
+070801,Granja,parish,0708,PT
+070802,Luz,parish,0708,PT
+070803,Mourão,parish,0708,PT
+070903,Monte do Trigo,parish,0709,PT
+070905,Portel,parish,0709,PT
+070906,Santana,parish,0709,PT
+070908,Vera Cruz,parish,0709,PT
+070911,Alqueva,parish,0709,PT
+070912,Amieira,parish,0709,PT
+070913,Oriola,parish,0709,PT
+070914,São Bartolomeu do Outeiro,parish,0709,PT
+071001,Montoito,parish,0710,PT
+071002,Redondo,parish,0710,PT
+071102,Corval,parish,0711,PT
+071103,Monsaraz,parish,0711,PT
+071104,Reguengos de Monsaraz,parish,0711,PT
+071106,União das freguesias de Campo e Campinho,parish,0711,PT
+071201,Vendas Novas,parish,0712,PT
+071202,Landeira,parish,0712,PT
+071301,Alcáçovas,parish,0713,PT
+071302,Viana do Alentejo,parish,0713,PT
+071303,Aguiar,parish,0713,PT
+071401,Bencatel,parish,0714,PT
+071402,Ciladas,parish,0714,PT
+071404,Pardais,parish,0714,PT
+071406,Nossa Senhora da Conceição e São Bartolomeu,parish,0714,PT
+080102,Guia,parish,0801,PT
+080103,Paderne,parish,0801,PT
+080104,Ferreiras,parish,0801,PT
+080106,Albufeira e Olhos de Água,parish,0801,PT
+080202,Giões,parish,0802,PT
+080203,Martim Longo,parish,0802,PT
+080205,Vaqueiros,parish,0802,PT
+080206,União das freguesias de Alcoutim e Pereiro,parish,0802,PT
+080301,Aljezur,parish,0803,PT
+080302,Bordeira,parish,0803,PT
+080303,Odeceixe,parish,0803,PT
+080304,Rogil,parish,0803,PT
+080401,Azinhal,parish,0804,PT
+080402,Castro Marim,parish,0804,PT
+080403,Odeleite,parish,0804,PT
+080404,Altura,parish,0804,PT
+080503,Santa Bárbara de Nexe,parish,0805,PT
+080506,Montenegro,parish,0805,PT
+080508,União das freguesias de Faro (Sé e São Pedro),parish,0805,PT
+080509,Conceição,parish,0805,PT
+080510,Estoi,parish,0805,PT
+080602,Ferragudo,parish,0806,PT
+080604,Porches,parish,0806,PT
+080607,União das freguesias de Estômbar e Parchal,parish,0806,PT
+080608,União das freguesias de Lagoa e Carvoeiro,parish,0806,PT
+080703,Luz,parish,0807,PT
+080704,Odiáxere,parish,0807,PT
+080708,São Gonçalo de Lagos,parish,0807,PT
+080709,Barão de São João,parish,0807,PT
+080710,Bensafrim,parish,0807,PT
+080801,Almancil,parish,0808,PT
+080802,Alte,parish,0808,PT
+080803,Ameixial,parish,0808,PT
+080804,Boliqueime,parish,0808,PT
+080805,Quarteira,parish,0808,PT
+080807,Salir,parish,0808,PT
+080808,Loulé (São Clemente),parish,0808,PT
+080809,Loulé (São Sebastião),parish,0808,PT
+080813,Benafim,parish,0808,PT
+080814,Querença,parish,0808,PT
+080815,Tôr,parish,0808,PT
+080901,Alferce,parish,0809,PT
+080902,Marmelete,parish,0809,PT
+080903,Monchique,parish,0809,PT
+081003,Olhão,parish,0810,PT
+081004,Pechão,parish,0810,PT
+081005,Quelfes,parish,0810,PT
+081007,Fuseta,parish,0810,PT
+081008,Moncarapacho,parish,0810,PT
+081101,Alvor,parish,0811,PT
+081102,Mexilhoeira Grande,parish,0811,PT
+081103,Portimão,parish,0811,PT
+081201,São Brás de Alportel,parish,0812,PT
+081303,Armação de Pêra,parish,0813,PT
+081305,São Bartolomeu de Messines,parish,0813,PT
+081306,São Marcos da Serra,parish,0813,PT
+081307,Silves,parish,0813,PT
+081311,Alcantarilha,parish,0813,PT
+081312,Algoz,parish,0813,PT
+081313,Pêra,parish,0813,PT
+081314,Tunes,parish,0813,PT
+081401,Cachopo,parish,0814,PT
+081404,Santa Catarina da Fonte do Bispo,parish,0814,PT
+081408,Santa Luzia,parish,0814,PT
+081412,União das freguesias de Tavira (Santa Maria e Santiago),parish,0814,PT
+081413,Cabanas de Tavira,parish,0814,PT
+081414,Conceição,parish,0814,PT
+081415,Luz de Tavira,parish,0814,PT
+081416,Santo Estêvão,parish,0814,PT
+081501,Barão de São Miguel,parish,0815,PT
+081502,Budens,parish,0815,PT
+081504,Sagres,parish,0815,PT
+081506,Vila do Bispo e Raposeira,parish,0815,PT
+081601,Vila Nova de Cacela,parish,0816,PT
+081602,Vila Real de Santo António,parish,0816,PT
+081603,Monte Gordo,parish,0816,PT
+090102,Carapito,parish,0901,PT
+090103,Cortiçada,parish,0901,PT
+090105,Dornelas,parish,0901,PT
+090106,Eirado,parish,0901,PT
+090107,Forninhos,parish,0901,PT
+090109,Pena Verde,parish,0901,PT
+090110,Pinheiro,parish,0901,PT
+090114,União das freguesias de Aguiar da Beira e Coruche,parish,0901,PT
+090115,União das freguesias de Sequeiros e Gradiz,parish,0901,PT
+090116,União das freguesias de Souto de Aguiar da Beira e Valverde,parish,0901,PT
+090203,Almeida,parish,0902,PT
+090207,Castelo Bom,parish,0902,PT
+090209,Freineda,parish,0902,PT
+090210,Freixo,parish,0902,PT
+090213,Malhada Sorda,parish,0902,PT
+090219,Nave de Haver,parish,0902,PT
+090224,São Pedro de Rio Seco,parish,0902,PT
+090227,Vale da Mula,parish,0902,PT
+090229,Vilar Formoso,parish,0902,PT
+090230,"União das freguesias de Amoreira, Parada e Cabreira",parish,0902,PT
+090231,"União das freguesias de Azinhal, Peva e Valverde",parish,0902,PT
+090232,"União das freguesias de Castelo Mendo, Ade, Monteperobolso e Mesquitela",parish,0902,PT
+090233,União das freguesias de Junça e Naves,parish,0902,PT
+090234,"União das freguesias de Leomil, Mido, Senouras e Aldeia Nova",parish,0902,PT
+090235,União das freguesias de Malpartida e Vale de Coelha,parish,0902,PT
+090236,União das freguesias de Miuzela e Porto de Ovelha,parish,0902,PT
+090302,Baraçal,parish,0903,PT
+090304,Carrapichana,parish,0903,PT
+090306,Forno Telheiro,parish,0903,PT
+090307,Lajeosa do Mondego,parish,0903,PT
+090308,Linhares,parish,0903,PT
+090309,Maçal do Chão,parish,0903,PT
+090310,Mesquitela,parish,0903,PT
+090311,Minhocal,parish,0903,PT
+090312,Prados,parish,0903,PT
+090314,Ratoeira,parish,0903,PT
+090318,Vale de Azares,parish,0903,PT
+090322,Casas do Soeiro,parish,0903,PT
+090323,União das freguesias de Açores e Velosa,parish,0903,PT
+090324,União das freguesias de Celorico (São Pedro e Santa Maria) e Vila Boa do Mondego,parish,0903,PT
+090325,"União das freguesias de Cortiçô da Serra, Vide entre Vinhas e Salgueirais",parish,0903,PT
+090326,União das freguesias de Rapa e Cadafaz,parish,0903,PT
+090403,Castelo Rodrigo,parish,0904,PT
+090406,Escalhão,parish,0904,PT
+090408,Figueira de Castelo Rodrigo,parish,0904,PT
+090410,Mata de Lobos,parish,0904,PT
+090415,Vermiosa,parish,0904,PT
+090418,"União das freguesias de Algodres, Vale de Afonsinho e Vilar de Amargo",parish,0904,PT
+090419,União das freguesias de Almofala e Escarigo,parish,0904,PT
+090420,União das freguesias de Cinco Vilas e Reigada,parish,0904,PT
+090421,"União das freguesias de Freixeda do Torrão, Quintã de Pêro Martins e Penha de Águia",parish,0904,PT
+090422,União das freguesias do Colmeal e Vilar Torpim,parish,0904,PT
+090501,Algodres,parish,0905,PT
+090502,Casal Vasco,parish,0905,PT
+090504,Figueiró da Granja,parish,0905,PT
+090505,Fornos de Algodres,parish,0905,PT
+090507,Infias,parish,0905,PT
+090509,Maceira,parish,0905,PT
+090510,Matança,parish,0905,PT
+090511,Muxagata,parish,0905,PT
+090512,Queiriz,parish,0905,PT
+090517,União das freguesias de Cortiçô e Vila Chã,parish,0905,PT
+090518,"União das freguesias de Juncais, Vila Ruiva e Vila Soeiro do Chão",parish,0905,PT
+090519,União das freguesias de Sobral Pichorro e Fuinhas,parish,0905,PT
+090602,Arcozelo,parish,0906,PT
+090603,Cativelos,parish,0906,PT
+090605,Folgosinho,parish,0906,PT
+090612,Nespereira,parish,0906,PT
+090613,Paços da Serra,parish,0906,PT
+090614,Ribamondego,parish,0906,PT
+090617,São Paio,parish,0906,PT
+090619,Vila Cortês da Serra,parish,0906,PT
+090620,Vila Franca da Serra,parish,0906,PT
+090621,Vila Nova de Tazem,parish,0906,PT
+090623,União das freguesias de Aldeias e Mangualde da Serra,parish,0906,PT
+090624,União das freguesias de Figueiró da Serra e Freixo da Serra,parish,0906,PT
+090625,Gouveia,parish,0906,PT
+090626,União das freguesias de Melo e Nabais,parish,0906,PT
+090627,União das freguesias de Moimenta da Serra e Vinhó,parish,0906,PT
+090628,União das freguesias de Rio Torto e Lagarinhos,parish,0906,PT
+090703,Aldeia do Bispo,parish,0907,PT
+090704,Aldeia Viçosa,parish,0907,PT
+090705,Alvendre,parish,0907,PT
+090706,Arrifana,parish,0907,PT
+090708,Avelãs da Ribeira,parish,0907,PT
+090709,Benespera,parish,0907,PT
+090711,Casal de Cinza,parish,0907,PT
+090712,Castanheira,parish,0907,PT
+090713,Cavadoude,parish,0907,PT
+090714,Codesseiro,parish,0907,PT
+090716,Faia,parish,0907,PT
+090717,Famalicão,parish,0907,PT
+090718,Fernão Joanes,parish,0907,PT
+090721,Gonçalo Bocas,parish,0907,PT
+090722,João Antão,parish,0907,PT
+090723,Maçainhas,parish,0907,PT
+090724,Marmeleiro,parish,0907,PT
+090725,Meios,parish,0907,PT
+090728,Panoias de Cima,parish,0907,PT
+090729,Pega,parish,0907,PT
+090730,Pêra do Moço,parish,0907,PT
+090732,Porto da Carne,parish,0907,PT
+090734,Ramela,parish,0907,PT
+090738,Santana da Azinha,parish,0907,PT
+090744,Sobral da Serra,parish,0907,PT
+090746,Vale de Estrela,parish,0907,PT
+090747,Valhelhas,parish,0907,PT
+090748,Vela,parish,0907,PT
+090749,Videmonte,parish,0907,PT
+090750,Vila Cortês do Mondego,parish,0907,PT
+090751,Vila Fernando,parish,0907,PT
+090752,Vila Franca do Deão,parish,0907,PT
+090753,Vila Garcia,parish,0907,PT
+090757,Gonçalo,parish,0907,PT
+090758,Guarda,parish,0907,PT
+090759,Jarmelo São Miguel,parish,0907,PT
+090760,Jarmelo São Pedro,parish,0907,PT
+090761,União de freguesias de Avelãs de Ambom e Rocamondo,parish,0907,PT
+090762,União de freguesias de Corujeira e Trinta,parish,0907,PT
+090763,"União de freguesias de Mizarela, Pêro Soares e Vila Soeiro",parish,0907,PT
+090764,União de freguesias de Pousade e Albardo,parish,0907,PT
+090765,União de freguesias de Rochoso e Monte Margarida,parish,0907,PT
+090766,Adão,parish,0907,PT
+090801,Sameiro,parish,0908,PT
+090802,Manteigas (Santa Maria),parish,0908,PT
+090803,Manteigas (São Pedro),parish,0908,PT
+090804,Vale de Amoreira,parish,0908,PT
+090901,Aveloso,parish,0909,PT
+090902,Barreira,parish,0909,PT
+090905,Coriscada,parish,0909,PT
+090907,Longroiva,parish,0909,PT
+090908,Marialva,parish,0909,PT
+090912,Poço do Canto,parish,0909,PT
+090914,Rabaçal,parish,0909,PT
+090915,Ranhados,parish,0909,PT
+090917,"Mêda, Outeiro de Gatos e Fonte Longa",parish,0909,PT
+090918,Prova e Casteição,parish,0909,PT
+090919,"União das freguesias de Vale Flor, Carvalhal e Pai Penela",parish,0909,PT
+091009,Ervedosa,parish,0910,PT
+091010,Freixedas,parish,0910,PT
+091012,Lamegal,parish,0910,PT
+091013,Lameiras,parish,0910,PT
+091014,Manigoto,parish,0910,PT
+091015,Pala,parish,0910,PT
+091017,Pinhel,parish,0910,PT
+091018,Pínzio,parish,0910,PT
+091024,Souro Pires,parish,0910,PT
+091027,Vascoveiro,parish,0910,PT
+091028,Agregação das freguesias Sul de Pinhel,parish,0910,PT
+091029,Alverca da Beira/Bouça Cova,parish,0910,PT
+091030,Terras de Massueime,parish,0910,PT
+091031,Valbom/Bogalhal,parish,0910,PT
+091032,Alto do Palurdo,parish,0910,PT
+091033,Vale do Côa,parish,0910,PT
+091034,Vale do Massueime,parish,0910,PT
+091035,União das freguesias de Atalaia e Safurdão,parish,0910,PT
+091101,Águas Belas,parish,0911,PT
+091102,Aldeia do Bispo,parish,0911,PT
+091103,Aldeia da Ponte,parish,0911,PT
+091106,Aldeia Velha,parish,0911,PT
+091107,Alfaiates,parish,0911,PT
+091109,Baraçal,parish,0911,PT
+091110,Bendada,parish,0911,PT
+091111,Bismula,parish,0911,PT
+091112,Casteleiro,parish,0911,PT
+091113,Cerdeira,parish,0911,PT
+091114,Fóios,parish,0911,PT
+091118,Malcata,parish,0911,PT
+091120,Nave,parish,0911,PT
+091123,Quadrazais,parish,0911,PT
+091124,Quintas de São Bartolomeu,parish,0911,PT
+091125,Rapoula do Côa,parish,0911,PT
+091126,Rebolosa,parish,0911,PT
+091127,Rendo,parish,0911,PT
+091133,Sortelha,parish,0911,PT
+091134,Souto,parish,0911,PT
+091136,Vale de Espinho,parish,0911,PT
+091138,Vila Boa,parish,0911,PT
+091139,Vila do Touro,parish,0911,PT
+091141,"União das freguesias de Aldeia da Ribeira, Vilar Maior e Badamalos",parish,0911,PT
+091142,União das freguesias de Lajeosa e Forcalhos,parish,0911,PT
+091143,"União das freguesias de Pousafoles do Bispo, Pena Lobo e Lomba",parish,0911,PT
+091144,"União das freguesias de Ruvina, Ruivós e Vale das Éguas",parish,0911,PT
+091145,União das freguesias do Sabugal e Aldeia de Santo António,parish,0911,PT
+091146,União das freguesias de Santo Estêvão e Moita,parish,0911,PT
+091147,União das freguesias de Seixo do Côa e Vale Longo,parish,0911,PT
+091201,Alvoco da Serra,parish,0912,PT
+091205,Girabolhos,parish,0912,PT
+091207,Loriga,parish,0912,PT
+091208,Paranhos,parish,0912,PT
+091209,Pinhanços,parish,0912,PT
+091210,Sabugueiro,parish,0912,PT
+091212,Sandomil,parish,0912,PT
+091213,Santa Comba,parish,0912,PT
+091216,Santiago,parish,0912,PT
+091219,Sazes da Beira,parish,0912,PT
+091221,Teixeira,parish,0912,PT
+091224,Travancinha,parish,0912,PT
+091225,Valezim,parish,0912,PT
+091228,Vila Cova à Coelheira,parish,0912,PT
+091230,União das freguesias de Carragozela e Várzea de Meruge,parish,0912,PT
+091231,União das freguesias de Sameice e Santa Eulália,parish,0912,PT
+091234,União das freguesias de Torrozelo e Folhadosa,parish,0912,PT
+091235,União das freguesias de Tourais e Lajes,parish,0912,PT
+091236,União das freguesias de Vide e Cabeça,parish,0912,PT
+091237,Lapa dos Dinheiros,parish,0912,PT
+091238,Santa Marinha,parish,0912,PT
+091239,São Martinho,parish,0912,PT
+091240,São Romão,parish,0912,PT
+091241,Seia,parish,0912,PT
+091301,Aldeia Nova,parish,0913,PT
+091303,Castanheira,parish,0913,PT
+091304,Cogula,parish,0913,PT
+091305,Cótimos,parish,0913,PT
+091307,Fiães,parish,0913,PT
+091309,Granja,parish,0913,PT
+091310,Guilheiro,parish,0913,PT
+091311,Moimentinha,parish,0913,PT
+091312,Moreira de Rei,parish,0913,PT
+091313,Palhais,parish,0913,PT
+091314,Póvoa do Concelho,parish,0913,PT
+091315,Reboleiro,parish,0913,PT
+091316,Rio de Mel,parish,0913,PT
+091321,Tamanhos,parish,0913,PT
+091325,Valdujo,parish,0913,PT
+091330,União das freguesias de Freches e Torres,parish,0913,PT
+091331,"União das freguesias de Torre do Terrenho, Sebadelhe da Serra e Terrenho",parish,0913,PT
+091332,União das freguesias de Trancoso (São Pedro e Santa Maria) e Souto Maior,parish,0913,PT
+091333,União das freguesias de Vale do Seixo e Vila Garcia,parish,0913,PT
+091334,União das freguesias de Vila Franca das Naves e Feital,parish,0913,PT
+091335,União das freguesias de Vilares e Carnicães,parish,0913,PT
+091401,Almendra,parish,0914,PT
+091402,Castelo Melhor,parish,0914,PT
+091403,Cedovim,parish,0914,PT
+091404,Chãs,parish,0914,PT
+091405,Custóias,parish,0914,PT
+091407,Horta,parish,0914,PT
+091410,Muxagata,parish,0914,PT
+091411,Numão,parish,0914,PT
+091412,Santa Comba,parish,0914,PT
+091414,Sebadelhe,parish,0914,PT
+091415,Seixas,parish,0914,PT
+091416,Touça,parish,0914,PT
+091418,Freixo de Numão,parish,0914,PT
+091419,Vila Nova de Foz Côa,parish,0914,PT
+100102,Alfeizerão,parish,1001,PT
+100104,Bárrio,parish,1001,PT
+100105,Benedita,parish,1001,PT
+100106,Cela,parish,1001,PT
+100108,Évora de Alcobaça,parish,1001,PT
+100109,Maiorga,parish,1001,PT
+100112,São Martinho do Porto,parish,1001,PT
+100114,Turquel,parish,1001,PT
+100116,Vimeiro,parish,1001,PT
+100120,Aljubarrota,parish,1001,PT
+100121,União das freguesias de Alcobaça e Vestiaria,parish,1001,PT
+100122,"União das freguesias de Coz, Alpedriz e Montes",parish,1001,PT
+100123,União das freguesias de Pataias e Martingança,parish,1001,PT
+100201,Almoster,parish,1002,PT
+100204,Maçãs de Dona Maria,parish,1002,PT
+100205,Pelmá,parish,1002,PT
+100208,Alvaiázere,parish,1002,PT
+100209,Pussos São Pedro,parish,1002,PT
+100301,Alvorge,parish,1003,PT
+100303,Avelar,parish,1003,PT
+100304,Chão de Couce,parish,1003,PT
+100306,Pousaflores,parish,1003,PT
+100307,Santiago da Guarda,parish,1003,PT
+100309,Ansião,parish,1003,PT
+100401,Batalha,parish,1004,PT
+100402,Reguengo do Fetal,parish,1004,PT
+100403,São Mamede,parish,1004,PT
+100404,Golpilheira,parish,1004,PT
+100502,Carvalhal,parish,1005,PT
+100503,Roliça,parish,1005,PT
+100505,Pó,parish,1005,PT
+100506,União das freguesias do Bombarral e Vale Covo,parish,1005,PT
+100601,A dos Francos,parish,1006,PT
+100602,Alvorninha,parish,1006,PT
+100604,Carvalhal Benfeito,parish,1006,PT
+100606,Foz do Arelho,parish,1006,PT
+100607,Landal,parish,1006,PT
+100608,Nadadouro,parish,1006,PT
+100609,Salir de Matos,parish,1006,PT
+100611,Santa Catarina,parish,1006,PT
+100615,Vidais,parish,1006,PT
+100617,"União das freguesias de Caldas da Rainha - Nossa Senhora do Pópulo, Coto e São Gregório",parish,1006,PT
+100618,União das freguesias de Caldas da Rainha - Santo Onofre e Serra do Bouro,parish,1006,PT
+100619,União das freguesias de Tornada e Salir do Porto,parish,1006,PT
+100703,União das freguesias de Castanheira de Pêra e Coentral,parish,1007,PT
+100801,Aguda,parish,1008,PT
+100802,Arega,parish,1008,PT
+100803,Campelo,parish,1008,PT
+100806,União das freguesias de Figueiró dos Vinhos e Bairradas,parish,1008,PT
+100901,Amor,parish,1009,PT
+100902,Arrabal,parish,1009,PT
+100907,Caranguejeira,parish,1009,PT
+100909,Coimbrão,parish,1009,PT
+100913,Maceira,parish,1009,PT
+100915,Milagres,parish,1009,PT
+100921,Regueira de Pontes,parish,1009,PT
+100925,Bajouca,parish,1009,PT
+100926,Bidoeira de Cima,parish,1009,PT
+100932,União das freguesias de Colmeias e Memória,parish,1009,PT
+100933,"União das freguesias de Leiria, Pousos, Barreira e Cortes",parish,1009,PT
+100934,União das freguesias de Marrazes e Barosa,parish,1009,PT
+100935,União das freguesias de Monte Real e Carvide,parish,1009,PT
+100937,União das freguesias de Parceiros e Azoia,parish,1009,PT
+100938,União das freguesias de Santa Catarina da Serra e Chainça,parish,1009,PT
+100939,União das freguesias de Santa Eufémia e Boa Vista,parish,1009,PT
+100941,Carreira,parish,1009,PT
+100942,Monte Redondo,parish,1009,PT
+100943,Ortigosa,parish,1009,PT
+100944,Souto da Carpalhosa,parish,1009,PT
+101001,Marinha Grande,parish,1010,PT
+101002,Vieira de Leiria,parish,1010,PT
+101003,Moita,parish,1010,PT
+101101,Famalicão,parish,1011,PT
+101102,Nazaré,parish,1011,PT
+101103,Valado dos Frades,parish,1011,PT
+101201,A dos Negros,parish,1012,PT
+101202,Amoreira,parish,1012,PT
+101203,Olho Marinho,parish,1012,PT
+101207,Vau,parish,1012,PT
+101208,Gaeiras,parish,1012,PT
+101209,Usseira,parish,1012,PT
+101210,"Santa Maria, São Pedro e Sobral da Lagoa",parish,1012,PT
+101301,Graça,parish,1013,PT
+101302,Pedrógão Grande,parish,1013,PT
+101303,Vila Facaia,parish,1013,PT
+101402,Atouguia da Baleia,parish,1014,PT
+101405,Serra d'El-Rei,parish,1014,PT
+101406,Ferrel,parish,1014,PT
+101407,Peniche,parish,1014,PT
+101501,Abiul,parish,1015,PT
+101503,Almagreira,parish,1015,PT
+101504,Carnide,parish,1015,PT
+101505,Carriço,parish,1015,PT
+101506,Louriçal,parish,1015,PT
+101508,Pelariga,parish,1015,PT
+101509,Pombal,parish,1015,PT
+101510,Redinha,parish,1015,PT
+101513,Vermoil,parish,1015,PT
+101514,Vila Cã,parish,1015,PT
+101515,Meirinhas,parish,1015,PT
+101520,Albergaria dos Doze,parish,1015,PT
+101521,Guia,parish,1015,PT
+101522,Ilha,parish,1015,PT
+101523,Mata Mourisca,parish,1015,PT
+101524,Santiago de Litém,parish,1015,PT
+101525,São Simão de Litém,parish,1015,PT
+101602,Alqueidão da Serra,parish,1016,PT
+101605,Calvaria de Cima,parish,1016,PT
+101606,Juncal,parish,1016,PT
+101608,Mira de Aire,parish,1016,PT
+101609,Pedreiras,parish,1016,PT
+101610,São Bento,parish,1016,PT
+101613,Serro Ventoso,parish,1016,PT
+101614,Porto de Mós - São João Baptista e São Pedro,parish,1016,PT
+101615,União das freguesias de Alvados e Alcaria,parish,1016,PT
+101616,União das freguesias de Arrimal e Mendiga,parish,1016,PT
+110106,Carnota,parish,1101,PT
+110107,Meca,parish,1101,PT
+110108,Olhalvo,parish,1101,PT
+110109,Ota,parish,1101,PT
+110113,Ventosa,parish,1101,PT
+110114,Vila Verde dos Francos,parish,1101,PT
+110117,União das freguesias de Abrigada e Cabanas de Torres,parish,1101,PT
+110118,União das freguesias de Aldeia Galega da Merceana e Aldeia Gavinha,parish,1101,PT
+110119,União das freguesias de Alenquer (Santo Estêvão e Triana),parish,1101,PT
+110120,União das freguesias de Carregado e Cadafais,parish,1101,PT
+110121,União das freguesias de Ribafria e Pereiro de Palhacana,parish,1101,PT
+110201,Arranhó,parish,1102,PT
+110202,Arruda dos Vinhos,parish,1102,PT
+110203,Cardosas,parish,1102,PT
+110204,S. Tiago dos Velhos,parish,1102,PT
+110301,Alcoentre,parish,1103,PT
+110302,Aveiras de Baixo,parish,1103,PT
+110303,Aveiras de Cima,parish,1103,PT
+110304,Azambuja,parish,1103,PT
+110306,Vale do Paraíso,parish,1103,PT
+110307,Vila Nova da Rainha,parish,1103,PT
+110310,"União das freguesias de Manique do Intendente, Vila Nova de São Pedro e Maçussa",parish,1103,PT
+110401,Alguber,parish,1104,PT
+110407,Peral,parish,1104,PT
+110409,Vermelha,parish,1104,PT
+110410,Vilar,parish,1104,PT
+110411,União das freguesias do Cadaval e Pêro Moniz,parish,1104,PT
+110412,União das freguesias de Lamas e Cercal,parish,1104,PT
+110413,União das freguesias de Painho e Figueiros,parish,1104,PT
+110501,Alcabideche,parish,1105,PT
+110506,São Domingos de Rana,parish,1105,PT
+110507,União das freguesias de Carcavelos e Parede,parish,1105,PT
+110508,União das freguesias de Cascais e Estoril,parish,1105,PT
+110601,Ajuda,parish,1106,PT
+110602,Alcântara,parish,1106,PT
+110607,Beato,parish,1106,PT
+110608,Benfica,parish,1106,PT
+110610,Campolide,parish,1106,PT
+110611,Carnide,parish,1106,PT
+110618,Lumiar,parish,1106,PT
+110621,Marvila,parish,1106,PT
+110633,Olivais,parish,1106,PT
+110639,São Domingos de Benfica,parish,1106,PT
+110654,Alvalade,parish,1106,PT
+110655,Areeiro,parish,1106,PT
+110656,Arroios,parish,1106,PT
+110657,Avenidas Novas,parish,1106,PT
+110658,Belém,parish,1106,PT
+110659,Campo de Ourique,parish,1106,PT
+110660,Estrela,parish,1106,PT
+110661,Misericórdia,parish,1106,PT
+110662,Parque das Nações,parish,1106,PT
+110663,Penha de França,parish,1106,PT
+110664,Santa Clara,parish,1106,PT
+110665,Santa Maria Maior,parish,1106,PT
+110666,Santo António,parish,1106,PT
+110667,São Vicente,parish,1106,PT
+110702,Bucelas,parish,1107,PT
+110705,Fanhões,parish,1107,PT
+110707,Loures,parish,1107,PT
+110708,Lousa,parish,1107,PT
+110726,União das freguesias de Moscavide e Portela,parish,1107,PT
+110727,União das freguesias de Sacavém e Prior Velho,parish,1107,PT
+110728,"União das freguesias de Santa Iria de Azoia, São João da Talha e Bobadela",parish,1107,PT
+110729,União das freguesias de Santo Antão e São Julião do Tojal,parish,1107,PT
+110730,União das freguesias de Santo António dos Cavaleiros e Frielas,parish,1107,PT
+110731,"União das freguesias de Camarate, Unhos e Apelação",parish,1107,PT
+110803,Moita dos Ferreiros,parish,1108,PT
+110805,Reguengo Grande,parish,1108,PT
+110806,Santa Bárbara,parish,1108,PT
+110808,Vimeiro,parish,1108,PT
+110810,Ribamar,parish,1108,PT
+110813,União das freguesias de Miragaia e Marteleira,parish,1108,PT
+110814,União das freguesias de São Bartolomeu dos Galegos e Moledo,parish,1108,PT
+110815,Atalaia,parish,1108,PT
+110816,Lourinhã,parish,1108,PT
+110902,Carvoeira,parish,1109,PT
+110904,Encarnação,parish,1109,PT
+110906,Ericeira,parish,1109,PT
+110909,Mafra,parish,1109,PT
+110911,Milharado,parish,1109,PT
+110913,Santo Isidoro,parish,1109,PT
+110918,União das freguesias de Azueira e Sobral da Abelheira,parish,1109,PT
+110919,"União das freguesias de Enxara do Bispo, Gradil e Vila Franca do Rosário",parish,1109,PT
+110920,União das freguesias de Igreja Nova e Cheleiros,parish,1109,PT
+110921,União das freguesias de Malveira e São Miguel de Alcainça,parish,1109,PT
+110922,União das freguesias de Venda do Pinheiro e Santo Estêvão das Galés,parish,1109,PT
+111002,Barcarena,parish,1110,PT
+111009,Porto Salvo,parish,1110,PT
+111012,"União das freguesias de Algés, Linda-a-Velha e Cruz Quebrada-Dafundo",parish,1110,PT
+111013,União das freguesias de Carnaxide e Queijas,parish,1110,PT
+111014,"União das freguesias de Oeiras e São Julião da Barra, Paço de Arcos e Caxias",parish,1110,PT
+111102,Algueirão-Mem Martins,parish,1111,PT
+111105,Colares,parish,1111,PT
+111108,Rio de Mouro,parish,1111,PT
+111115,Casal de Cambra,parish,1111,PT
+111122,União das freguesias de Agualva e Mira-Sintra,parish,1111,PT
+111124,União das freguesias do Cacém e São Marcos,parish,1111,PT
+111125,União das freguesias de Massamá e Monte Abraão,parish,1111,PT
+111128,"União das freguesias de Sintra (Santa Maria e São Miguel, São Martinho e São Pedro de Penaferrim)",parish,1111,PT
+111129,Almargem do Bispo,parish,1111,PT
+111130,Belas,parish,1111,PT
+111131,Montelavar,parish,1111,PT
+111132,Pêro Pinheiro,parish,1111,PT
+111133,Queluz,parish,1111,PT
+111134,São João das Lampas,parish,1111,PT
+111135,Terrugem,parish,1111,PT
+111201,Santo Quintino,parish,1112,PT
+111202,Sapataria,parish,1112,PT
+111203,Sobral de Monte Agraço,parish,1112,PT
+111306,Freiria,parish,1113,PT
+111310,Ponte do Rol,parish,1113,PT
+111311,Ramalhal,parish,1113,PT
+111314,São Pedro da Cadeira,parish,1113,PT
+111316,Silveira,parish,1113,PT
+111317,Turcifal,parish,1113,PT
+111318,Ventosa,parish,1113,PT
+111322,União das freguesias de Campelos e Outeiro da Cabeça,parish,1113,PT
+111323,União das freguesias de Carvoeira e Carmões,parish,1113,PT
+111325,União das freguesias de Maxial e Monte Redondo,parish,1113,PT
+111326,"Santa Maria, São Pedro e Matacães",parish,1113,PT
+111327,A dos Cunhados,parish,1113,PT
+111328,Dois Portos,parish,1113,PT
+111329,Maceira,parish,1113,PT
+111330,Runa,parish,1113,PT
+111408,Vialonga,parish,1114,PT
+111409,Vila Franca de Xira,parish,1114,PT
+111412,"União das freguesias de Alhandra, São João dos Montes e Calhandriz",parish,1114,PT
+111413,União das freguesias de Alverca do Ribatejo e Sobralinho,parish,1114,PT
+111414,União das freguesias de Castanheira do Ribatejo e Cachoeiras,parish,1114,PT
+111415,União das freguesias de Póvoa de Santa Iria e Forte da Casa,parish,1114,PT
+111512,Alfragide,parish,1115,PT
+111513,Águas Livres,parish,1115,PT
+111514,Encosta do Sol,parish,1115,PT
+111515,Falagueira-Venda Nova,parish,1115,PT
+111516,Mina de Água,parish,1115,PT
+111517,Venteira,parish,1115,PT
+111603,Odivelas,parish,1116,PT
+111608,União das freguesias de Pontinha e Famões,parish,1116,PT
+111609,União das freguesias de Póvoa de Santo Adrião e Olival Basto,parish,1116,PT
+111610,União das freguesias de Ramada e Caneças,parish,1116,PT
+120101,Alter do Chão,parish,1201,PT
+120102,Chancelaria,parish,1201,PT
+120103,Seda,parish,1201,PT
+120104,Cunheira,parish,1201,PT
+120201,Assunção,parish,1202,PT
+120202,Esperança,parish,1202,PT
+120203,Mosteiros,parish,1202,PT
+120302,Aldeia Velha,parish,1203,PT
+120303,Avis,parish,1203,PT
+120305,Ervedal,parish,1203,PT
+120306,Figueira e Barros,parish,1203,PT
+120309,União das freguesias de Alcórrego e Maranhão,parish,1203,PT
+120310,União das freguesias de Benavila e Valongo,parish,1203,PT
+120401,Nossa Senhora da Expectação,parish,1204,PT
+120402,Nossa Senhora da Graça dos Degolados,parish,1204,PT
+120403,São João Baptista,parish,1204,PT
+120501,Nossa Senhora da Graça de Póvoa e Meadas,parish,1205,PT
+120502,Santa Maria da Devesa,parish,1205,PT
+120503,Santiago Maior,parish,1205,PT
+120504,São João Baptista,parish,1205,PT
+120601,Aldeia da Mata,parish,1206,PT
+120604,Gáfete,parish,1206,PT
+120605,Monte da Pedra,parish,1206,PT
+120607,"União das freguesias de Crato e Mártires, Flor da Rosa e Vale do Peso",parish,1206,PT
+120706,Santa Eulália,parish,1207,PT
+120707,São Brás e São Lourenço,parish,1207,PT
+120708,São Vicente e Ventosa,parish,1207,PT
+120712,"Assunção, Ajuda, Salvador e Santo Ildefonso",parish,1207,PT
+120713,"Caia, São Pedro e Alcáçova",parish,1207,PT
+120714,União das freguesias de Barbacena e Vila Fernando,parish,1207,PT
+120716,Terrugem,parish,1207,PT
+120717,Vila Boim,parish,1207,PT
+120801,Cabeço de Vide,parish,1208,PT
+120802,Fronteira,parish,1208,PT
+120803,São Saturnino,parish,1208,PT
+120902,Belver,parish,1209,PT
+120903,Comenda,parish,1209,PT
+120905,Margem,parish,1209,PT
+120906,União das freguesias de Gavião e Atalaia,parish,1209,PT
+121001,Beirã,parish,1210,PT
+121002,Santa Maria de Marvão,parish,1210,PT
+121003,Santo António das Areias,parish,1210,PT
+121004,São Salvador da Aramenha,parish,1210,PT
+121101,Assumar,parish,1211,PT
+121102,Monforte,parish,1211,PT
+121103,Santo Aleixo,parish,1211,PT
+121104,Vaiamonte,parish,1211,PT
+121201,Alpalhão,parish,1212,PT
+121205,Montalvão,parish,1212,PT
+121207,Santana,parish,1212,PT
+121208,São Matias,parish,1212,PT
+121210,Tolosa,parish,1212,PT
+121211,União das freguesias de Arez e Amieira do Tejo,parish,1212,PT
+121212,"União das freguesias de Espírito Santo, Nossa Senhora da Graça e São Simão",parish,1212,PT
+121301,Galveias,parish,1213,PT
+121302,Montargil,parish,1213,PT
+121304,Foros de Arrão,parish,1213,PT
+121305,Longomel,parish,1213,PT
+121309,Ponte de Sor,parish,1213,PT
+121310,Tramaga,parish,1213,PT
+121311,Vale de Açor,parish,1213,PT
+121401,Alagoa,parish,1214,PT
+121402,Alegrete,parish,1214,PT
+121404,Fortios,parish,1214,PT
+121410,Urra,parish,1214,PT
+121411,União das freguesias da Sé e São Lourenço,parish,1214,PT
+121412,União das freguesias de Reguengo e São Julião,parish,1214,PT
+121413,União das freguesias de Ribeira de Nisa e Carreiras,parish,1214,PT
+121501,Cano,parish,1215,PT
+121502,Casa Branca,parish,1215,PT
+121503,Santo Amaro,parish,1215,PT
+121504,Sousel,parish,1215,PT
+130103,Ansiães,parish,1301,PT
+130107,Candemil,parish,1301,PT
+130112,Fregim,parish,1301,PT
+130115,Fridão,parish,1301,PT
+130117,Gondar,parish,1301,PT
+130118,Jazente,parish,1301,PT
+130119,Lomba,parish,1301,PT
+130120,Louredo,parish,1301,PT
+130121,Lufrei,parish,1301,PT
+130123,Mancelos,parish,1301,PT
+130126,Padronelo,parish,1301,PT
+130128,Rebordelo,parish,1301,PT
+130129,Salvador do Monte,parish,1301,PT
+130134,Gouveia (São Simão),parish,1301,PT
+130135,Telões,parish,1301,PT
+130136,Travanca,parish,1301,PT
+130138,Vila Caiz,parish,1301,PT
+130139,Vila Chã do Marão,parish,1301,PT
+130141,"União das freguesias de Aboadela, Sanche e Várzea",parish,1301,PT
+130142,"União das freguesias de Amarante (São Gonçalo), Madalena, Cepelos e Gatão",parish,1301,PT
+130143,"União das freguesias de Bustelo, Carneiro e Carvalho de Rei",parish,1301,PT
+130144,União das freguesias de Figueiró (Santiago e Santa Cristina),parish,1301,PT
+130145,União das freguesias de Freixo de Cima e de Baixo,parish,1301,PT
+130146,União das freguesias de Olo e Canadelo,parish,1301,PT
+130147,Vila Meã,parish,1301,PT
+130148,"União das freguesias de Vila Garcia, Aboim e Chapa",parish,1301,PT
+130204,Frende,parish,1302,PT
+130205,Gestaçô,parish,1302,PT
+130206,Gove,parish,1302,PT
+130207,Grilo,parish,1302,PT
+130208,Loivos do Monte,parish,1302,PT
+130215,Santa Marinha do Zêzere,parish,1302,PT
+130219,Valadares,parish,1302,PT
+130220,Viariz,parish,1302,PT
+130221,União das freguesias de Ancede e Ribadouro,parish,1302,PT
+130222,União das freguesias de Baião (Santa Leocádia) e Mesquinhata,parish,1302,PT
+130223,União das freguesias de Campelo e Ovil,parish,1302,PT
+130224,União das freguesias de Loivos da Ribeira e Tresouras,parish,1302,PT
+130225,União das freguesias de Santa Cruz do Douro e São Tomé de Covelas,parish,1302,PT
+130226,União das freguesias de Teixeira e Teixeiró,parish,1302,PT
+130301,Aião,parish,1303,PT
+130302,Airães,parish,1303,PT
+130305,Friande,parish,1303,PT
+130306,Idães,parish,1303,PT
+130307,Jugueiros,parish,1303,PT
+130313,Penacova,parish,1303,PT
+130314,Pinheiro,parish,1303,PT
+130315,Pombeiro de Ribavizela,parish,1303,PT
+130317,Refontoura,parish,1303,PT
+130318,Regilde,parish,1303,PT
+130319,Revinhade,parish,1303,PT
+130324,Sendim,parish,1303,PT
+130334,União das freguesias de Macieira da Lixa e Caramos,parish,1303,PT
+130335,"União das freguesias de Margaride (Santa Eulália), Várzea, Lagares, Varziela e Moure",parish,1303,PT
+130336,"União das freguesias de Pedreira, Rande e Sernande",parish,1303,PT
+130337,União das freguesias de Torrados e Sousa,parish,1303,PT
+130338,União das freguesias de Unhão e Lordelo,parish,1303,PT
+130339,União das freguesias de Vila Cova da Lixa e Borba de Godim,parish,1303,PT
+130340,União das freguesias de Vila Fria e Vizela (São Jorge),parish,1303,PT
+130341,União das freguesias de Vila Verde e Santão,parish,1303,PT
+130405,Lomba,parish,1304,PT
+130408,Rio Tinto,parish,1304,PT
+130412,Baguim do Monte (Rio Tinto),parish,1304,PT
+130413,União das freguesias de Fânzeres e São Pedro da Cova,parish,1304,PT
+130414,União das freguesias de Foz do Sousa e Covelo,parish,1304,PT
+130415,"União das freguesias de Gondomar (São Cosme), Valbom e Jovim",parish,1304,PT
+130416,União das freguesias de Melres e Medas,parish,1304,PT
+130502,Aveleda,parish,1305,PT
+130504,Caíde de Rei,parish,1305,PT
+130510,Lodares,parish,1305,PT
+130512,Macieira,parish,1305,PT
+130513,Meinedo,parish,1305,PT
+130515,Nevogilde,parish,1305,PT
+130524,Sousela,parish,1305,PT
+130525,Torno,parish,1305,PT
+130526,Vilar do Torno e Alentém,parish,1305,PT
+130527,União das freguesias de Cernadelo e Lousada (São Miguel e Santa Margarida),parish,1305,PT
+130528,"União das freguesias de Cristelos, Boim e Ordem",parish,1305,PT
+130529,União das freguesias de Figueiras e Covas,parish,1305,PT
+130531,União das freguesias de Nespereira e Casais,parish,1305,PT
+130532,"União das freguesias de Silvares, Pias, Nogueira e Alvarenga",parish,1305,PT
+130533,Barrosas (Santo Estêvão),parish,1305,PT
+130534,Lustosa,parish,1305,PT
+130601,Águas Santas,parish,1306,PT
+130603,Folgosa,parish,1306,PT
+130608,Milheirós,parish,1306,PT
+130609,Moreira,parish,1306,PT
+130613,São Pedro Fins,parish,1306,PT
+130616,Vila Nova da Telha,parish,1306,PT
+130617,Pedrouços,parish,1306,PT
+130618,Castêlo da Maia,parish,1306,PT
+130619,Cidade da Maia,parish,1306,PT
+130620,Nogueira e Silva Escura,parish,1306,PT
+130704,Banho e Carvalhosa,parish,1307,PT
+130705,Constance,parish,1307,PT
+130722,Soalhães,parish,1307,PT
+130723,Sobretâmega,parish,1307,PT
+130724,Tabuado,parish,1307,PT
+130730,Vila Boa do Bispo,parish,1307,PT
+130732,"Alpendorada, Várzea e Torrão",parish,1307,PT
+130733,Avessadas e Rosém,parish,1307,PT
+130734,Bem Viver,parish,1307,PT
+130735,Santo Isidoro e Livração,parish,1307,PT
+130736,Marco,parish,1307,PT
+130737,Paredes de Viadores e Manhuncelos,parish,1307,PT
+130739,Sande e São Lourenço do Douro,parish,1307,PT
+130740,"Várzea, Aliviada e Folhada",parish,1307,PT
+130741,Vila Boa de Quires e Maureles,parish,1307,PT
+130742,Paços de Gaiolo,parish,1307,PT
+130743,Penha Longa,parish,1307,PT
+130815,Custóias,parish,1308,PT
+130816,Guifões,parish,1308,PT
+130817,Lavra,parish,1308,PT
+130818,Leça da Palmeira,parish,1308,PT
+130819,Leça do Balio,parish,1308,PT
+130820,Matosinhos,parish,1308,PT
+130821,Perafita,parish,1308,PT
+130822,Santa Cruz do Bispo,parish,1308,PT
+130823,São Mamede de Infesta,parish,1308,PT
+130824,Senhora da Hora,parish,1308,PT
+130902,Carvalhosa,parish,1309,PT
+130904,Eiriz,parish,1309,PT
+130905,Ferreira,parish,1309,PT
+130906,Figueiró,parish,1309,PT
+130908,Freamunde,parish,1309,PT
+130910,Meixomil,parish,1309,PT
+130913,Penamaior,parish,1309,PT
+130914,Raimonda,parish,1309,PT
+130916,Seroa,parish,1309,PT
+130920,Arreigada,parish,1309,PT
+130921,Codessos,parish,1309,PT
+130922,Frazão,parish,1309,PT
+130923,Lamoso,parish,1309,PT
+130924,Modelos,parish,1309,PT
+130925,Paços de Ferreira,parish,1309,PT
+130926,Sanfins de Ferreira,parish,1309,PT
+131001,Aguiar de Sousa,parish,1310,PT
+131002,Astromil,parish,1310,PT
+131003,Baltar,parish,1310,PT
+131004,Beire,parish,1310,PT
+131008,Cete,parish,1310,PT
+131009,Cristelo,parish,1310,PT
+131010,Duas Igrejas,parish,1310,PT
+131011,Gandra,parish,1310,PT
+131013,Lordelo,parish,1310,PT
+131014,Louredo,parish,1310,PT
+131017,Parada de Todeia,parish,1310,PT
+131018,Rebordosa,parish,1310,PT
+131019,Recarei,parish,1310,PT
+131020,Sobreira,parish,1310,PT
+131021,Sobrosa,parish,1310,PT
+131022,Vandoma,parish,1310,PT
+131024,Vilela,parish,1310,PT
+131025,Paredes,parish,1310,PT
+131101,Abragão,parish,1311,PT
+131102,Boelhe,parish,1311,PT
+131103,Bustelo,parish,1311,PT
+131104,Cabeça Santa,parish,1311,PT
+131105,Canelas,parish,1311,PT
+131106,Capela,parish,1311,PT
+131107,Castelões,parish,1311,PT
+131108,Croca,parish,1311,PT
+131109,Duas Igrejas,parish,1311,PT
+131110,Eja,parish,1311,PT
+131112,Fonte Arcada,parish,1311,PT
+131113,Galegos,parish,1311,PT
+131115,Irivo,parish,1311,PT
+131121,Oldrões,parish,1311,PT
+131122,Paço de Sousa,parish,1311,PT
+131125,Perozelo,parish,1311,PT
+131128,Rans,parish,1311,PT
+131129,Rio de Moinhos,parish,1311,PT
+131132,Recezinhos (São Mamede),parish,1311,PT
+131133,Recezinhos (São Martinho),parish,1311,PT
+131134,Sebolido,parish,1311,PT
+131136,Valpedre,parish,1311,PT
+131138,Rio Mau,parish,1311,PT
+131139,Penafiel,parish,1311,PT
+131140,Luzim e Vila Cova,parish,1311,PT
+131141,Guilhufe e Urrô,parish,1311,PT
+131142,Lagares e Figueira,parish,1311,PT
+131143,Termas de São Vicente,parish,1311,PT
+131202,Bonfim,parish,1312,PT
+131203,Campanhã,parish,1312,PT
+131210,Paranhos,parish,1312,PT
+131211,Ramalde,parish,1312,PT
+131216,"União das freguesias de Aldoar, Foz do Douro e Nevogilde",parish,1312,PT
+131217,"União das freguesias de Cedofeita, Santo Ildefonso, Sé, Miragaia, São Nicolau e Vitória",parish,1312,PT
+131218,União das freguesias de Lordelo do Ouro e Massarelos,parish,1312,PT
+131305,Balazar,parish,1313,PT
+131307,Estela,parish,1313,PT
+131308,Laundos,parish,1313,PT
+131311,Rates,parish,1313,PT
+131316,Aguçadoura,parish,1313,PT
+131317,Amorim,parish,1313,PT
+131318,Argivai,parish,1313,PT
+131319,Aver-o-Mar,parish,1313,PT
+131320,Beiriz,parish,1313,PT
+131321,Navais,parish,1313,PT
+131322,Póvoa de Varzim,parish,1313,PT
+131323,Terroso,parish,1313,PT
+131401,Agrela,parish,1314,PT
+131402,Água Longa,parish,1314,PT
+131405,Aves,parish,1314,PT
+131413,Monte Córdova,parish,1314,PT
+131416,Rebordões,parish,1314,PT
+131418,Reguenga,parish,1314,PT
+131419,Roriz,parish,1314,PT
+131430,Negrelos (São Tomé),parish,1314,PT
+131432,Vilarinho,parish,1314,PT
+131433,"União das freguesias de Areias, Sequeiró, Lama e Palmeira",parish,1314,PT
+131434,Vila Nova do Campo,parish,1314,PT
+131435,União das freguesias de Carreira e Refojos de Riba de Ave,parish,1314,PT
+131436,União das freguesias de Lamelas e Guimarei,parish,1314,PT
+131437,"União das freguesias de Santo Tirso, Couto (Santa Cristina e São Miguel) e Burgães",parish,1314,PT
+131501,Alfena,parish,1315,PT
+131503,Ermesinde,parish,1315,PT
+131505,Valongo,parish,1315,PT
+131507,Campo,parish,1315,PT
+131508,Sobrado,parish,1315,PT
+131602,Árvore,parish,1316,PT
+131603,Aveleda,parish,1316,PT
+131604,Azurara,parish,1316,PT
+131607,Fajozes,parish,1316,PT
+131610,Gião,parish,1316,PT
+131611,Guilhabreu,parish,1316,PT
+131612,Junqueira,parish,1316,PT
+131613,Labruge,parish,1316,PT
+131614,Macieira da Maia,parish,1316,PT
+131616,Mindelo,parish,1316,PT
+131617,Modivas,parish,1316,PT
+131627,Vila Chã,parish,1316,PT
+131628,Vila do Conde,parish,1316,PT
+131630,Vilar de Pinheiro,parish,1316,PT
+131631,"União das freguesias de Bagunte, Ferreiró, Outeiro Maior e Parada",parish,1316,PT
+131636,União das freguesias de Touguinha e Touguinhó,parish,1316,PT
+131637,União das freguesias de Vilar e Mosteiró,parish,1316,PT
+131638,Arcos,parish,1316,PT
+131639,Canidelo,parish,1316,PT
+131640,Fornelo,parish,1316,PT
+131641,Malta,parish,1316,PT
+131642,Retorta,parish,1316,PT
+131643,Rio Mau,parish,1316,PT
+131644,Tougues,parish,1316,PT
+131645,Vairão,parish,1316,PT
+131701,Arcozelo,parish,1317,PT
+131702,Avintes,parish,1317,PT
+131703,Canelas,parish,1317,PT
+131704,Canidelo,parish,1317,PT
+131709,Madalena,parish,1317,PT
+131712,Oliveira do Douro,parish,1317,PT
+131717,São Félix da Marinha,parish,1317,PT
+131723,Vilar de Andorinho,parish,1317,PT
+131732,Crestuma,parish,1317,PT
+131733,Grijó,parish,1317,PT
+131734,Gulpilhares,parish,1317,PT
+131735,Lever,parish,1317,PT
+131736,Mafamude,parish,1317,PT
+131737,Olival,parish,1317,PT
+131738,Pedroso,parish,1317,PT
+131739,Perosinho,parish,1317,PT
+131740,Sandim,parish,1317,PT
+131741,Santa Marinha,parish,1317,PT
+131742,São Pedro da Afurada,parish,1317,PT
+131743,Seixezelo,parish,1317,PT
+131744,Sermonde,parish,1317,PT
+131745,Serzedo,parish,1317,PT
+131746,Valadares,parish,1317,PT
+131747,Vilar do Paraíso,parish,1317,PT
+131806,Covelas,parish,1318,PT
+131808,Muro,parish,1318,PT
+131810,União das freguesias de Bougado (São Martinho e Santiago),parish,1318,PT
+131811,União das freguesias de Coronado (São Romão e São Mamede),parish,1318,PT
+131812,Alvarelhos,parish,1318,PT
+131813,Guidões,parish,1318,PT
+140104,Bemposta,parish,1401,PT
+140105,Martinchel,parish,1401,PT
+140106,Mouriscas,parish,1401,PT
+140107,Pego,parish,1401,PT
+140108,Rio de Moinhos,parish,1401,PT
+140115,Tramagal,parish,1401,PT
+140118,Fontes,parish,1401,PT
+140119,Carvalhal,parish,1401,PT
+140120,União das freguesias de Abrantes (São Vicente e São João) e Alferrarede,parish,1401,PT
+140121,União das freguesias de Aldeia do Mato e Souto,parish,1401,PT
+140122,União das freguesias de Alvega e Concavada,parish,1401,PT
+140123,União das freguesias de São Facundo e Vale das Mós,parish,1401,PT
+140124,União das freguesias de São Miguel do Rio Torto e Rossio ao Sul do Tejo,parish,1401,PT
+140202,Bugalhos,parish,1402,PT
+140206,Minde,parish,1402,PT
+140207,Moitas Venda,parish,1402,PT
+140208,Monsanto,parish,1402,PT
+140209,Serra de Santo António,parish,1402,PT
+140211,União das freguesias de Alcanena e Vila Moreira,parish,1402,PT
+140212,"União das freguesias de Malhou, Louriceira e Espinheiro",parish,1402,PT
+140301,Almeirim,parish,1403,PT
+140302,Benfica do Ribatejo,parish,1403,PT
+140303,Fazendas de Almeirim,parish,1403,PT
+140304,Raposa,parish,1403,PT
+140401,Alpiarça,parish,1404,PT
+140501,Benavente,parish,1405,PT
+140502,Samora Correia,parish,1405,PT
+140503,Santo Estêvão,parish,1405,PT
+140504,Barrosa,parish,1405,PT
+140604,Pontével,parish,1406,PT
+140605,Valada,parish,1406,PT
+140607,Vila Chã de Ourique,parish,1406,PT
+140608,Vale da Pedra,parish,1406,PT
+140609,União das freguesias do Cartaxo e Vale da Pinta,parish,1406,PT
+140610,União das freguesias de Ereira e Lapa,parish,1406,PT
+140704,Ulme,parish,1407,PT
+140705,Vale de Cavalos,parish,1407,PT
+140707,Carregueira,parish,1407,PT
+140708,União das freguesias da Chamusca e Pinheiro Grande,parish,1407,PT
+140709,União das freguesias de Parreira e Chouto,parish,1407,PT
+140801,Constância,parish,1408,PT
+140802,Montalvo,parish,1408,PT
+140803,Santa Margarida da Coutada,parish,1408,PT
+140902,Couço,parish,1409,PT
+140903,São José da Lamarosa,parish,1409,PT
+140905,Branca,parish,1409,PT
+140907,Biscainho,parish,1409,PT
+140908,Santana do Mato,parish,1409,PT
+140910,Coruche,parish,1409,PT
+140911,Erra,parish,1409,PT
+140912,Fajarda,parish,1409,PT
+141001,São João Baptista,parish,1410,PT
+141002,Nossa Senhora de Fátima,parish,1410,PT
+141101,Águas Belas,parish,1411,PT
+141103,Beco,parish,1411,PT
+141104,Chãos,parish,1411,PT
+141106,Ferreira do Zêzere,parish,1411,PT
+141107,Igreja Nova do Sobral,parish,1411,PT
+141110,Nossa Senhora do Pranto,parish,1411,PT
+141111,União das freguesias de Areias e Pias,parish,1411,PT
+141201,Azinhaga,parish,1412,PT
+141202,Golegã,parish,1412,PT
+141203,Pombalinho,parish,1412,PT
+141302,Amêndoa,parish,1413,PT
+141303,Cardigos,parish,1413,PT
+141304,Carvoeiro,parish,1413,PT
+141305,Envendos,parish,1413,PT
+141307,Ortiga,parish,1413,PT
+141309,"União das freguesias de Mação, Penhascoso e Aboboreira",parish,1413,PT
+141401,Alcobertas,parish,1414,PT
+141402,Arrouquelas,parish,1414,PT
+141405,Fráguas,parish,1414,PT
+141408,Rio Maior,parish,1414,PT
+141410,Asseiceira,parish,1414,PT
+141411,São Sebastião,parish,1414,PT
+141415,União das freguesias de Azambujeira e Malaqueijo,parish,1414,PT
+141416,União das freguesias de Marmeleira e Assentiz,parish,1414,PT
+141417,União das freguesias de Outeiro da Cortiçada e Arruda dos Pisões,parish,1414,PT
+141418,União das freguesias de São João da Ribeira e Ribeira de São João,parish,1414,PT
+141502,Marinhais,parish,1415,PT
+141503,Muge,parish,1415,PT
+141509,Foros de Salvaterra,parish,1415,PT
+141510,Glória do Ribatejo,parish,1415,PT
+141511,Granho,parish,1415,PT
+141512,Salvaterra de Magos,parish,1415,PT
+141601,Abitureiras,parish,1416,PT
+141602,Abrã,parish,1416,PT
+141604,Alcanede,parish,1416,PT
+141605,Alcanhões,parish,1416,PT
+141606,Almoster,parish,1416,PT
+141607,Amiais de Baixo,parish,1416,PT
+141608,Arneiro das Milhariças,parish,1416,PT
+141613,Moçarria,parish,1416,PT
+141614,Pernes,parish,1416,PT
+141616,Póvoa da Isenta,parish,1416,PT
+141625,Vale de Santarém,parish,1416,PT
+141628,Gançaria,parish,1416,PT
+141629,"União das freguesias de Achete, Azoia de Baixo e Póvoa de Santarém",parish,1416,PT
+141630,União das freguesias de Azoia de Cima e Tremês,parish,1416,PT
+141631,União das freguesias de Casével e Vaqueiros,parish,1416,PT
+141632,União das freguesias de Romeira e Várzea,parish,1416,PT
+141633,União de freguesias da cidade de Santarém,parish,1416,PT
+141635,São Vicente do Paul,parish,1416,PT
+141636,Vale de Figueira,parish,1416,PT
+141701,Alcaravela,parish,1417,PT
+141702,Santiago de Montalegre,parish,1417,PT
+141703,Sardoal,parish,1417,PT
+141704,Valhascos,parish,1417,PT
+141802,Asseiceira,parish,1418,PT
+141804,Carregueiros,parish,1418,PT
+141808,Olalhas,parish,1418,PT
+141809,Paialvo,parish,1418,PT
+141813,São Pedro de Tomar,parish,1418,PT
+141814,Sabacheira,parish,1418,PT
+141817,União das freguesias de Além da Ribeira e Pedreira,parish,1418,PT
+141818,União das freguesias de Casais e Alviobeira,parish,1418,PT
+141819,União das freguesias de Madalena e Beselga,parish,1418,PT
+141821,União das freguesias de Tomar (São João Baptista) e Santa Maria dos Olivais,parish,1418,PT
+141822,Junceira,parish,1418,PT
+141823,Serra,parish,1418,PT
+141902,Assentiz,parish,1419,PT
+141904,Chancelaria,parish,1419,PT
+141909,Pedrógão,parish,1419,PT
+141910,Riachos,parish,1419,PT
+141916,Zibreira,parish,1419,PT
+141917,Meia Via,parish,1419,PT
+141918,"União das freguesias de Brogueira, Parceiros de Igreja e Alcorochel",parish,1419,PT
+141919,União das freguesias de Olaia e Paço,parish,1419,PT
+141920,"União das freguesias de Torres Novas (Santa Maria, Salvador e Santiago)",parish,1419,PT
+141921,"União das freguesias de Torres Novas (São Pedro), Lapas e Ribeira Branca",parish,1419,PT
+142001,Atalaia,parish,1420,PT
+142002,Praia do Ribatejo,parish,1420,PT
+142003,Tancos,parish,1420,PT
+142006,Vila Nova da Barquinha,parish,1420,PT
+142101,Alburitel,parish,1421,PT
+142102,Atouguia,parish,1421,PT
+142104,Caxarias,parish,1421,PT
+142105,Espite,parish,1421,PT
+142106,Fátima,parish,1421,PT
+142111,Nossa Senhora das Misericórdias,parish,1421,PT
+142113,Seiça,parish,1421,PT
+142114,Urqueira,parish,1421,PT
+142115,Nossa Senhora da Piedade,parish,1421,PT
+142119,"União das freguesias de Freixianda, Ribeira do Fárrio e Formigais",parish,1421,PT
+142123,Casal dos Bernardos,parish,1421,PT
+142124,Cercal,parish,1421,PT
+142125,Gondemaria,parish,1421,PT
+142126,Matas,parish,1421,PT
+142127,Olival,parish,1421,PT
+142128,Rio de Couros,parish,1421,PT
+150104,Torrão,parish,1501,PT
+150105,São Martinho,parish,1501,PT
+150106,Comporta,parish,1501,PT
+150108,Alcácer do Sal (Santa Maria do Castelo),parish,1501,PT
+150109,Alcácer do Sal (Santiago),parish,1501,PT
+150110,Santa Susana,parish,1501,PT
+150201,Alcochete,parish,1502,PT
+150202,Samouco,parish,1502,PT
+150203,São Francisco,parish,1502,PT
+150303,Costa da Caparica,parish,1503,PT
+150312,"União das freguesias de Almada, Cova da Piedade, Pragal e Cacilhas",parish,1503,PT
+150313,União das freguesias de Caparica e Trafaria,parish,1503,PT
+150314,União das freguesias de Charneca de Caparica e Sobreda,parish,1503,PT
+150315,União das freguesias de Laranjeiro e Feijó,parish,1503,PT
+150407,Santo António da Charneca,parish,1504,PT
+150409,"União das freguesias de Alto do Seixalinho, Santo André e Verderena",parish,1504,PT
+150410,União das freguesias de Barreiro e Lavradio,parish,1504,PT
+150411,União das freguesias de Palhais e Coina,parish,1504,PT
+150501,Azinheira dos Barros e São Mamede do Sádão,parish,1505,PT
+150503,Melides,parish,1505,PT
+150505,Carvalhal,parish,1505,PT
+150506,União das freguesias de Grândola e Santa Margarida da Serra,parish,1505,PT
+150601,Alhos Vedros,parish,1506,PT
+150603,Moita,parish,1506,PT
+150607,União das freguesias de Baixa da Banheira e Vale da Amoreira,parish,1506,PT
+150608,União das freguesias de Gaio-Rosário e Sarilhos Pequenos,parish,1506,PT
+150701,Canha,parish,1507,PT
+150704,Sarilhos Grandes,parish,1507,PT
+150709,União das freguesias de Atalaia e Alto Estanqueiro-Jardia,parish,1507,PT
+150710,União das freguesias de Montijo e Afonsoeiro,parish,1507,PT
+150711,União das freguesias de Pegões,parish,1507,PT
+150802,Palmela,parish,1508,PT
+150803,Pinhal Novo,parish,1508,PT
+150804,Quinta do Anjo,parish,1508,PT
+150806,União das freguesias de Poceirão e Marateca,parish,1508,PT
+150901,Abela,parish,1509,PT
+150902,Alvalade,parish,1509,PT
+150903,Cercal,parish,1509,PT
+150904,Ermidas-Sado,parish,1509,PT
+150907,Santo André,parish,1509,PT
+150910,São Francisco da Serra,parish,1509,PT
+150912,"União das freguesias de Santiago do Cacém, Santa Cruz e São Bartolomeu da Serra",parish,1509,PT
+150914,São Domingos,parish,1509,PT
+150915,Vale de Água,parish,1509,PT
+151002,Amora,parish,1510,PT
+151005,Corroios,parish,1510,PT
+151006,Fernão Ferro,parish,1510,PT
+151008,Arrentela,parish,1510,PT
+151009,Paio Pires,parish,1510,PT
+151010,Seixal,parish,1510,PT
+151101,Sesimbra (Castelo),parish,1511,PT
+151102,Sesimbra (Santiago),parish,1511,PT
+151103,Quinta do Conde,parish,1511,PT
+151205,Setúbal (São Sebastião),parish,1512,PT
+151207,Gâmbia-Pontes-Alto da Guerra,parish,1512,PT
+151208,Sado,parish,1512,PT
+151209,União das freguesias de Azeitão (São Lourenço e São Simão),parish,1512,PT
+151210,"União das freguesias de Setúbal (São Julião, Nossa Senhora da Anunciada e Santa Maria da Graça)",parish,1512,PT
+151301,Sines,parish,1513,PT
+151302,Porto Covo,parish,1513,PT
+160101,Aboim das Choças,parish,1601,PT
+160102,Aguiã,parish,1601,PT
+160104,Ázere,parish,1601,PT
+160105,Cabana Maior,parish,1601,PT
+160106,Cabreiro,parish,1601,PT
+160108,Cendufe,parish,1601,PT
+160109,Couto,parish,1601,PT
+160113,Gavieira,parish,1601,PT
+160115,Gondoriz,parish,1601,PT
+160121,Miranda,parish,1601,PT
+160122,Monte Redondo,parish,1601,PT
+160123,Oliveira,parish,1601,PT
+160124,Paçô,parish,1601,PT
+160125,Padroso,parish,1601,PT
+160128,Prozelo,parish,1601,PT
+160130,Rio Frio,parish,1601,PT
+160131,Rio de Moinhos,parish,1601,PT
+160133,Sabadim,parish,1601,PT
+160142,Jolda (São Paio),parish,1601,PT
+160144,Senharei,parish,1601,PT
+160145,Sistelo,parish,1601,PT
+160146,Soajo,parish,1601,PT
+160149,Vale,parish,1601,PT
+160152,União das freguesias de Alvora e Loureda,parish,1601,PT
+160153,União das freguesias de Arcos de Valdevez (São Paio) e Giela,parish,1601,PT
+160154,"União das freguesias de Arcos de Valdevez (Salvador), Vila Fonche e Parada",parish,1601,PT
+160155,União das freguesias de Eiras e Mei,parish,1601,PT
+160156,União das freguesias de Grade e Carralcova,parish,1601,PT
+160157,União das freguesias de Guilhadeses e Santar,parish,1601,PT
+160158,União das freguesias de Jolda (Madalena) e Rio Cabrão,parish,1601,PT
+160159,União das freguesias de Padreiro (Salvador e Santa Cristina),parish,1601,PT
+160160,União das freguesias de Portela e Extremo,parish,1601,PT
+160161,União das freguesias de São Jorge e Ermelo,parish,1601,PT
+160162,União das freguesias de Souto e Tabaçô,parish,1601,PT
+160163,União das freguesias de Távora (Santa Maria e São Vicente),parish,1601,PT
+160164,"União das freguesias de Vilela, São Cosme e São Damião e Sá",parish,1601,PT
+160201,Âncora,parish,1602,PT
+160205,Argela,parish,1602,PT
+160209,Dem,parish,1602,PT
+160211,Lanhelas,parish,1602,PT
+160214,Riba de Âncora,parish,1602,PT
+160215,Seixas,parish,1602,PT
+160217,Vila Praia de Âncora,parish,1602,PT
+160218,Vilar de Mouros,parish,1602,PT
+160220,Vile,parish,1602,PT
+160221,"União das freguesias de Arga (Baixo, Cima e São João)",parish,1602,PT
+160222,União das freguesias de Caminha (Matriz) e Vilarelho,parish,1602,PT
+160223,União das freguesias de Gondar e Orbacém,parish,1602,PT
+160224,União das freguesias de Moledo e Cristelo,parish,1602,PT
+160225,União das freguesias de Venade e Azevedo,parish,1602,PT
+160301,Alvaredo,parish,1603,PT
+160304,Cousso,parish,1603,PT
+160305,Cristoval,parish,1603,PT
+160307,Fiães,parish,1603,PT
+160308,Gave,parish,1603,PT
+160311,Paderne,parish,1603,PT
+160313,Penso,parish,1603,PT
+160317,São Paio,parish,1603,PT
+160319,União das freguesias de Castro Laboreiro e Lamas de Mouro,parish,1603,PT
+160320,União das freguesias de Chaviães e Paços,parish,1603,PT
+160321,União das freguesias de Parada do Monte e Cubalhão,parish,1603,PT
+160322,União das freguesias de Prado e Remoães,parish,1603,PT
+160323,União das freguesias de Vila e Roussas,parish,1603,PT
+160401,Abedim,parish,1604,PT
+160404,Barbeita,parish,1604,PT
+160405,Barroças e Taias,parish,1604,PT
+160406,Bela,parish,1604,PT
+160407,Cambeses,parish,1604,PT
+160410,Lara,parish,1604,PT
+160411,Longos Vales,parish,1604,PT
+160415,Merufe,parish,1604,PT
+160418,Moreira,parish,1604,PT
+160420,Pias,parish,1604,PT
+160421,Pinheiros,parish,1604,PT
+160422,Podame,parish,1604,PT
+160423,Portela,parish,1604,PT
+160424,Riba de Mouro,parish,1604,PT
+160427,Segude,parish,1604,PT
+160428,Tangil,parish,1604,PT
+160431,Trute,parish,1604,PT
+160434,União das freguesias de Anhões e Luzio,parish,1604,PT
+160435,União das freguesias de Ceivães e Badim,parish,1604,PT
+160436,União das freguesias de Mazedo e Cortes,parish,1604,PT
+160437,"União das freguesias de Messegães, Valadares e Sá",parish,1604,PT
+160438,União das freguesias de Monção e Troviscoso,parish,1604,PT
+160439,"União das freguesias de Sago, Lordelo e Parada",parish,1604,PT
+160440,União das freguesias de Troporiz e Lapela,parish,1604,PT
+160501,Agualonga,parish,1605,PT
+160503,Castanheira,parish,1605,PT
+160505,Coura,parish,1605,PT
+160507,Cunha,parish,1605,PT
+160510,Infesta,parish,1605,PT
+160513,Mozelos,parish,1605,PT
+160514,Padornelo,parish,1605,PT
+160515,Parada,parish,1605,PT
+160519,Romarigães,parish,1605,PT
+160520,Rubiães,parish,1605,PT
+160521,Vascões,parish,1605,PT
+160522,União das freguesias de Bico e Cristelo,parish,1605,PT
+160523,União das freguesias de Cossourado e Linhares,parish,1605,PT
+160524,União das freguesias de Formariz e Ferreira,parish,1605,PT
+160525,União das freguesias de Insalde e Porreiras,parish,1605,PT
+160526,União das freguesias de Paredes de Coura e Resende,parish,1605,PT
+160601,Azias,parish,1606,PT
+160602,Boivães,parish,1606,PT
+160603,Bravães,parish,1606,PT
+160604,Britelo,parish,1606,PT
+160606,Cuide de Vila Verde,parish,1606,PT
+160611,Lavradas,parish,1606,PT
+160612,Lindoso,parish,1606,PT
+160613,Nogueira,parish,1606,PT
+160614,Oleiros,parish,1606,PT
+160619,Sampriz,parish,1606,PT
+160623,Vade (São Pedro),parish,1606,PT
+160624,Vade (São Tomé),parish,1606,PT
+160626,"União das freguesias de Crasto, Ruivos e Grovelas",parish,1606,PT
+160627,"União das freguesias de Entre Ambos-os-Rios, Ermida e Germil",parish,1606,PT
+160628,"União das freguesias de Ponte da Barca, Vila Nova de Muía e Paço Vedro de Magalhães",parish,1606,PT
+160629,União das freguesias de Touvedo (São Lourenço e Salvador),parish,1606,PT
+160630,União das freguesias de Vila Chã (São João Baptista e Santiago),parish,1606,PT
+160701,Anais,parish,1607,PT
+160703,São Pedro d'Arcos,parish,1607,PT
+160704,Arcozelo,parish,1607,PT
+160707,Beiral do Lima,parish,1607,PT
+160708,Bertiandos,parish,1607,PT
+160709,Boalhosa,parish,1607,PT
+160710,Brandara,parish,1607,PT
+160713,Calheiros,parish,1607,PT
+160714,Calvelo,parish,1607,PT
+160716,Correlhã,parish,1607,PT
+160717,Estorãos,parish,1607,PT
+160718,Facha,parish,1607,PT
+160719,Feitosa,parish,1607,PT
+160721,Fontão,parish,1607,PT
+160724,Friastelas,parish,1607,PT
+160726,Gandra,parish,1607,PT
+160727,Gemieira,parish,1607,PT
+160728,Gondufe,parish,1607,PT
+160729,Labruja,parish,1607,PT
+160734,Poiares,parish,1607,PT
+160737,Refóios do Lima,parish,1607,PT
+160739,Ribeira,parish,1607,PT
+160740,Sá,parish,1607,PT
+160742,Santa Comba,parish,1607,PT
+160743,Santa Cruz do Lima,parish,1607,PT
+160744,Rebordões (Santa Maria),parish,1607,PT
+160745,Seara,parish,1607,PT
+160746,Serdedelo,parish,1607,PT
+160747,Rebordões (Souto),parish,1607,PT
+160750,Vitorino das Donas,parish,1607,PT
+160752,Arca e Ponte de Lima,parish,1607,PT
+160753,"Ardegão, Freixo e Mato",parish,1607,PT
+160755,Bárrio e Cepões,parish,1607,PT
+160756,Cabaços e Fojo Lobal,parish,1607,PT
+160757,Cabração e Moreira do Lima,parish,1607,PT
+160758,Fornelos e Queijada,parish,1607,PT
+160759,"Labrujó, Rendufe e Vilar do Monte",parish,1607,PT
+160760,Navió e Vitorino dos Piães,parish,1607,PT
+160761,Gaifar,parish,1607,PT
+160762,Sandiães,parish,1607,PT
+160763,Vilar das Almas,parish,1607,PT
+160802,Boivão,parish,1608,PT
+160803,Cerdal,parish,1608,PT
+160805,Fontoura,parish,1608,PT
+160806,Friestas,parish,1608,PT
+160808,Ganfei,parish,1608,PT
+160812,São Pedro da Torre,parish,1608,PT
+160816,Verdoejo,parish,1608,PT
+160817,União das freguesias de Gandra e Taião,parish,1608,PT
+160818,União das freguesias de Gondomil e Sanfins,parish,1608,PT
+160819,União das freguesias de São Julião e Silva,parish,1608,PT
+160820,"União das freguesias de Valença, Cristelo Covo e Arão",parish,1608,PT
+160901,Afife,parish,1609,PT
+160902,Alvarães,parish,1609,PT
+160903,Amonde,parish,1609,PT
+160904,Anha,parish,1609,PT
+160905,Areosa,parish,1609,PT
+160908,Carreço,parish,1609,PT
+160910,Castelo do Neiva,parish,1609,PT
+160911,Darque,parish,1609,PT
+160914,Freixieiro de Soutelo,parish,1609,PT
+160915,Lanheses,parish,1609,PT
+160920,Montaria,parish,1609,PT
+160922,Mujães,parish,1609,PT
+160923,São Romão de Neiva,parish,1609,PT
+160925,Outeiro,parish,1609,PT
+160926,Perre,parish,1609,PT
+160928,Santa Marta de Portuzelo,parish,1609,PT
+160935,Vila Franca,parish,1609,PT
+160938,Vila de Punhe,parish,1609,PT
+160940,Chafé,parish,1609,PT
+160943,"União das freguesias de Geraz do Lima (Santa Maria, Santa Leocádia e Moreira) e Deão",parish,1609,PT
+160945,"União das freguesias de Nogueira, Meixedo e Vilar de Murteda",parish,1609,PT
+160946,"União das freguesias de Subportela, Deocriste e Portela Susã",parish,1609,PT
+160947,União das freguesias de Torre e Vila Mou,parish,1609,PT
+160948,União das freguesias de Viana do Castelo (Santa Maria Maior e Monserrate) e Meadela,parish,1609,PT
+160949,Barroselas,parish,1609,PT
+160950,Cardielos,parish,1609,PT
+160951,Carvoeiro,parish,1609,PT
+160952,Mazarefes,parish,1609,PT
+160953,Serreleis,parish,1609,PT
+160954,Vila Fria,parish,1609,PT
+161003,Cornes,parish,1610,PT
+161004,Covas,parish,1610,PT
+161006,Gondarém,parish,1610,PT
+161007,Loivo,parish,1610,PT
+161009,Mentrestido,parish,1610,PT
+161012,Sapardos,parish,1610,PT
+161013,Sopo,parish,1610,PT
+161016,União das freguesias de Campos e Vila Meã,parish,1610,PT
+161017,União das freguesias de Candemil e Gondar,parish,1610,PT
+161018,União das freguesias de Reboreda e Nogueira,parish,1610,PT
+161019,União das freguesias de Vila Nova de Cerveira e Lovelhe,parish,1610,PT
+170101,Alijó,parish,1701,PT
+170107,Favaios,parish,1701,PT
+170108,Pegarinhos,parish,1701,PT
+170109,Pinhão,parish,1701,PT
+170112,Sanfins do Douro,parish,1701,PT
+170113,Santa Eugénia,parish,1701,PT
+170114,São Mamede de Ribatua,parish,1701,PT
+170116,Vila Chã,parish,1701,PT
+170117,Vila Verde,parish,1701,PT
+170118,Vilar de Maçada,parish,1701,PT
+170120,União das freguesias de Carlão e Amieiro,parish,1701,PT
+170121,União das freguesias de Castedo e Cotas,parish,1701,PT
+170122,União das freguesias de Pópulo e Ribalonga,parish,1701,PT
+170123,"União das freguesias de Vale de Mendiz, Casal de Loivos e Vilarinho de Cotas",parish,1701,PT
+170203,Beça,parish,1702,PT
+170208,Covas do Barroso,parish,1702,PT
+170210,Dornelas,parish,1702,PT
+170213,Pinho,parish,1702,PT
+170215,Sapiãos,parish,1702,PT
+170217,Alturas do Barroso e Cerdedo,parish,1702,PT
+170218,Ardãos e Bobadela,parish,1702,PT
+170219,Boticas e Granja,parish,1702,PT
+170220,"Codessoso, Curros e Fiães do Tâmega",parish,1702,PT
+170221,Vilar e Viveiro,parish,1702,PT
+170301,Águas Frias,parish,1703,PT
+170302,Anelhe,parish,1703,PT
+170305,Bustelo,parish,1703,PT
+170309,Cimo de Vila da Castanheira,parish,1703,PT
+170310,Curalha,parish,1703,PT
+170312,Ervededo,parish,1703,PT
+170313,Faiões,parish,1703,PT
+170314,Lama de Arcos,parish,1703,PT
+170316,Mairos,parish,1703,PT
+170317,Moreiras,parish,1703,PT
+170318,Nogueira da Montanha,parish,1703,PT
+170320,Oura,parish,1703,PT
+170321,Outeiro Seco,parish,1703,PT
+170322,Paradela,parish,1703,PT
+170324,Redondelo,parish,1703,PT
+170327,Sanfins,parish,1703,PT
+170329,Santa Leocádia,parish,1703,PT
+170330,Santo António de Monforte,parish,1703,PT
+170331,Santo Estêvão,parish,1703,PT
+170333,São Pedro de Agostém,parish,1703,PT
+170334,São Vicente,parish,1703,PT
+170340,Tronco,parish,1703,PT
+170341,Vale de Anta,parish,1703,PT
+170343,Vila Verde da Raia,parish,1703,PT
+170344,Vilar de Nantes,parish,1703,PT
+170345,Vilarelho da Raia,parish,1703,PT
+170347,Vilas Boas,parish,1703,PT
+170348,Vilela Seca,parish,1703,PT
+170349,Vilela do Tâmega,parish,1703,PT
+170350,Santa Maria Maior,parish,1703,PT
+170353,Planalto de Monforte (União das freguesias de Oucidres e Bobadela),parish,1703,PT
+170354,União das freguesias da Madalena e Samaiões,parish,1703,PT
+170355,"União das freguesias das Eiras, São Julião de Montenegro e Cela",parish,1703,PT
+170356,União das freguesias de Calvão e Soutelinho da Raia,parish,1703,PT
+170357,União das freguesias de Loivos e Póvoa de Agrações,parish,1703,PT
+170358,União das freguesias de Santa Cruz/Trindade e Sanjurge,parish,1703,PT
+170359,União das freguesias de Soutelo e Seara Velha,parish,1703,PT
+170360,União das freguesias de Travancas e Roriz,parish,1703,PT
+170361,"Vidago (União das freguesias de Vidago, Arcossó, Selhariz e Vilarinho das Paranheiras)",parish,1703,PT
+170401,Barqueiros,parish,1704,PT
+170402,Cidadelhe,parish,1704,PT
+170403,Oliveira,parish,1704,PT
+170407,Vila Marim,parish,1704,PT
+170408,Mesão Frio (Santo André),parish,1704,PT
+170501,Atei,parish,1705,PT
+170502,Bilhó,parish,1705,PT
+170505,São Cristóvão de Mondim de Basto,parish,1705,PT
+170508,Vilar de Ferreiros,parish,1705,PT
+170509,União das freguesias de Campanhó e Paradança,parish,1705,PT
+170510,União das freguesias de Ermelo e Pardelhas,parish,1705,PT
+170601,Cabril,parish,1706,PT
+170603,Cervos,parish,1706,PT
+170604,Chã,parish,1706,PT
+170607,Covelo do Gerês,parish,1706,PT
+170609,Ferral,parish,1706,PT
+170612,Gralhas,parish,1706,PT
+170616,Morgade,parish,1706,PT
+170618,Negrões,parish,1706,PT
+170619,Outeiro,parish,1706,PT
+170623,Pitões das Junias,parish,1706,PT
+170625,Reigoso,parish,1706,PT
+170626,Salto,parish,1706,PT
+170627,Santo André,parish,1706,PT
+170629,Sarraquinhos,parish,1706,PT
+170631,Solveira,parish,1706,PT
+170632,Tourém,parish,1706,PT
+170635,Vila da Ponte,parish,1706,PT
+170636,"União das freguesias de Cambeses do Rio, Donões e Mourilhe",parish,1706,PT
+170637,União das freguesias de Meixedo e Padornelos,parish,1706,PT
+170638,União das freguesias de Montalegre e Padroso,parish,1706,PT
+170639,"União das freguesias de Paradela, Contim e Fiães",parish,1706,PT
+170640,União das freguesias de Sezelhe e Covelães,parish,1706,PT
+170641,União das freguesias de Venda Nova e Pondras,parish,1706,PT
+170642,União das freguesias de Viade de Baixo e Fervidelas,parish,1706,PT
+170643,União das freguesias de Vilar de Perdizes e Meixide,parish,1706,PT
+170701,Candedo,parish,1707,PT
+170703,Fiolhoso,parish,1707,PT
+170704,Jou,parish,1707,PT
+170705,Murça,parish,1707,PT
+170708,Valongo de Milhais,parish,1707,PT
+170710,União das freguesias de Carva e Vilares,parish,1707,PT
+170711,União das freguesias de Noura e Palheiros,parish,1707,PT
+170802,Fontelas,parish,1708,PT
+170805,Loureiro,parish,1708,PT
+170809,Sedielos,parish,1708,PT
+170810,Vilarinho dos Freires,parish,1708,PT
+170813,União das freguesias de Galafura e Covelinhas,parish,1708,PT
+170814,União das freguesias de Moura Morta e Vinhós,parish,1708,PT
+170815,União das freguesias de Peso da Régua e Godim,parish,1708,PT
+170817,Canelas,parish,1708,PT
+170818,Poiares,parish,1708,PT
+170901,Alvadia,parish,1709,PT
+170902,Canedo,parish,1709,PT
+170906,Santa Marinha,parish,1709,PT
+170908,União das freguesias de Cerva e Limões,parish,1709,PT
+170909,União das freguesias de Ribeira de Pena (Salvador) e Santo Aleixo de Além-Tâmega,parish,1709,PT
+171001,Celeirós,parish,1710,PT
+171002,Covas do Douro,parish,1710,PT
+171004,Gouvinhas,parish,1710,PT
+171005,Parada de Pinhão,parish,1710,PT
+171007,Paços,parish,1710,PT
+171009,Sabrosa,parish,1710,PT
+171011,São Lourenço de Ribapinhão,parish,1710,PT
+171013,Souto Maior,parish,1710,PT
+171014,Torre do Pinhão,parish,1710,PT
+171015,Vilarinho de São Romão,parish,1710,PT
+171016,"União das freguesias de Provesende, Gouvães do Douro e São Cristóvão do Douro",parish,1710,PT
+171017,União das freguesias de São Martinho de Antas e Paradela de Guiães,parish,1710,PT
+171101,Alvações do Corgo,parish,1711,PT
+171102,Cumieira,parish,1711,PT
+171103,Fontes,parish,1711,PT
+171106,Medrões,parish,1711,PT
+171110,Sever,parish,1711,PT
+171112,União das freguesias de Louredo e Fornelos,parish,1711,PT
+171113,Lobrigos (São João Baptista),parish,1711,PT
+171114,Lobrigos (São Miguel),parish,1711,PT
+171115,Sanhoane,parish,1711,PT
+171201,Água Revés e Crasto,parish,1712,PT
+171203,Algeriz,parish,1712,PT
+171205,Bouçoães,parish,1712,PT
+171206,Canaveses,parish,1712,PT
+171209,Ervões,parish,1712,PT
+171211,Fornos do Pinhal,parish,1712,PT
+171212,Friões,parish,1712,PT
+171215,Padrela e Tazem,parish,1712,PT
+171216,Possacos,parish,1712,PT
+171217,Rio Torto,parish,1712,PT
+171219,Santa Maria de Emeres,parish,1712,PT
+171220,Santa Valha,parish,1712,PT
+171221,Santiago da Ribeira de Alhariz,parish,1712,PT
+171222,São João da Corveira,parish,1712,PT
+171223,São Pedro de Veiga de Lila,parish,1712,PT
+171224,Serapicos,parish,1712,PT
+171227,Vales,parish,1712,PT
+171229,Vassal,parish,1712,PT
+171230,Veiga de Lila,parish,1712,PT
+171231,Vilarandelo,parish,1712,PT
+171232,Carrazedo de Montenegro e Curros,parish,1712,PT
+171233,"Lebução, Fiães e Nozelos",parish,1712,PT
+171234,Sonim e Barreiros,parish,1712,PT
+171235,Tinhela e Alvarelhos,parish,1712,PT
+171236,Valpaços e Sanfins,parish,1712,PT
+171302,Alfarela de Jales,parish,1713,PT
+171303,Bornes de Aguiar,parish,1713,PT
+171304,Bragado,parish,1713,PT
+171305,Capeludos,parish,1713,PT
+171310,Soutelo de Aguiar,parish,1713,PT
+171311,Telões,parish,1713,PT
+171312,Tresminas,parish,1713,PT
+171313,Valoura,parish,1713,PT
+171314,Vila Pouca de Aguiar,parish,1713,PT
+171315,Vreia de Bornes,parish,1713,PT
+171316,Vreia de Jales,parish,1713,PT
+171317,Sabroso de Aguiar,parish,1713,PT
+171319,Alvão,parish,1713,PT
+171320,União das freguesias de Pensalvos e Parada de Monteiros,parish,1713,PT
+171401,Abaças,parish,1714,PT
+171403,Andrães,parish,1714,PT
+171404,Arroios,parish,1714,PT
+171406,Campeã,parish,1714,PT
+171409,Folhadela,parish,1714,PT
+171410,Guiães,parish,1714,PT
+171414,Lordelo,parish,1714,PT
+171415,Mateus,parish,1714,PT
+171416,Mondrões,parish,1714,PT
+171420,Parada de Cunhos,parish,1714,PT
+171426,Torgueda,parish,1714,PT
+171429,Vila Marim,parish,1714,PT
+171431,União das freguesias de Adoufe e Vilarinho de Samardã,parish,1714,PT
+171432,União das freguesias de Borbela e Lamas de Olo,parish,1714,PT
+171433,União das freguesias de Constantim e Vale de Nogueiras,parish,1714,PT
+171434,União das freguesias de Mouçós e Lamares,parish,1714,PT
+171435,União das freguesias de Nogueira e Ermida,parish,1714,PT
+171436,"União das freguesias de Pena, Quintã e Vila Cova",parish,1714,PT
+171437,União das freguesias de São Tomé do Castelo e Justes,parish,1714,PT
+171438,Vila Real,parish,1714,PT
+180101,Aldeias,parish,1801,PT
+180104,Cimbres,parish,1801,PT
+180106,Folgosa,parish,1801,PT
+180107,Fontelo,parish,1801,PT
+180109,Queimada,parish,1801,PT
+180110,Queimadela,parish,1801,PT
+180111,Santa Cruz,parish,1801,PT
+180114,São Cosmado,parish,1801,PT
+180115,São Martinho das Chãs,parish,1801,PT
+180118,Vacalar,parish,1801,PT
+180120,Armamar,parish,1801,PT
+180121,União das freguesias de Aricera e Goujoim,parish,1801,PT
+180122,União das freguesias de São Romão e Santiago,parish,1801,PT
+180123,União das freguesias de Vila Seca e Santo Adrião,parish,1801,PT
+180201,Beijós,parish,1802,PT
+180202,Cabanas de Viriato,parish,1802,PT
+180204,Oliveira do Conde,parish,1802,PT
+180206,Parada,parish,1802,PT
+180208,Carregal do Sal,parish,1802,PT
+180301,Almofala,parish,1803,PT
+180303,Cabril,parish,1803,PT
+180304,Castro Daire,parish,1803,PT
+180305,Cujó,parish,1803,PT
+180309,Gosende,parish,1803,PT
+180312,Mões,parish,1803,PT
+180313,Moledo,parish,1803,PT
+180314,Monteiras,parish,1803,PT
+180317,Pepim,parish,1803,PT
+180319,Pinheiro,parish,1803,PT
+180322,São Joaninho,parish,1803,PT
+180323,"União das freguesias de Mamouros, Alva e Ribolhos",parish,1803,PT
+180324,União das freguesias de Mezio e Moura Morta,parish,1803,PT
+180325,União das freguesias de Parada de Ester e Ester,parish,1803,PT
+180326,União das freguesias de Picão e Ermida,parish,1803,PT
+180327,União das freguesias de Reriz e Gafanhão,parish,1803,PT
+180403,Cinfães,parish,1804,PT
+180404,Espadanedo,parish,1804,PT
+180405,Ferreiros de Tendais,parish,1804,PT
+180406,Fornelos,parish,1804,PT
+180408,Moimenta,parish,1804,PT
+180409,Nespereira,parish,1804,PT
+180410,Oliveira do Douro,parish,1804,PT
+180412,Santiago de Piães,parish,1804,PT
+180413,São Cristóvão de Nogueira,parish,1804,PT
+180414,Souselo,parish,1804,PT
+180415,Tarouquela,parish,1804,PT
+180416,Tendais,parish,1804,PT
+180417,Travanca,parish,1804,PT
+180418,"União das freguesias de Alhões, Bustelo, Gralheira e Ramires",parish,1804,PT
+180502,Avões,parish,1805,PT
+180504,Britiande,parish,1805,PT
+180505,Cambres,parish,1805,PT
+180507,Ferreirim,parish,1805,PT
+180508,Ferreiros de Avões,parish,1805,PT
+180509,Figueira,parish,1805,PT
+180510,Lalim,parish,1805,PT
+180511,Lazarim,parish,1805,PT
+180516,Penajóia,parish,1805,PT
+180517,Penude,parish,1805,PT
+180519,Samodães,parish,1805,PT
+180520,Sande,parish,1805,PT
+180523,Várzea de Abrunhais,parish,1805,PT
+180524,Vila Nova de Souto d'El-Rei,parish,1805,PT
+180525,Lamego (Almacave e Sé),parish,1805,PT
+180526,"União das freguesias de Bigorne, Magueija e Pretarouca",parish,1805,PT
+180527,"União das freguesias de Cepões, Meijinhos e Melcões",parish,1805,PT
+180528,União das freguesias de Parada do Bispo e Valdigem,parish,1805,PT
+180601,Abrunhosa-a-Velha,parish,1806,PT
+180602,Alcafache,parish,1806,PT
+180605,Cunha Baixa,parish,1806,PT
+180606,Espinho,parish,1806,PT
+180607,Fornos de Maceira Dão,parish,1806,PT
+180608,Freixiosa,parish,1806,PT
+180614,Quintela de Azurara,parish,1806,PT
+180616,São João da Fresta,parish,1806,PT
+180619,"União das freguesias de Mangualde, Mesquitela e Cunha Alta",parish,1806,PT
+180620,União das freguesias de Moimenta de Maceira Dão e Lobelhe do Mato,parish,1806,PT
+180621,União das freguesias de Santiago de Cassurrães e Póvoa de Cervães,parish,1806,PT
+180622,"União das freguesias de Tavares (Chãs, Várzea e Travanca)",parish,1806,PT
+180702,Alvite,parish,1807,PT
+180703,Arcozelos,parish,1807,PT
+180705,Baldos,parish,1807,PT
+180706,Cabaços,parish,1807,PT
+180707,Caria,parish,1807,PT
+180708,Castelo,parish,1807,PT
+180709,Leomil,parish,1807,PT
+180710,Moimenta da Beira,parish,1807,PT
+180713,Passô,parish,1807,PT
+180716,Vila da Rua,parish,1807,PT
+180717,Sarzedo,parish,1807,PT
+180719,Sever,parish,1807,PT
+180720,Vilar,parish,1807,PT
+180721,União das freguesias de Paradinha e Nagosa,parish,1807,PT
+180722,"União das freguesias de Pêra Velha, Aldeia de Nacomba e Ariz",parish,1807,PT
+180723,União das freguesias de Peva e Segões,parish,1807,PT
+180802,Cercosa,parish,1808,PT
+180804,Espinho,parish,1808,PT
+180805,Marmeleira,parish,1808,PT
+180807,Pala,parish,1808,PT
+180808,Sobral,parish,1808,PT
+180809,Trezói,parish,1808,PT
+180811,"União das freguesias de Mortágua, Vale de Remígio, Cortegaça e Almaça",parish,1808,PT
+180901,Canas de Senhorim,parish,1809,PT
+180903,Nelas,parish,1809,PT
+180905,Senhorim,parish,1809,PT
+180906,Vilar Seco,parish,1809,PT
+180908,Lapa do Lobo,parish,1809,PT
+180910,União das freguesias de Carvalhal Redondo e Aguieira,parish,1809,PT
+180911,União das freguesias de Santar e Moreira,parish,1809,PT
+181002,Arcozelo das Maias,parish,1810,PT
+181005,Pinheiro,parish,1810,PT
+181007,Ribeiradio,parish,1810,PT
+181008,São João da Serra,parish,1810,PT
+181009,São Vicente de Lafões,parish,1810,PT
+181013,União das freguesias de Arca e Varzielas,parish,1810,PT
+181014,União das freguesias de Destriz e Reigoso,parish,1810,PT
+181015,"União das freguesias de Oliveira de Frades, Souto de Lafões e Sejães",parish,1810,PT
+181102,Castelo de Penalva,parish,1811,PT
+181103,Esmolfe,parish,1811,PT
+181104,Germil,parish,1811,PT
+181105,Ínsua,parish,1811,PT
+181106,Lusinde,parish,1811,PT
+181109,Pindo,parish,1811,PT
+181110,Real,parish,1811,PT
+181111,Sezures,parish,1811,PT
+181112,Trancozelos,parish,1811,PT
+181114,União das freguesias de Antas e Matela,parish,1811,PT
+181115,União das freguesias de Vila Cova do Covelo/Mareco,parish,1811,PT
+181202,Beselga,parish,1812,PT
+181203,Castainço,parish,1812,PT
+181207,Penela da Beira,parish,1812,PT
+181208,Póvoa de Penela,parish,1812,PT
+181209,Souto,parish,1812,PT
+181210,União das freguesias de Antas e Ourozinho,parish,1812,PT
+181211,União das freguesias de Penedono e Granja,parish,1812,PT
+181302,Barrô,parish,1813,PT
+181303,Cárquere,parish,1813,PT
+181310,Paus,parish,1813,PT
+181311,Resende,parish,1813,PT
+181312,São Cipriano,parish,1813,PT
+181313,São João de Fontoura,parish,1813,PT
+181314,São Martinho de Mouros,parish,1813,PT
+181316,União das freguesias de Anreade e São Romão de Aregos,parish,1813,PT
+181317,União das freguesias de Felgueiras e Feirão,parish,1813,PT
+181318,União das freguesias de Freigil e Miomães,parish,1813,PT
+181319,União das freguesias de Ovadas e Panchorra,parish,1813,PT
+181403,Pinheiro de Ázere,parish,1814,PT
+181405,São Joaninho,parish,1814,PT
+181406,São João de Areias,parish,1814,PT
+181410,União das freguesias de Ovoa e Vimieiro,parish,1814,PT
+181411,União das freguesias de Santa Comba Dão e Couto do Mosteiro,parish,1814,PT
+181412,União das freguesias de Treixedo e Nagozela,parish,1814,PT
+181501,Castanheiro do Sul,parish,1815,PT
+181502,Ervedosa do Douro,parish,1815,PT
+181504,Nagozelo do Douro,parish,1815,PT
+181505,Paredes da Beira,parish,1815,PT
+181507,Riodades,parish,1815,PT
+181509,Soutelo do Douro,parish,1815,PT
+181511,Vale de Figueira,parish,1815,PT
+181512,Valongo dos Azeites,parish,1815,PT
+181515,União das freguesias de São João da Pesqueira e Várzea de Trevões,parish,1815,PT
+181516,União das freguesias de Trevões e Espinhosa,parish,1815,PT
+181517,União das freguesias de Vilarouco e Pereiros,parish,1815,PT
+181602,Bordonhos,parish,1816,PT
+181606,Figueiredo de Alva,parish,1816,PT
+181607,Manhouce,parish,1816,PT
+181608,Pindelo dos Milagres,parish,1816,PT
+181609,Pinho,parish,1816,PT
+181612,São Félix,parish,1816,PT
+181615,Serrazes,parish,1816,PT
+181616,Sul,parish,1816,PT
+181617,Valadares,parish,1816,PT
+181619,Vila Maior,parish,1816,PT
+181620,União das freguesias de Carvalhais e Candal,parish,1816,PT
+181621,União das freguesias de Santa Cruz da Trapa e São Cristóvão de Lafões,parish,1816,PT
+181622,União das freguesias de São Martinho das Moitas e Covas do Rio,parish,1816,PT
+181623,"União das freguesias de São Pedro do Sul, Várzea e Baiões",parish,1816,PT
+181702,Avelal,parish,1817,PT
+181704,Ferreira de Aves,parish,1817,PT
+181706,Mioma,parish,1817,PT
+181707,Rio de Moinhos,parish,1817,PT
+181709,São Miguel de Vila Boa,parish,1817,PT
+181710,Sátão,parish,1817,PT
+181711,Silvã de Cima,parish,1817,PT
+181713,União das freguesias de Águas Boas e Forles,parish,1817,PT
+181714,"União das freguesias de Romãs, Decermilo e Vila Longa",parish,1817,PT
+181801,Arnas,parish,1818,PT
+181802,Carregal,parish,1818,PT
+181803,Chosendo,parish,1818,PT
+181804,Cunha,parish,1818,PT
+181806,Faia,parish,1818,PT
+181810,Granjal,parish,1818,PT
+181811,Lamosa,parish,1818,PT
+181814,Quintela,parish,1818,PT
+181817,Vila da Ponte,parish,1818,PT
+181818,União das freguesias de Ferreirim e Macieira,parish,1818,PT
+181819,União das freguesias de Fonte Arcada e Escurquela,parish,1818,PT
+181820,União das freguesias de Penso e Freixinho,parish,1818,PT
+181821,União das freguesias de Sernancelhe e Sarzeda,parish,1818,PT
+181901,Adorigo,parish,1819,PT
+181902,Arcos,parish,1819,PT
+181904,Chavães,parish,1819,PT
+181905,Desejosa,parish,1819,PT
+181906,Granja do Tedo,parish,1819,PT
+181908,Longa,parish,1819,PT
+181913,Sendim,parish,1819,PT
+181914,Tabuaço,parish,1819,PT
+181917,Valença do Douro,parish,1819,PT
+181918,União das freguesias de Barcos e Santa Leocádia,parish,1819,PT
+181919,União das freguesias de Paradela e Granjinha,parish,1819,PT
+181920,União das freguesias de Pinheiros e Vale de Figueira,parish,1819,PT
+181921,União das freguesias de Távora e Pereiro,parish,1819,PT
+182004,Mondim da Beira,parish,1820,PT
+182005,Salzedas,parish,1820,PT
+182006,São João de Tarouca,parish,1820,PT
+182009,Várzea da Serra,parish,1820,PT
+182012,União das freguesias de Granja Nova e Vila Chã da Beira,parish,1820,PT
+182014,Dálvares,parish,1820,PT
+182015,Gouviães,parish,1820,PT
+182016,Tarouca,parish,1820,PT
+182017,Ucanha,parish,1820,PT
+182102,Campo de Besteiros,parish,1821,PT
+182103,Canas de Santa Maria,parish,1821,PT
+182105,Castelões,parish,1821,PT
+182106,Dardavaz,parish,1821,PT
+182107,Ferreirós do Dão,parish,1821,PT
+182108,Guardão,parish,1821,PT
+182109,Lajeosa do Dão,parish,1821,PT
+182110,Lobão da Beira,parish,1821,PT
+182111,Molelos,parish,1821,PT
+182116,Parada de Gonta,parish,1821,PT
+182118,Santiago de Besteiros,parish,1821,PT
+182122,Tonda,parish,1821,PT
+182128,União das freguesias de Caparrosa e Silvares,parish,1821,PT
+182129,União das freguesias de Mouraz e Vila Nova da Rainha,parish,1821,PT
+182130,União das freguesias de São João do Monte e Mosteirinho,parish,1821,PT
+182132,União das freguesias de Tondela e Nandufe,parish,1821,PT
+182134,Barreiro de Besteiros,parish,1821,PT
+182135,Mosteiro de Fráguas,parish,1821,PT
+182136,Sabugosa,parish,1821,PT
+182137,São Miguel do Outeiro,parish,1821,PT
+182138,Tourigo,parish,1821,PT
+182139,Vilar de Besteiros,parish,1821,PT
+182203,Pendilhe,parish,1822,PT
+182204,Queiriga,parish,1822,PT
+182205,Touro,parish,1822,PT
+182206,Vila Cova à Coelheira,parish,1822,PT
+182208,"União das freguesias de Vila Nova de Paiva, Alhais e Fráguas",parish,1822,PT
+182301,Abraveses,parish,1823,PT
+182304,Bodiosa,parish,1823,PT
+182305,Calde,parish,1823,PT
+182306,Campo,parish,1823,PT
+182307,Cavernães,parish,1823,PT
+182310,Cota,parish,1823,PT
+182315,Fragosela,parish,1823,PT
+182316,Lordosa,parish,1823,PT
+182317,Silgueiros,parish,1823,PT
+182318,Mundão,parish,1823,PT
+182319,Orgens,parish,1823,PT
+182320,Povolide,parish,1823,PT
+182321,Ranhados,parish,1823,PT
+182322,Ribafeita,parish,1823,PT
+182323,Rio de Loba,parish,1823,PT
+182325,Santos Evos,parish,1823,PT
+182327,São João de Lourosa,parish,1823,PT
+182329,São Pedro de France,parish,1823,PT
+182335,União das freguesias de Barreiros e Cepões,parish,1823,PT
+182336,"União das freguesias de Boa Aldeia, Farminhão e Torredeita",parish,1823,PT
+182337,Coutos de Viseu,parish,1823,PT
+182338,Freguesia de Fail e Vila Chã de Sá,parish,1823,PT
+182339,Repeses e São Salvador,parish,1823,PT
+182340,São Cipriano e Vil de Souto,parish,1823,PT
+182341,Viseu,parish,1823,PT
+182401,Alcofra,parish,1824,PT
+182403,Campia,parish,1824,PT
+182407,Fornelo do Monte,parish,1824,PT
+182409,Queirã,parish,1824,PT
+182410,São Miguel do Mato,parish,1824,PT
+182411,Ventosa,parish,1824,PT
+182413,União das freguesias de Cambra e Carvalhal de Vermilhas,parish,1824,PT
+182414,União das freguesias de Fataunços e Figueiredo das Donas,parish,1824,PT
+182415,União das freguesias de Vouzela e Paços de Vilharigues,parish,1824,PT
+310101,Arco da Calheta,parish,3101,PT-MA
+310102,Calheta,parish,3101,PT-MA
+310103,Estreito da Calheta,parish,3101,PT-MA
+310104,Fajã da Ovelha,parish,3101,PT-MA
+310105,Jardim do Mar,parish,3101,PT-MA
+310106,Paul do Mar,parish,3101,PT-MA
+310107,Ponta do Pargo,parish,3101,PT-MA
+310108,Prazeres,parish,3101,PT-MA
+310201,Câmara de Lobos,parish,3102,PT-MA
+310202,Curral das Freiras,parish,3102,PT-MA
+310203,Estreito de Câmara de Lobos,parish,3102,PT-MA
+310204,Quinta Grande,parish,3102,PT-MA
+310205,Jardim da Serra,parish,3102,PT-MA
+310301,Imaculado Coração de Maria,parish,3103,PT-MA
+310302,Monte,parish,3103,PT-MA
+310303,Funchal (Santa Luzia),parish,3103,PT-MA
+310304,Funchal (Santa Maria Maior),parish,3103,PT-MA
+310305,Santo António,parish,3103,PT-MA
+310306,São Gonçalo,parish,3103,PT-MA
+310307,São Martinho,parish,3103,PT-MA
+310308,Funchal (São Pedro),parish,3103,PT-MA
+310309,São Roque,parish,3103,PT-MA
+310310,Funchal (Sé),parish,3103,PT-MA
+310401,Água de Pena,parish,3104,PT-MA
+310402,Caniçal,parish,3104,PT-MA
+310403,Machico,parish,3104,PT-MA
+310404,Porto da Cruz,parish,3104,PT-MA
+310405,Santo António da Serra,parish,3104,PT-MA
+310501,Canhas,parish,3105,PT-MA
+310502,Madalena do Mar,parish,3105,PT-MA
+310503,Ponta do Sol,parish,3105,PT-MA
+310601,Achadas da Cruz,parish,3106,PT-MA
+310602,Porto Moniz,parish,3106,PT-MA
+310603,Ribeira da Janela,parish,3106,PT-MA
+310604,Seixal,parish,3106,PT-MA
+310701,Campanário,parish,3107,PT-MA
+310702,Ribeira Brava,parish,3107,PT-MA
+310703,Serra de Água,parish,3107,PT-MA
+310704,Tabua,parish,3107,PT-MA
+310802,Camacha,parish,3108,PT-MA
+310803,Caniço,parish,3108,PT-MA
+310804,Gaula,parish,3108,PT-MA
+310805,Santa Cruz,parish,3108,PT-MA
+310806,Santo António da Serra,parish,3108,PT-MA
+310901,Arco de São Jorge,parish,3109,PT-MA
+310902,Faial,parish,3109,PT-MA
+310903,Santana,parish,3109,PT-MA
+310904,São Jorge,parish,3109,PT-MA
+310905,São Roque do Faial,parish,3109,PT-MA
+310906,Ilha,parish,3109,PT-MA
+311001,Boa Ventura,parish,3110,PT-MA
+311002,Ponta Delgada,parish,3110,PT-MA
+311003,São Vicente,parish,3110,PT-MA
+320101,Porto Santo,parish,3201,PT-MA
+410101,Almagreira,parish,4101,PT-AC
+410102,Santa Bárbara,parish,4101,PT-AC
+410103,Santo Espírito,parish,4101,PT-AC
+410104,São Pedro,parish,4101,PT-AC
+410105,Vila do Porto,parish,4101,PT-AC
+420101,Água de Pau,parish,4201,PT-AC
+420102,Cabouco,parish,4201,PT-AC
+420103,Lagoa (Nossa Senhora do Rosário),parish,4201,PT-AC
+420104,Lagoa (Santa Cruz),parish,4201,PT-AC
+420105,Ribeira Chã,parish,4201,PT-AC
+420201,Achada,parish,4202,PT-AC
+420202,Achadinha,parish,4202,PT-AC
+420203,Lomba da Fazenda,parish,4202,PT-AC
+420204,Nordeste,parish,4202,PT-AC
+420206,Salga,parish,4202,PT-AC
+420207,Santana,parish,4202,PT-AC
+420208,Algarvia,parish,4202,PT-AC
+420209,Santo António de Nordestinho,parish,4202,PT-AC
+420210,São Pedro de Nordestinho,parish,4202,PT-AC
+420301,Arrifes,parish,4203,PT-AC
+420303,Candelária,parish,4203,PT-AC
+420304,Capelas,parish,4203,PT-AC
+420305,Covoada,parish,4203,PT-AC
+420306,Fajã de Baixo,parish,4203,PT-AC
+420307,Fajã de Cima,parish,4203,PT-AC
+420308,Fenais da Luz,parish,4203,PT-AC
+420309,Feteiras,parish,4203,PT-AC
+420310,Ginetes,parish,4203,PT-AC
+420311,Mosteiros,parish,4203,PT-AC
+420312,Ponta Delgada (São Sebastião),parish,4203,PT-AC
+420313,Ponta Delgada (São José),parish,4203,PT-AC
+420314,Ponta Delgada (São Pedro),parish,4203,PT-AC
+420315,Relva,parish,4203,PT-AC
+420316,Remédios,parish,4203,PT-AC
+420317,Rosto do Cão (Livramento),parish,4203,PT-AC
+420318,Rosto do Cão (São Roque),parish,4203,PT-AC
+420319,Santa Bárbara,parish,4203,PT-AC
+420320,Santo António,parish,4203,PT-AC
+420321,São Vicente Ferreira,parish,4203,PT-AC
+420322,Sete Cidades,parish,4203,PT-AC
+420323,Ajuda da Bretanha,parish,4203,PT-AC
+420324,Pilar da Bretanha,parish,4203,PT-AC
+420325,Santa Clara,parish,4203,PT-AC
+420401,Água Retorta,parish,4204,PT-AC
+420402,Faial da Terra,parish,4204,PT-AC
+420403,Furnas,parish,4204,PT-AC
+420404,Nossa Senhora dos Remédios,parish,4204,PT-AC
+420405,Povoação,parish,4204,PT-AC
+420406,Ribeira Quente,parish,4204,PT-AC
+420501,Calhetas,parish,4205,PT-AC
+420502,Fenais da Ajuda,parish,4205,PT-AC
+420503,Lomba da Maia,parish,4205,PT-AC
+420504,Lomba de São Pedro,parish,4205,PT-AC
+420505,Maia,parish,4205,PT-AC
+420506,Pico da Pedra,parish,4205,PT-AC
+420507,Porto Formoso,parish,4205,PT-AC
+420508,Rabo de Peixe,parish,4205,PT-AC
+420509,Ribeira Grande (Conceição),parish,4205,PT-AC
+420510,Ribeira Grande (Matriz),parish,4205,PT-AC
+420511,Ribeira Seca,parish,4205,PT-AC
+420512,Ribeirinha,parish,4205,PT-AC
+420513,Santa Bárbara,parish,4205,PT-AC
+420514,São Brás,parish,4205,PT-AC
+420601,Água de Alto,parish,4206,PT-AC
+420602,Ponta Garça,parish,4206,PT-AC
+420603,Ribeira das Tainhas,parish,4206,PT-AC
+420604,Vila Franca do Campo (São Miguel),parish,4206,PT-AC
+420605,Vila Franca do Campo (São Pedro),parish,4206,PT-AC
+420606,Ribeira Seca,parish,4206,PT-AC
+430101,Altares,parish,4301,PT-AC
+430102,Angra (Nossa Senhora da Conceição),parish,4301,PT-AC
+430103,Angra (Santa Luzia),parish,4301,PT-AC
+430104,Angra (São Pedro),parish,4301,PT-AC
+430105,Angra (Sé),parish,4301,PT-AC
+430106,Cinco Ribeiras,parish,4301,PT-AC
+430107,Doze Ribeiras,parish,4301,PT-AC
+430108,Feteira,parish,4301,PT-AC
+430109,Porto Judeu,parish,4301,PT-AC
+430110,Posto Santo,parish,4301,PT-AC
+430111,Raminho,parish,4301,PT-AC
+430112,Ribeirinha,parish,4301,PT-AC
+430113,Santa Bárbara,parish,4301,PT-AC
+430114,São Bartolomeu de Regatos,parish,4301,PT-AC
+430115,São Bento,parish,4301,PT-AC
+430116,São Mateus da Calheta,parish,4301,PT-AC
+430117,Serreta,parish,4301,PT-AC
+430118,Terra Chã,parish,4301,PT-AC
+430119,Vila de São Sebastião,parish,4301,PT-AC
+430201,Agualva,parish,4302,PT-AC
+430202,Biscoitos,parish,4302,PT-AC
+430203,Cabo da Praia,parish,4302,PT-AC
+430204,Fonte do Bastardo,parish,4302,PT-AC
+430205,Fontinhas,parish,4302,PT-AC
+430206,Lajes,parish,4302,PT-AC
+430207,Praia da Vitória (Santa Cruz),parish,4302,PT-AC
+430208,Quatro Ribeiras,parish,4302,PT-AC
+430209,São Brás,parish,4302,PT-AC
+430210,Vila Nova,parish,4302,PT-AC
+430211,Porto Martins,parish,4302,PT-AC
+440101,Guadalupe,parish,4401,PT-AC
+440102,Luz,parish,4401,PT-AC
+440103,São Mateus,parish,4401,PT-AC
+440104,Santa Cruz da Graciosa,parish,4401,PT-AC
+450101,Calheta,parish,4501,PT-AC
+450102,Norte Pequeno,parish,4501,PT-AC
+450103,Ribeira Seca,parish,4501,PT-AC
+450104,Santo Antão,parish,4501,PT-AC
+450105,Topo (Nossa Senhora do Rosário),parish,4501,PT-AC
+450201,Manadas (Santa Bárbara),parish,4502,PT-AC
+450202,Norte Grande (Neves),parish,4502,PT-AC
+450203,Rosais,parish,4502,PT-AC
+450204,Santo Amaro,parish,4502,PT-AC
+450205,Urzelina (São Mateus),parish,4502,PT-AC
+450206,Velas (São Jorge),parish,4502,PT-AC
+460101,Calheta de Nesquim,parish,4601,PT-AC
+460102,Lajes do Pico,parish,4601,PT-AC
+460103,Piedade,parish,4601,PT-AC
+460104,Ribeiras,parish,4601,PT-AC
+460105,Ribeirinha,parish,4601,PT-AC
+460106,São João,parish,4601,PT-AC
+460201,Bandeiras,parish,4602,PT-AC
+460202,Candelária,parish,4602,PT-AC
+460203,Criação Velha,parish,4602,PT-AC
+460204,Madalena,parish,4602,PT-AC
+460205,São Caetano,parish,4602,PT-AC
+460206,São Mateus,parish,4602,PT-AC
+460301,Prainha,parish,4603,PT-AC
+460302,Santa Luzia,parish,4603,PT-AC
+460303,Santo Amaro,parish,4603,PT-AC
+460304,Santo António,parish,4603,PT-AC
+460305,São Roque do Pico,parish,4603,PT-AC
+470101,Capelo,parish,4701,PT-AC
+470102,Castelo Branco,parish,4701,PT-AC
+470103,Cedros,parish,4701,PT-AC
+470104,Feteira,parish,4701,PT-AC
+470105,Flamengos,parish,4701,PT-AC
+470106,Horta (Angústias),parish,4701,PT-AC
+470107,Horta (Conceição),parish,4701,PT-AC
+470108,Horta (Matriz),parish,4701,PT-AC
+470109,Pedro Miguel,parish,4701,PT-AC
+470110,Praia do Almoxarife,parish,4701,PT-AC
+470111,Praia do Norte,parish,4701,PT-AC
+470112,Ribeirinha,parish,4701,PT-AC
+470113,Salão,parish,4701,PT-AC
+480101,Fajã Grande,parish,4801,PT-AC
+480102,Fajãzinha,parish,4801,PT-AC
+480103,Fazenda,parish,4801,PT-AC
+480104,Lajedo,parish,4801,PT-AC
+480105,Lajes das Flores,parish,4801,PT-AC
+480106,Lomba,parish,4801,PT-AC
+480107,Mosteiro,parish,4801,PT-AC
+480201,Caveira,parish,4802,PT-AC
+480202,Cedros,parish,4802,PT-AC
+480203,Ponta Delgada,parish,4802,PT-AC
+480204,Santa Cruz das Flores,parish,4802,PT-AC
+490101,Corvo,parish,4901,PT-AC

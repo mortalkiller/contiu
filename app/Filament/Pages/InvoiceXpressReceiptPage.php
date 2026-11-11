@@ -7,13 +7,16 @@ use App\Enums\FiscalDocumentStatus;
 use App\Enums\FiscalDocumentType;
 use App\Enums\Language;
 use App\Exceptions\InvoiceXpressException;
+use App\Models\FiscalDocument;
 use App\Models\FiscalDocumentLink;
+use App\Models\InvoiceXpressConfig;
 use App\Models\InvoiceXpressReceiptAttempt;
 use App\Models\InvoiceXpressSnapshot;
 use App\Models\PaymentAllocation;
 use App\Support\CurrentAccount;
 use App\Support\InvoiceXpressIssue;
 use App\Support\InvoiceXpressIssueRepository;
+use App\Support\InvoiceXpressIssueTerms;
 use App\Support\InvoiceXpressReceipt;
 use App\Support\Money;
 use Filament\Actions\Action;
@@ -38,7 +41,10 @@ class InvoiceXpressReceiptPage extends InvoiceXpressSectionPage implements HasTa
     #[Locked]
     public int $accountId;
 
-    /** @var array{allocationId: int, paymentId: int, charge: string, invoice: string, paidOn: string, amount: int, series: string, revision: string}|null */
+    #[Locked]
+    public ?int $invoiceId = null;
+
+    /** @var array{allocationId: int, paymentId: int, charge: string, invoice: string, paidOn: string, amount: int, series: string, revision: string, withholding?: array, canIssue?: bool}|null */
     #[Locked]
     public ?array $previewData = null;
 
@@ -55,6 +61,18 @@ class InvoiceXpressReceiptPage extends InvoiceXpressSectionPage implements HasTa
     {
         abort_unless(static::canAccess(), 403);
         $this->accountId = CurrentAccount::id();
+
+        if (request()->query->has('invoice')) {
+            $invoiceId = InvoiceXpressIssueTerms::positiveId(request()->query('invoice'));
+            abort_unless($invoiceId !== null && FiscalDocument::query()->whereKey($invoiceId)
+                ->whereIn('type', [FiscalDocumentType::Invoice, FiscalDocumentType::InvoiceReceipt])
+                ->where('direction', FiscalDocumentDirection::Issued)
+                ->where('status', FiscalDocumentStatus::Active)
+                ->where('currency', 'EUR')
+                ->whereHas('links', fn (Builder $query) => $query->whereNotNull('receivable_id'))
+                ->exists(), 404);
+            $this->invoiceId = $invoiceId;
+        }
     }
 
     public function table(Table $table): Table
@@ -62,6 +80,7 @@ class InvoiceXpressReceiptPage extends InvoiceXpressSectionPage implements HasTa
         $this->authorizeAccount();
 
         $invoiceLinks = FiscalDocumentLink::query()->whereNotNull('receivable_id')
+            ->when($this->invoiceId !== null, fn (Builder $query) => $query->where('fiscal_document_id', $this->invoiceId))
             ->whereHas('fiscalDocument', fn (Builder $documents): Builder => $documents
                 ->whereIn('type', [FiscalDocumentType::Invoice, FiscalDocumentType::InvoiceReceipt])
                 ->where('direction', FiscalDocumentDirection::Issued)
@@ -70,6 +89,7 @@ class InvoiceXpressReceiptPage extends InvoiceXpressSectionPage implements HasTa
         $providerInvoiceLinks = (clone $invoiceLinks)->whereNull('related_fiscal_document_id')
             ->whereHas('fiscalDocument', fn (Builder $documents) => $documents->where('type', FiscalDocumentType::Invoice)
                 ->whereIn('id', InvoiceXpressSnapshot::query()->whereNotNull('fiscal_document_id')->select('fiscal_document_id')));
+        $hasConnection = InvoiceXpressConfig::current() !== null;
 
         return $table
             ->query(PaymentAllocation::query()
@@ -105,7 +125,7 @@ class InvoiceXpressReceiptPage extends InvoiceXpressSectionPage implements HasTa
                     ->url(fn (PaymentAllocation $record): string => WithholdingReviewPage::getUrl(['allocation' => $record->id, 'ordinary' => true])),
                 Action::make('preview')
                     ->label(__('Preview receipt'))
-                    ->visible(fn (PaymentAllocation $record): bool => $record->receipt_attempt_id === null && $record->can_preview_provider && $this->canWrite())
+                    ->visible(fn (PaymentAllocation $record): bool => $hasConnection && $record->receipt_attempt_id === null && $record->can_preview_provider)
                     ->action(fn (PaymentAllocation $record) => $this->preview($record->id, app(InvoiceXpressReceipt::class))),
             ])
             ->emptyStateHeading(__('No payments allocated to invoices'));
@@ -194,12 +214,12 @@ class InvoiceXpressReceiptPage extends InvoiceXpressSectionPage implements HasTa
     #[Unexposed]
     public function getTitle(): string
     {
-        return __('InvoiceXpress receipts');
+        return __('Receipts');
     }
 
     #[Unexposed]
     public static function getNavigationLabel(): string
     {
-        return __('InvoiceXpress receipts');
+        return __('Receipts');
     }
 }

@@ -151,4 +151,33 @@ describe('VAT period summary', function () {
             ->assertDontSee('Tens isenção de IVA')
             ->assertDontSee('Limite de isenção');
     })->group('ui');
+    it('lists one direction of documents at a time and picks the period in the header', function () {
+        FiscalDocument::factory()->create(['number' => 'FT EMITIDA/1', 'document_date' => '2026-11-02']);
+        FiscalDocument::factory()->create(['number' => 'FT RECEBIDA/1', 'document_date' => '2026-11-03', 'direction' => FiscalDocumentDirection::Received]);
+
+        Livewire::test(VatReviewPage::class, ['year' => 2026, 'month' => 11])
+            ->assertSee('IVA do período, a partir dos documentos fiscais.')
+            ->assertSee('FT EMITIDA/1')
+            ->assertDontSee('FT RECEBIDA/1')
+            ->set('direction', 'received')
+            ->assertSee('FT RECEBIDA/1')
+            ->assertDontSee('FT EMITIDA/1')
+            ->callAction('quarterly')
+            ->assertSet('months', 3)
+            ->assertSet('month', 10)
+            ->callAction('period_2026_07')
+            ->assertSet('month', 7)
+            ->assertSet('year', 2026);
+    })->group('ui');
+    it('starts the assessment from the documents\' VAT, with nothing deductible while exempt', function () {
+        app(FinanceSettings::class)->set(['vat_exempt' => true]);
+        FiscalDocument::factory()->create(['document_date' => '2026-11-02', 'vat_amount' => 2300, 'total_amount' => 12300]);
+        FiscalDocument::factory()->create(['document_date' => '2026-11-03', 'direction' => FiscalDocumentDirection::Received, 'vat_amount' => 1150, 'total_amount' => 6150]);
+
+        Livewire::test(VatReviewPage::class, ['year' => 2026, 'month' => 11])
+            ->assertSet('liquidated', '23')
+            ->assertSet('deductible', '0')
+            ->assertSee('Corrigir valores')
+            ->assertSeeInOrder(['Resultado', 'A pagar']);
+    })->group('ui');
 });

@@ -4,24 +4,28 @@ namespace App\Filament\Pages;
 
 use App\Enums\FiscalProfilePartyType;
 use App\Enums\FiscalProfileViesStatus;
+use App\Enums\PortugueseVatRegion;
 use App\Exceptions\InvoiceXpressException;
 use App\Filament\Pages\Concerns\HasInvoiceXpressPilotSettings;
 use App\Models\Client;
+use App\Models\FiscalDocumentDraft;
 use App\Models\InvoiceXpressConfig;
 use App\Models\InvoiceXpressIssueAttempt;
 use App\Models\Project;
 use App\Models\Receivable;
 use App\Models\Retainer;
 use App\Support\CurrentAccount;
+use App\Support\InvoiceXpressDraftDelivery;
 use App\Support\InvoiceXpressEuService;
 use App\Support\InvoiceXpressIssue;
 use App\Support\InvoiceXpressIssueAdvance;
 use App\Support\InvoiceXpressIssueRepository;
+use App\Support\InvoiceXpressIssueSettings;
 use App\Support\InvoiceXpressIssueTerms;
 use App\Support\InvoiceXpressSandboxDrafts;
+use App\Support\PortugueseVatSuggestion;
 use Filament\Support\Components\Attributes\Unexposed;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -30,6 +34,12 @@ use Livewire\Attributes\Locked;
 class InvoiceXpressIssuePage extends InvoiceXpressSectionPage
 {
     use HasInvoiceXpressPilotSettings;
+
+    private const array PreviewFields = [
+        'billingSource', 'localClientId', 'dueOn', 'vatTreatment', 'operationOn', 'receivableId',
+        'customerId', 'itemId', 'quantity', 'discount', 'documentType', 'additionalLines',
+        'exemptionReason', 'withholdingRate', 'vatRegion', 'vatCategory',
+    ];
 
     protected static ?string $slug = 'emitir-fatura-invoicexpress';
 
@@ -42,7 +52,10 @@ class InvoiceXpressIssuePage extends InvoiceXpressSectionPage
     public ?array $previewData = null;
 
     #[Locked]
-    public ?int $createdDraftId = null;
+    public ?int $draftId = null;
+
+    #[Locked]
+    public string $draftRequestKey;
 
     #[Locked]
     public string $directKey;
@@ -54,6 +67,10 @@ class InvoiceXpressIssuePage extends InvoiceXpressSectionPage
     public string $dueOn = '';
 
     public string $vatTreatment = 'domestic';
+
+    public string $vatRegion = '';
+
+    public string $vatCategory = '';
 
     public string $operationOn = '';
 
@@ -87,44 +104,75 @@ class InvoiceXpressIssuePage extends InvoiceXpressSectionPage
     {
         abort_unless(static::canAccess(), 403);
         $this->accountId = CurrentAccount::id();
+        $this->draftRequestKey = (string) Str::uuid();
         $this->directKey = (string) Str::uuid();
         $this->operationOn = today()->toDateString();
+
+        $draftId = request()->query('draft');
+        if ($draftId !== null) {
+            $id = filter_var($draftId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            abort_if($id === false, 404);
+            $this->draftId = $id;
+            $draft = $this->savedDraft();
+            if ($draft->state !== FiscalDocumentDraft::Local) {
+                return;
+            }
+
+            $this->restoreDraftInputs($draft);
+        } else {
+            $type = request()->query('type');
+            if (is_string($type) && isset(InvoiceXpressIssue::DocumentTypes[$type])) {
+                $this->documentType = $type;
+            }
+        }
+
         $this->fillInvoiceXpressPilotSettings();
     }
 
-    public function getSubheading(): ?string
+    private function restoreDraftInputs(FiscalDocumentDraft $draft): void
     {
-        return (InvoiceXpressIssue::options()['draftOnly'] ?? false)
-            ? __('Prepare the invoice and send the draft to InvoiceXpress.')
-            : __('The invoice is issued in InvoiceXpress and linked to the charge.');
+        $input = $draft->payload['inputs'] ?? [];
+        $direct = $input['direct'] ?? null;
+        $operationOn = $input['euOperationOn'] ?? null;
+        $this->documentType = $draft->document_type;
+        $this->billingSource = $direct === null ? 'receivable' : 'direct';
+        $this->vatTreatment = $operationOn === null ? 'domestic' : 'euService';
+        $this->operationOn = $operationOn ?? $this->operationOn;
+        $this->directKey = $direct['key'] ?? $this->directKey;
+        $this->localClientId = (string) ($direct['clientId'] ?? '');
+        $this->dueOn = $direct['dueOn'] ?? '';
+        $this->receivableId = $direct === null ? (string) ($input['receivableId'] ?? '') : '';
+        $this->customerId = (string) ($input['customerId'] ?? '');
+        $this->itemId = (string) ($input['itemId'] ?? '');
+        $this->quantity = (string) ($input['quantity'] ?? 1);
+        $this->discount = self::formatDiscount((int) ($input['discountBasisPoints'] ?? 0));
+        $this->exemptionReason = $input['exemptionReason'] ?? '';
+        $this->vatRegion = $input['domesticVat']['region'] ?? '';
+        $this->vatCategory = $input['domesticVat']['category'] ?? '';
+        $this->withholdingRate = (string) (($input['withholdingBasisPoints'] ?? 0) ?: '');
+        $this->additionalLines = array_map(fn (array $line): array => [
+            'itemId' => (string) $line['itemId'],
+            'quantity' => (string) $line['quantity'],
+            'discount' => self::formatDiscount((int) ($line['discountBasisPoints'] ?? 0)),
+        ], $input['additionalLines'] ?? []);
     }
 
-    /**
-     * Where the document stands: data filled in, ready to confirm, and what the last attempt
-     * came to. The third step reads the most recent attempt, not this visit alone.
-     *
-     * @param  Collection<int, InvoiceXpressIssueAttempt>  $attempts
-     * @return list<array{label: string, state: string, done: bool}>
-     */
-    private function steps(Collection $attempts): array
+    private static function formatDiscount(int $basisPoints): string
     {
-        $previewed = $this->previewData !== null;
-        $latest = $attempts->sortByDesc('id')->first();
+        return $basisPoints === 0 ? '' : sprintf('%d.%02d', intdiv($basisPoints, 100), $basisPoints % 100);
+    }
 
-        return [
-            ['label' => __('Document details'), 'state' => $previewed ? __('Verified in InvoiceXpress') : __('Incomplete'), 'done' => $previewed],
-            ['label' => __('Confirm issuance'), 'state' => match (true) {
-                ! $previewed => __('After preview'),
-                $this->accepted => __('Ready to issue'),
-                default => __('Review and confirm'),
-            }, 'done' => $previewed && $this->accepted],
-            ['label' => __('Invoice issued'), 'state' => match ($latest?->state) {
-                null => __('No attempts yet'),
-                InvoiceXpressIssueAttempt::Finalized => __('Last: :reference', ['reference' => $latest->document_reference]),
-                InvoiceXpressIssueAttempt::Blocked => __('Last attempt needs review'),
-                default => __('Last attempt needs confirmation'),
-            }, 'done' => $latest?->state === InvoiceXpressIssueAttempt::Finalized],
-        ];
+    private function savedDraft(): FiscalDocumentDraft
+    {
+        return FiscalDocumentDraftsPage::draftQuery()
+            ->whereIn('document_type', array_keys(InvoiceXpressIssue::DocumentTypes))
+            ->findOrFail($this->draftId);
+    }
+
+    private function authorizeDraftEdit(): void
+    {
+        $this->authorizeAccount();
+        abort_if($this->draftId !== null && $this->savedDraft()->state !== FiscalDocumentDraft::Local, 403);
     }
 
     protected function beforeInvoiceXpressCatalogLoad(): void
@@ -150,37 +198,97 @@ class InvoiceXpressIssuePage extends InvoiceXpressSectionPage
             }
         }
 
+        if (in_array($property, ['billingSource', 'vatTreatment', 'receivableId', 'localClientId', 'exemptionReason'], true)) {
+            $this->suggestVatRegion();
+        }
+
+        if ($property === 'vatRegion') {
+            $this->selectReceivableVatCategory();
+        }
+
         if ($property === 'documentType' && $this->documentType === 'simplified_invoice') {
             $this->reset('withholdingRate');
         }
 
-        if (in_array(explode('.', $property, 2)[0], ['billingSource', 'localClientId', 'dueOn', 'vatTreatment', 'operationOn', 'receivableId', 'customerId', 'itemId', 'quantity', 'discount', 'documentType', 'additionalLines', 'exemptionReason', 'withholdingRate'], true)) {
+        if (in_array(explode('.', $property, 2)[0], self::PreviewFields, true)) {
             $this->reset('previewData', 'accepted');
             $this->resetValidation();
         }
     }
 
-    public function addLine(): void
+    private function suggestVatRegion(): void
     {
-        $this->authorizeAccount();
-
-        if (count($this->additionalLines) < InvoiceXpressIssue::MaxLines - 1) {
-            $this->additionalLines[] = ['itemId' => '', 'quantity' => '1', 'discount' => ''];
-            $this->updated('additionalLines');
+        $this->reset('vatRegion', 'vatCategory');
+        if (! $this->usesDomesticVat()) {
+            return;
         }
+
+        $receivable = $this->selectedReceivable();
+        $this->vatRegion = $this->suggestedVatRegion($receivable)?->value ?? '';
+        $this->selectReceivableVatCategory($receivable);
     }
 
-    public function removeLine(int $index): void
+    private function suggestedVatRegion(?Receivable $receivable): ?PortugueseVatRegion
     {
-        $this->authorizeAccount();
-        unset($this->additionalLines[$index]);
-        $this->additionalLines = array_values($this->additionalLines);
-        $this->updated('additionalLines');
+        $client = $this->billingSource === 'direct'
+            ? Client::query()->find((int) $this->localClientId)
+            : $receivable?->client;
+
+        return $client === null ? null : PortugueseVatSuggestion::forClient($client);
+    }
+
+    private function selectedReceivable(): ?Receivable
+    {
+        return $this->billingSource === 'receivable' && $this->receivableId !== ''
+            ? Receivable::query()->excludingCancelled()->with('billable.client')->find((int) $this->receivableId)
+            : null;
+    }
+
+    private function selectReceivableVatCategory(?Receivable $receivable = null): void
+    {
+        $region = PortugueseVatRegion::tryFrom($this->vatRegion);
+        $rate = InvoiceXpressIssueTerms::vatBasisPoints(($receivable ?? $this->selectedReceivable())?->billable?->vat_rate);
+        $this->vatCategory = $rate === null ? '' : ($region?->categoryFor($rate) ?? '');
+    }
+
+    private function usesDomesticVat(): bool
+    {
+        return $this->vatTreatment === 'domestic' && $this->exemptionReason === '';
+    }
+
+    private function requiresDomesticVat(): bool
+    {
+        if (! $this->usesDomesticVat()) {
+            return false;
+        }
+
+        if ($this->vatRegion !== '' || $this->vatCategory !== '') {
+            return true;
+        }
+
+        if ($this->draftId !== null) {
+            $inputs = $this->savedDraft()->payload['inputs'] ?? [];
+            if (isset($inputs['domesticVat'])) {
+                return true;
+            }
+            if ($this->billingSource === 'direct'
+                ? (int) $this->localClientId === ($inputs['direct']['clientId'] ?? null)
+                : (int) $this->receivableId === ($inputs['receivableId'] ?? null)) {
+                return false;
+            }
+        }
+
+        $receivable = $this->selectedReceivable();
+        $rate = InvoiceXpressIssueTerms::vatBasisPoints($receivable?->billable?->vat_rate);
+
+        return InvoiceXpressIssueSettings::regionalTaxNames() !== []
+            || $this->suggestedVatRegion($receivable) !== null
+            || ($rate !== null && $rate !== 0 && PortugueseVatRegion::Mainland->categoryFor($rate) === null);
     }
 
     public function preview(InvoiceXpressIssue $issue): void
     {
-        $this->authorizeAccount();
+        $this->authorizeDraftEdit();
         $this->reset('previewData', 'accepted');
         $data = $this->documentInputs();
 
@@ -193,7 +301,7 @@ class InvoiceXpressIssuePage extends InvoiceXpressSectionPage
 
     public function confirm(InvoiceXpressIssue $issue): void
     {
-        $this->authorizeAccount();
+        $this->authorizeDraftEdit();
 
         if (isset($this->previewData['advanceSettlement'])) {
             throw ValidationException::withMessages(['confirmation' => __(InvoiceXpressIssueAdvance::ProviderBlock)]);
@@ -214,26 +322,38 @@ class InvoiceXpressIssuePage extends InvoiceXpressSectionPage
         $this->resetValidation();
     }
 
-    public function createDraft(InvoiceXpressIssue $issue, InvoiceXpressSandboxDrafts $drafts): void
+    public function saveDraft(): void
     {
-        $this->authorizeAccount();
+        $this->authorizeDraftEdit();
         $this->resetValidation();
-        if (! isset($this->previewData['revision']) || ! $this->accepted) {
-            throw ValidationException::withMessages(['accepted' => __('Preview the details and confirm you reviewed the draft.')]);
+        if (! isset($this->previewData['revision'])) {
+            throw ValidationException::withMessages(['confirmation' => __('Preview the details before saving the draft.')]);
         }
 
         try {
-            $this->createdDraftId = $issue->createDraft($this->documentInputs(), $this->previewData['revision'], $drafts);
-        } catch (InvoiceXpressException $exception) {
-            throw ValidationException::withMessages(['confirmation' => $exception->getMessage()]);
+            $draft = app(InvoiceXpressDraftDelivery::class)->saveInvoice(
+                $this->documentInputs(),
+                $this->previewData['revision'],
+                $this->draftId,
+                $this->draftRequestKey,
+            );
+        } catch (InvoiceXpressException) {
+            throw ValidationException::withMessages(['provider' => __('Unable to verify the details in InvoiceXpress.')]);
         }
 
+        $this->draftId = $draft->id;
         $this->reset('previewData', 'accepted');
     }
 
-    /** @return array{receivableId: int, customerId: int, itemId: int, quantity: int, additionalLines: array, documentType: string, exemptionReason: ?string, discountBasisPoints: int, direct: ?array, euOperationOn: ?string, withholdingBasisPoints: int} */
+    public function createDraft(): void
+    {
+        $this->saveDraft();
+    }
+
+    /** @return array{receivableId: int, customerId: int, itemId: int, quantity: int, additionalLines: array, documentType: string, exemptionReason: ?string, discountBasisPoints: int, direct: ?array, euOperationOn: ?string, withholdingBasisPoints: int, domesticVat?: array{region: string, category: string}} */
     private function documentInputs(): array
     {
+        $requiresDomesticVat = $this->requiresDomesticVat();
         $data = $this->validate([
             'billingSource' => ['required', 'in:receivable,direct'],
             'vatTreatment' => ['required', 'in:domestic,euService'],
@@ -247,6 +367,8 @@ class InvoiceXpressIssuePage extends InvoiceXpressSectionPage
             'discount' => ['nullable', 'regex:/\A[0-9]{1,3}(?:[.,][0-9]{1,2})?\z/'],
             'documentType' => ['required', Rule::in(array_keys(InvoiceXpressIssue::DocumentTypes))],
             'exemptionReason' => ['nullable', 'in:M10'],
+            'vatRegion' => [Rule::excludeIf(! $requiresDomesticVat), 'required', Rule::enum(PortugueseVatRegion::class)],
+            'vatCategory' => [Rule::excludeIf(! $requiresDomesticVat), 'required', 'in:reduced,intermediate,standard'],
             'withholdingRate' => ['nullable', Rule::in(array_keys(InvoiceXpressIssueTerms::WithholdingRates))],
             'additionalLines' => ['array', 'list', 'max:'.(InvoiceXpressIssue::MaxLines - 1)],
             'additionalLines.*' => ['required', 'array:itemId,quantity,discount'],
@@ -262,6 +384,8 @@ class InvoiceXpressIssuePage extends InvoiceXpressSectionPage
             'itemId.*' => __('Choose an approved item.'),
             'quantity.*' => __('Enter a whole quantity from 1 to 1000.'),
             'documentType.*' => __('Choose a supported document type.'),
+            'vatRegion.*' => __('Choose a VAT region.'),
+            'vatCategory.*' => __('Choose a VAT rate category.'),
             'additionalLines.*.itemId.*' => __('Choose an approved item.'),
             'additionalLines.*.quantity.*' => __('Enter a whole quantity from 1 to 1000.'),
         ]);
@@ -281,12 +405,13 @@ class InvoiceXpressIssuePage extends InvoiceXpressSectionPage
             'direct' => $data['billingSource'] === 'direct' ? ['key' => $this->directKey, 'clientId' => (int) $data['localClientId'], 'dueOn' => $data['dueOn']] : null,
             'euOperationOn' => $data['operationOn'] ?? null,
             'withholdingBasisPoints' => (int) ($data['withholdingRate'] ?? 0),
+            ...($requiresDomesticVat ? ['domesticVat' => ['region' => $data['vatRegion'], 'category' => $data['vatCategory']]] : []),
         ];
     }
 
     public function recover(int $attemptId, InvoiceXpressIssue $issue): void
     {
-        $this->authorizeAccount();
+        $this->authorizeDraftEdit();
         $this->resetValidation();
         try {
             $this->resetCompletedDirectInvoice($issue->recover($attemptId));
@@ -299,13 +424,18 @@ class InvoiceXpressIssuePage extends InvoiceXpressSectionPage
     {
         if ($attempt->state === InvoiceXpressIssueAttempt::Finalized && ($attempt->snapshot['direct']['key'] ?? null) === $this->directKey) {
             $this->directKey = (string) Str::uuid();
-            $this->reset('previewData', 'accepted', 'localClientId', 'customerId', 'dueOn', 'itemId', 'quantity', 'discount', 'withholdingRate', 'additionalLines');
+            $this->reset('previewData', 'accepted', 'localClientId', 'customerId', 'dueOn', 'itemId', 'quantity', 'discount', 'withholdingRate', 'additionalLines', 'vatRegion', 'vatCategory');
         }
     }
 
     protected function getViewData(): array
     {
         $this->authorizeAccount();
+        $savedDraft = $this->draftId === null ? null : $this->savedDraft();
+        if ($savedDraft !== null && $savedDraft->state !== FiscalDocumentDraft::Local) {
+            return ['savedDraft' => $savedDraft, 'readOnlyDraft' => true];
+        }
+
         $options = InvoiceXpressIssue::options();
         $draftOnly = $options['draftOnly'] ?? false;
         $config = InvoiceXpressConfig::current();
@@ -324,12 +454,13 @@ class InvoiceXpressIssuePage extends InvoiceXpressSectionPage
         };
 
         return [
+            'savedDraft' => $savedDraft,
+            'readOnlyDraft' => false,
             'options' => $options,
             'draftOnly' => $draftOnly,
             'documentTypes' => array_map(fn (string $label): string => __($label), $draftOnly ? InvoiceXpressSandboxDrafts::DocumentTypes : InvoiceXpressIssue::DocumentTypes),
             'catalogChoices' => $catalog,
-            'canWriteDocuments' => InvoiceXpressIssue::canWriteDocuments(),
-            'canWriteWithholding' => InvoiceXpressIssue::canWriteWithholding(),
+            'reviewedInputs' => $this->previewData === null ? [] : $this->only(self::PreviewFields),
             'hasConnection' => $config !== null,
             'localClients' => $options === null || $this->billingSource !== 'direct' ? collect() : $fiscalClients(Client::query())
                 ->when(! $draftOnly || $this->vatTreatment === 'euService',
@@ -344,30 +475,31 @@ class InvoiceXpressIssuePage extends InvoiceXpressSectionPage
                 ->whereHasMorph('billable', [Project::class, Retainer::class], fn (Builder $query) => $query
                     ->whereHas('client', $fiscalClients))
                 ->with('billable.client')
+                ->when($this->receivableId !== '', fn (Builder $query) => $query
+                    ->orderByRaw('case when id = ? then 0 else 1 end', [(int) $this->receivableId]))
                 ->orderBy('due_on')
                 ->orderBy('id')
                 ->limit(100)
                 ->get(),
-            'attempts' => $attempts = $open->concat(InvoiceXpressIssueAttempt::query()
+            'attempts' => $open->concat(InvoiceXpressIssueAttempt::query()
                 ->where('state', InvoiceXpressIssueAttempt::Finalized)->latest('id')->limit(25)->get()),
-            'steps' => $this->steps($attempts),
         ];
     }
 
     private function authorizeAccount(): void
     {
-        abort_unless(static::canAccess() && $this->accountId === CurrentAccount::id(), 403);
+        abort_unless($this->accountId === CurrentAccount::get()?->getKey() && static::canAccess(), 403);
     }
 
     #[Unexposed]
     public function getTitle(): string
     {
-        return __('Invoices in InvoiceXpress');
+        return __('Prepare invoice');
     }
 
     #[Unexposed]
     public static function getNavigationLabel(): string
     {
-        return __('Invoices in InvoiceXpress');
+        return __('Prepare invoice');
     }
 }

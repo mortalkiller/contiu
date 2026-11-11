@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\PortugueseVatRegion;
 use Illuminate\Validation\ValidationException;
 
 final class InvoiceXpressIssueTerms
@@ -66,13 +67,7 @@ final class InvoiceXpressIssueTerms
         $matches = array_values(array_filter($taxes, fn (mixed $tax): bool => is_array($tax) && ($tax['name'] ?? null) === $name));
         $match = count($matches) === 1 ? $matches[0] : [];
         $id = self::positiveId($match['id'] ?? null);
-        $code = match ($basisPoints) {
-            0 => 'ISE',
-            600 => 'RED',
-            1300 => 'INT',
-            2300 => 'NOR',
-            default => null,
-        };
+        $code = self::taxCode($region, $basisPoints);
 
         $regionMatches = ($match['region'] ?? null) === $region
             || ($basisPoints === 0 && $name === 'Isento' && in_array($match['region'] ?? null, [null, ''], true));
@@ -153,10 +148,48 @@ final class InvoiceXpressIssueTerms
             && in_array(self::hundredths($line['retention'] ?? 0), [0, $withholdingBasisPoints], true)
             && self::positiveId(data_get($line, 'tax.id')) === $tax['id']
             && data_get($line, 'tax.name') === $tax['name']
+            && self::matchesTaxRegion(data_get($line, 'tax.region'), $tax['region'] ?? null)
+            && self::matchesTaxCode(data_get($line, 'tax.code'), $tax)
             && self::hundredths(data_get($line, 'tax.value')) === $tax['basisPoints']
             && self::roundedLineAmount($line['subtotal'] ?? null) === $totals['net']
             && self::roundedLineAmount($line['tax_amount'] ?? null) === $totals['tax']
             && self::roundedLineAmount($line['total'] ?? null) === $totals['total'];
+    }
+
+    public static function matchesItemTax(mixed $itemTax, array $expected): bool
+    {
+        return is_array($itemTax)
+            && ($itemTax['name'] ?? null) === $expected['name']
+            && (! isset($itemTax['id']) || self::positiveId($itemTax['id']) === $expected['id'])
+            && self::matchesTaxRegion($itemTax['region'] ?? null, $expected['region'] ?? null)
+            && self::matchesTaxCode($itemTax['code'] ?? null, $expected)
+            && self::hundredths($itemTax['value'] ?? null) === $expected['basisPoints'];
+    }
+
+    public static function matchesTaxRegion(mixed $returned, ?string $expected): bool
+    {
+        return $expected === null || $returned === null || $returned === '' || $returned === $expected;
+    }
+
+    private static function matchesTaxCode(mixed $returned, array $expected): bool
+    {
+        $code = $expected['code'] ?? self::taxCode($expected['region'] ?? null, $expected['basisPoints']);
+
+        return $code === null || $returned === null || $returned === '' || $returned === $code;
+    }
+
+    private static function taxCode(?string $region, int $basisPoints): ?string
+    {
+        if ($basisPoints === 0) {
+            return 'ISE';
+        }
+
+        return match (PortugueseVatRegion::tryFrom($region ?? '')?->categoryFor($basisPoints)) {
+            'reduced' => 'RED',
+            'intermediate' => 'INT',
+            'standard' => 'NOR',
+            default => null,
+        };
     }
 
     public static function matchesAmounts(array $document, array $totals, ?array $withholding): bool
@@ -227,6 +260,13 @@ final class InvoiceXpressIssueTerms
         if ($discountBasisPoints === null || $discountBasisPoints < 0 || $discountBasisPoints > 10000) {
             throw ValidationException::withMessages(['discountBasisPoints' => __('Enter a discount between 0% and 100% with up to two decimal places.')]);
         }
+    }
+
+    public static function vatBasisPoints(?string $rate): ?int
+    {
+        return $rate !== null && preg_match('/\A[01]\.[0-9]{4}\z/', $rate) === 1
+            ? (int) str_replace('.', '', $rate)
+            : null;
     }
 
     /** Exact two-decimal provider values. No rounding of unexpected remote precision. */

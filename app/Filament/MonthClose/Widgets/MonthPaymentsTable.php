@@ -22,9 +22,11 @@ class MonthPaymentsTable extends TableWidget
     public function table(Table $table): Table
     {
         return $table
-            ->heading(__('Payments received this month'))
+            ->heading(fn (): string => __('Payments received in :month', ['month' => $this->monthName()]))
             ->query(fn () => $this->review()->paymentsQuery())
             ->paginated(false)
+            // Where the "Recorded data" step of the page points when this table has records to complete.
+            ->extraAttributes(['id' => 'month-payments', 'class' => 'scroll-mt-20'])
             ->columns([
                 TextColumn::make('paid_on')->label(__('Date'))->date(),
                 TextColumn::make('reference')

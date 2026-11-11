@@ -7,6 +7,7 @@ use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Models\Expense;
 use App\Models\FiscalDocument;
 use App\Support\CurrentAccount;
+use App\Support\EFaturaCsv;
 use App\Support\ExpenseDocumentCsv;
 use App\Support\ExpenseDocumentQr;
 use BackedEnum;
@@ -15,6 +16,7 @@ use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Components\Attributes\Unexposed;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
@@ -33,6 +35,9 @@ class ExpenseDocumentImport extends Page
 
     protected string $view = 'filament.pages.expense-document-import';
 
+    /** "Origem", as in the mock: the e-Fatura export (every supplier at once) or a CSV of one supplier. */
+    public string $origin = 'efatura';
+
     public string $source = '';
 
     public string $method = 'csv';
@@ -46,8 +51,24 @@ class ExpenseDocumentImport extends Page
     #[Locked]
     public ?string $previewSource = null;
 
+    /** Where the preview came from: efatura, csv or qr. */
+    #[Locked]
+    public ?string $previewOrigin = null;
+
+    /** Documents in the e-Fatura file that are not read (credit notes, receipts, cancelled). */
+    #[Locked]
+    public int $previewSkipped = 0;
+
     #[Locked]
     public ?int $previewAccountId = null;
+
+    /** The CSV's own name, shown on the first summary card. */
+    #[Locked]
+    public ?string $previewFileName = null;
+
+    /** The supplier the source belongs to, for the "Supplier" column. */
+    #[Locked]
+    public ?string $previewSupplier = null;
 
     #[Locked]
     public array $rows = [];
@@ -80,13 +101,19 @@ class ExpenseDocumentImport extends Page
 
     protected function getViewData(): array
     {
-        return ['summary' => $this->previewSource === null ? [] : $this->summary()];
+        return [
+            // Shown before anything is read too, at zero, so the screen keeps the mock's shape.
+            'summary' => $this->summary(),
+            'chosenCount' => $this->chosenCount(),
+        ];
     }
 
     /**
-     * The invoices in the preview, counted by how well each one matches an expense already recorded.
+     * The invoices in the preview, counted by how well each one matches an expense already
+     * recorded. As in the mock, the figures that need a look are in colour and the first card
+     * names the file read.
      *
-     * @return list<array{label: string, value: string, note?: ?string, tone?: ?string}>
+     * @return list<array{label: string, value: string, note?: ?string, valueTone?: ?string}>
      */
     private function summary(): array
     {
@@ -96,13 +123,22 @@ class ExpenseDocumentImport extends Page
         $known = count($this->candidates) - count($new);
 
         return [
-            ['label' => __('Invoices read'), 'value' => (string) count($this->rows), 'note' => $known > 0
-                ? trans_choice('{1} 1 already imported or conflicting|[2,*] :count already imported or conflicting', $known)
-                : __('Source :source', ['source' => $this->previewSource])],
-            ['label' => __('Exact match'), 'value' => (string) ($matches['exact'] ?? 0), 'note' => __('Same date, amounts and number'), 'tone' => 'success'],
-            ['label' => __('Awaiting confirmation'), 'value' => (string) $toConfirm, 'note' => $toConfirm > 0 ? __('Several possible expenses') : __('None found'), 'tone' => $toConfirm > 0 ? 'warning' : null],
+            ['label' => __('Invoices read'), 'value' => (string) count($this->rows), 'note' => match (true) {
+                $known > 0 => trans_choice('{1} 1 already imported or conflicting|[2,*] :count already imported or conflicting', $known),
+                $this->previewSkipped > 0 => trans_choice('{1} 1 other document left out|[2,*] :count other documents left out', $this->previewSkipped),
+                $this->previewSource === null => __('No file read yet'),
+                default => $this->previewFileName ?? __('Source :source', ['source' => $this->previewSource]),
+            }],
+            ['label' => __('Exact match'), 'value' => (string) ($matches['exact'] ?? 0), 'valueTone' => ($matches['exact'] ?? 0) > 0 ? 'success' : null],
+            ['label' => __('Awaiting confirmation'), 'value' => (string) $toConfirm, 'valueTone' => $toConfirm > 0 ? 'warning' : null],
             ['label' => __('No candidates'), 'value' => (string) ($matches['none'] ?? 0), 'note' => __('Create the expense from the invoice')],
         ];
+    }
+
+    /** How many invoices the "Import" button would save: those with an expense chosen. */
+    private function chosenCount(): int
+    {
+        return count(array_filter($this->choices, fn (mixed $choice): bool => is_array($choice) && filled($choice['expense'] ?? null)));
     }
 
     public static function canConfirm(): bool
@@ -111,6 +147,12 @@ class ExpenseDocumentImport extends Page
             && ! CurrentAccount::readOnly()
             && Gate::allows('create', FiscalDocument::class)
             && Gate::allows('update', new Expense);
+    }
+
+    public function updatedOrigin(): void
+    {
+        $this->clearPreview();
+        $this->resetValidation();
     }
 
     public function updatedSource(): void
@@ -139,11 +181,17 @@ class ExpenseDocumentImport extends Page
         $this->clearPreview();
     }
 
-    public function preview(ExpenseDocumentCsv $parser, ImportExpenseDocuments $import): void
+    public function preview(ExpenseDocumentCsv $parser, ImportExpenseDocuments $import, EFaturaCsv $efatura): void
     {
         abort_unless(static::canAccess(), 403);
         $this->clearPreview();
         $this->resetValidation();
+
+        if ($this->origin === 'efatura') {
+            $this->previewEFatura($efatura, $import);
+
+            return;
+        }
 
         $data = $this->validate([
             'source' => ['required', 'string', 'max:120'],
@@ -165,7 +213,77 @@ class ExpenseDocumentImport extends Page
             throw ValidationException::withMessages(['file' => $exception->getMessage()]);
         }
 
+        $this->method = 'csv';
         $this->setPreview(trim($data['source']), $rows, $candidates);
+        $this->previewOrigin = 'csv';
+        $this->previewFileName = $data['file']->getClientOriginalName();
+        $this->previewSupplier = $import->supplierFor(trim($data['source']))?->name;
+    }
+
+    /** The e-Fatura export: every supplier in one file, each invoice matched under its issuer's tax ID. */
+    private function previewEFatura(EFaturaCsv $parser, ImportExpenseDocuments $import): void
+    {
+        $file = $this->validate([
+            'file' => ['required', 'file', 'extensions:csv', 'mimes:csv,txt', 'max:'.EFaturaCsv::MAX_KILOBYTES],
+        ], [
+            'file.required' => __('Choose the CSV file exported from e-Fatura.'),
+            'file.file' => __('Choose a valid CSV file.'),
+            'file.extensions' => __('Choose a file with the .csv extension.'),
+            'file.mimes' => __('Choose a CSV file.'),
+            'file.max' => __('The e-Fatura file can be up to 1 MB.'),
+        ])['file'];
+
+        try {
+            ['rows' => $rows, 'skipped' => $skipped] = $parser->parse($file->get());
+            $candidates = $this->previewBySupplier($rows, $import);
+        } catch (DomainException $exception) {
+            throw ValidationException::withMessages(['file' => $exception->getMessage()]);
+        }
+
+        $this->method = 'csv';
+        $this->setPreview('e-Fatura', $rows, $candidates);
+        $this->previewOrigin = 'efatura';
+        $this->previewSkipped = $skipped;
+        $this->previewFileName = $file->getClientOriginalName();
+    }
+
+    /**
+     * The preview of rows from several suppliers: each supplier's invoices under its own tax ID
+     * (the import's source), put back in the file's order.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<array<string, mixed>>
+     */
+    private function previewBySupplier(array $rows, ImportExpenseDocuments $import): array
+    {
+        $candidates = [];
+
+        foreach ($this->rowsBySupplier($rows) as $taxId => $indexes) {
+            $preview = $import->preview($taxId, array_map(fn (int $index): array => $rows[$index], $indexes));
+
+            foreach ($indexes as $position => $index) {
+                $candidates[$index] = $preview[$position];
+            }
+        }
+
+        ksort($candidates);
+
+        return array_values($candidates);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return array<string, list<int>> row indexes by the issuer's tax ID
+     */
+    private function rowsBySupplier(array $rows): array
+    {
+        $groups = [];
+
+        foreach ($rows as $index => $row) {
+            $groups[(string) $row['party_tax_id']][] = $index;
+        }
+
+        return $groups;
     }
 
     public function previewQr(ExpenseDocumentQr $parser, ImportExpenseDocuments $import): void
@@ -210,7 +328,10 @@ class ExpenseDocumentImport extends Page
     {
         $source = $row['party_tax_id'];
         $row['party_name'] = $import->supplierFor($source)?->name;
+        $this->method = 'qr';
         $this->setPreview($source, [$row], $import->preview($source, [$row]));
+        $this->previewOrigin = 'qr';
+        $this->previewSupplier = $row['party_name'];
     }
 
     private function setPreview(string $source, array $rows, array $candidates): void
@@ -260,8 +381,13 @@ class ExpenseDocumentImport extends Page
         }
 
         try {
-            $created = $import->confirm($this->previewSource, $this->rows, $choices);
-            $this->candidates = $import->preview($this->previewSource, $this->rows);
+            if ($this->previewOrigin === 'efatura') {
+                $created = $this->confirmBySupplier($choices, $import);
+                $this->candidates = $this->previewBySupplier($this->rows, $import);
+            } else {
+                $created = $import->confirm($this->previewSource, $this->rows, $choices);
+                $this->candidates = $import->preview($this->previewSource, $this->rows);
+            }
         } catch (DomainException $exception) {
             throw ValidationException::withMessages(['choices' => $exception->getMessage()]);
         }
@@ -277,9 +403,37 @@ class ExpenseDocumentImport extends Page
             ->send();
     }
 
+    /**
+     * Confirms an e-Fatura preview one supplier at a time, all or nothing.
+     *
+     * @param  array<int, array{expense?: ?string, bank?: ?string}>  $choices
+     */
+    private function confirmBySupplier(array $choices, ImportExpenseDocuments $import): int
+    {
+        return DB::transaction(function () use ($choices, $import): int {
+            $created = 0;
+
+            foreach ($this->rowsBySupplier($this->rows) as $taxId => $indexes) {
+                $chosen = array_values(array_filter($indexes, fn (int $index): bool => isset($choices[$index])));
+
+                if ($chosen === []) {
+                    continue;
+                }
+
+                $created += $import->confirm(
+                    $taxId,
+                    array_map(fn (int $index): array => $this->rows[$index], $chosen),
+                    array_map(fn (int $index): array => $choices[$index], $chosen),
+                );
+            }
+
+            return $created;
+        });
+    }
+
     private function clearPreview(): void
     {
-        $this->reset('previewSource', 'previewAccountId', 'rows', 'candidates', 'choices');
+        $this->reset('previewSource', 'previewOrigin', 'previewSkipped', 'previewAccountId', 'previewFileName', 'previewSupplier', 'rows', 'candidates', 'choices');
     }
 
     #[Unexposed]

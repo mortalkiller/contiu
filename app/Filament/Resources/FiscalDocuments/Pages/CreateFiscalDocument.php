@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\FiscalDocuments\Pages;
 
+use App\Filament\Resources\Concerns\HasSaveBar;
 use App\Filament\Resources\FiscalDocuments\FiscalDocumentResource;
 use App\Models\FiscalDocument;
 use App\Support\FiscalDocumentPdfs;
@@ -9,6 +10,8 @@ use Filament\Resources\Pages\CreateRecord;
 
 class CreateFiscalDocument extends CreateRecord
 {
+    use HasSaveBar;
+
     protected static string $resource = FiscalDocumentResource::class;
 
     protected function handleRecordCreation(array $data): FiscalDocument
@@ -19,5 +22,10 @@ class CreateFiscalDocument extends CreateRecord
     protected function getRedirectUrl(): string
     {
         return static::getResource()::getUrl('index');
+    }
+
+    public function getTitle(): string
+    {
+        return __('New fiscal document');
     }
 }

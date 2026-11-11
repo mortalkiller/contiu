@@ -121,13 +121,13 @@ it('marks an obligation as done and hides it', function () {
         ->assertDontSee('Marcar como pago')
         ->assertSee('Nada a pagar este mês')
         ->assertSee('Ver feitas (1)')
-        ->assertDontSee('Desfazer');
+        ->assertSeeHtml('x-show="showDone"')
+        ->assertDontSeeHtml('wire:click="toggleDone"')
+        ->assertSee('Desfazer');
 
     expect(TaxObligationCompletion::query()->sole()->only(['key', 'user_id']))->toBe(['key' => 'ss:2026-11', 'user_id' => $admin->id]);
 
-    $card->call('toggleDone')
-        ->assertSee('Desfazer')
-        ->call('reopen', 'ss:2026-11')
+    $card->call('reopen', 'ss:2026-11')
         ->assertSee('Marcar como pago');
 
     expect(TaxObligationCompletion::query()->count())->toBe(0);
@@ -149,7 +149,6 @@ it('does not mark in a read-only account', function () {
         ->assertSee('Pago')
         ->assertSee('A conta está só de leitura')
         ->assertDontSeeHtml('wire:click="complete(')
-        ->call('toggleDone')
         ->assertSee('Desfazer')
         ->assertDontSeeHtml('wire:click="reopen(')
         ->call('complete', 'ss:2026-11')
@@ -268,15 +267,23 @@ it('lists statement lines to reconcile and amounts clients owe after the tax obl
     Receivable::factory()->for($job, 'billable')->create(['amount' => 15000, 'due_on' => '2026-11-04']);
 
     Livewire::test(TaxObligationsCard::class)
-        ->assertSeeInOrder(['Segurança Social', 'IVA das compras ao estrangeiro', '1 linha do extrato por reconciliar'])
-        ->assertSee('Ver mais 1')
+        ->assertSeeInOrder(['Segurança Social', 'IVA das compras ao estrangeiro', '1 linha do extrato por reconciliar', 'Ver extrato', 'Estúdio Atlântico tem um valor em aberto', 'atrasado 5 dias', Money::format(15000), 'Receber'])
+        ->assertSeeHtml('x-show="showAll"')
+        ->assertDontSeeHtml('wire:click="toggleAll"')
+        ->assertSee('Ver mais 1');
+})->group('ui');
+
+it('loads a long list of pending tasks on demand', function () {
+    cardOn('2026-11-09', since: '2025-11-01');
+    actingAsAdmin();
+    $job = Project::factory()->for(Client::factory()->create(['name' => 'Estúdio Atlântico']))->create(['quoted_on' => '2026-10-01']);
+    Receivable::factory()->for($job, 'billable')->create(['amount' => 15000, 'due_on' => '2026-11-04']);
+
+    Livewire::test(TaxObligationsCard::class)
+        ->assertSeeHtml('wire:click="toggleAll"')
         ->assertDontSee('Estúdio Atlântico tem um valor em aberto')
         ->call('toggleAll')
-        ->assertSet('showAll', true);
-
-    Livewire::test(TaxObligationsCard::class, ['showAll' => true])
-        ->assertSeeInOrder(['1 linha do extrato por reconciliar', 'Ver extrato', 'Estúdio Atlântico tem um valor em aberto', 'atrasado 5 dias', Money::format(15000), 'Receber'])
-        ->assertSee('Ver menos');
+        ->assertSee('Estúdio Atlântico tem um valor em aberto');
 })->group('ui');
 
 it('leaves out amounts that only fall due later, and the statement of an account without a business account', function () {

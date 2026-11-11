@@ -56,7 +56,6 @@ it('reconciles a platform deposit from the bank page and retains its evidence an
             ...platformPayoutData($platform, ['original_gross' => '1000,00', 'original_commission' => '100,00']),
             'commission_document_id' => $evidence->id,
         ]]])
-        ->assertMountedActionModalSee('Diferença face ao banco: '.Money::format(0))
         ->callMountedTableAction()
         ->assertHasNoActionErrors()
         ->assertNotified('Linha do extrato tratada');

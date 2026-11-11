@@ -6,12 +6,14 @@ use App\Actions\ApplyBankTransaction;
 use App\Actions\ImportBankStatement;
 use App\Actions\MatchBankTransactions;
 use App\Enums\BankTransactionStatus;
+use App\Enums\CategoryType;
 use App\Enums\DifferenceExplanation;
 use App\Enums\ExpenseKind;
 use App\Enums\Language;
 use App\Enums\PaymentMethod;
 use App\Filament\Actions\OneOffIncomeAction;
 use App\Filament\Actions\PlatformPayoutAction;
+use App\Filament\Support\QuickCreate;
 use App\Filament\Widgets\CompanyAccountStats;
 use App\Models\BankTransaction;
 use App\Models\Category;
@@ -36,29 +38,33 @@ use App\Support\TransferCoverage;
 use BackedEnum;
 use DomainException;
 use Filament\Actions\Action;
-use Filament\Actions\BulkAction;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;
+use Filament\Forms\Components\ViewField;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Resources\Concerns\HasTabs;
-use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\EmbeddedTable;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\FontWeight;
+use Filament\Support\Enums\TextSize;
 use Filament\Support\Enums\Width;
+use Filament\Tables\Columns\Layout\Split;
+use Filament\Tables\Columns\Layout\Stack;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Locked;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
@@ -131,7 +137,7 @@ class BankStatementImport extends Page implements HasTable
 
         return $pending === 0
             ? __('Upload a CSV or Excel bank statement to match inflows to receivables and outflows to expenses.')
-            : trans_choice('{1} :count unprocessed line.|[2,*] :count unprocessed lines.', $pending);
+            : trans_choice('{1} :count line to process. Each bank line is explained by one of your records.|[2,*] :count lines to process. Each bank line is explained by one of your records.', $pending);
     }
 
     public function getTabs(): array
@@ -151,7 +157,7 @@ class BankStatementImport extends Page implements HasTable
     public function content(Schema $schema): Schema
     {
         return $schema->components([
-            ...$this->getWidgetsSchemaComponents([CompanyAccountStats::make(['withLineProgress' => true])]),
+            ...$this->getWidgetsSchemaComponents([CompanyAccountStats::make(['withLineProgress' => true, 'withHeading' => false])]),
             $this->getTabsContentComponent(),
             EmbeddedTable::make(),
         ]);
@@ -162,13 +168,11 @@ class BankStatementImport extends Page implements HasTable
         return [
             Action::make('help')
                 ->label(__('How does it work?'))
-                ->icon(Phosphor::Question)
                 ->color('gray')
                 ->link()
                 ->url(HelpCentre::getUrl().'#extrato'),
             Action::make('autoReconcile')
                 ->label(__('Reconcile automatically'))
-                ->icon(Phosphor::MagicWand)
                 ->color('gray')
                 ->visible(fn () => BankTransaction::pending()->exists())
                 ->disabled(fn () => CurrentAccount::readOnly())
@@ -195,43 +199,64 @@ class BankStatementImport extends Page implements HasTable
                 ->addSelect(['platform_payout_history_id' => PlatformPayout::query()->select('id')
                     ->whereColumn('bank_transaction_id', 'bank_transactions.id')->latest('id')->limit(1)])))
             ->defaultSort('booked_on', 'desc')
+            // As in the mock: one row per line, the date with debit or credit beside the
+            // description and the signed amount, the suggestion in a soft box under them, and
+            // the line's actions under it all (filament-appearance's fap-actions-below).
+            ->extraAttributes(['class' => 'fap-actions-below'])
+            ->searchPlaceholder(__('Description or amount'))
             ->columns([
-                TextColumn::make('booked_on')->label(__('Date'))->date()->sortable(),
-                TextColumn::make('description')->label(__('Description'))->wrap()->searchable(),
-                TextColumn::make('amount')
-                    ->label(__('Monetary amount'))
-                    ->money('EUR', divideBy: 100)
-                    ->alignEnd()
-                    ->weight('medium')
-                    ->color(fn (BankTransaction $record) => $record->is_credit ? 'success' : 'danger'),
-                TextColumn::make('suggestion')
-                    ->label(fn () => $this->activeTab === 'pending' ? __('Suggestion') : __('Processed as'))
-                    ->state(fn (BankTransaction $record) => $this->describe($record))
-                    ->listWithLineBreaks()
-                    // On "Por tratar" the suggestion stands out: it is what the user came to confirm.
-                    ->icon(fn (BankTransaction $record) => match ($this->suggestionTone($record)) {
-                        'match' => Phosphor::CheckCircle,
-                        'choose' => Phosphor::ListMagnifyingGlass,
-                        'none' => Phosphor::MinusCircle,
-                        default => null,
-                    })
-                    ->extraCellAttributes(fn (BankTransaction $record): array => array_filter(['data-suggestion' => $this->suggestionTone($record)]))
-                    ->color(fn (BankTransaction $record) => $record->status === BankTransactionStatus::Pending && $this->suggestionFor($record)->best() === null ? 'gray' : null)
-                    ->wrap(),
-                TextColumn::make('status')->label(__('Status'))->badge()->toggleable(isToggledHiddenByDefault: true),
+                Split::make([
+                    Stack::make([
+                        TextColumn::make('booked_on')->label(__('Date'))->date()->weight(FontWeight::Medium),
+                        TextColumn::make('direction')
+                            ->state(fn (BankTransaction $record): string => $record->is_credit ? __('Credit') : __('Debit'))
+                            ->color('gray')
+                            ->size(TextSize::Small),
+                    ])->grow(false)->extraAttributes(['class' => 'w-24']),
+                    Stack::make([
+                        Split::make([
+                            TextColumn::make('description')
+                                ->label(__('Description'))
+                                ->weight(FontWeight::Medium)
+                                ->wrap()
+                                ->searchable(query: fn (Builder $query, string $search): Builder => $this->searchLines($query, $search)),
+                            TextColumn::make('amount')
+                                ->label(__('Monetary amount'))
+                                ->formatStateUsing(fn (BankTransaction $record): string => ($record->is_credit ? '+' : '−').Money::format($record->absolute_amount, locale: app()->getLocale()))
+                                ->alignEnd()
+                                ->weight(FontWeight::SemiBold)
+                                ->color(fn (BankTransaction $record) => $record->is_credit ? 'success' : 'danger')
+                                ->grow(false),
+                        ]),
+                        TextColumn::make('suggestion')
+                            ->label(fn () => $this->activeTab === 'pending' ? __('Suggestion') : __('Processed as'))
+                            ->state(fn (BankTransaction $record) => $this->describe($record))
+                            ->listWithLineBreaks()
+                            // On "Por tratar" the suggestion stands out: it is what the user came to confirm.
+                            ->icon(fn (BankTransaction $record) => match ($this->suggestionTone($record)) {
+                                'match' => Phosphor::CheckCircle,
+                                'choose' => Phosphor::ListMagnifyingGlass,
+                                'none' => Phosphor::MinusCircle,
+                                default => null,
+                            })
+                            ->extraAttributes(fn (BankTransaction $record): array => array_filter(['data-suggestion' => $this->suggestionTone($record)]))
+                            ->color(fn (BankTransaction $record) => $record->status === BankTransactionStatus::Pending && $this->suggestionFor($record)->best() === null ? 'gray' : null)
+                            ->wrap(),
+                    ])->space(2),
+                ]),
             ])
             ->recordActions([
                 Action::make('accept')
                     ->label(__('Accept'))
-                    ->icon(Phosphor::Check)
-                    ->color('success')
                     ->button()
+                    ->size('sm')
                     ->visible(fn (BankTransaction $record) => $record->status === BankTransactionStatus::Pending && $this->suggestionFor($record)->best() !== null)
                     ->disabled(fn () => CurrentAccount::readOnly())
                     ->action(fn (BankTransaction $record) => $this->apply(fn (ApplyBankTransaction $apply) => $apply->accept($record, $this->suggestionFor($record)->best()))),
                 Action::make('link')
                     ->label(__('Link…'))
-                    ->icon(Phosphor::Link)
+                    ->button()
+                    ->size('sm')
                     ->color('gray')
                     ->visible(fn (BankTransaction $record) => $record->status === BankTransactionStatus::Pending)
                     ->disabled(fn () => CurrentAccount::readOnly())
@@ -241,30 +266,7 @@ class BankStatementImport extends Page implements HasTable
                     ]))
                     ->modalDescription(fn (BankTransaction $record) => $record->description)
                     ->modalSubmitActionLabel(__('Link transaction'))
-                    ->schema(fn (BankTransaction $record) => [
-                        Select::make('targets')
-                            ->label(__('What this line represents'))
-                            ->helperText(__('You can select several records, such as two invoices paid in one transfer.'))
-                            ->multiple()
-                            ->options(fn () => $this->targetOptions($record))
-                            ->searchable()
-                            ->live()
-                            ->required(),
-                        Callout::make(__('The amount differs'))
-                            ->key('amountDifference')
-                            ->description(fn (Get $get): string => __('The statement shows :amount. The selected records differ by :difference. Confirm that this is the same transaction.', [
-                                'amount' => Money::format($record->amount, locale: app()->getLocale()),
-                                'difference' => Money::format(abs($this->plannedDifference($record, $get('targets'))), locale: app()->getLocale()),
-                            ]))
-                            ->status('warning')
-                            ->icon(Phosphor::Warning)
-                            ->visible(fn (Get $get): bool => $this->plannedDifference($record, $get('targets')) !== 0),
-                        Radio::make('explanation')
-                            ->label(__('Record the difference as'))
-                            ->helperText(__('If the difference did not go through this account, leave this blank. It appears in the Business account card.'))
-                            ->options(fn (Get $get): array => $this->explanationOptions($record, $get('targets')))
-                            ->visible(fn (Get $get): bool => $this->plannedDifference($record, $get('targets')) !== 0 && $this->explanationOptions($record, $get('targets')) !== []),
-                    ])
+                    ->schema(fn (BankTransaction $record): array => $this->linkSchema($record))
                     ->action(fn (BankTransaction $record, array $data) => $this->apply(fn (ApplyBankTransaction $apply) => $apply->applyTargets(
                         $record,
                         $data['targets'],
@@ -272,7 +274,7 @@ class BankStatementImport extends Page implements HasTable
                     ))),
                 Action::make('createIncome')
                     ->label(__('Create income'))
-                    ->icon(Phosphor::Gift)
+                    ->size('sm')
                     ->color('gray')
                     ->visible(fn (BankTransaction $record) => $record->status === BankTransactionStatus::Pending && $record->is_credit)
                     ->disabled(fn () => CurrentAccount::readOnly())
@@ -293,6 +295,8 @@ class BankStatementImport extends Page implements HasTable
                     ->schema(fn (BankTransaction $record) => OneOffIncomeAction::formSchema(withDate: false, received: $record->absolute_amount))
                     ->action(fn (BankTransaction $record, array $data) => $this->apply(fn (ApplyBankTransaction $apply) => $apply->createOneOffIncome($record, $data))),
                 PlatformPayoutAction::make()
+                    ->icon(null)
+                    ->size('sm')
                     ->action(fn (BankTransaction $record, array $data, Action $action) => $this->apply(
                         fn (ApplyBankTransaction $apply) => $apply->createPlatformPayouts(
                             $record,
@@ -302,7 +306,7 @@ class BankStatementImport extends Page implements HasTable
                     )),
                 Action::make('createExpense')
                     ->label(__('Create expense'))
-                    ->icon(Phosphor::Receipt)
+                    ->size('sm')
                     ->color('gray')
                     ->visible(fn (BankTransaction $record) => $record->status === BankTransactionStatus::Pending && ! $record->is_credit)
                     ->disabled(fn () => CurrentAccount::readOnly())
@@ -316,31 +320,21 @@ class BankStatementImport extends Page implements HasTable
                         'vat_rate' => '0.0000',
                     ])
                     ->schema([
-                        Select::make('supplier_id')
+                        QuickCreate::supplier(Select::make('supplier_id')
                             ->label(__('Supplier'))
                             ->options(fn () => Supplier::query()->orderBy('name')->pluck('name', 'id')->all())
                             ->searchable()
-                            ->required()
-                            ->createOptionForm([TextInput::make('name')->label(__('Name'))->required()])
-                            ->createOptionUsing(fn (array $data) => Supplier::create($data)->getKey()),
-                        Select::make('category_id')
+                            ->required()),
+                        QuickCreate::category(Select::make('category_id')
                             ->label(__('Category'))
-                            ->options(fn () => Category::query()->expense()->pluck('name', 'id')->all()),
+                            ->options(fn () => Category::query()->expense()->pluck('name', 'id')->all()), CategoryType::Expense),
                         TextInput::make('description')->label(__('Description'))->placeholder(__('E.g. ChatGPT Pro')),
                         Radio::make('kind')
                             ->label(__('Cost type'))
                             ->options(ExpenseKind::class)
-                            ->live()
                             ->required(),
-                        Select::make('project_id')
-                            ->label(__('Job'))
-                            ->options(fn () => Project::query()->orderByDesc('quoted_on')->pluck('code', 'id')->all())
-                            ->searchable()
-                            ->visible(fn (Get $get) => $get('kind') === ExpenseKind::Direct->value || $get('kind') === ExpenseKind::Direct),
-                        Select::make('retainer_id')
-                            ->label(__('Retainer'))
-                            ->options(fn () => Retainer::query()->orderBy('code')->pluck('code', 'id')->all())
-                            ->visible(fn (Get $get) => $get('kind') === ExpenseKind::Direct->value || $get('kind') === ExpenseKind::Direct),
+                        $this->directCostTarget('project_id', __('Job'), Project::query()->orderByDesc('quoted_on')),
+                        $this->directCostTarget('retainer_id', __('Retainer'), Retainer::query()->orderBy('code')),
                         ToggleButtons::make('vat_rate')
                             ->label(__('VAT included in the amount'))
                             ->options(Money::vatOptions())
@@ -354,19 +348,16 @@ class BankStatementImport extends Page implements HasTable
                     ]))),
                 Action::make('ownTransfer')
                     ->label(__('Transfer between my accounts'))
-                    ->icon(Phosphor::ArrowsLeftRight)
+                    ->size('sm')
                     ->color('gray')
-                    ->iconButton()
                     ->tooltip(__('Transfer between my accounts: money moved between your own accounts, excluded from income and expenses'))
                     ->visible(fn (BankTransaction $record) => $record->status === BankTransactionStatus::Pending)
                     ->disabled(fn () => CurrentAccount::readOnly())
                     ->action(fn (BankTransaction $record) => $this->apply(fn (ApplyBankTransaction $apply) => $apply->markOwnTransfer($record))),
                 Action::make('details')
                     ->label(__('View details'))
-                    ->icon(Phosphor::Eye)
+                    ->size('sm')
                     ->color('gray')
-                    ->iconButton()
-                    ->tooltip(__('View details'))
                     ->visible(fn (BankTransaction $record) => $record->platform_payout_history_id !== null
                         || in_array($record->status, [BankTransactionStatus::Matched, BankTransactionStatus::OwnTransfer], true))
                     ->modalHeading(__('Bank statement line details'))
@@ -376,7 +367,7 @@ class BankStatementImport extends Page implements HasTable
                     ->modalCancelActionLabel(__('Close')),
                 Action::make('undo')
                     ->label(__('Reprocess'))
-                    ->icon(Phosphor::ArrowCounterClockwise)
+                    ->size('sm')
                     ->color('gray')
                     ->visible(fn (BankTransaction $record) => $record->status !== BankTransactionStatus::Pending)
                     ->disabled(fn () => CurrentAccount::readOnly())
@@ -398,9 +389,8 @@ class BankStatementImport extends Page implements HasTable
                     }),
                 Action::make('ignore')
                     ->label(__('Ignore'))
-                    ->icon(Phosphor::EyeSlash)
+                    ->size('sm')
                     ->color('gray')
-                    ->iconButton()
                     ->tooltip(__('Ignore this line (e.g. a transfer between accounts)'))
                     ->visible(fn (BankTransaction $record) => $record->status === BankTransactionStatus::Pending)
                     ->disabled(fn () => CurrentAccount::readOnly())
@@ -409,41 +399,16 @@ class BankStatementImport extends Page implements HasTable
                         Notification::make()->title(__('Line ignored'))->send();
                     }),
             ])
+            // As in the mock: one button for every line whose suggestion is sure, no selection needed.
             ->toolbarActions([
-                BulkAction::make('acceptSuggestions')
-                    ->label(__('Accept suggestions'))
-                    ->icon(Phosphor::Checks)
-                    ->color('success')
-                    ->deselectRecordsAfterCompletion()
+                Action::make('acceptSuggestions')
+                    ->label(fn (): string => trans_choice('{1} Accept the right suggestion|[2,*] Accept the :count right suggestions', $this->sureSuggestionCount()))
+                    ->icon(Phosphor::Check)
+                    ->color('gray')
+                    ->size('sm')
+                    ->visible(fn (): bool => $this->activeTab === 'pending' && $this->sureSuggestionCount() > 0)
                     ->disabled(fn () => CurrentAccount::readOnly())
-                    ->action(function (Collection $records): void {
-                        $done = 0;
-                        $skipped = 0;
-
-                        foreach ($records as $record) {
-                            $best = $record->status === BankTransactionStatus::Pending ? $this->suggestionFor($record)->best() : null;
-
-                            if ($best === null) {
-                                $skipped++;
-
-                                continue;
-                            }
-
-                            try {
-                                app(ApplyBankTransaction::class)->accept($record, $best);
-                                $done++;
-                                $this->forget($record);
-                            } catch (DomainException) {
-                                $skipped++;
-                            }
-                        }
-
-                        Notification::make()
-                            ->title(trans_choice('{1} :count line processed|[0,*] :count lines processed', $done))
-                            ->body($skipped > 0 ? trans_choice('{1} :count line without a reliable suggestion was left unprocessed.|[2,*] :count lines without a reliable suggestion were left unprocessed.', $skipped) : null)
-                            ->success()
-                            ->send();
-                    }),
+                    ->action(fn () => $this->acceptSureSuggestions(BankTransaction::pending()->get())),
             ])
             ->emptyStateHeading(fn () => $this->activeTab === 'pending' ? __('Nothing to process') : __('No lines'))
             ->emptyStateDescription(fn () => $this->activeTab === 'pending' ? __('Upload a CSV or Excel bank statement to get started.') : null)
@@ -703,6 +668,65 @@ class BankStatementImport extends Page implements HasTable
         return $this->suggestions[$record->getKey()] ??= app(MatchBankTransactions::class)->for($record);
     }
 
+    /**
+     * The search box finds a line by its description or by its amount ("61,50", "400"), with
+     * or without the sign.
+     */
+    private function searchLines(Builder $query, string $search): Builder
+    {
+        $amount = preg_match('/\A[+−-]?\s*\d{1,9}(?:[.,]\d{1,2})?\s*€?\z/u', trim($search)) === 1
+            ? (int) round((float) str_replace(',', '.', preg_replace('/[^0-9.,]/', '', $search)) * 100)
+            : null;
+
+        return $query->where(fn (Builder $query) => $query
+            ->where('description', 'like', "%{$search}%")
+            ->when($amount !== null, fn (Builder $query) => $query->orWhereIn('amount', [$amount, -$amount])));
+    }
+
+    /** How many unprocessed lines have one clear suggestion, for "Aceitar as N sugestões certas". */
+    private function sureSuggestionCount(): int
+    {
+        return BankTransaction::pending()->get()
+            ->filter(fn (BankTransaction $record): bool => $this->suggestionFor($record)->best() !== null)
+            ->count();
+    }
+
+    /**
+     * Accepts the clear suggestion of each line; lines without one, or whose suggestion no
+     * longer applies, are left unprocessed and counted in the notification.
+     *
+     * @param  iterable<BankTransaction>  $records
+     */
+    private function acceptSureSuggestions(iterable $records): void
+    {
+        $done = 0;
+        $skipped = 0;
+
+        foreach ($records as $record) {
+            $best = $record->status === BankTransactionStatus::Pending ? $this->suggestionFor($record)->best() : null;
+
+            if ($best === null) {
+                $skipped++;
+
+                continue;
+            }
+
+            try {
+                app(ApplyBankTransaction::class)->accept($record, $best);
+                $done++;
+                $this->forget($record);
+            } catch (DomainException) {
+                $skipped++;
+            }
+        }
+
+        Notification::make()
+            ->title(trans_choice('{1} :count line processed|[0,*] :count lines processed', $done))
+            ->body($skipped > 0 ? trans_choice('{1} :count line without a reliable suggestion was left unprocessed.|[2,*] :count lines without a reliable suggestion were left unprocessed.', $skipped) : null)
+            ->success()
+            ->send();
+    }
+
     private function forget(BankTransaction $record): void
     {
         $this->suggestions = [];
@@ -863,60 +887,118 @@ class BankStatementImport extends Page implements HasTable
         };
     }
 
-    /** @return array<string, string>|array<string, array<string, string>> */
-    private function targetOptions(BankTransaction $record): array
+    private function linkSchema(BankTransaction $record): array
     {
+        $targets = null;
+        $choices = function () use ($record, &$targets): array {
+            return $targets ??= $this->targetChoices($record);
+        };
+
+        return [
+            Select::make('targets')
+                ->label(__('What this line represents'))
+                ->helperText(__('You can select several records, such as two invoices paid in one transfer.'))
+                ->multiple()
+                ->options(fn (): array => $choices()['options'])
+                ->dynamicOptions(false)
+                ->searchable()
+                ->required(),
+            ViewField::make('explanation')
+                ->label(__('Record the difference as'))
+                ->helperText(__('If the difference did not go through this account, leave this blank. It appears in the Business account card.'))
+                ->rule(Rule::enum(DifferenceExplanation::class))
+                ->view('filament.actions.contiu-bank-match-preview')
+                ->viewData(fn (): array => [
+                    'amount' => (string) $record->amount,
+                    'targets' => $choices()['amounts'],
+                    'locale' => Language::resolve(app()->getLocale())->value,
+                    'statementAmount' => Money::format($record->amount),
+                    'explanations' => [
+                        'more' => DifferenceExplanation::optionsFor($record->is_credit, true)[0] ?? null,
+                        'less' => DifferenceExplanation::optionsFor($record->is_credit, false)[0] ?? null,
+                    ],
+                ]),
+        ];
+    }
+
+    /** @param Builder<Project>|Builder<Retainer> $query */
+    private function directCostTarget(string $name, string $label, Builder $query): Select
+    {
+        return Select::make($name)
+            ->label($label)
+            ->searchable()
+            ->getSearchResultsUsing(fn (string $search): array => (clone $query)
+                ->whereLike('code', '%'.$search.'%')->limit(50)->pluck('code', 'id')->all())
+            ->getOptionLabelUsing(fn ($value): ?string => (clone $query)->whereKey($value)->value('code'))
+            ->dehydrated(fn (Get $get): bool => in_array($get('kind'), [ExpenseKind::Direct, ExpenseKind::Direct->value], true))
+            ->visibleJs("\$get('kind') === 'direct'");
+    }
+
+    /** @return array{options: array<string, array<string, string>>, amounts: array<string, string|null>} */
+    private function targetChoices(BankTransaction $record): array
+    {
+        $amounts = [];
+        $choice = function (string $type, Payment|Expense|Receivable|RecurringExpense|Supplier $model, string $label) use (&$amounts): array {
+            $key = $type.':'.$model->getKey();
+            $amounts[$key] ??= match (true) {
+                $model instanceof Payment => (string) $model->amount,
+                $model instanceof Expense => (string) $model->total,
+                $model instanceof Receivable => (string) $model->projectedOutstanding(),
+                default => null,
+            };
+
+            return [$key => $label];
+        };
+
         $suggested = $this->suggestionFor($record)->candidates
             ->reject(fn (BankCandidate $candidate) => $candidate->type === 'own_transfer')
-            ->mapWithKeys(fn (BankCandidate $candidate) => [$candidate->key() => $candidate->label()])
+            ->mapWithKeys(fn (BankCandidate $candidate): array => $choice($candidate->type, $candidate->model, $candidate->label()))
+            ->all();
+
+        $registeredExpenses = $this->unlinkedNear(Expense::query()->where('is_paid', true)->with('supplier'), 'paid_on', $record)
+            ->mapWithKeys(fn (Expense $expense): array => $choice('paid', $expense, ($expense->paid_on ?? $expense->spent_on)->format(Language::resolve(app()->getLocale())->dateFormat()).' · '.$expense->supplier->name.' · '.$expense->description.' — '.Money::format($expense->total, locale: app()->getLocale())))
             ->all();
 
         if ($record->is_credit) {
-            $others = Receivable::query()->open()->excludingCancelled()->with(['payments', 'billable.client'])->orderBy('due_on')->get()
-                ->mapWithKeys(fn (Receivable $receivable) => ['receivable:'.$receivable->getKey() => __(':reference (:client) — :amount outstanding', [
+            $others = Receivable::query()->open()->excludingCancelled()->withOutstandingBalance()->with('billable.client')->orderBy('due_on')->get()
+                ->mapWithKeys(fn (Receivable $receivable): array => $choice('receivable', $receivable, __(':reference (:client) — :amount outstanding', [
                     'reference' => $receivable->label,
                     'client' => $receivable->client?->name ?? '—',
-                    'amount' => Money::format($receivable->outstanding, locale: app()->getLocale()),
-                ])])
+                    'amount' => Money::format($receivable->projectedOutstanding(), locale: app()->getLocale()),
+                ])))
                 ->all();
 
             $registered = $this->unlinkedNear(Payment::query()->with('receivable.billable.client'), 'paid_on', $record)
-                ->mapWithKeys(fn (Payment $payment) => ['payment:'.$payment->getKey() => $payment->paid_on->format(Language::resolve(app()->getLocale())->dateFormat()).' · '.$payment->receivableLabels().' ('.($payment->client?->name ?? '—').') — '.Money::format($payment->amount, locale: app()->getLocale())])
+                ->mapWithKeys(fn (Payment $payment): array => $choice('payment', $payment, $payment->paid_on->format(Language::resolve(app()->getLocale())->dateFormat()).' · '.$payment->receivableLabels().' ('.($payment->client?->name ?? '—').') — '.Money::format($payment->amount, locale: app()->getLocale())))
                 ->all();
 
             // A platform payout is the income minus its commission, so expenses can join a credit.
-            $expenses = $this->unlinkedNear(Expense::query()->where('is_paid', true)->with('supplier'), 'paid_on', $record)
-                ->mapWithKeys(fn (Expense $expense) => ['paid:'.$expense->getKey() => ($expense->paid_on ?? $expense->spent_on)->format(Language::resolve(app()->getLocale())->dateFormat()).' · '.$expense->supplier->name.' · '.$expense->description.' — '.Money::format($expense->total, locale: app()->getLocale())])
-                ->all();
-
-            return array_filter([
+            $options = [
                 __('Suggested') => $suggested,
                 __('All outstanding') => array_diff_key($others, $suggested),
                 __('Previously recorded payments received') => array_diff_key($registered, $suggested),
-                __('Previously recorded expenses') => array_diff_key($expenses, $suggested),
-            ]);
+                __('Previously recorded expenses') => array_diff_key($registeredExpenses, $suggested),
+            ];
+        } else {
+            $unpaid = Expense::query()->where('is_paid', false)->with('supplier')->orderBy('spent_on')->get()
+                ->mapWithKeys(fn (Expense $expense): array => $choice('expense', $expense, $expense->supplier->name.' · '.$expense->description.' — '.Money::format($expense->total, locale: app()->getLocale())))
+                ->all();
+            $templates = RecurringExpense::query()->where('is_active', true)->with('supplier')->get()
+                ->mapWithKeys(fn (RecurringExpense $template): array => $choice('template', $template, __(':supplier · :description (recurring)', [
+                    'supplier' => $template->supplier->name,
+                    'description' => $template->description ?? '',
+                ])))
+                ->all();
+
+            $options = [
+                __('Suggested') => $suggested,
+                __('Unpaid expenses') => array_diff_key($unpaid, $suggested),
+                __('New from recurring expenses') => array_diff_key($templates, $suggested),
+                __('Previously recorded expenses') => array_diff_key($registeredExpenses, $suggested),
+            ];
         }
 
-        $unpaid = Expense::query()->where('is_paid', false)->with('supplier')->orderBy('spent_on')->get()
-            ->mapWithKeys(fn (Expense $expense) => ['expense:'.$expense->getKey() => $expense->supplier->name.' · '.$expense->description.' — '.Money::format($expense->total, locale: app()->getLocale())])
-            ->all();
-        $templates = RecurringExpense::query()->where('is_active', true)->with('supplier')->get()
-            ->mapWithKeys(fn (RecurringExpense $template) => ['template:'.$template->getKey() => __(':supplier · :description (recurring)', [
-                'supplier' => $template->supplier->name,
-                'description' => $template->description ?? '',
-            ])])
-            ->all();
-
-        $registered = $this->unlinkedNear(Expense::query()->where('is_paid', true)->with('supplier'), 'paid_on', $record)
-            ->mapWithKeys(fn (Expense $expense) => ['paid:'.$expense->getKey() => ($expense->paid_on ?? $expense->spent_on)->format(Language::resolve(app()->getLocale())->dateFormat()).' · '.$expense->supplier->name.' · '.$expense->description.' — '.Money::format($expense->total, locale: app()->getLocale())])
-            ->all();
-
-        return array_filter([
-            __('Suggested') => $suggested,
-            __('Unpaid expenses') => array_diff_key($unpaid, $suggested),
-            __('New from recurring expenses') => array_diff_key($templates, $suggested),
-            __('Previously recorded expenses') => array_diff_key($registered, $suggested),
-        ]);
+        return ['options' => array_filter($options), 'amounts' => $amounts];
     }
 
     /** Days around the bank date to list registered records in "Associar…" (wider than the suggestions). */
@@ -928,9 +1010,9 @@ class BankStatementImport extends Page implements HasTable
      * @template TModel of Payment|Expense
      *
      * @param  Builder<TModel>  $query
-     * @return \Illuminate\Support\Collection<int, TModel>
+     * @return Collection<int, TModel>
      */
-    private function unlinkedNear(Builder $query, string $dateColumn, BankTransaction $record): \Illuminate\Support\Collection
+    private function unlinkedNear(Builder $query, string $dateColumn, BankTransaction $record): Collection
     {
         return $query
             ->doesntHave('bankLink')
@@ -942,34 +1024,6 @@ class BankStatementImport extends Page implements HasTable
             ->sortBy(fn (Payment|Expense $model) => abs($record->booked_on->diffInDays($model->{$dateColumn})))
             ->take(30)
             ->values();
-    }
-
-    /** @param array<int, string>|null $targets */
-    private function plannedDifference(BankTransaction $record, ?array $targets): int
-    {
-        if (blank($targets)) {
-            return 0;
-        }
-
-        try {
-            return app(ApplyBankTransaction::class)->plannedDifference($record, $targets);
-        } catch (DomainException) {
-            return 0;
-        }
-    }
-
-    /**
-     * @param  array<int, string>|null  $targets
-     * @return array<string, string>
-     */
-    private function explanationOptions(BankTransaction $record, ?array $targets): array
-    {
-        $difference = $this->plannedDifference($record, $targets);
-        $lineExceeds = ($difference > 0) === $record->is_credit;
-
-        return collect(DifferenceExplanation::optionsFor($record->is_credit, $lineExceeds))
-            ->mapWithKeys(fn (DifferenceExplanation $option) => [$option->value => $option->labelFor($record->is_credit)])
-            ->all();
     }
 
     private function undoDescription(BankTransaction $record): string

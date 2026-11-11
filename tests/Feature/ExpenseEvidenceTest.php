@@ -1,12 +1,15 @@
 <?php
 
 use App\Enums\ExpenseAttribution;
+use App\Enums\Seat;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\Expenses\Pages\CreateExpense;
 use App\Filament\Resources\Expenses\Pages\EditExpense;
 use App\Filament\Resources\Expenses\Pages\ListExpenses;
 use App\Models\Account;
 use App\Models\Expense;
+use App\Models\Project;
+use App\Models\Retainer;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Support\CurrentAccount;
@@ -239,4 +242,37 @@ it('refuses both an expense outside the route account and an inconsistent proof 
     $this->get(expenseEvidenceUrl($foreign, $this->account))->assertNotFound();
     $this->get(expenseEvidenceUrl($foreign, $other))->assertNotFound();
     $this->get(expenseEvidenceUrl($expense, $this->account))->assertNotFound();
+});
+
+it('checks deferred direct cost assignments and keeps the same VAT rounding when saving', function () {
+    actingAsAdmin();
+    $supplier = Supplier::factory()->create(['seat' => Seat::EuropeanUnion]);
+    $project = Project::factory()->create();
+    $retainer = Retainer::factory()->create();
+
+    Livewire::test(CreateExpense::class)
+        ->fillForm([
+            'supplier_id' => $supplier->id,
+            'description' => 'Cost assigned directly',
+            'net_amount' => '0.50',
+            'vat_rate' => '0.2300',
+            'kind' => 'direct',
+            'project_id' => $project->id,
+            'retainer_id' => $retainer->id,
+            'is_goods' => true,
+            'is_paid' => false,
+        ])
+        ->call('create')
+        ->assertHasFormErrors(['project_id' => 'prohibits'])
+        ->set('data.retainer_id', null)
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    $expense = Expense::sole();
+    expect($expense->project_id)->toBe($project->id)
+        ->and($expense->retainer_id)->toBeNull()
+        ->and($expense->is_goods)->toBeTrue()
+        ->and($expense->paid_on)->toBeNull()
+        ->and($expense->net_amount)->toBe(50)
+        ->and($expense->total)->toBe(62);
 });

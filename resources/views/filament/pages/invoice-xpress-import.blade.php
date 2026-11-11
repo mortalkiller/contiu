@@ -9,7 +9,7 @@
             @php
                 [$beforeConfiguration, $afterConfiguration] = explode(':configuration', __('Set up the InvoiceXpress connection in :configuration to look up documents.'), 2);
             @endphp
-            <p class="text-sm text-gray-600 dark:text-gray-400">{{ $beforeConfiguration }}<x-filament::link :href="\App\Filament\Pages\InvoiceXpressSettingsPage::getUrl()">{{ __('Configuration') }}</x-filament::link>{{ $afterConfiguration }}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400">{{ $beforeConfiguration }}<x-filament::link :href="\App\Filament\Pages\IntegrationsPage::getUrl()">{{ __('Integrations') }}</x-filament::link>{{ $afterConfiguration }}</p>
         @else
             <p class="text-sm text-gray-600 dark:text-gray-400">
                 {{ __('Account :account. Select up to 366 days and confirm each document you want to record in Contiu.', ['account' => $this->configuredSubdomain]) }}
@@ -20,17 +20,17 @@
                     <div class="space-y-1">
                         <label for="ix-from" class="block text-sm font-medium">{{ __('Start date') }}</label>
                         <x-filament::input.wrapper>
-                            <x-filament::input type="date" id="ix-from" wire:model.live="from" required />
+                            <x-filament::input type="date" id="ix-from" wire:model="from" required />
                         </x-filament::input.wrapper>
                     </div>
                     <div class="space-y-1">
                         <label for="ix-to" class="block text-sm font-medium">{{ __('End date') }}</label>
                         <x-filament::input.wrapper>
-                            <x-filament::input type="date" id="ix-to" wire:model.live="to" required />
+                            <x-filament::input type="date" id="ix-to" wire:model="to" required />
                         </x-filament::input.wrapper>
                     </div>
                     <label class="flex items-center gap-2 py-2 text-sm">
-                        <x-filament::input.checkbox wire:model.live="archived" />
+                        <x-filament::input.checkbox wire:model="archived" />
                         {{ __('Include archived') }}
                     </label>
                     <x-filament::button type="submit" wire:loading.attr="disabled">{{ __('Look up') }}</x-filament::button>
@@ -45,6 +45,18 @@
     </x-filament::section>
 
     @if ($previewScope !== null)
+    <div
+        wire:key="ix-import-review-{{ $previewScope['id'] ?? $previewScope['page'] }}"
+        x-data="{
+            reviewedFilters: @js($reviewedFilters),
+            get reviewIsCurrent() {
+                return Object.entries(this.reviewedFilters).every(([field, value]) => this.$wire[field] === value)
+            },
+        }"
+        x-show="reviewIsCurrent"
+        x-bind:inert="!reviewIsCurrent"
+        class="space-y-6"
+    >
         @include('filament.pages.partials.tax-summary', ['stats' => $summary, 'notice' => null])
 
         <x-filament::section :heading="__('Review documents')">
@@ -157,5 +169,6 @@
                 <p class="mt-3 text-sm text-gray-600 dark:text-gray-400">{{ __('Narrow the date range to access results beyond the first 25 pages.') }}</p>
             @endif
         </x-filament::section>
+    </div>
     @endif
 </x-filament-panels::page>

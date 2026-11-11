@@ -6,6 +6,7 @@ use App\Enums\FiscalDocumentDirection;
 use App\Enums\FiscalDocumentStatus;
 use App\Enums\FiscalDocumentType;
 use App\Enums\FiscalProfilePartyType;
+use App\Enums\PortugueseVatRegion;
 use App\Exceptions\InvoiceXpressException;
 use App\Models\Account;
 use App\Models\Client;
@@ -73,7 +74,8 @@ final class InvoiceXpressIssue
     {
         $subdomain = InvoiceXpressConfig::current()?->subdomain;
 
-        return $subdomain !== null && InvoiceXpressClient::catalogValidatedFor($subdomain);
+        return $subdomain !== null && $subdomain !== config('services.invoicexpress.sandbox_draft_account')
+            && InvoiceXpressClient::catalogValidatedFor($subdomain);
     }
 
     public static function canWriteWithholding(): bool
@@ -106,21 +108,25 @@ final class InvoiceXpressIssue
         ?array $direct = null,
         ?string $euOperationOn = null,
         int $withholdingBasisPoints = 0,
+        ?array $domesticVat = null,
     ): array {
         abort_unless(self::options() !== null, 403);
 
-        return DB::transaction(function () use ($receivableId, $customerId, $itemId, $quantity, $additionalLines, $documentType, $exemptionReason, $discountBasisPoints, $direct, $euOperationOn, $withholdingBasisPoints): array {
+        return DB::transaction(function () use ($receivableId, $customerId, $itemId, $quantity, $additionalLines, $documentType, $exemptionReason, $discountBasisPoints, $direct, $euOperationOn, $withholdingBasisPoints, $domesticVat): array {
             Account::query()->lockForUpdate()->findOrFail(CurrentAccount::id());
             $snapshot = $this->snapshot($receivableId, $customerId, $itemId, $quantity, $additionalLines, $documentType, $exemptionReason,
-                allowAdvancePreview: true, discountBasisPoints: $discountBasisPoints, direct: $direct, euOperationOn: $euOperationOn, withholdingBasisPoints: $withholdingBasisPoints);
+                allowAdvancePreview: true, discountBasisPoints: $discountBasisPoints, direct: $direct, euOperationOn: $euOperationOn, withholdingBasisPoints: $withholdingBasisPoints, domesticVat: $domesticVat);
 
-            return isset($snapshot['advanceSettlement']) ? $snapshot : [...$snapshot, 'revision' => $this->revision($snapshot)];
+            return isset($snapshot['invoice']) ? [...$snapshot, 'revision' => $this->revision($snapshot)] : $snapshot;
         });
     }
 
-    public function createDraft(array $inputs, string $revision, InvoiceXpressSandboxDrafts $drafts): int
+    public function createDraft(array $inputs, string $revision, InvoiceXpressSandboxDrafts $drafts, ?array $domesticVat = null): int
     {
         abort_unless(self::options()['draftOnly'] ?? false, 403);
+        if ($domesticVat !== null) {
+            $inputs['domesticVat'] = $domesticVat;
+        }
         $snapshot = $this->preview(...$inputs);
         if (! isset($snapshot['revision'], $snapshot['draftAccount']) || ! hash_equals($snapshot['revision'], $revision)) {
             throw ValidationException::withMessages(['confirmation' => __('The details have changed. Preview the document again.')]);
@@ -128,8 +134,54 @@ final class InvoiceXpressIssue
 
         $itemIds = array_map(fn (array $line): int => $line['item']['id'], $snapshot['lines'] ?? [['item' => $snapshot['item']]]);
 
-        return $drafts->create($snapshot['draftAccount'], $snapshot['documentType'] ?? 'invoice',
-            $this->providerInvoice($snapshot['invoice']), $itemIds, $revision, $snapshot['totals'], $snapshot['withholding'] ?? null);
+        $type = $snapshot['documentType'] ?? 'invoice';
+        $account = $snapshot['draftAccount'];
+        $verifiedTax = isset($snapshot['domesticVat']) ? $snapshot['tax'] : null;
+        $id = $drafts->create($account, $type, $this->providerInvoice($snapshot['invoice']), $itemIds,
+            $revision, $snapshot['totals'], $snapshot['withholding'] ?? null, verifiedTax: $verifiedTax);
+
+        if ($verifiedTax !== null) {
+            $document = $this->client->request('GET', "/{$type}s/{$id}.json", expectedSubdomain: $account)[$type] ?? null;
+            if (! is_array($document) || InvoiceXpressIssueTerms::positiveId($document['id'] ?? null) !== $id
+                || ($document['status'] ?? null) !== 'draft' || ($document['archived'] ?? false) !== false
+                || ! $this->matchesSandboxDraft($snapshot, $document, $snapshot['invoice']['reference'])) {
+                throw new InvoiceXpressException(__('The InvoiceXpress draft could not be verified. Check it in the sandbox.'));
+            }
+        }
+
+        return $id;
+    }
+
+    public function matchesSandboxDraft(array $snapshot, array $document, string $reference): bool
+    {
+        $invoice = $snapshot['invoice'];
+        $customer = $document['client'] ?? null;
+        if (! is_array($customer)) {
+            return false;
+        }
+
+        try {
+            $customer = isset($snapshot['euService'])
+                ? InvoiceXpressEuService::customer($customer, $snapshot['customer']['id'], $snapshot['euService'])
+                : InvoiceXpressSandboxDrafts::customer($customer, $snapshot['customer']['id']);
+        } catch (ValidationException) {
+            return false;
+        }
+
+        return $customer === $snapshot['customer']
+            && ($document['type'] ?? null) === (($snapshot['documentType'] ?? 'invoice') === 'invoice_receipt' ? 'InvoiceReceipt' : 'Invoice')
+            && (! array_key_exists('sequence_id', $document) || InvoiceXpressIssueTerms::positiveId($document['sequence_id']) === $snapshot['sequence']['id'])
+            && in_array($document['currency'] ?? null, ['EUR', 'Euro'], true)
+            && ($document['date'] ?? null) === $invoice['date']
+            && ($document['due_date'] ?? null) === $invoice['due_date']
+            && ($document['reference'] ?? null) === $reference
+            && ($document['observations'] ?? '') === ($invoice['observations'] ?? '')
+            && InvoiceXpressIssueTerms::matchesAmounts($document, $snapshot['totals'], $snapshot['withholding'] ?? null)
+            && InvoiceXpressIssueTerms::matchesDocumentDiscount($document, $snapshot['totals']['discount'] ?? 0)
+            && in_array($document['tax_exemption'] ?? null, isset($invoice['tax_exemption_reason'])
+                ? [$invoice['tax_exemption_reason']]
+                : [null, '', 'M00'], true)
+            && $this->matchesLines($document['items'] ?? null, $snapshot, $snapshot['tax']);
     }
 
     public function confirm(
@@ -145,17 +197,18 @@ final class InvoiceXpressIssue
         ?array $direct = null,
         ?string $euOperationOn = null,
         int $withholdingBasisPoints = 0,
+        ?array $domesticVat = null,
     ): InvoiceXpressIssueAttempt {
         abort_unless(self::options() !== null, 403);
 
-        $attempt = DB::transaction(function () use ($receivableId, $customerId, $itemId, $quantity, $revision, $additionalLines, $documentType, $exemptionReason, $discountBasisPoints, $direct, $euOperationOn, $withholdingBasisPoints): InvoiceXpressIssueAttempt {
+        $attempt = DB::transaction(function () use ($receivableId, $customerId, $itemId, $quantity, $revision, $additionalLines, $documentType, $exemptionReason, $discountBasisPoints, $direct, $euOperationOn, $withholdingBasisPoints, $domesticVat): InvoiceXpressIssueAttempt {
             Account::query()->lockForUpdate()->findOrFail(CurrentAccount::id());
             if (self::options()['draftOnly'] ?? false) {
                 throw ValidationException::withMessages(['confirmation' => __('The selected series only allows draft creation.')]);
             }
             $this->requireCatalogValidation($withholdingBasisPoints);
             $snapshot = $this->snapshot($receivableId, $customerId, $itemId, $quantity, $additionalLines, $documentType, $exemptionReason,
-                discountBasisPoints: $discountBasisPoints, direct: $direct, euOperationOn: $euOperationOn, withholdingBasisPoints: $withholdingBasisPoints);
+                discountBasisPoints: $discountBasisPoints, direct: $direct, euOperationOn: $euOperationOn, withholdingBasisPoints: $withholdingBasisPoints, domesticVat: $domesticVat);
 
             if (! hash_equals($this->revision($snapshot), $revision)) {
                 throw ValidationException::withMessages(['confirmation' => __('The details have changed. Preview the document again before confirming.')]);
@@ -297,6 +350,7 @@ final class InvoiceXpressIssue
         ?array $direct = null,
         ?string $euOperationOn = null,
         int $withholdingBasisPoints = 0,
+        ?array $domesticVat = null,
     ): array {
         $options = self::options($forNewIssue);
         if ($options === null) {
@@ -330,13 +384,24 @@ final class InvoiceXpressIssue
         $receivable = $direct === null ? Receivable::query()->excludingCancelled()->lockForUpdate()->with('billable.client')->find($receivableId) : null;
         $billable = $receivable?->billable;
         $localClient = $direct === null ? $receivable?->client : Client::query()->lockForUpdate()->find($direct['clientId']);
-        $rate = match ($billable?->vat_rate) {
-            '0.0000' => 0,
-            '0.0600' => 600,
-            '0.1300' => 1300,
-            '0.2300' => 2300,
-            default => null,
-        };
+        $rate = InvoiceXpressIssueTerms::vatBasisPoints($billable?->vat_rate);
+        $region = PortugueseVatRegion::Mainland;
+        $category = null;
+        if ($domesticVat !== null) {
+            $selectionRegion = is_string($domesticVat['region'] ?? null) ? PortugueseVatRegion::tryFrom($domesticVat['region']) : null;
+            $category = $domesticVat['category'] ?? null;
+            $selectedRate = $selectionRegion !== null && is_string($category) ? $selectionRegion->basisPoints($category) : null;
+            if (count($domesticVat) !== 2 || $selectedRate === null || $euOperationOn !== null || $exemptionReason !== null) {
+                throw ValidationException::withMessages(['vatRegion' => __('Choose a VAT region and rate category for a taxable domestic transaction.')]);
+            }
+            if ($receivable !== null && $rate !== $selectedRate) {
+                throw ValidationException::withMessages(['vatCategory' => __('The selected VAT rate must match the receivable VAT rate.')]);
+            }
+
+            $region = $selectionRegion;
+            $rate = $selectedRate;
+            $domesticVat = ['region' => $region->value, 'category' => $category];
+        }
 
         if ($localClient === null || ($direct === null && (! ($billable instanceof Project || $billable instanceof Retainer)
             || $rate === null || (! $receipt && ($receivable->due_on === null || $receivable->due_on->lt($issueOn)))))) {
@@ -390,7 +455,13 @@ final class InvoiceXpressIssue
             throw ValidationException::withMessages(['advanceSettlement' => __('Check the existing issuance attempt before preparing the advance settlement.')]);
         }
 
-        $taxName = $options['taxName'];
+        $taxName = $domesticVat === null
+            ? $options['taxName']
+            : (InvoiceXpressIssueSettings::regionalTaxName($region, $category)
+                ?? ($region === PortugueseVatRegion::Mainland ? $options['taxName'] : null));
+        if ($domesticVat !== null && (! is_string($taxName) || $taxName === '')) {
+            throw ValidationException::withMessages(['tax' => __('Configure the InvoiceXpress tax for the selected VAT region and category.')]);
+        }
         $firstItem = null;
         if ($eu !== null || $rate === null) {
             $firstId = $selection[0]['itemId'];
@@ -401,7 +472,7 @@ final class InvoiceXpressIssue
             $rate ??= InvoiceXpressIssueTerms::hundredths(data_get($firstItem, 'tax.value'));
         }
 
-        if (! is_string($taxName) || $taxName === '' || ! in_array($rate, [0, 600, 1300, 2300], true)) {
+        if (! is_string($taxName) || $taxName === '' || ($rate !== 0 && ($rate === null || $region->categoryFor($rate) === null))) {
             throw ValidationException::withMessages(['tax' => __('Choose an item with a supported VAT rate.')]);
         }
 
@@ -415,15 +486,26 @@ final class InvoiceXpressIssue
             }
         }
 
-        $advance = $advances->isEmpty() ? null : InvoiceXpressIssueAdvance::source($receivable, $advances->first(), $rate, $issueOn->toDateString());
+        if ($advances->isNotEmpty()) {
+            $advance = InvoiceXpressIssueAdvance::source($receivable, $advances->first(), $rate, $issueOn->toDateString());
+            if ($domesticVat !== null) {
+                $advanceTaxLines = $advance->invoiceXpressSnapshot?->source['tax_lines'] ?? [];
+                $advanceRegions = array_column(array_column($advanceTaxLines, 'tax'), 'region');
+                if (array_diff($advanceRegions, [$region->value]) !== []
+                    || ($rate === 400 && ($advanceRegions === [] || count($advanceRegions) !== count($advanceTaxLines)))) {
+                    throw ValidationException::withMessages(['advanceSettlement' => __('Confirm that the advance invoice uses the same VAT region.')]);
+                }
+            }
+        }
+
         $payment = $receipt && ! $draftOnly && $withholdingBasisPoints === 0 ? $this->receiptPayment($receivable, $issueOn->toDateString(), $existing?->fiscal_document_id) : null;
         $remoteCustomer = $this->envelope($this->client->request('GET', "/clients/{$customerId}.json"), 'client');
         $customer = match (true) {
             $eu !== null => InvoiceXpressEuService::customer($remoteCustomer, $customerId, $eu),
-            $draftOnly => InvoiceXpressSandboxDrafts::customer($remoteCustomer, $customerId),
+            $draftOnly && $advances->isEmpty() => InvoiceXpressSandboxDrafts::customer($remoteCustomer, $customerId),
             default => InvoiceXpressIssueTerms::customer($remoteCustomer, $customerId, $localClient->vat_number),
         };
-        $tax = InvoiceXpressIssueTerms::tax($this->envelope($this->client->request('GET', '/taxes.json'), 'taxes'), $taxName, 'PT', $rate, draftOnly: $draftOnly);
+        $tax = InvoiceXpressIssueTerms::tax($this->envelope($this->client->request('GET', '/taxes.json'), 'taxes'), $taxName, $region->value, $rate, draftOnly: $draftOnly);
 
         $totals = ['net' => 0, 'tax' => 0, 'total' => 0];
         $lines = [];
@@ -436,9 +518,7 @@ final class InvoiceXpressIssue
             $remoteItem = $index === 0 && $firstItem !== null ? $firstItem : $this->envelope($this->client->request('GET', "/items/{$id}.json"), 'item');
             $item = InvoiceXpressIssueTerms::item($remoteItem, $id);
 
-            if (data_get($remoteItem, 'tax.name') !== $tax['name']
-                || (data_get($remoteItem, 'tax.id') !== null && InvoiceXpressIssueTerms::positiveId(data_get($remoteItem, 'tax.id')) !== $tax['id'])
-                || InvoiceXpressIssueTerms::hundredths(data_get($remoteItem, 'tax.value')) !== $rate) {
+            if (! InvoiceXpressIssueTerms::matchesItemTax($remoteItem['tax'] ?? null, $tax)) {
                 throw ValidationException::withMessages(['item' => __('Each approved item must already have the same VAT rate configured for issuance.')]);
             }
 
@@ -468,21 +548,18 @@ final class InvoiceXpressIssue
             throw ValidationException::withMessages(['quantity' => __('The line total including VAT must match the receivable amount.')]);
         }
 
-        if ($advance !== null) {
-            $settlement = InvoiceXpressIssueAdvance::amounts($advance, $totals, $rate);
-            $cash = $advances->first()->amount;
-            if ($cash < $advance->total_amount) {
-                $settlement['received'] = ['cash' => $cash, 'retained' => $advance->total_amount - $cash];
-            }
-            $withholding = InvoiceXpressIssueTerms::withholding($withholdingBasisPoints, $settlement['balance']['net'], $settlement['balance']['total']);
-
+        $settlement = $advances->isEmpty() ? null : InvoiceXpressIssueAdvance::plan(
+            $receivable, $advances->first(), $totals, $rate, $issueOn->toDateString(), $withholdingBasisPoints,
+        );
+        if ($settlement !== null && ! $draftOnly) {
             return [
                 'customer' => $customer,
                 'tax' => $tax,
+                ...($domesticVat === null ? [] : ['domesticVat' => $domesticVat]),
                 'lines' => $lines,
                 'totals' => $totals,
                 'advanceSettlement' => $settlement,
-                ...($withholding === null ? [] : ['withholding' => $withholding]),
+                ...($settlement['remainingWithholding'] === null ? [] : ['withholding' => $settlement['remainingWithholding']]),
             ];
         }
 
@@ -512,6 +589,7 @@ final class InvoiceXpressIssue
             'customer' => $customer,
             'item' => $lines[0]['item'],
             'tax' => $tax,
+            ...($domesticVat === null ? [] : ['domesticVat' => $domesticVat]),
             'sequence' => $sequence,
             'totals' => $totals,
             'invoice' => [
@@ -526,8 +604,10 @@ final class InvoiceXpressIssue
                 ...($withholding === null ? [] : ['retention_basis_points' => $withholding['basisPoints']]),
                 ...($exemptionReason === null ? [] : ['tax_exemption_reason' => $exemptionReason]),
                 ...($eu === null ? [] : ['observations' => 'Data da prestação do serviço: '.CarbonImmutable::parse($euOperationOn)->format('d/m/Y').'.']),
+                ...($settlement === null ? [] : ['observations' => "Adiantamento a regularizar: {$settlement['reference']} de {$settlement['date']}."]),
             ],
-            ...($documentType !== 'invoice' || count($lines) > 1 ? ['documentType' => $documentType, 'lines' => $lines] : []),
+            ...($settlement === null ? [] : ['advanceSettlement' => $settlement]),
+            ...($documentType !== 'invoice' || count($lines) > 1 || $settlement !== null ? ['documentType' => $documentType, 'lines' => $lines] : []),
             ...($payment === null ? [] : ['payment' => $payment]),
             ...($withholding === null ? [] : ['withholding' => $withholding]),
         ];
@@ -592,6 +672,7 @@ final class InvoiceXpressIssue
                 direct: $snapshot['direct'] ?? null,
                 euOperationOn: $snapshot['euOperationOn'] ?? null,
                 withholdingBasisPoints: $snapshot['withholding']['basisPoints'] ?? 0,
+                domesticVat: $snapshot['domesticVat'] ?? null,
             );
 
             return $snapshot === $current || $snapshot === $this->withLegacyInvoice($current);
@@ -607,7 +688,7 @@ final class InvoiceXpressIssue
         return $snapshot;
     }
 
-    private function providerInvoice(array $invoice): array
+    public function providerInvoice(array $invoice): array
     {
         if (isset($invoice['retention_basis_points'])) {
             $rate = $invoice['retention_basis_points'];
@@ -785,7 +866,11 @@ final class InvoiceXpressIssue
             }
         }
 
-        $record = $this->documents->confirmInvoice($review['invoice'], expectedSubdomain: $subdomain);
+        $record = $this->documents->confirmInvoice(
+            $review['invoice'],
+            expectedSubdomain: $subdomain,
+            verifiedLineTax: isset($snapshot['domesticVat']) ? $snapshot['tax'] : [],
+        );
         $local = $record->attributesToArray();
         $local['document_date'] = $record->document_date->toDateString();
         foreach ($review['after'] as $field => $value) {

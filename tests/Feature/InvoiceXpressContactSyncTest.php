@@ -56,6 +56,12 @@ it('creates then updates one remote client without opening document writes', fun
     $local = Client::factory()->create([
         'vat_number' => 'PT508025338', 'fiscal_country_code' => 'PT', 'notes' => 'Nota privada', 'email' => 'existente@example.com',
     ]);
+    $local->structuredAddress()->create([
+        'country_code' => 'PT',
+        'street' => 'Rua do Teste',
+        'postal_code' => '9500-001',
+        'locality' => 'Ponta Delgada',
+    ]);
     $remote = null;
     Http::fake(function (Request $request) use (&$remote) {
         $path = parse_url($request->url(), PHP_URL_PATH);
@@ -81,12 +87,20 @@ it('creates then updates one remote client without opening document writes', fun
     Livewire::test(EditClient::class, ['record' => $local->getRouteKey()])
         ->callAction('syncInvoiceXpressClient', ['direction' => 'push'])->assertHasNoActionErrors();
     $local->update(['name' => 'Novo nome', 'email' => null, 'language' => 'en-US']);
+    $local->structuredAddress()->firstOrFail()->update([
+        'street' => 'Nova rua sem localidade',
+        'postal_code' => null,
+        'locality' => null,
+    ]);
     $sync = app(InvoiceXpressContactSync::class);
     expect($sync->push($local->id))->toBe(12)
         ->and($sync->push($local->id))->toBe(12)
         ->and($remote['name'])->toBe('Novo nome')
         ->and($remote['email'])->toBe('existente@example.com')
         ->and($remote['language'])->toBe('en')
+        ->and($remote['address'])->toBe('Rua do Teste')
+        ->and($remote['postal_code'])->toBe('9500-001')
+        ->and($remote['city'])->toBe('Ponta Delgada')
         ->and($remote)->not->toHaveKeys(['notes', 'observations']);
     expect(Http::recorded(fn (Request $request): bool => $request->method() === 'POST'))->toHaveCount(1)
         ->and(Http::recorded(fn (Request $request): bool => $request->method() === 'PUT'))->toHaveCount(1);

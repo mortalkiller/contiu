@@ -6,6 +6,8 @@ use App\Filament\Pages\SocialSecurity;
 use App\Filament\Pages\TaxEstimate;
 use App\Filament\Pages\VatReviewPage;
 use App\Filament\Pages\WithholdingReviewPage;
+use App\Support\FinanceSettings;
+use Carbon\CarbonImmutable;
 use Filament\Navigation\NavigationItem;
 
 pest()->group('ui', 'fiscal');
@@ -37,4 +39,15 @@ it('marks the tab of the page that is open', function () {
         ->all();
 
     expect($active)->toBe(['Segurança Social']);
+});
+
+it('counts the late Social Security obligations on its tab', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-11-10'));
+    app(FinanceSettings::class)->set(['activity_started_on' => '2020-01-01', 'activity_start_kind' => 'first', 'obligations_tracked_from' => '2026-10-01']);
+
+    $badges = collect(Livewire\Livewire::test(TaxEstimate::class)->instance()->getSubNavigation())
+        ->mapWithKeys(fn (NavigationItem $item): array => [(string) $item->getLabel() => $item->getBadge()]);
+
+    expect($badges['Segurança Social'])->toBe('2')
+        ->and($badges['Estimativa'])->toBeNull();
 });

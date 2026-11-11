@@ -13,7 +13,6 @@ use App\Support\Period;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Pages\Page;
-use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Support\Components\Attributes\Unexposed;
@@ -53,45 +52,58 @@ class MonthClose extends Page
         }
     }
 
+    /**
+     * "Novembro 2026. Faltam 3 itens para fechar.", as in the mock; once every transaction is
+     * dealt with, how many records still miss data, or that the month is closed.
+     */
     public function getSubheading(): string
     {
-        return Period::of($this->date()->year, $this->date()->month)->label();
+        $month = Period::of($this->date()->year, $this->date()->month)->label();
+        $data = $this->pending()['data'];
+
+        return $month.'. '.match (true) {
+            $this->pendingMovements() > 0 => trans_choice('{1} 1 item left to close.|[2,*] :count items left to close.', $this->pendingMovements()),
+            $data > 0 => __('Transactions processed').' · '.trans_choice('{1} 1 record with incomplete data|[2,*] :count records with incomplete data', $data).'.',
+            default => __('Month closed').'.',
+        };
     }
 
     #[On('month-close-updated')]
     public function refreshSummary(): void
     {
-        // Re-render the callout after something was treated in one of the tables.
+        // Re-render the subheading and the steps after something was treated in one of the tables.
     }
 
+    /**
+     * As in the mock: the previous and next month as arrows around "Mês atual", and the CSV
+     * export. The statement is reached from its step.
+     */
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('bankStatement')
-                ->label(__('Bank statement'))
-                ->icon(Phosphor::Bank)
-                ->color('gray')
-                ->visible(fn (): bool => BankStatementImport::canAccess())
-                ->url(BankStatementImport::getUrl()),
             Action::make('previousMonth')
                 ->label(__('Previous month'))
                 ->icon(Phosphor::CaretLeft)
+                ->iconButton()
+                ->tooltip(__('Previous month'))
                 ->color('gray')
                 ->action(fn () => $this->month = $this->date()->subMonthNoOverflow()->format('Y-m')),
             Action::make('currentMonth')
                 ->label(__('Current month'))
                 ->color('gray')
-                ->visible(fn () => $this->month !== today()->format('Y-m'))
+                ->disabled(fn (): bool => $this->month === today()->format('Y-m'))
                 ->action(fn () => $this->month = today()->format('Y-m')),
             Action::make('nextMonth')
                 ->label(__('Next month'))
                 ->icon(Phosphor::CaretRight)
-                ->iconPosition('after')
+                ->iconButton()
+                ->tooltip(__('Next month'))
                 ->color('gray')
                 ->action(fn () => $this->month = $this->date()->addMonthNoOverflow()->format('Y-m')),
             Action::make('exportMonthCsv')
                 ->label(__('Export CSV'))
-                ->icon(Phosphor::FileCsv)
+                ->icon(Phosphor::DownloadSimple)
+                ->color('gray')
                 ->action(fn (): StreamedResponse => app(ExportMonthCsv::class)->handle($this->review())),
         ];
     }
@@ -102,52 +114,23 @@ class MonthClose extends Page
      */
     public function content(Schema $schema): Schema
     {
+        // As in the mock: the steps, the month's figures, then what is to receive and to pay;
+        // also what came in (for its receipts) and, last, the company account at the month's end.
         return $schema->components([
-            Callout::make(fn (): string => match ($pending = $this->pendingMovements()) {
-                0 => $this->pending()['data'] === 0 ? __('Month closed') : __('Transactions processed'),
-                default => trans_choice('{1} 1 item remaining|[2,*] :count items remaining', $pending),
-            })
-                ->description(fn (): string => $this->summary())
-                ->icon(fn () => $this->pendingMovements() === 0 ? Phosphor::CheckCircle : Phosphor::ListChecks)
-                ->status(fn (): string => $this->pendingMovements() === 0 ? 'success' : 'warning'),
-            View::make('filament.pages.partials.month-close-steps')
-                ->viewData(fn (): array => ['steps' => $this->steps()]),
-            Callout::make(fn (): string => trans_choice('{1} 1 record with incomplete data|[2,*] :count records with incomplete data', $this->pending()['data']))
-                ->icon(Phosphor::ListChecks)
-                ->status('warning')
-                ->visible(fn (): bool => $this->pending()['data'] > 0),
+            View::make('filament.pages.partials.steps')
+                ->viewData(fn (): array => ['heading' => __('Still to do before closing'), 'steps' => $this->steps()]),
             ...$this->getWidgetsSchemaComponents([
                 MonthCloseStats::class,
-                CompanyAccountStats::class,
                 MonthReceivablesTable::class,
                 MonthPaymentsTable::class,
                 MonthExpensesTable::class,
+                CompanyAccountStats::class,
             ]),
         ]);
     }
 
-    /** What is left to close the month; the statement only with a bank account for the activity. */
-    private function summary(): string
-    {
-        $withStatement = BankStatementImport::canAccess();
-
-        if ($this->pendingMovements() === 0) {
-            return $withStatement
-                ? __('All payments received, expenses confirmed and statement lines processed.')
-                : __('All payments received and expenses confirmed.');
-        }
-
-        ['receivables' => $receivables, 'expenses' => $expenses, 'bank' => $bank] = $this->pending();
-
-        return implode(' · ', array_filter([
-            $receivables > 0 ? __(':count to receive', ['count' => $receivables]) : null,
-            $expenses > 0 ? trans_choice('{1} :count unpaid expense|[2,*] :count unpaid expenses', $expenses) : null,
-            $bank > 0 ? trans_choice('{1} :count statement line to process|[2,*] :count statement lines to process', $bank) : null,
-        ]));
-    }
-
     /**
-     * The same counts as the callout, one step per kind of record, in the order they are usually
+     * What is left, one step per kind of record, in the order they are usually
      * dealt with. The statement step only exists with a bank account for the activity.
      *
      * @return list<array{label: string, done: bool, state: string, url: string|null}>
@@ -179,7 +162,8 @@ class MonthClose extends Page
                 'label' => __('Recorded data'),
                 'done' => $data === 0,
                 'state' => $data === 0 ? __('All complete') : __(':count to complete', ['count' => $data]),
-                'url' => null,
+                // To the first table with records to complete, further down the page.
+                'url' => ($kind = array_key_first(array_filter($this->review()->pendingDataByKind()))) === null ? null : '#month-'.$kind,
             ],
         ];
     }

@@ -9,9 +9,7 @@ use App\Support\Money;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\HtmlString;
 use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
-use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 /**
  * Above the "A receber" list: what is still open, split by how soon it is due, and what is
@@ -25,7 +23,7 @@ class ReceivablesSummary extends StatsOverviewWidget
 
     protected function getColumns(): int|array
     {
-        return ['md' => 2, 'xl' => 4];
+        return ['md' => 3];
     }
 
     protected function getStats(): array
@@ -34,7 +32,6 @@ class ReceivablesSummary extends StatsOverviewWidget
 
         $buckets = ['overdue' => 0, 'week' => 0, 'month' => 0, 'later' => 0];
         $lateClients = [];
-        $byClient = [];
 
         foreach ($open as $receivable) {
             $bucket = match (true) {
@@ -49,14 +46,7 @@ class ReceivablesSummary extends StatsOverviewWidget
             if ($bucket === 'overdue') {
                 $lateClients[] = $receivable->billable?->client_id;
             }
-
-            $name = $receivable->client?->name ?? __('No client');
-            $byClient[$name] ??= ['open' => 0, 'overdue' => 0];
-            $byClient[$name]['open'] += $receivable->projectedOutstanding();
-            $byClient[$name]['overdue'] += $bucket === 'overdue' ? $receivable->projectedOutstanding() : 0;
         }
-
-        uasort($byClient, fn (array $a, array $b): int => $b['open'] <=> $a['open']);
 
         $lateCount = $open->filter(fn (Receivable $receivable): bool => $receivable->due_on->isBefore(today()))->count();
         $lateClientCount = count(array_unique(array_filter($lateClients)));
@@ -68,8 +58,7 @@ class ReceivablesSummary extends StatsOverviewWidget
                     ['label' => __('Within 7 days'), 'cents' => $buckets['week'], 'tone' => 'strong'],
                     ['label' => __('8 to 30 days'), 'cents' => $buckets['month'], 'tone' => 'medium'],
                     ['label' => __('Later'), 'cents' => $buckets['later'], 'tone' => 'soft'],
-                ]))
-                ->icon(Phosphor::HourglassMedium),
+                ])),
             Stat::make(__('Past due'), Money::format($buckets['overdue'], locale: app()->getLocale()))
                 ->description($lateCount === 0
                     ? __('No overdue amounts')
@@ -77,12 +66,8 @@ class ReceivablesSummary extends StatsOverviewWidget
                         'amounts' => trans_choice('{1} 1 amount|[2,*] :count amounts', $lateCount),
                         'clients' => trans_choice('{1} 1 client|[2,*] :count clients', $lateClientCount),
                     ]))
-                ->color($lateCount === 0 ? 'success' : 'danger')
-                ->icon(Phosphor::Warning),
+                ->valueColor($lateCount === 0 ? null : 'danger'),
             $this->delayStat(),
-            Stat::make(__('Who owes money'), trans_choice('{0} Nobody|{1} 1 client|[2,*] :count clients', count($byClient)))
-                ->description($byClient === [] ? __('Nothing outstanding') : $this->debtors($byClient))
-                ->icon(Phosphor::UsersThree),
         ];
     }
 
@@ -110,30 +95,13 @@ class ReceivablesSummary extends StatsOverviewWidget
 
         $average = $delays->isEmpty() ? null : (int) round($delays->avg('days'));
 
-        return Stat::make(__('Average time to pay'), $average === null ? '—' : trans_choice('{0} On the due date|{1} 1 day|[2,*] :count days', $average))
-            ->description($average === null ? __('No payments in the last 6 months') : __('After the due date · last 6 months'))
-            ->chart($average === null ? null : $byMonth)
-            ->color('primary')
-            ->icon(Phosphor::Timer);
-    }
+        $stat = Stat::make(__('Average time to pay'), $average === null ? '—' : trans_choice('{0} On the due date|{1} 1 day|[2,*] :count days', $average));
 
-    /**
-     * The three clients who owe the most, each with a bar relative to the biggest debt.
-     *
-     * @param  array<string, array{open: int, overdue: int}>  $byClient
-     */
-    private function debtors(array $byClient): HtmlString
-    {
-        $largest = max(array_column($byClient, 'open'));
-        $rows = '';
-
-        foreach (array_slice($byClient, 0, 3, true) as $name => $debt) {
-            $rows .= '<span class="contiu-debtor"><span class="contiu-debtor-head"><span>'.e($name).'</span><strong>'.e(Money::format($debt['open'], locale: app()->getLocale())).'</strong></span>'
-                .'<span class="fap-progress"><i style="width: '.round($debt['open'] / $largest * 100, 1).'%"></i></span>'
-                .($debt['overdue'] > 0 ? '<span class="contiu-debtor-late">'.e(__(':amount overdue', ['amount' => Money::format($debt['overdue'], locale: app()->getLocale())])).'</span>' : '')
-                .'</span>';
-        }
-
-        return new HtmlString('<span class="contiu-debtors">'.$rows.'</span>');
+        return $average === null
+            ? $stat->description(__('No payments in the last 6 months'))
+            // As in the mock: one bar per month, the current one in full colour.
+            : $stat->bars($byMonth, label: __('After the due date · last 6 months'), labels: collect(range(0, 5))
+                ->map(fn (int $offset): string => ucfirst($first->copy()->addMonths($offset)->locale(app()->getLocale())->translatedFormat('F')))
+                ->all(), formatValueUsing: fn (float $days): string => trans_choice('{0} On the due date|{1} 1 day|[2,*] :count days', (int) round($days)));
     }
 }

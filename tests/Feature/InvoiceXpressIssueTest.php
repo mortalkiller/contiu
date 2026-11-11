@@ -3,11 +3,13 @@
 use App\Enums\FiscalDocumentType;
 use App\Filament\Pages\InvoiceXpressIssuePage;
 use App\Models\FiscalDocument;
+use App\Models\FiscalDocumentDraft;
 use App\Models\InvoiceXpressConfig;
 use App\Models\InvoiceXpressIssueAttempt;
 use App\Models\InvoiceXpressSnapshot;
 use App\Models\Setting;
 use App\Models\User;
+use App\Support\InvoiceXpressDraftDelivery;
 use App\Support\InvoiceXpressImport;
 use App\Support\InvoiceXpressIssue;
 use Illuminate\Http\Client\Request;
@@ -227,18 +229,25 @@ it('previews each catalogue line and finalizes only an exact multi-line draft', 
 
     Livewire::test(InvoiceXpressIssuePage::class)
         ->set('receivableId', (string) $receivable->id)
-        ->set('customerId', '42')
-        ->set('itemId', '8')
-        ->set('quantity', '2')
-        ->call('addLine')
-        ->set('additionalLines.0.itemId', '12')
-        ->call('preview')
+        ->update(
+            calls: [['method' => 'preview', 'params' => []]],
+            updates: [
+                'customerId' => '42',
+                'itemId' => '8',
+                'quantity' => '2',
+                'additionalLines' => [['itemId' => '12', 'quantity' => '1', 'discount' => '']],
+            ],
+        )
         ->assertHasNoErrors()
         ->assertSee('Consultoria')
         ->assertSee('Suporte')
         ->assertSet('previewData.totals', ['net' => 30015, 'tax' => 6903, 'total' => 36918])
-        ->set('additionalLines.0.quantity', '2')
+        ->update(
+            calls: [['method' => 'confirm', 'params' => []]],
+            updates: ['additionalLines.0.quantity' => '2', 'accepted' => true],
+        )
         ->assertSet('previewData', null)
+        ->assertHasErrors('accepted')
         ->set('additionalLines.0.quantity', '1')
         ->call('preview')
         ->set('accepted', true)
@@ -254,6 +263,26 @@ it('previews each catalogue line and finalizes only an exact multi-line draft', 
     $this->assertDatabaseCount('fiscal_documents', $mismatch ? 0 : 1);
 })->with(['exact lines' => false, 'different line tax with the same document totals' => true])->group('ui');
 
+it('rejects more than ten browser-edited invoice lines before requesting a preview', function () {
+    $receivable = invoiceXpressIssueReceivable();
+    invoiceXpressIssueFake(fn () => throw new LogicException('Unexpected provider request.'));
+
+    Livewire::test(InvoiceXpressIssuePage::class)
+        ->update(
+            calls: [['method' => 'preview', 'params' => []]],
+            updates: [
+                'receivableId' => (string) $receivable->id,
+                'customerId' => '42',
+                'itemId' => '8',
+                'additionalLines' => array_fill(0, 10, ['itemId' => '8', 'quantity' => '1', 'discount' => '']),
+            ],
+        )
+        ->assertHasErrors(['additionalLines' => 'max'])
+        ->assertSet('previewData', null);
+
+    Http::assertNothingSent();
+})->group('ui');
+
 it('previews the full service, explicit advance deduction and residual VAT without preparing a provider write', function (int $advanceNet, int $advanceVat, array $balance) {
     $receivable = invoiceXpressIssueReceivable();
     $advance = invoiceXpressAllocatedAdvance($receivable, $advanceNet, $advanceVat);
@@ -268,7 +297,7 @@ it('previews the full service, explicit advance deduction and residual VAT witho
         ->call('preview')
         ->assertHasNoErrors()
         ->assertSee('FR SINAL/1')
-        ->assertSee('Ligar adiantamento')
+        ->assertSee('Nota de crédito do adiantamento')
         ->assertDontSee('Confirmar e emitir')
         ->assertSet('previewData.totals', ['net' => 30015, 'tax' => 6903, 'total' => 36918])
         ->assertSet('previewData.advanceSettlement.balance', $balance)
@@ -287,13 +316,65 @@ it('previews the full service, explicit advance deduction and residual VAT witho
     'full advance' => [30015, 6903, ['net' => 0, 'tax' => 0, 'total' => 0]],
 ])->group('ui');
 
+it('drafts the full service invoice for an advance settlement without applying the credit or duplicating cash', function () {
+    $receivable = invoiceXpressIssueReceivable();
+    $advance = invoiceXpressAllocatedAdvance($receivable);
+    config(['services.invoicexpress.catalog_safe_accounts' => [], 'services.invoicexpress.sandbox_draft_account' => 'pilot']);
+    $setting = Setting::where('key', InvoiceXpressIssue::SettingsKey)->sole();
+    $setting->update(['value' => [...$setting->value, 'draft_only' => true]]);
+    $item = ['id' => 8, 'name' => 'Consultoria', 'description' => 'Serviço', 'unit' => 'service', 'unit_price' => '100.05',
+        'tax' => ['name' => 'IVA Contiu', 'value' => 23]];
+    $remote = null;
+    Http::preventStrayRequests()->fake([
+        '*/clients/42.json?*' => Http::response(['client' => ['id' => 42, 'name' => 'Cliente Teste', 'country' => 'Portugal', 'fiscal_id' => '508025338']]),
+        '*/taxes.json?*' => Http::response(['taxes' => [['id' => 9, 'name' => 'IVA Contiu', 'region' => 'PT', 'value' => 23]]]),
+        '*/items/8.json?*' => Http::response(['item' => $item]),
+        '*/sequences/19.json?*' => Http::response(['sequence' => ['id' => 19, 'serie' => 'INVOICEXPRESSDEMO', 'current_invoice_sequence_id' => 19]]),
+        '*/invoices.json?*' => function (Request $request) use (&$remote) {
+            $remote = invoiceXpressIssueResponse(overrides: [
+                'reference' => $request['invoice']['reference'],
+                'observations' => $request['invoice']['observations'],
+            ]);
+
+            return Http::response($remote, 201);
+        },
+        '*/invoices/65.json?*' => function () use (&$remote) {
+            return Http::response($remote);
+        },
+    ]);
+
+    Livewire::test(InvoiceXpressIssuePage::class)
+        ->set('receivableId', (string) $receivable->id)
+        ->set('customerId', '42')->set('itemId', '8')->set('quantity', '3')
+        ->call('preview')->assertHasNoErrors()
+        ->assertSet('previewData.advanceSettlement.creditNote.totals.total', 12306)
+        ->assertSet('previewData.advanceSettlement.balance.total', 24612)
+        ->assertDontSee('Confirmar e emitir')
+        ->set('accepted', true)->call('confirm')->assertHasErrors('confirmation')
+        ->call('saveDraft')->assertHasNoErrors();
+
+    Http::assertNotSent(fn (Request $request): bool => $request->method() !== 'GET');
+    $draft = FiscalDocumentDraft::query()->sole();
+    expect(app(InvoiceXpressDraftDelivery::class)->send($draft->id)->remote_id)->toBe(65);
+
+    [$post] = Http::recorded(fn (Request $request): bool => $request->method() === 'POST')->sole();
+    expect($post['invoice']['observations'])->toContain($advance->number)
+        ->and($post['invoice']['items'])->toHaveCount(1)
+        ->and($post['invoice']['items'][0]['quantity'])->toBe(3)
+        ->and($receivable->fresh()->outstanding)->toBe(24612);
+    Http::assertNotSent(fn (Request $request): bool => $request->method() === 'PUT');
+    $this->assertDatabaseEmpty('credit_applications');
+    $this->assertDatabaseCount('fiscal_documents', 1);
+    $this->assertDatabaseCount('payments', 1);
+})->group('ui');
+
 describe('Issuance progress', function () {
     beforeEach(function () {
         Http::preventStrayRequests();
         $this->travelTo(now()->setDate(2026, 11, 10));
     });
 
-    it('shows the three steps of issuing an invoice with nothing done yet', function () {
+    it('shows the invoice form and empty attempt history before any document is prepared', function () {
         $owner = actingAsAdmin();
         config(['services.invoicexpress.catalog_safe_accounts' => ['pilot']]);
         InvoiceXpressConfig::store('pilot', 'fake-test-credential');
@@ -303,9 +384,8 @@ describe('Issuance progress', function () {
         ]]);
 
         Livewire::test(InvoiceXpressIssuePage::class)
-            ->assertSee('A fatura é emitida no InvoiceXpress e fica ligada à cobrança.')
-            ->assertSeeInOrder(['1. Dados do documento', 'Por preencher', '2. Confirmar emissão', 'Depois da pré-visualização', '3. Emitida', 'Ainda sem tentativas'])
-            ->assertDontSee('só se corrige com nota de crédito');
+            ->assertSeeInOrder([__('Document details'), __('Preview :document', ['document' => mb_strtolower(__('Invoice'))]), __('Issuing attempts'), __('No issuing attempts.')])
+            ->assertDontSee(__('Confirm and issue'));
 
         Http::assertNothingSent();
     })->group('ui');

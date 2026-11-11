@@ -8,8 +8,9 @@ use Filament\Support\Contracts\HasLabel;
 
 enum ExpenseKind: string implements HasColor, HasDescription, HasLabel
 {
-    case Direct = 'direct';
+    // Overhead first: it is the usual kind and the default, as the expense form shows them.
     case Overhead = 'overhead';
+    case Direct = 'direct';
 
     public function getLabel(): string
     {

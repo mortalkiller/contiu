@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources\Retainers\Schemas;
 
+use App\Enums\CategoryType;
 use App\Enums\Frequency;
 use App\Enums\Language;
 use App\Filament\Support\FinanceFields;
+use App\Filament\Support\QuickCreate;
 use App\Support\CurrentAccount;
 use App\Support\FinanceSettings;
 use Filament\Forms\Components\DatePicker;
@@ -54,10 +56,10 @@ class RetainerForm
                             ->placeholder(__('Website infrastructure'))
                             ->columnSpanFull()
                             ->required(),
-                        Select::make('category_id')
+                        QuickCreate::category(Select::make('category_id')
                             ->label(__('Category'))
                             ->relationship('category', 'name', fn (Builder $query) => $query->income())
-                            ->native(false),
+                            ->native(false), CategoryType::Income),
                     ]),
 
                 Section::make(__('Amount per period'))

@@ -1,154 +1,191 @@
 @php
+    use App\Enums\FiscalDocumentDirection;
     use App\Filament\Resources\FiscalDocuments\FiscalDocumentResource;
     use App\Support\Money;
-    use App\Support\Period;
 
-    $monthLabel = fn (int $month): string => app()->getLocale() === 'pt_PT'
-        ? Period::MONTHS[$month - 1]
-        : \Carbon\CarbonImmutable::create(2000, $month, 1)->locale(app()->getLocale())->translatedFormat('F');
+    $locale = app()->getLocale();
+    $date = $locale === 'pt_PT' ? 'd/m/Y' : 'm/d/Y';
     $balance = $review->confirmedBalance();
-    $periodLabel = $months === 3
-        ? __('Q:quarter :year', ['quarter' => $review->start->quarter, 'year' => $year])
-        : __(':month, :year', ['month' => $monthLabel($month), 'year' => $year]);
+    $statusBadge = [
+        'supported' => ['success', __('Included in the sum')],
+        'unresolved' => ['warning', __('Needs review')],
+        'excluded' => ['gray', __('Left out of the sum')],
+    ];
+    $directions = [
+        FiscalDocumentDirection::Issued->value => __('Issued documents'),
+        FiscalDocumentDirection::Received->value => __('Received documents'),
+    ];
 @endphp
 
 <x-filament-panels::page>
+    {{-- The period itself is chosen in the header; its name stays on the page for reference. --}}
+    <p class="sr-only">{{ $periodLabel }}</p>
+
     @include('filament.pages.partials.tax-summary', ['stats' => $summary, 'notice' => $summaryNotice])
 
-    <x-filament::section :heading="$periodLabel">
-        <div class="grid gap-4 sm:grid-cols-3">
-            <div class="space-y-1">
-                <label for="vat-year" class="text-sm font-medium">{{ __('Year') }}</label>
-                <x-filament::input.wrapper>
-                    <x-filament::input id="vat-year" type="number" min="1900" max="9998" wire:model.live.change="year" />
-                </x-filament::input.wrapper>
-            </div>
-            <div class="space-y-1">
-                <label for="vat-months" class="text-sm font-medium">{{ __('Frequency') }}</label>
-                <x-filament::input.wrapper>
-                    <x-filament::input.select id="vat-months" wire:model.live="months">
-                        <option value="1">{{ __('Monthly') }}</option>
-                        <option value="3">{{ __('Quarterly') }}</option>
-                    </x-filament::input.select>
-                </x-filament::input.wrapper>
-            </div>
-            <div class="space-y-1">
-                <label for="vat-month" class="text-sm font-medium">{{ $months === 3 ? __('Quarter') : __('Month') }}</label>
-                <x-filament::input.wrapper>
-                    <x-filament::input.select id="vat-month" wire:model.live="month">
-                        @if ($months === 3)
-                            @foreach ([1, 4, 7, 10] as $startMonth)
-                                <option value="{{ $startMonth }}">{{ __('Q:quarter', ['quarter' => intdiv($startMonth - 1, 3) + 1]) }}</option>
-                            @endforeach
+    {{-- As in the mock: the documents of the period, with the assessment beside them. --}}
+    <div class="grid items-start gap-6 xl:grid-cols-7">
+        <div class="xl:col-span-5">
+            <x-filament::section :heading="__('VAT shown on documents')">
+                <x-slot name="afterHeader">
+                    <x-filament::button.group role="group" :aria-label="__('Direction')">
+                        @foreach ($directions as $value => $label)
+                            <x-filament::button size="sm" :color="$direction === $value ? 'primary' : 'gray'" :outlined="$direction !== $value"
+                                wire:click="$set('direction', '{{ $value }}')" :aria-pressed="$direction === $value ? 'true' : 'false'">
+                                {{ $label }}
+                            </x-filament::button>
+                        @endforeach
+                    </x-filament::button.group>
+                </x-slot>
+
+                @foreach (array_intersect_key($directions, [$direction => true]) as $value => $label)
+                    @php
+                        $rows = $review->documents->filter(fn (array $row): bool => $row['document']->direction->value === $value);
+                        $included = $rows->where('status', 'supported')->filter(fn (array $row): bool => $row['document']->currency === 'EUR');
+                    @endphp
+                    <div>
+                        @if ($rows->isEmpty())
+                            <p class="text-sm text-gray-600 dark:text-gray-300">{{ __('No documents in this period.') }}</p>
                         @else
-                            @foreach (range(1, 12) as $optionMonth)
-                                <option value="{{ $optionMonth }}">{{ $monthLabel($optionMonth) }}</option>
-                            @endforeach
+                            <div class="-mx-6 -mt-2 overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead>
+                                        <tr class="border-y border-gray-200 bg-gray-50 text-gray-600 dark:border-white/10 dark:bg-white/5 dark:text-gray-300">
+                                            <th scope="col" class="px-6 py-2.5 text-start font-medium">{{ __('Document') }}</th>
+                                            <th scope="col" class="px-3 py-2.5 text-start font-medium">{{ __('Date') }}</th>
+                                            <th scope="col" class="px-3 py-2.5 text-start font-medium">{{ __('Counterparty') }}</th>
+                                            <th scope="col" class="px-3 py-2.5 text-end font-medium">{{ __('Net') }}</th>
+                                            <th scope="col" class="px-3 py-2.5 text-end font-medium">{{ __('VAT') }}</th>
+                                            <th scope="col" class="px-3 py-2.5 pe-6 text-start font-medium">{{ __('Status') }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-200 dark:divide-white/10">
+                                        @foreach ($rows as ['document' => $document, 'status' => $status, 'reason' => $reason])
+                                            @php $isEuro = $document->currency === 'EUR'; @endphp
+                                            <tr wire:key="vat-document-{{ $document->id }}" class="align-top">
+                                                <td class="px-6 py-3">
+                                                    <a class="font-medium text-gray-950 underline-offset-2 hover:underline dark:text-white" href="{{ FiscalDocumentResource::getUrl('index', ['tableSearch' => $document->number]) }}">{{ $document->number }}</a>
+                                                    <span class="block text-gray-500 dark:text-gray-400">{{ $document->type->getLabel() }}</span>
+                                                </td>
+                                                <td class="px-3 py-3 whitespace-nowrap">{{ $document->document_date->format($date) }}</td>
+                                                <td class="px-3 py-3">{{ $document->party_name ?: '—' }}</td>
+                                                <td class="px-3 py-3 text-end whitespace-nowrap tabular-nums">{{ $isEuro ? Money::format($document->net_amount, $locale) : $document->currency }}</td>
+                                                <td class="px-3 py-3 text-end whitespace-nowrap tabular-nums">{{ $isEuro ? Money::format($document->vat_amount, $locale) : '—' }}</td>
+                                                <td class="px-3 py-3 pe-6">
+                                                    <x-filament::badge :color="$statusBadge[$status][0]" class="w-fit">{{ $statusBadge[$status][1] }}</x-filament::badge>
+                                                    @if ($status !== 'supported')
+                                                        <span class="mt-1 block text-gray-500 dark:text-gray-400">{{ $reason }}</span>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                    <tfoot>
+                                        <tr class="border-t border-gray-200 bg-gray-50 font-semibold dark:border-white/10 dark:bg-white/5">
+                                            <td colspan="3" class="px-6 py-2.5">{{ __('Documentary sum') }}</td>
+                                            <td class="px-3 py-2.5 text-end tabular-nums">{{ Money::format((int) $included->sum(fn (array $row): int => (int) $row['document']->net_amount), $locale) }}</td>
+                                            <td class="px-3 py-2.5 text-end tabular-nums">{{ Money::format((int) $included->sum(fn (array $row): int => (int) $row['document']->vat_amount), $locale) }}</td>
+                                            <td class="pe-6"></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
                         @endif
-                    </x-filament::input.select>
-                </x-filament::input.wrapper>
-            </div>
-        </div>
-    </x-filament::section>
+                    </div>
+                @endforeach
 
-    <x-filament::section :heading="__('VAT shown on documents')">
-        <dl class="grid gap-4 sm:grid-cols-2">
-            <div>
-                <dt class="text-sm text-gray-600 dark:text-gray-300">{{ __('Issued documents') }}</dt>
-                <dd class="text-lg font-semibold">{{ Money::format($review->issuedVat, app()->getLocale()) }}</dd>
-            </div>
-            <div>
-                <dt class="text-sm text-gray-600 dark:text-gray-300">{{ __('Received documents') }}</dt>
-                <dd class="text-lg font-semibold">{{ Money::format($review->receivedVat, app()->getLocale()) }}</dd>
-            </div>
-        </dl>
-        <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">
-            @if ($review->documents->isEmpty())
-                {{ __('No documents in this period.') }}
-            @else
-                {{ __('The total uses the VAT shown on invoices and invoice-receipts in EUR. When VAT becomes due, deductions and adjustments are checked in the assessment.') }}
-            @endif
-        </p>
-    </x-filament::section>
-
-    @foreach (['supported' => __('Included in the document total'), 'unresolved' => __('Needs review'), 'excluded' => __('Excluded from the document total')] as $status => $label)
-        @php($rows = $review->documents->where('status', $status))
-        @if ($rows->isNotEmpty())
-            <x-filament::section :heading="$label">
-                <ul class="divide-y divide-gray-200 dark:divide-white/10">
-                    @foreach ($rows as ['document' => $document, 'reason' => $reason])
-                        <li wire:key="vat-document-{{ $document->id }}" class="flex flex-wrap justify-between gap-x-4 gap-y-1 py-2 text-sm">
-                            <div>
-                                <a class="font-semibold underline" href="{{ FiscalDocumentResource::getUrl('index', ['tableSearch' => $document->number]) }}">{{ $document->number }}</a>
-                                <span>{{ $document->type->getLabel() }} · {{ $document->direction->getLabel() }} · {{ $document->document_date->format(app()->getLocale() === 'pt_PT' ? 'd/m/Y' : 'm/d/Y') }}</span>
-                            </div>
-                            <span>{{ $reason }} @if ($document->currency === 'EUR') · {{ Money::format($document->vat_amount, app()->getLocale()) }} @endif</span>
-                        </li>
-                    @endforeach
-                </ul>
-            </x-filament::section>
-        @endif
-    @endforeach
-
-    <x-filament::section :heading="__('Period assessment')">
-        <div class="space-y-4">
-            @if ($balance === null)
-                <x-filament::badge color="warning">{{ $review->confirmation === null ? __('Pending confirmation') : __('Documents changed · confirmation needed again') }}</x-filament::badge>
-            @else
-                <x-filament::badge color="success">{{ __('Confirmed') }}</x-filament::badge>
-                <p class="text-lg font-semibold">{{ $balance < 0 ? __('Credit balance') : ($balance === 0 ? __('Nothing to pay') : __('Payable')) }} · {{ Money::format(abs($balance), app()->getLocale()) }}</p>
-                <p class="text-sm">
-                    {{ $review->confirmation->reference }}
-                    @if ($review->dueOn()) · {{ __('Stated deadline :date', ['date' => $review->dueOn()->format(app()->getLocale() === 'pt_PT' ? 'd/m/Y' : 'm/d/Y')]) }} @endif
-                    @if ($review->isPaid()) · {{ __('Paid on :date', ['date' => $review->paidOn()->format(app()->getLocale() === 'pt_PT' ? 'd/m/Y' : 'm/d/Y')]) }} @endif
-                </p>
-                @if (! $this::canConfirm())
-                    <dl class="grid gap-4 text-sm sm:grid-cols-3">
-                        <div><dt>{{ __('Output VAT') }}</dt><dd class="font-semibold">{{ Money::format($review->confirmation->liquidated, app()->getLocale()) }}</dd></div>
-                        <div><dt>{{ __('Deductible VAT') }}</dt><dd class="font-semibold">{{ Money::format($review->confirmation->deductible, app()->getLocale()) }}</dd></div>
-                        <div><dt>{{ __('Net adjustments') }}</dt><dd class="font-semibold">{{ Money::format($review->confirmation->adjustments, app()->getLocale()) }}</dd></div>
-                    </dl>
+                @if ($review->documents->isNotEmpty())
+                    <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">{{ __('The total uses the VAT shown on invoices and invoice-receipts in EUR. When VAT becomes due, deductions and adjustments are checked in the assessment.') }}</p>
                 @endif
-            @endif
-
-            @if ($this::canConfirm())
-                <form wire:submit="confirm" class="space-y-4">
-                    <div class="grid gap-4 sm:grid-cols-3">
-                        @foreach (['liquidated' => __('Output VAT'), 'deductible' => __('Deductible VAT'), 'adjustments' => __('Net adjustments (+/−)')] as $field => $label)
-                            <div class="space-y-1">
-                                <label for="vat-{{ $field }}" class="text-sm font-medium">{{ $label }}</label>
-                                <x-filament::input.wrapper suffix="€">
-                                    <x-filament::input id="vat-{{ $field }}" type="text" inputmode="decimal" wire:model="{{ $field }}" required />
-                                </x-filament::input.wrapper>
-                                @error($field) <p class="text-sm text-danger-600" role="alert">{{ $message }}</p> @enderror
-                            </div>
-                        @endforeach
-                    </div>
-                    <p class="text-sm text-gray-600 dark:text-gray-300">{{ __('Use a positive adjustment to increase the amount payable and a negative adjustment to reduce it. Include any prior credit used, if applicable.') }}</p>
-                    <div class="space-y-1">
-                        <label for="vat-reference" class="text-sm font-medium">{{ __('Reviewed assessment reference') }}</label>
-                        <x-filament::input.wrapper>
-                            <x-filament::input id="vat-reference" type="text" wire:model="reference" maxlength="500" required />
-                        </x-filament::input.wrapper>
-                        @error('reference') <p class="text-sm text-danger-600" role="alert">{{ $message }}</p> @enderror
-                    </div>
-                    <div class="grid gap-4 sm:grid-cols-2">
-                        @foreach (['dueOn' => __('Confirmed deadline'), 'paidOn' => __('Date paid')] as $field => $label)
-                            <div class="space-y-1">
-                                <label for="vat-{{ $field }}" class="text-sm font-medium">{{ $label }}</label>
-                                <x-filament::input.wrapper>
-                                    <x-filament::input id="vat-{{ $field }}" type="date" wire:model="{{ $field }}" />
-                                </x-filament::input.wrapper>
-                                @error($field) <p class="text-sm text-danger-600" role="alert">{{ $message }}</p> @enderror
-                            </div>
-                        @endforeach
-                    </div>
-                    <div class="flex flex-wrap gap-2">
-                        <x-filament::button type="submit" wire:loading.attr="disabled">{{ __('Confirm assessment') }}</x-filament::button>
-                        <x-filament::button type="button" color="gray" wire:click="reloadReview" wire:loading.attr="disabled">{{ __('Refresh data') }}</x-filament::button>
-                    </div>
-                </form>
-            @endif
+            </x-filament::section>
         </div>
-    </x-filament::section>
+
+        <div class="xl:col-span-2">
+            <x-filament::section :heading="__('Period assessment')">
+                <x-slot name="afterHeader">
+                    @if ($balance === null)
+                        <x-filament::badge color="warning">{{ $review->confirmation === null ? __('Pending confirmation') : __('Documents changed · confirmation needed again') }}</x-filament::badge>
+                    @else
+                        <x-filament::badge color="success">{{ __('Confirmed') }}</x-filament::badge>
+                    @endif
+                </x-slot>
+
+                <div class="space-y-4 text-sm">
+                    @if ($balance !== null)
+                        <p class="text-lg font-semibold">{{ $balance < 0 ? __('Credit balance') : ($balance === 0 ? __('Nothing to pay') : __('Payable')) }} · {{ Money::format(abs($balance), $locale) }}</p>
+                        <p>
+                            {{ $review->confirmation->reference }}
+                            @if ($review->dueOn()) · {{ __('Stated deadline :date', ['date' => $review->dueOn()->format($date)]) }} @endif
+                            @if ($review->isPaid()) · {{ __('Paid on :date', ['date' => $review->paidOn()->format($date)]) }} @endif
+                        </p>
+                        @if (! $this::canConfirm())
+                            <dl class="grid gap-2">
+                                <div class="flex justify-between gap-3"><dt class="text-gray-600 dark:text-gray-400">{{ __('Output VAT') }}</dt><dd class="tabular-nums">{{ Money::format($review->confirmation->liquidated, $locale) }}</dd></div>
+                                <div class="flex justify-between gap-3"><dt class="text-gray-600 dark:text-gray-400">{{ __('Deductible VAT') }}</dt><dd class="tabular-nums">{{ Money::format($review->confirmation->deductible, $locale) }}</dd></div>
+                                <div class="flex justify-between gap-3"><dt class="text-gray-600 dark:text-gray-400">{{ __('Net adjustments') }}</dt><dd class="tabular-nums">{{ Money::format($review->confirmation->adjustments, $locale) }}</dd></div>
+                            </dl>
+                        @endif
+                    @endif
+
+                    @if ($this::canConfirm())
+                        @php
+                            $toCents = fn (string $value): int => preg_match('/\A-?[0-9]{1,9}(?:[,.][0-9]{1,2})?\z/', $value) ? (int) \App\Support\Money::toCents($value) : 0;
+                            $result = $toCents($liquidated) - $toCents($deductible) + $toCents($adjustments);
+                            $hasFieldErrors = $errors->hasAny(['liquidated', 'deductible', 'adjustments', 'dueOn', 'paidOn']);
+                        @endphp
+                        <form wire:submit="confirm" class="space-y-4">
+                            {{-- As in the mock: the figures, then the reference and the button; the fields to correct them are one click away. --}}
+                            <dl class="grid gap-2">
+                                <div class="flex justify-between gap-3"><dt class="text-gray-600 dark:text-gray-400">{{ __('Output VAT') }}</dt><dd class="tabular-nums">{{ Money::format($toCents($liquidated), $locale) }}</dd></div>
+                                <div class="flex justify-between gap-3"><dt class="text-gray-600 dark:text-gray-400">{{ __('Deductible VAT') }}</dt><dd class="tabular-nums">{{ Money::format($toCents($deductible), $locale) }}</dd></div>
+                                <div class="flex justify-between gap-3"><dt class="text-gray-600 dark:text-gray-400">{{ __('Net adjustments') }}</dt><dd class="tabular-nums">{{ Money::format($toCents($adjustments), $locale) }}</dd></div>
+                                <div class="flex justify-between gap-3 border-t border-gray-200 pt-2 font-semibold dark:border-white/10">
+                                    <dt>{{ __('Result') }}</dt>
+                                    <dd class="tabular-nums">{{ $result === 0 ? __('Nothing to pay') : ($result < 0 ? __('Credit balance').' · '.Money::format(abs($result), $locale) : __('Payable').' · '.Money::format($result, $locale)) }}</dd>
+                                </div>
+                            </dl>
+
+                            <details {!! $hasFieldErrors ? 'open' : '' !!}>
+                                <summary class="cursor-pointer font-medium">{{ __('Correct the amounts') }}</summary>
+                                <div class="mt-3 space-y-4">
+                                    @foreach (['liquidated' => __('Output VAT'), 'deductible' => __('Deductible VAT'), 'adjustments' => __('Net adjustments (+/−)')] as $field => $label)
+                                        <div class="space-y-1">
+                                            <label for="vat-{{ $field }}" class="font-medium">{{ $label }}</label>
+                                            <x-filament::input.wrapper suffix="€">
+                                                <x-filament::input id="vat-{{ $field }}" type="text" inputmode="decimal" wire:model.blur="{{ $field }}" required />
+                                            </x-filament::input.wrapper>
+                                            @error($field) <p class="text-danger-600" role="alert">{{ $message }}</p> @enderror
+                                        </div>
+                                    @endforeach
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ __('Use a positive adjustment to increase the amount payable and a negative adjustment to reduce it. Include any prior credit used, if applicable.') }}</p>
+                                    @foreach (['dueOn' => __('Confirmed deadline'), 'paidOn' => __('Date paid')] as $field => $label)
+                                        <div class="space-y-1">
+                                            <label for="vat-{{ $field }}" class="font-medium">{{ $label }}</label>
+                                            <x-filament::input.wrapper>
+                                                <x-filament::input id="vat-{{ $field }}" type="date" wire:model="{{ $field }}" />
+                                            </x-filament::input.wrapper>
+                                            @error($field) <p class="text-danger-600" role="alert">{{ $message }}</p> @enderror
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </details>
+
+                            <div class="space-y-1">
+                                <label for="vat-reference" class="font-medium">{{ __('Reference') }}</label>
+                                <x-filament::input.wrapper>
+                                    <x-filament::input id="vat-reference" type="text" wire:model="reference" maxlength="500" required />
+                                </x-filament::input.wrapper>
+                                @error('reference') <p class="text-danger-600" role="alert">{{ $message }}</p> @enderror
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                <x-filament::button type="submit" wire:loading.attr="disabled">{{ __('Confirm assessment') }}</x-filament::button>
+                                <x-filament::button type="button" color="gray" wire:click="reloadReview" wire:loading.attr="disabled">{{ __('Refresh data') }}</x-filament::button>
+                            </div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ __('If a document changes later, the assessment asks for confirmation again.') }}</p>
+                        </form>
+                    @endif
+                </div>
+            </x-filament::section>
+        </div>
+    </div>
 </x-filament-panels::page>

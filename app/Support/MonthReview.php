@@ -192,9 +192,28 @@ final class MonthReview
 
     public function pendingDataCount(): int
     {
-        return $this->receivablesQuery(withFiscalReference: true)->withoutEagerLoads()->get()->filter($this->dataIssues(...))->count()
-            + $this->paymentsQuery()->withoutEagerLoads()->get()->filter($this->dataIssues(...))->count()
-            + $this->expensesQuery(withFiscalReference: true)->withoutEagerLoads()->get()->filter($this->dataIssues(...))->count();
+        return array_sum($this->pendingDataByKind());
+    }
+
+    /**
+     * How many records of each kind have incomplete data, so "Fecho do mês" can take the user to
+     * the first table with some.
+     *
+     * @return array{receivables: int, payments: int, expenses: int}
+     */
+    public function pendingDataByKind(): array
+    {
+        return [
+            'receivables' => $this->receivablesQuery(withFiscalReference: true)->withoutEagerLoads()->get()->filter($this->dataIssues(...))->count(),
+            'payments' => $this->paymentsQuery()->withoutEagerLoads()->get()->filter($this->dataIssues(...))->count(),
+            'expenses' => $this->expensesQuery(withFiscalReference: true)->withoutEagerLoads()->get()->filter($this->dataIssues(...))->count(),
+        ];
+    }
+
+    /** Whether the month is over: its end-of-month balances can differ from today's. */
+    public function isPast(): bool
+    {
+        return $this->end->isBefore(today());
     }
 
     /** @return array{0: string, 1: string} SQLite data can include dates with or without a time part. */

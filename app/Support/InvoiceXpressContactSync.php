@@ -84,7 +84,21 @@ final class InvoiceXpressContactSync
                 }
 
                 Gate::authorize('update', $client);
+                $address = $client->structuredAddress;
                 $details = $this->contactFields($client->getAttributes(), forExport: true);
+
+                if ($address?->country_code === 'PT') {
+                    unset($details['address']);
+                    $location = $this->addressLocation([
+                        'city' => $address->locality,
+                        'postal_code' => $address->postal_code,
+                    ]);
+
+                    if (filled($address->street) && isset($location['city'], $location['postal_code'])) {
+                        $details['address'] = trim($address->street);
+                        $details += $location;
+                    }
+                }
                 $details['language'] = match ($client->preferredLanguage()) {
                     Language::PortuguesePortugal => 'pt',
                     Language::EnglishUnitedStates => 'en',
@@ -184,7 +198,25 @@ final class InvoiceXpressContactSync
 
     private function remoteContactFields(array $source): array
     {
-        return [...$this->contactFields($source), 'language' => $source['language'] ?? null];
+        return [
+            ...$this->contactFields($source),
+            ...$this->addressLocation($source),
+            'language' => $source['language'] ?? null,
+        ];
+    }
+
+    /** @return array{city?: string, postal_code?: string} */
+    private function addressLocation(array $source): array
+    {
+        $location = [];
+        foreach (['city', 'postal_code'] as $field) {
+            $value = $source[$field] ?? null;
+            if (is_string($value) && trim($value) !== '') {
+                $location[$field] = trim($value);
+            }
+        }
+
+        return $location;
     }
 
     private static function remoteNif(array $row): ?string

@@ -6,9 +6,11 @@ use App\Models\Account;
 use App\Models\BankTransaction;
 use App\Models\Expense;
 use App\Models\FiscalDocument;
+use App\Models\FiscalDocumentDraft;
 use App\Models\FiscalProfile;
 use App\Models\InvoiceXpressConfig;
 use App\Models\InvoiceXpressIssueAttempt;
+use App\Models\InvoiceXpressSnapshot;
 use App\Models\Payment;
 use App\Models\Receivable;
 use App\Support\ClientStatement;
@@ -45,7 +47,7 @@ it('seeds a reproducible December and January journey and a separate starting po
 
     $this->seed(ContiuDemoSeeder::class);
     expect(CurrentAccount::run($demo, $inspect))->toBe($before)
-        ->and(Account::query()->where('slug', 'like', 'contiu-demo-%')->count())->toBe(4)
+        ->and(Account::query()->where('slug', 'like', 'contiu-demo-%')->count())->toBe(5)
         ->and(CurrentAccount::id())->toBe($this->account->id);
 
     CurrentAccount::run($demo, function (): void {
@@ -62,6 +64,27 @@ it('leaves an unrelated account using a demo slug intact', function (string $key
     expect(Account::query()->where('slug', 'like', 'contiu-demo-%')->count())->toBe(1)
         ->and($account->fresh()->name)->toBe('Dados alheios');
 })->with(['oficina', 'eni-servicos']);
+
+it('seeds an isolated integration account with local drafts and one imported document', function () {
+    Http::fake([]);
+    Http::preventStrayRequests();
+
+    $this->seed(ContiuDemoSeeder::class);
+    $this->seed(ContiuDemoSeeder::class);
+
+    $account = Account::query()->where('slug', 'contiu-demo-integracoes')->sole();
+    CurrentAccount::run($account, function (): void {
+        expect(InvoiceXpressConfig::current()?->subdomain)->toBe('contiu-demo-fixture')
+            ->and(FiscalDocumentDraft::query()->whereNull('fiscal_document_id')->count())->toBe(2)
+            ->and(FiscalDocumentDraft::query()->whereNull('remote_id')->count())->toBe(1)
+            ->and(FiscalDocument::query()->count())->toBe(1)
+            ->and(InvoiceXpressSnapshot::query()->sole()->fiscal_document_id)->toBe(FiscalDocument::query()->sole()->id)
+            ->and(InvoiceXpressIssue::canWriteDocuments())->toBeFalse();
+    });
+
+    expect(FiscalDocumentDraft::query()->exists())->toBeFalse();
+    Http::assertNothingSent();
+});
 
 it('refuses to seed demo data in production', function () {
     $environment = app()->environment();

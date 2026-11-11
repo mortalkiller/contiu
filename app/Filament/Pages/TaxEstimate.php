@@ -6,22 +6,26 @@ use App\Enums\Language;
 use App\Filament\Analysis\Widgets\TaxQuartersTable;
 use App\Filament\Pages\Concerns\HasTaxSubNavigation;
 use App\Filament\Resources\FiscalDocuments\FiscalDocumentResource;
-use App\Filament\Widgets\TaxObligationsCard;
+use App\Filament\Support\PeriodPicker;
+use App\Filament\Widgets\UpcomingTaxPayments;
 use App\Support\DocumentedTurnover;
 use App\Support\FinanceSettings;
 use App\Support\Money;
 use App\Support\PeriodSummary;
 use App\Support\TaxEstimator;
+use App\Support\TaxObligation;
+use App\Support\TaxObligations;
 use App\Support\TerritorialTurnover;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
-use Filament\Forms\Components\Select;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\TextSize;
 use Illuminate\Support\Number;
@@ -54,23 +58,26 @@ class TaxEstimate extends Page
         return __('Sole trader under the simplified regime. The estimate uses income received during the year.');
     }
 
+    /** As in the mock: the year to show, then the way to the tax settings. The tabs lead to the other tax pages. */
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('socialSecurity')
-                ->label(__('Social Security'))
-                ->color('gray')
-                ->url(SocialSecurity::getUrl()),
-            Action::make('vatReview')
-                ->label(__('VAT review'))
-                ->color('gray')
-                ->url(fn (): string => VatReviewPage::getUrl(['year' => $this->year])),
+            PeriodPicker::make('year', $this->yearOptions(), $this->year, fn (int|string $year) => $this->year = (int) $year, __('Year')),
             Action::make('settings')
                 ->label(__('Tax settings'))
-                ->icon(Phosphor::Sliders)
                 ->color('gray')
                 ->url(FinanceSettingsPage::getUrl()),
         ];
+    }
+
+    /** @return array<int, string> */
+    private function yearOptions(): array
+    {
+        return collect(array_keys(PeriodSummary::availableYears()))
+            ->merge(DocumentedTurnover::issueYears())
+            ->merge(TerritorialTurnover::reviewYears())
+            ->push(today()->year, $this->year ?? today()->year)
+            ->unique()->sortDesc()->mapWithKeys(fn (int $year) => [$year => (string) $year])->all();
     }
 
     public function content(Schema $schema): Schema
@@ -82,55 +89,16 @@ class TaxEstimate extends Page
             ? TerritorialTurnover::forYear($estimator->year - 1)->nextYearNotice()
             : null;
 
+        $isRunningYear = $estimator->year === today()->year;
+
         return $schema->components([
             ...($estimator->settings()->isIncomplete() ? [self::incompleteSettingsCallout()] : []),
             Callout::make(__('Estimate — check the amounts with your accountant.'))
                 ->description(__('See the basis for each amount and the domestic turnover coverage.'))
                 ->icon(Phosphor::WarningCircle)
                 ->status('warning'),
-            Section::make()
-                ->columns(['md' => 4])
-                ->schema([
-                    Select::make('year')
-                        ->label(__('Year'))
-                        ->options(fn (): array => collect(array_keys(PeriodSummary::availableYears()))
-                            ->merge(DocumentedTurnover::issueYears())
-                            ->merge(TerritorialTurnover::reviewYears())
-                            ->unique()->sortDesc()->mapWithKeys(fn (int $year) => [$year => (string) $year])->all())
-                        ->selectablePlaceholder(false)
-                        ->native(false)
-                        ->live(),
-                ]),
-            $this->turnoverSection(DocumentedTurnover::forYear($estimator->year), $territorial),
-            Grid::make(['md' => 2, 'xl' => 4])->schema([
-                Section::make(__('Earnings'))
-                    ->icon(Phosphor::HandCoins)
-                    ->schema([
-                        TextEntry::make('income')->hiddenLabel()->state(Money::format($estimator->income(), locale: app()->getLocale()))->size(TextSize::Large)->weight('bold'),
-                        TextEntry::make('income_note')->hiddenLabel()
-                            ->state(__('Received in :year (used as a proxy for relevant income).', ['year' => $estimator->year]))
-                            ->color('gray'),
-                        TextEntry::make('exempt_note')
-                            ->hiddenLabel()
-                            ->state($estimator->exemptIncome() > 0
-                                ? __('Excluded :amount in tax-exempt payments received.', ['amount' => Money::format($estimator->exemptIncome(), locale: app()->getLocale())])
-                                : __('There are no tax-exempt payments received. Mark them in Payments received or on the retainer.'))
-                            ->icon(Phosphor::ShieldCheck)
-                            ->color($estimator->exemptIncome() > 0 ? 'info' : 'gray'),
-                    ]),
-                Section::make(__('Social Security'))
-                    ->icon(Phosphor::Bank)
-                    ->schema([
-                        TextEntry::make('ss')->hiddenLabel()->state(Money::format($estimator->ssYearTotal(), locale: app()->getLocale()))->size(TextSize::Large)->weight('bold'),
-                        TextEntry::make('ss_note')->hiddenLabel()->color('gray')->state(fn (): string => $this->socialSecurityNote($estimator)),
-                    ]),
-                Section::make(__('Personal income tax'))
-                    ->icon(Phosphor::Receipt)
-                    ->schema($this->irsEntries($estimator)),
-                Section::make(__('VAT'))
-                    ->icon(Phosphor::Percent)
-                    ->schema($this->vatEntries($estimator, $vatThreshold, $territorial->subtotal() !== null)),
-            ]),
+            View::make('filament.pages.partials.tax-summary')
+                ->viewData(['stats' => $this->summary($estimator, $vatThreshold), 'notice' => null]),
             ...(($vatThreshold['notice'] ?? null) !== null ? [
                 Callout::make(__('VAT threshold exceeded'))->description($vatThreshold['notice'])->icon(Phosphor::WarningCircle)->status('danger'),
             ] : []),
@@ -140,9 +108,117 @@ class TaxEstimate extends Page
             ...($previousYearNotice === null ? [] : [
                 Callout::make(__('VAT threshold exceeded in the previous year'))->description($previousYearNotice)->icon(Phosphor::WarningCircle)->status('warning'),
             ]),
-            ...$this->getWidgetsSchemaComponents([TaxQuartersTable::class], ['year' => $this->year]),
-            // The month's obligations and what comes next only make sense for the running year.
-            ...($estimator->year === today()->year ? $this->getWidgetsSchemaComponents([TaxObligationsCard::class]) : []),
+            // As in the mock: the quarters, with what is due next beside them. What is due only makes sense for the running year.
+            // Side by side where the seven columns of the table fit (wide screens); stacked otherwise.
+            Grid::make(['default' => 1, '2xl' => $isRunningYear ? 7 : 1])->schema([
+                Group::make($this->getWidgetsSchemaComponents([TaxQuartersTable::class], ['year' => $this->year]))
+                    ->columnSpan(['default' => 1, '2xl' => $isRunningYear ? 5 : 1]),
+                ...($isRunningYear ? [
+                    Group::make($this->getWidgetsSchemaComponents([UpcomingTaxPayments::class]))->columnSpan(['default' => 1, '2xl' => 2]),
+                ] : []),
+            ]),
+            $this->turnoverSection(DocumentedTurnover::forYear($estimator->year), $territorial),
+            Section::make(__('How the estimate is worked out'))
+                ->description(__('The steps behind each figure above.'))
+                ->collapsible()
+                ->collapsed()
+                ->columns(['md' => 2, 'xl' => 4])
+                ->schema([
+                    Group::make([
+                        TextEntry::make('income_heading')->hiddenLabel()->state(__('Earnings'))->weight('semibold'),
+                        TextEntry::make('income_note')->hiddenLabel()
+                            ->state(__('Received in :year (used as a proxy for relevant income).', ['year' => $estimator->year]))
+                            ->color('gray'),
+                        TextEntry::make('exempt_note')
+                            ->hiddenLabel()
+                            ->state($estimator->exemptIncome() > 0
+                                ? __('Excluded :amount in tax-exempt payments received.', ['amount' => Money::format($estimator->exemptIncome(), locale: app()->getLocale())])
+                                : __('There are no tax-exempt payments received. Mark them in Payments received or on the retainer.'))
+                            ->color('gray'),
+                    ]),
+                    Group::make([
+                        TextEntry::make('ss_heading')->hiddenLabel()->state(__('Social Security'))->weight('semibold'),
+                        TextEntry::make('ss_note')->hiddenLabel()->color('gray')->state(fn (): string => $this->socialSecurityNote($estimator)),
+                    ]),
+                    Group::make([
+                        TextEntry::make('irs_heading')->hiddenLabel()->state(__('Personal income tax'))->weight('semibold'),
+                        ...array_filter($this->irsEntries($estimator), fn (TextEntry $entry): bool => $entry->getName() !== 'irs'),
+                    ]),
+                    Group::make([
+                        TextEntry::make('vat_heading')->hiddenLabel()->state(__('VAT'))->weight('semibold'),
+                        ...array_filter($this->vatEntries($estimator, $vatThreshold, $territorial->subtotal() !== null), fn (TextEntry $entry): bool => ! in_array($entry->getName(), ['vat', 'vat_balance'], true)),
+                    ]),
+                ]),
+        ]);
+    }
+
+    /**
+     * The four figures of the year, as in the mock: what came in, Social Security, the income
+     * taxed in IRS and where VAT stands. The steps behind each one are in the section below.
+     *
+     * @param  array{label: string, amount: int, percent: float, status: string, detail: string, notice: ?string, advisory: ?string, usesReceipts: bool}|null  $threshold
+     * @return list<array{label: string, value: string, note?: ?string, valueTone?: ?string, percent?: ?float}>
+     */
+    private function summary(TaxEstimator $estimator, ?array $threshold): array
+    {
+        $locale = app()->getLocale();
+        $income = $estimator->income();
+        $taxable = $estimator->irsTaxableIncome();
+
+        $vat = $threshold !== null
+            ? [
+                'label' => __('VAT · exempt (art. 53)'),
+                'value' => self::thresholdPercent($threshold['percent']),
+                'percent' => $threshold['percent'],
+                'note' => $threshold['detail'],
+                'valueTone' => $threshold['status'] === 'ok' ? null : $threshold['status'],
+            ]
+            : [
+                'label' => __('VAT'),
+                'value' => Money::format((int) collect($estimator->vatPeriods())->sum('balance'), locale: $locale),
+                'note' => __('Estimated balance for the year'),
+            ];
+
+        return [
+            [
+                'label' => __('Income received'),
+                'value' => Money::format($income, locale: $locale),
+                'note' => $estimator->exemptIncome() > 0
+                    ? __('Excluded :amount in tax-exempt payments received.', ['amount' => Money::format($estimator->exemptIncome(), locale: $locale)])
+                    : __('No exempt payments received'),
+            ],
+            [
+                'label' => __('Social Security for the year'),
+                'value' => Money::format($estimator->ssYearTotal(), locale: $locale),
+                'note' => $this->nextContributionNote($estimator) ?? $this->socialSecurityNote($estimator),
+            ],
+            [
+                'label' => __('Income taxed in IRS'),
+                'value' => Money::format($taxable, locale: $locale),
+                'note' => $income > 0
+                    ? __(':percent of what you received · coefficient :coefficient', [
+                        'percent' => self::percent(round($taxable / $income, 2)),
+                        'coefficient' => self::decimal($estimator->effectiveIrsCoefficient()),
+                    ])
+                    : __('Coefficient :coefficient', ['coefficient' => self::decimal($estimator->effectiveIrsCoefficient())]),
+            ],
+            $vat,
+        ];
+    }
+
+    /** "Next: €45.31 by 20 Nov.", while the running year has a contribution still to pay. */
+    private function nextContributionNote(TaxEstimator $estimator): ?string
+    {
+        if ($estimator->year !== today()->year) {
+            return null;
+        }
+
+        $next = collect((new TaxObligations(app(FinanceSettings::class), CarbonImmutable::today()))->thisMonth())
+            ->first(fn (TaxObligation $obligation): bool => $obligation->kind === 'ss' && $obligation->status === 'due' && (int) $obligation->amount > 0);
+
+        return $next === null ? null : __('Next: :amount by :date', [
+            'amount' => Money::format((int) $next->amount, locale: app()->getLocale()),
+            'date' => $next->dueOn->locale(app()->getLocale())->translatedFormat(__('j M')),
         ]);
     }
 

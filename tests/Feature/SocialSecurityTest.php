@@ -193,14 +193,15 @@ describe('Closed quarter summary', function () {
         app(FinanceSettings::class)->set(['activity_started_on' => '2020-01-01', 'activity_start_kind' => 'first']);
     });
 
-    it('sums up the closed quarter above the social security detail', function () {
+    it('walks through the closed quarter\'s cycle above the social security detail', function () {
         Payment::factory()->create(['paid_on' => '2026-07-01', 'amount' => 300000]);
         Payment::factory()->create(['paid_on' => '2026-09-30', 'amount' => 5000, 'tax_exempt' => true]);
 
         Livewire::withQueryParams(['quarter' => '2026-Q3'])->test(SocialSecurityPage::class)
-            ->assertSeeInOrder(['Total registado', Money::format(305000), '2 recebimentos no trimestre'], false)
-            ->assertSeeInOrder(['Usado na estimativa', Money::format(300000), Money::format(5000).' marcados como isentos ficam de fora'], false)
-            ->assertSeeInOrder(['Declaração trimestral', 'Por registar'])
-            ->assertSeeInOrder(['Contribuições confirmadas', '0 de 3']);
+            ->assertSee('Segurança Social, por trimestre fechado.')
+            ->assertSeeInOrder(['O ciclo deste trimestre', '1. Recebimentos', Money::format(305000).' registados'], false)
+            ->assertSeeInOrder(['2. Declaração', 'Atrasada 10 dias'])
+            ->assertSeeInOrder(['3. Outubro', 'Por confirmar · até 20 nov.', '4. Novembro', 'Por confirmar · até 20 dez.', '5. Dezembro', 'Estimativa:'])
+            ->assertSeeInOrder(['Por declarar', 'A declaração trimestral era até 31/10/2026', 'Valor a declarar, pelos registos', Money::format(300000)], false);
     })->group('integration');
 });

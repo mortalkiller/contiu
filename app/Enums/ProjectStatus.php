@@ -3,11 +3,9 @@
 namespace App\Enums;
 
 use Filament\Support\Contracts\HasColor;
-use Filament\Support\Contracts\HasIcon;
 use Filament\Support\Contracts\HasLabel;
-use ToneGabes\Filament\Icons\Enums\Phosphor;
 
-enum ProjectStatus: string implements HasColor, HasIcon, HasLabel
+enum ProjectStatus: string implements HasColor, HasLabel
 {
     case Proposal = 'proposal';
     case Approved = 'approved';
@@ -34,17 +32,6 @@ enum ProjectStatus: string implements HasColor, HasIcon, HasLabel
             self::InProgress => 'warning',
             self::Completed => 'success',
             self::Cancelled => 'danger',
-        };
-    }
-
-    public function getIcon(): Phosphor
-    {
-        return match ($this) {
-            self::Proposal => Phosphor::FileText,
-            self::Approved => Phosphor::Handshake,
-            self::InProgress => Phosphor::Hammer,
-            self::Completed => Phosphor::CheckCircle,
-            self::Cancelled => Phosphor::XCircle,
         };
     }
 }

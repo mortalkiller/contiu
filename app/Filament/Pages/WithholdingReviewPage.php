@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Pages\Concerns\HasTaxSubNavigation;
+use App\Filament\Support\PeriodPicker;
 use App\Models\FiscalDocument;
 use App\Models\Payment;
 use App\Models\PaymentAllocation;
@@ -68,6 +69,29 @@ class WithholdingReviewPage extends Page
         $this->accountId = CurrentAccount::id();
         $this->year = $year ?? $this->year;
         $this->updatedYear();
+    }
+
+    public function getSubheading(): string
+    {
+        return __('Income tax your clients withheld and paid on your behalf.');
+    }
+
+    /** As in the mock: the year of receipt. Reconciling one allocation fixes the year to its payment's. */
+    protected function getHeaderActions(): array
+    {
+        if ($this->allocationId !== null) {
+            return [];
+        }
+
+        $years = collect(range(today()->year, today()->year - 5))->push($this->year ?? today()->year)
+            ->unique()->sortDesc()->mapWithKeys(fn (int $year): array => [$year => (string) $year])->all();
+
+        return [
+            PeriodPicker::make('year', $years, $this->year, function (int|string $year): void {
+                $this->year = (int) $year;
+                $this->updatedYear();
+            }, __('Year of receipt')),
+        ];
     }
 
     public function updatedYear(): void
@@ -145,7 +169,7 @@ class WithholdingReviewPage extends Page
                     'label' => __('Pending verification'),
                     'value' => (string) $stale,
                     'note' => $stale === 0 ? __('All sources match') : __('The source changed after recording'),
-                    'tone' => $stale === 0 ? 'success' : 'warning',
+                    'valueTone' => $stale === 0 ? null : 'warning',
                 ],
                 ...($allocation !== null || ! static::canRecord() ? [] : [[
                     'label' => __('Receipts with no withholding recorded'),

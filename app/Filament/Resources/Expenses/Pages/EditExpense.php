@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Expenses\Pages;
 
+use App\Filament\Resources\Concerns\HasSaveBar;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\Expenses\Schemas\ExpenseForm;
 use App\Models\Expense;
@@ -13,6 +14,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class EditExpense extends EditRecord
 {
+    use HasSaveBar;
+
     protected static string $resource = ExpenseResource::class;
 
     protected function getHeaderActions(): array

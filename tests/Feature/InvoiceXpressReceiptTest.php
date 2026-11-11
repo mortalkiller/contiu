@@ -103,6 +103,19 @@ function receiptResponse(int $id, string $note, float $amount): array
     ];
 }
 
+it('limits the contextual receipts page to the selected fiscal document', function () {
+    receiptProviderSetup();
+    [$allocation, $invoice] = receiptAllocation();
+    [$other] = receiptAllocation();
+
+    Livewire::withQueryParams(['invoice' => (string) $invoice->id])
+        ->test(InvoiceXpressReceiptPage::class)
+        ->assertCanSeeTableRecords([$allocation])
+        ->assertCanNotSeeTableRecords([$other]);
+
+    Http::assertNothingSent();
+})->group('ui');
+
 it('previews and records a separate receipt for each allocation of a split transfer', function () {
     receiptProviderSetup();
     $client = Client::factory()->create();
@@ -223,13 +236,13 @@ it('requires the server allowlist on confirmation even after a valid preview', f
         ->and(Http::recorded(fn (Request $request) => $request->method() === 'POST'))->toBeEmpty();
 })->group('integration');
 
-it('blocks a withheld or unverified-retention provider invoice', function (array $retention) {
+it('blocks an inconsistent or unverified withholding amount on the provider invoice', function (array $retention) {
     receiptProviderSetup();
     [$allocation, , $invoice] = receiptAllocation();
     unset($invoice['retention']);
     Http::fake(['*/sequences.json*' => Http::response(['sequences' => [receiptSeries()]]), '*/invoices/101.json*' => Http::response(['invoice' => [...$invoice, ...$retention]])]);
 
-    expect(fn () => app(InvoiceXpressReceipt::class)->preview($allocation->id))->toThrow(ValidationException::class, 'retenção');
+    expect(fn () => app(InvoiceXpressReceipt::class)->preview($allocation->id))->toThrow(ValidationException::class, __('The withholding on the original invoice could not be verified.'));
     expect(InvoiceXpressReceiptAttempt::query()->count())->toBe(0);
 })->with(['withheld' => [['retention' => '23']], 'missing' => [[]]])->group('integration');
 
@@ -301,7 +314,7 @@ it('opens the page in Receitas and emits through Livewire only after explicit co
         };
     });
 
-    $this->get(InvoiceXpressReceiptPage::getUrl())->assertOk()->assertSee('Recibos InvoiceXpress');
+    $this->get(InvoiceXpressReceiptPage::getUrl())->assertOk()->assertSee('Recibos');
     expect(InvoiceXpressReceiptPage::getNavigationItems())->toHaveCount(1);
     $page = Livewire::test(InvoiceXpressReceiptPage::class)
         ->assertCanSeeTableRecords([$allocation])
@@ -516,3 +529,167 @@ it('offers local reconciliation for a manually issued final invoice after an all
     $this->assertDatabaseEmpty('invoice_xpress_receipt_attempts');
     Http::assertNothingSent();
 })->group('ui');
+
+function retainedReceiptAllocation(bool $split = false): array
+{
+    $client = Client::factory()->create();
+    $charge = Receivable::factory()->for(Project::factory()->for($client), 'billable')->create(['amount' => 10001]);
+    [$original, $invoice] = receiptInvoice($charge, 101);
+    $invoice['retention'] = '23.00';
+    $invoice['total'] = '77.01';
+    $terms = ['paid_on' => '2026-10-15', 'method' => PaymentMethod::Transfer];
+    if ($split) {
+        $other = Receivable::factory()->for(Project::factory()->for($client), 'billable')->create(['amount' => 10000]);
+        $payment = app(RecordAllocatedPayment::class)->handle([...$terms, 'amount' => 3000], [$charge->id => 2567, $other->id => 433]);
+    } else {
+        $payment = Payment::factory()->for($charge)->create([...$terms, 'amount' => 2567]);
+    }
+
+    return [$payment->allocations()->where('receivable_id', $charge->id)->sole(), $original, $invoice];
+}
+
+it('previews withholding for one allocation of a split transfer without enabling an undocumented POST', function () {
+    receiptProviderSetup();
+    config(['services.invoicexpress.withholding_validated_accounts' => ['receipt-test']]);
+    [$allocation, , $invoice] = retainedReceiptAllocation(split: true);
+    Http::fake([
+        '*/invoices/101.json*' => Http::response(['invoice' => $invoice]),
+        '*/sequences.json*' => Http::response(['sequences' => [receiptSeries()]]),
+        '*/related_documents.json*' => Http::response(['documents' => []]),
+    ]);
+    $service = app(InvoiceXpressReceipt::class);
+    $preview = $service->preview($allocation->id);
+
+    expect($preview['amount'])->toBe(3334)
+        ->and($preview['withholding'])->toMatchArray(['cash' => 2567, 'retained' => 767, 'gross' => 3334])
+        ->and($preview['canIssue'])->toBeFalse();
+    Livewire::test(InvoiceXpressReceiptPage::class)->call('preview', $allocation->id)
+        ->assertHasNoErrors()
+        ->assertSee(__('Gross settlement'))
+        ->assertSee(__('Issuing receipts with withholding requires validation in the InvoiceXpress sandbox.'))
+        ->assertDontSee(__('Issue receipt'));
+    expect(fn () => $service->confirm($allocation->id, $preview['revision']))->toThrow(ValidationException::class);
+    $this->assertDatabaseEmpty('invoice_xpress_receipt_attempts');
+    Http::assertNotSent(fn (Request $request) => $request->method() !== 'GET');
+
+    config(['services.invoicexpress.catalog_safe_accounts' => []]);
+    Livewire::test(InvoiceXpressReceiptPage::class)
+        ->assertActionVisible(TestAction::make('preview')->table($allocation))
+        ->callAction(TestAction::make('preview')->table($allocation))->assertHasNoErrors()
+        ->assertSee(__('Gross settlement'))->assertDontSee(__('Issue receipt'));
+    Http::assertNotSent(fn (Request $request) => $request->method() !== 'GET');
+})->group('integration');
+
+it('uses confirmed local withheld receipts for cumulative rounding and never duplicates their allocation', function () {
+    receiptProviderSetup();
+    [$firstAllocation, $original, $invoice] = retainedReceiptAllocation();
+    $receipt = FiscalDocument::factory()->create([
+        'type' => FiscalDocumentType::Receipt, 'number' => 'A/501', 'origin' => 'InvoiceXpress',
+        'document_date' => '2026-10-15', 'net_amount' => 3334, 'vat_amount' => 0, 'total_amount' => 3334,
+    ]);
+    WithholdingReview::reconcileReceipt($receipt->id, $firstAllocation->id, 767);
+    InvoiceXpressSnapshot::query()->create([
+        'subdomain' => 'receipt-test', 'provider_id' => 501, 'source_hash' => str_repeat('b', 64),
+        'source' => ['provider_type' => 'Receipt'], 'fiscal_document_id' => $receipt->id,
+    ]);
+    $second = Payment::factory()->for($firstAllocation->receivable)->create([
+        'amount' => 2567, 'paid_on' => '2026-10-15', 'method' => PaymentMethod::Transfer,
+    ])->allocations()->sole();
+    $remoteReceipt = [...receiptResponse(501, 'Previously issued', 25.67), 'retention' => '7.67', 'before_taxes' => '33.34'];
+    Http::fake([
+        '*/invoices/101.json*' => Http::response(['invoice' => $invoice]),
+        '*/sequences.json*' => Http::response(['sequences' => [receiptSeries()]]),
+        '*/related_documents.json*' => Http::response(['documents' => [$remoteReceipt]]),
+    ]);
+
+    $service = app(InvoiceXpressReceipt::class);
+    $preview = $service->preview($second->id);
+    expect($preview['amount'])->toBe(3333)
+        ->and($preview['withholding'])->toMatchArray(['cash' => 2567, 'retained' => 766, 'gross' => 3333]);
+    expect(fn () => $service->preview($firstAllocation->id))->toThrow(ValidationException::class);
+
+    $receipt->update(['net_amount' => 3335, 'total_amount' => 3335]);
+    expect(fn () => $service->preview($second->id))->toThrow(ValidationException::class);
+    Http::assertNotSent(fn (Request $request) => $request->method() !== 'GET');
+})->group('integration');
+
+it('recovers a retained receipt only after exact provider readback and persists its gross settlement once', function () {
+    receiptProviderSetup();
+    [$allocation, $original, $invoice] = retainedReceiptAllocation();
+    $related = [];
+    Http::fake(function (Request $request) use ($invoice, &$related) {
+        return match (parse_url($request->url(), PHP_URL_PATH)) {
+            '/invoices/101.json' => Http::response(['invoice' => $invoice]),
+            '/sequences.json' => Http::response(['sequences' => [receiptSeries()]]),
+            '/document/101/related_documents.json' => Http::response(['documents' => $related]),
+            default => throw new LogicException($request->url()),
+        };
+    });
+    $service = app(InvoiceXpressReceipt::class);
+    $attempt = new InvoiceXpressReceiptAttempt;
+    $attempt->forceFill([
+        'confirmed_by' => auth()->id(), 'payment_allocation_id' => $allocation->id,
+        'payment_id' => $allocation->payment_id, 'receivable_id' => $allocation->receivable_id,
+        'subdomain' => 'receipt-test', 'provider_invoice_id' => 101, 'note' => 'Previously submitted retained receipt',
+        'pending_target' => hash('sha256', 'retained-receipt'),
+    ]);
+    // The persisted intent represents an earlier authorized submission, never a new POST.
+    $attempt->intent = [
+        'local' => [
+            'accountId' => CurrentAccount::id(), 'allocationId' => $allocation->id, 'receivableId' => $allocation->receivable_id,
+            'paymentId' => $allocation->payment_id, 'paymentAmount' => 2567, 'paidOn' => '15/10/2026', 'paidOnIso' => '2026-10-15',
+            'charge' => $allocation->receivable->label, 'amount' => 2567, 'invoiceId' => $original->id, 'invoiceNumber' => 'A/101',
+            'invoiceDate' => '01/10/2026', 'invoiceTotal' => 10001, 'invoiceNet' => 10001, 'invoiceVat' => 0,
+            'partyName' => $original->party_name, 'partyTaxId' => $original->party_tax_id, 'subdomain' => 'receipt-test',
+            'providerInvoiceId' => 101, 'providerType' => 'Invoice', 'snapshotId' => InvoiceXpressSnapshot::query()->where('provider_id', 101)->sole()->id,
+            'sourceHash' => str_repeat('a', 64),
+        ],
+        'clientId' => 83, 'series' => ['id' => 16, 'name' => 'A', 'validationCode' => 'RCABC123'], 'relatedReceipts' => [],
+        'withholding' => ['cash' => 2567, 'retained' => 767, 'gross' => 3334, 'invoiceRetained' => 2300, 'invoiceCash' => 7701],
+    ];
+    $attempt->save();
+    $related = [[...receiptResponse(501, $attempt->note, 25.67), 'before_taxes' => '33.34', 'retention' => '7.66']];
+    expect($service->recover($attempt->id)->fiscal_document_id)->toBeNull();
+    $related[0]['retention'] = '7.67';
+    $related[] = ['id' => 999, 'type' => 'DebitNote', 'status' => 'final'];
+    expect($service->recover($attempt->id)->fiscal_document_id)->toBeNull();
+    array_pop($related);
+    $resolved = $service->recover($attempt->id);
+    expect($resolved->provider_receipt_id)->toBe(501);
+    $receipt = FiscalDocument::query()->findOrFail($resolved->fiscal_document_id);
+    expect($receipt->total_amount)->toBe(3334)
+        ->and($receipt->net_amount)->toBe(3334)
+        ->and($receipt->links->payment_id)->toBe($allocation->payment_id)
+        ->and($receipt->links->related_fiscal_document_id)->toBe($original->id)
+        ->and(WithholdingReview::forYear(2026)->retainedTotal)->toBe(767)
+        ->and($allocation->receivable->fresh()->outstanding)->toBe(6667)
+        ->and($service->recover($attempt->id)->fiscal_document_id)->toBe($receipt->id);
+    $this->assertDatabaseCount('withholding_records', 1);
+    Http::assertNotSent(fn (Request $request) => $request->method() !== 'GET');
+})->group('integration');
+
+it('accepts a header retention rate only when supported by the recorded invoice terms', function () {
+    receiptProviderSetup();
+    $charge = Receivable::factory()->create(['amount' => 20000]);
+    [, $invoice] = receiptInvoice($charge, 101);
+    $invoice['retention'] = '23.0';
+    $invoice['total'] = '154.00';
+    $allocation = Payment::factory()->for($charge)->create([
+        'amount' => 15400, 'paid_on' => '2026-10-15', 'method' => PaymentMethod::Transfer,
+    ])->allocations()->sole();
+    Http::fake([
+        '*/invoices/101.json*' => Http::response(['invoice' => $invoice]),
+        '*/sequences.json*' => Http::response(['sequences' => [receiptSeries()]]),
+        '*/related_documents.json*' => Http::response(['documents' => []]),
+    ]);
+    $service = app(InvoiceXpressReceipt::class);
+    expect(fn () => $service->preview($allocation->id))->toThrow(ValidationException::class);
+
+    $snapshot = InvoiceXpressSnapshot::query()->where('provider_id', 101)->sole();
+    $snapshot->update(['source' => [...$snapshot->source, 'withholding' => [
+        'basisPoints' => 2300, 'gross' => 20000, 'retained' => 4600, 'cash' => 15400,
+    ]]]);
+    expect($service->preview($allocation->id)['withholding'])->toMatchArray([
+        'cash' => 15400, 'retained' => 4600, 'gross' => 20000,
+    ]);
+})->group('integration');

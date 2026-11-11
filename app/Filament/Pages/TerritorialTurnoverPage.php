@@ -155,10 +155,12 @@ class TerritorialTurnoverPage extends Page implements HasTable
                 DatePicker::make('operation_on')->label(__('Transaction date'))->required()->maxDate(today()),
                 Select::make('classification')->label(__('Does this count toward domestic turnover?'))
                     ->options(['included' => __('Yes, include the eligible amount'), 'excluded' => __('No, exclude the document')])
-                    ->required()->in(['included', 'excluded'])->live(),
+                    ->required()->in(['included', 'excluded']),
                 TextInput::make('eligible_amount')->label(__('Eligible net amount in euros'))
                     ->inputMode('decimal')
-                    ->visible(fn (Get $get): bool => $get('classification') === 'included')
+                    ->visibleJs("\$get('classification') === 'included'")
+                    ->dehydrated(fn (Get $get): bool => $get('classification') === 'included')
+                    ->validatedWhenNotDehydrated(false)
                     ->required(fn (FiscalDocument $record): bool => $record->currency !== 'EUR')
                     ->regex('/\A[0-9]{1,10}(?:[,.][0-9]{1,2})?\z/')
                     ->helperText(fn (FiscalDocument $record): string => $record->currency === 'EUR'

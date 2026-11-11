@@ -13,7 +13,7 @@ class ManageRecurringExpenses extends ManageRecords
 
     public function getSubheading(): ?string
     {
-        return __('Mock: automatic generation of monthly expenses will be implemented later.');
+        return __('Costs that repeat. Contiu creates the expense on the right date.');
     }
 
     protected function getHeaderActions(): array

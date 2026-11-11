@@ -18,17 +18,23 @@ class ClientHeader
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-            Header::make()
-                // On the page itself, as in the mock: the figures under it are the card.
-                ->contained(false)
-                ->heading(fn (Client $record) => $record->name)
-                ->initials(fn (Client $record) => $record->name)
-                // A rounded square tinted with the user's palette colour.
-                ->initialsBgColor('primary')
-                ->avatarShape(AvatarShape::Rounded)
-                ->avatarStyle(AvatarStyle::Soft)
+            static::header()
                 ->description(fn (Client $record): string => static::identityLine($record), html: true),
         ]);
+    }
+
+    /** The client's header without its second line, for a page that says something else there. */
+    public static function header(): Header
+    {
+        return Header::make()
+            // On the page itself, as in the mock: the figures under it are the card.
+            ->contained(false)
+            ->heading(fn (Client $record) => $record->name)
+            ->initials(fn (Client $record) => $record->name)
+            // A rounded square tinted with the user's palette colour.
+            ->initialsBgColor('primary')
+            ->avatarShape(AvatarShape::Rounded)
+            ->avatarStyle(AvatarStyle::Soft);
     }
 
     /**

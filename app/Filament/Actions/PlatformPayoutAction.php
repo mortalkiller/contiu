@@ -6,21 +6,19 @@ use App\Enums\BankTransactionStatus;
 use App\Enums\FiscalDocumentDirection;
 use App\Enums\FiscalDocumentStatus;
 use App\Enums\Language;
+use App\Filament\Support\QuickCreate;
 use App\Models\BankTransaction;
 use App\Models\FiscalDocument;
 use App\Models\Supplier;
 use App\Support\CurrentAccount;
 use App\Support\Money;
-use App\Support\PlatformPayoutAmounts;
-use Brick\Math\BigInteger;
-use DomainException;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\View;
 use Filament\Support\Enums\Width;
 use Money\Currencies\ISOCurrencies;
 use Money\Currency;
@@ -36,6 +34,9 @@ class PlatformPayoutAction extends Action
     protected function setUp(): void
     {
         parent::setUp();
+
+        $foreignCurrency = fn (Get $get): bool => $get('currency') !== 'EUR';
+        $foreignCurrencyJs = "\$get('currency') !== 'EUR'";
 
         $this->label(__('Reconcile platform payout'))
             ->icon(Phosphor::Coins)
@@ -60,29 +61,32 @@ class PlatformPayoutAction extends Action
                     ->reorderable(false)
                     ->columns(2)
                     ->schema([
-                        Select::make('platform_id')->label(__('Platform'))
+                        QuickCreate::supplier(Select::make('platform_id')->label(__('Platform'))
                             ->options(fn () => Supplier::query()->orderBy('name')->pluck('name', 'id')->all())
-                            ->searchable()->required(),
+                            ->searchable()->required()),
                         TextInput::make('title')->label(__('Description'))->required()->maxLength(255),
                         TextInput::make('reference')->label(__('Payout reference'))->maxLength(255),
                         Select::make('currency')->label(__('Original currency'))
                             ->options(fn (): array => collect(iterator_to_array(new ISOCurrencies))
                                 ->mapWithKeys(fn (Currency $currency): array => [$currency->getCode() => $currency->getCode()])->sortKeys()->all())
-                            ->searchable()->default('EUR')->required()->live(),
+                            ->searchable()->dynamicOptions(false)->default('EUR')->required(),
                         TextInput::make('original_gross')->label(__('Original gross amount'))
-                            ->inputMode('decimal')->required()->live(onBlur: true),
+                            ->inputMode('decimal')->required(),
                         TextInput::make('original_commission')->label(__('Original fee'))
-                            ->inputMode('decimal')->default('0')->required()->live(onBlur: true),
+                            ->inputMode('decimal')->default('0')->required(),
                         TextInput::make('fx_rate')->label(__('Exchange rate to EUR'))
                             ->helperText(__('Euros per unit of the original currency, as shown on the supporting document.'))
-                            ->inputMode('decimal')->required()->live(onBlur: true)
-                            ->visible(fn (Get $get): bool => $get('currency') !== 'EUR'),
+                            ->inputMode('decimal')->required($foreignCurrency)
+                            ->dehydrated($foreignCurrency)
+                            ->visibleJs($foreignCurrencyJs),
                         TextInput::make('fx_reference')->label(__('Exchange rate document reference'))
-                            ->maxLength(255)->required()
-                            ->visible(fn (Get $get): bool => $get('currency') !== 'EUR'),
+                            ->maxLength(255)->required($foreignCurrency)
+                            ->dehydrated($foreignCurrency)
+                            ->visibleJs($foreignCurrencyJs),
                         Checkbox::make('fx_confirmed')->label(__('I checked the rate on the supporting document'))
-                            ->accepted()->columnSpanFull()
-                            ->visible(fn (Get $get): bool => $get('currency') !== 'EUR'),
+                            ->accepted($foreignCurrency)->columnSpanFull()
+                            ->dehydrated($foreignCurrency)
+                            ->visibleJs($foreignCurrencyJs),
                         Select::make('commission_document_id')->label(__('Fee document'))
                             ->options(fn (): array => FiscalDocument::query()
                                 ->where('direction', FiscalDocumentDirection::Received)
@@ -94,28 +98,18 @@ class PlatformPayoutAction extends Action
                             ->searchable(),
                         TextInput::make('invoice_number')->label(__('Invoice-receipt number'))->maxLength(255),
                     ]),
-                Text::make(fn (Get $get): ?string => self::preview($record->amount, $get('payouts') ?? [])),
+                View::make('filament.actions.contiu-platform-payout-preview')
+                    ->viewData(function () use ($record): array {
+                        $currencies = new ISOCurrencies;
+
+                        return [
+                            'amount' => (string) $record->amount,
+                            'locale' => Language::resolve(app()->getLocale())->value,
+                            'scales' => collect($currencies)->mapWithKeys(fn (Currency $currency): array => [
+                                $currency->getCode() => $currencies->subunitFor($currency),
+                            ])->all(),
+                        ];
+                    }),
             ]);
-    }
-
-    private static function preview(int $bankAmount, array $payouts): ?string
-    {
-        $remaining = BigInteger::of($bankAmount);
-
-        foreach ($payouts as $payout) {
-            try {
-                $amounts = PlatformPayoutAmounts::from(PlatformPayoutAmounts::minorUnitsFromForm($payout));
-            } catch (DomainException) {
-                return null;
-            }
-
-            $remaining = $remaining->minus($amounts->netEur());
-        }
-
-        if ($remaining->isLessThan(PHP_INT_MIN) || $remaining->isGreaterThan(PHP_INT_MAX)) {
-            return __('The net payout amount exceeds the bank deposit.');
-        }
-
-        return __('Difference from bank deposit: :amount', ['amount' => Money::format($remaining->toInt())]);
     }
 }

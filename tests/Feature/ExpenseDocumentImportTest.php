@@ -177,6 +177,7 @@ it('uploads a CSV, waits for explicit choices, and records the fiscal and bank l
     $bank = expenseDocumentBankLine();
 
     $page = Livewire::test(ExpenseDocumentImport::class)
+        ->set('origin', 'csv')
         ->set('source', '123456789')
         ->set('file', UploadedFile::fake()->createWithContent('faturas.csv', expenseDocumentCsv()))
         ->call('preview')
@@ -313,14 +314,34 @@ it('requires a fresh preview after the user changes the source', function () {
     actingAsAdmin();
 
     Livewire::test(ExpenseDocumentImport::class)
+        ->set('origin', 'csv')
         ->set('source', 'Origem inicial')
         ->set('file', UploadedFile::fake()->createWithContent('faturas.csv', expenseDocumentCsv()))
         ->call('preview')
         ->assertHasNoErrors()
+        ->set('origin', 'csv')
         ->set('source', 'Outra origem')
         ->set('choices.0.expense', 'unlinked')
         ->call('confirm')
         ->assertHasErrors('file');
+
+    expect(FiscalDocument::count())->toBe(0);
+})->group('ui');
+
+it('requires a fresh preview after switching import methods', function () {
+    actingAsAdmin();
+
+    Livewire::test(ExpenseDocumentImport::class)
+        ->set('origin', 'csv')
+        ->set('source', 'Origem inicial')
+        ->set('file', UploadedFile::fake()->createWithContent('faturas.csv', expenseDocumentCsv()))
+        ->call('preview')
+        ->assertHasNoErrors()
+        ->assertSeeHtml('wire:target="method,source,file,qrText,qrImage"')
+        ->set('choices.0.expense', 'unlinked')
+        ->set('method', 'qr')
+        ->call('confirm')
+        ->assertHasErrors('qrText');
 
     expect(FiscalDocument::count())->toBe(0);
 })->group('ui');
@@ -358,16 +379,42 @@ describe('Import preview summary', function () {
 
         $page = Livewire::test(ExpenseDocumentImport::class)
             ->assertSee('Junta as faturas que recebeste às despesas, sem escrever os dados à mão.')
-            ->assertDontSee('Faturas lidas')
+            ->assertSee('Nenhum ficheiro lido')
+            ->assertSee('Ainda não leste nenhuma fatura.')
+            ->set('origin', 'csv')
             ->set('source', '123456789')
             ->set('file', UploadedFile::fake()->createWithContent('faturas.csv', $csv))
             ->call('preview')
             ->assertHasNoErrors();
 
         expect(importScreenText($page))->toContain(
-            'Faturas lidas 2 Origem 123456789 Correspondência exata 1 Mesma data, valores e número Por confirmar 0 Nenhuma Sem candidatos 1 Cria a despesa a partir da fatura',
+            'Faturas lidas 2 faturas.csv Correspondência exata 1 Por confirmar 0 Sem candidatos 1 Cria a despesa a partir da fatura',
         );
 
         expect(FiscalDocument::query()->count())->toBe(0);
+    })->group('ui');
+    it('lists the invoices as a table and counts the ones chosen on the import button', function () {
+        actingAsAdmin();
+        $expense = Expense::factory()->unpaid()->create([
+            'description' => 'Subscrição Demo', 'spent_on' => '2026-11-10', 'invoice_number' => 'FT DEMO/2',
+            'net_amount' => 2000, 'vat_rate' => 0.23,
+        ]);
+        $csv = "data;referencia;liquido;iva;total\n2026-11-10;FT DEMO/2;20,00;4,60;24,60\n2026-11-09;FT DEMO/3;50,00;11,50;61,50";
+
+        $page = Livewire::test(ExpenseDocumentImport::class)
+            ->set('origin', 'csv')
+            ->set('source', '123456789')
+            ->set('file', UploadedFile::fake()->createWithContent('faturas.csv', $csv))
+            ->call('preview')
+            ->assertSeeHtml('data-fap-value-color="success"');
+
+        expect(importScreenText($page))
+            ->toContain('Fatura Fornecedor Total Correspondência Despesa na Contiu Movimento bancário')
+            ->toMatch('/FT DEMO\/2 .* Exata .* Subscrição Demo .* FT DEMO\/3 .* Sem candidatos .* Nenhuma despesa parecida/u')
+            ->toContain('Importar faturas');
+
+        $page->set('choices.0.expense', (string) $expense->id);
+
+        expect(importScreenText($page))->toContain('Importar 1 fatura');
     })->group('ui');
 });

@@ -2,11 +2,12 @@
 
 use App\Filament\Analysis\Widgets\TaxQuartersTable;
 use App\Filament\Pages\TaxEstimate;
-use App\Filament\Widgets\TaxObligationsCard;
+use App\Filament\Widgets\UpcomingTaxPayments;
 use App\Models\Payment;
 use App\Support\FinanceSettings;
 use App\Support\Money;
 use App\Support\TaxEstimator;
+use App\Support\TaxObligations;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 use Livewire\Livewire;
@@ -131,7 +132,34 @@ describe('Current obligations', function () {
     });
 
     it('shows the month\'s obligations on the tax estimate only for the running year', function () {
-        Livewire::test(TaxEstimate::class)->assertSeeLivewire(TaxObligationsCard::class);
-        Livewire::test(TaxEstimate::class, ['year' => 2025])->assertDontSeeLivewire(TaxObligationsCard::class);
+        Livewire::test(TaxEstimate::class)->assertSeeLivewire(UpcomingTaxPayments::class);
+        Livewire::test(TaxEstimate::class, ['year' => 2025])->assertDontSeeLivewire(UpcomingTaxPayments::class);
+    });
+});
+
+describe('Upcoming payments and declarations', function () {
+    beforeEach(function () {
+        $this->travelTo(CarbonImmutable::parse('2026-11-10'));
+        actingAsAdmin();
+        app(FinanceSettings::class)->set(['activity_started_on' => '2020-01-01', 'activity_start_kind' => 'first', 'obligations_tracked_from' => '2026-10-01']);
+    });
+
+    it('lists what is late and lets the late declaration be marked filed', function () {
+        Livewire::test(UpcomingTaxPayments::class)
+            ->assertSee('Próximos pagamentos')
+            ->assertSee('Era até')
+            ->assertSee('Marcar como entregue')
+            ->call('markFiled', 'ss-declaration:2026-Q3')
+            ->assertDontSee('Marcar como entregue');
+
+        expect(collect((new TaxObligations(app(FinanceSettings::class), CarbonImmutable::today()))->pending())->pluck('key'))
+            ->not->toContain('ss-declaration:2026-Q3');
+    });
+
+    it('says whether each closed quarter\'s declaration is on record', function () {
+        Livewire::test(TaxQuartersTable::class, ['year' => 2026])
+            ->assertSee('Declaração')
+            ->assertSee('Atrasada 10 dias')
+            ->assertSee('Abrir Segurança Social');
     });
 });

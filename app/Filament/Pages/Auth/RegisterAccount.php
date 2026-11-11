@@ -133,8 +133,7 @@ class RegisterAccount extends Register
                     TaxSettingsFields::whereToFind(
                         Toggle::make('vat_exempt')
                             ->label(__('VAT exempt (Article 53)'))
-                            ->helperText(__('New payments received are marked as exempt. You can change them individually.'))
-                            ->live(),
+                            ->helperText(__('New payments received are marked as exempt. You can change them individually.')),
                         __('On your activity registration or amendment receipt, look under “Enquadramento em IVA” for “Isenção artigo 53.º”. You can find it under “Declarações de Atividade” in the Portuguese Tax Portal.'),
                     ),
                     MoneyInput::make('vat_exemption_threshold')
@@ -142,8 +141,10 @@ class RegisterAccount extends Register
                         ->helperText(__('Annual invoicing threshold below which the exemption applies.'))
                         ->default(1500000)
                         ->minValue(0)
-                        ->visible(fn (Get $get) => (bool) $get('vat_exempt'))
-                        ->required(fn (Get $get) => (bool) $get('vat_exempt')),
+                        ->visibleJs("!! \$get('vat_exempt')")
+                        ->dehydrated(fn (Get $get): bool => (bool) $get('vat_exempt'))
+                        ->validatedWhenNotDehydrated(false)
+                        ->required(),
                 ]),
 
             Step::make(__('Social Security'))
@@ -157,13 +158,14 @@ class RegisterAccount extends Register
                     Toggle::make('has_business_account')
                         ->label(__('I have a dedicated business bank account'))
                         ->helperText(__('If so, you can import its statement. Contiu checks that recorded payments reached the account and shows the balance. Leave this off if you use the same account for everything. You can change this in Settings.'))
-                        ->default(false)
-                        ->live(),
+                        ->default(false),
                     Textarea::make('account_names')
                         ->label(__('Your names on the statement'))
                         ->placeholder("ANA MARIA SILVA\n".__('Savings'))
                         ->helperText(__('When you move money between your accounts, the bank puts a name in the description. Enter one per line. Contiu marks these transactions as “Transfer between my accounts” and excludes them from income and expenses. You can leave this blank and fill it in later.'))
-                        ->visible(fn (Get $get): bool => (bool) $get('has_business_account'))
+                        ->visibleJs("!! \$get('has_business_account')")
+                        ->dehydrated(fn (Get $get): bool => (bool) $get('has_business_account'))
+                        ->validatedWhenNotDehydrated(false)
                         ->rows(3),
                 ]),
 

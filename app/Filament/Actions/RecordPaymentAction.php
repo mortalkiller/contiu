@@ -23,15 +23,16 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Js;
 use Illuminate\Validation\ValidationException;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
@@ -48,6 +49,17 @@ class RecordPaymentAction extends Action
         return 'recordPayment';
     }
 
+    /** "Receive" on a row of a list, as in the mocks: a small neutral button without an icon. */
+    public static function rowButton(): static
+    {
+        return static::make()
+            ->button()
+            ->size('sm')
+            ->color('gray')
+            ->icon(null)
+            ->label(__('Receive'));
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -57,79 +69,31 @@ class RecordPaymentAction extends Action
             ->icon(Phosphor::HandCoins)
             ->color('primary')
             ->modalHeading(__('Record payment'))
+            // As in the mock: who and what the payment is for, under the heading.
             ->modalDescription(fn (?Model $record) => $record instanceof Receivable
-                ? __(':label — :amount outstanding', ['label' => $record->label, 'amount' => Money::format($record->outstanding)])
+                ? implode(' · ', array_filter([$record->client?->name, $record->billable?->code ?? null, $record->label]))
                 : __('Select the receivable. The outstanding amount is filled in automatically.'))
-            ->modalIcon(Phosphor::HandCoins)
             ->modalWidth(Width::Large)
-            ->modalSubmitActionLabel(__('Record'))
+            ->modalSubmitActionLabel(__('Record payment'))
             ->visible(fn (?Model $record): bool => static::hasOpenReceivables($record))
             ->fillForm(function (?Model $record): array {
-                $receivable = static::openReceivablesQuery($record)->with(['payments', 'billable'])->orderBy('due_on')->first();
+                $receivable = static::openReceivablesQuery($record)->withOutstandingBalance()->with('billable')->orderBy('due_on')->first();
 
                 return [
                     'receivable_id' => $receivable?->getKey(),
                     'paid_on' => today(),
-                    'amount' => $receivable?->outstanding,
+                    'amount' => $receivable?->projectedOutstanding(),
                     'method' => PaymentMethod::Transfer,
                     'tax_exempt' => static::exemptByDefault($receivable),
                 ];
             })
-            ->schema(fn (?Model $record) => [
-                Select::make('receivable_id')
-                    ->label(__('Receivable'))
-                    ->options(fn () => static::receivableOptions($record))
-                    ->required()
-                    ->live()
-                    ->hidden($record instanceof Receivable)
-                    ->afterStateUpdated(function (Set $set, ?string $state): void {
-                        $receivable = Receivable::with(['payments', 'billable'])->find($state);
-                        $set('amount', Money::toEuros($receivable?->outstanding)); // the field holds euros
-                        $set('tax_exempt', static::exemptByDefault($receivable));
-                    }),
-                Grid::make(2)->schema([
-                    DatePicker::make('paid_on')
-                        ->label(__('Date'))
-                        ->native(false)
-                        ->displayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
-                        ->maxDate(today())
-                        ->required(),
-                    MoneyInput::make('amount')
-                        ->label(__('Payment amount'))
-                        ->minValue(0.01)
-                        ->required()
-                        ->rule(fn (Get $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get, $record): void {
-                            $receivable = $record instanceof Receivable ? $record : Receivable::with('payments')->find($get('receivable_id'));
-
-                            if ($receivable && (int) Money::toCents($value) > $receivable->outstanding) {
-                                $fail(__('The payment exceeds the outstanding amount (:amount). If the client overpaid, record the difference against another receivable.', [
-                                    'amount' => Money::format($receivable->outstanding),
-                                ]));
-                            }
-                        }),
-                ]),
-                ToggleButtons::make('method')
-                    ->label(__('Method'))
-                    ->options(PaymentMethod::class)
-                    ->inline()
-                    ->required(),
-                Toggle::make('tax_exempt')
-                    ->label(__('Exempt from taxes'))
-                    ->helperText(__('Excluded from tax estimates (VAT, Social Security and personal income tax). Selected by default according to Tax settings and for tax-exempt retainers.')),
-                TextInput::make('invoice_number')
-                    ->label(__('Invoice / receipt number'))
-                    ->placeholder(__('E.g. FR 2026/12'))
-                    ->maxLength(100),
-                Textarea::make('notes')
-                    ->label(__('Notes'))
-                    ->rows(2),
-            ])
+            ->schema(fn (?Model $record): array => static::paymentSchema($record))
             ->action(function (array $data, ?Model $record, Schema $schema): void {
                 DB::transaction(function () use ($data, $record, $schema): void {
                     $id = $record instanceof Receivable ? $record->getKey() : $data['receivable_id'];
-                    $receivable = Receivable::query()->lockForUpdate()->findOrFail($id);
+                    $receivable = static::receivablesQuery($record)->lockForUpdate()->find($id);
 
-                    if ($data['amount'] > $receivable->outstanding) {
+                    if ($receivable === null || $data['amount'] > $receivable->outstanding) {
                         throw ValidationException::withMessages([
                             $schema->getStatePath().'.amount' => __('The amount exceeds the outstanding balance for this receivable.'),
                         ]);
@@ -144,6 +108,90 @@ class RecordPaymentAction extends Action
                     ->success()
                     ->send();
             });
+    }
+
+    private static function paymentSchema(?Model $record): array
+    {
+        $options = null;
+        $receivables = function () use ($record, &$options): Collection {
+            return $options ??= static::openReceivables($record);
+        };
+
+        return [
+            // "Faltam 150,00 € de 800,00 €.": what is left on the instalment being received.
+            ...($record instanceof Receivable ? [
+                Callout::make(__(':outstanding left of :amount.', [
+                    'outstanding' => Money::format($record->outstanding),
+                    'amount' => Money::format($record->amount),
+                ]))
+                    ->description(__('Receiving it all settles this instalment.'))
+                    ->icon(Phosphor::Info)
+                    ->status('info'),
+            ] : []),
+            Select::make('receivable_id')
+                ->label(__('Receivable'))
+                ->options(fn () => static::receivableOptions($record, $receivables()))
+                ->required()
+                ->hidden($record instanceof Receivable)
+                ->afterStateUpdatedJs(function () use ($receivables): string {
+                    $defaults = Js::from($receivables()->mapWithKeys(fn (Receivable $receivable): array => [
+                        $receivable->getKey() => [
+                            'amount' => Money::toEuros($receivable->projectedOutstanding()),
+                            'taxExempt' => static::exemptByDefault($receivable),
+                        ],
+                    ])->all());
+                    $taxExempt = Js::from(static::exemptByDefault(null));
+
+                    return <<<JS
+                        const defaults = {$defaults}[\$state];
+                        \$set('amount', defaults?.amount ?? null);
+                        \$set('tax_exempt', defaults?.taxExempt ?? {$taxExempt});
+                        JS;
+                }),
+            Grid::make(2)->schema([
+                MoneyInput::make('amount')
+                    ->label(__('Payment amount'))
+                    ->minValue(0.01)
+                    ->required()
+                    ->rule(fn (Get $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get, $record): void {
+                        $id = $record instanceof Receivable ? $record->getKey() : $get('receivable_id');
+                        $receivable = static::receivablesQuery($record)->withOutstandingBalance()->find($id);
+                        $outstanding = $receivable?->projectedOutstanding();
+
+                        if ($outstanding === null) {
+                            $fail(__('Choose a receivable.'));
+                        }
+
+                        if ($outstanding !== null && (int) Money::toCents($value) > $outstanding) {
+                            $fail(__('The payment exceeds the outstanding amount (:amount). If the client overpaid, record the difference against another receivable.', [
+                                'amount' => Money::format($outstanding),
+                            ]));
+                        }
+                    }),
+                DatePicker::make('paid_on')
+                    ->label(__('Date'))
+                    ->native(false)
+                    ->displayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
+                    ->maxDate(today())
+                    ->required(),
+            ]),
+            ToggleButtons::make('method')
+                ->label(__('Method'))
+                ->options(PaymentMethod::class)
+                ->inline()
+                ->required(),
+            Toggle::make('tax_exempt')
+                ->label(__('Exempt from taxes'))
+                ->helperText(__('Excluded from tax estimates (VAT, Social Security and personal income tax). Selected by default according to Tax settings and for tax-exempt retainers.')),
+            TextInput::make('invoice_number')
+                ->label(__('Invoice / receipt number'))
+                ->placeholder(__('E.g. FR 2026/12'))
+                ->maxLength(100),
+            Textarea::make('notes')
+                ->label(__('Notes'))
+                ->placeholder(__('Optional'))
+                ->rows(2),
+        ];
     }
 
     /** A retainer's payment follows the retainer; any other follows "Recebimentos isentos por defeito". */
@@ -161,7 +209,7 @@ class RecordPaymentAction extends Action
      */
     public static function openReceivables(?Model $record): Collection
     {
-        return static::openReceivablesQuery($record)->with(['payments', 'billable.client'])->orderBy('due_on')->get();
+        return static::openReceivablesQuery($record)->withOutstandingBalance()->with('billable.client')->orderBy('due_on')->get();
     }
 
     private static function hasOpenReceivables(?Model $record): bool
@@ -180,7 +228,13 @@ class RecordPaymentAction extends Action
     /** @return Builder<Receivable> */
     private static function openReceivablesQuery(?Model $record): Builder
     {
-        $query = Receivable::query()->open()->excludingCancelled();
+        return static::receivablesQuery($record)->open();
+    }
+
+    /** @return Builder<Receivable> */
+    private static function receivablesQuery(?Model $record): Builder
+    {
+        $query = Receivable::query()->excludingCancelled();
 
         match (true) {
             $record instanceof Receivable => $query->whereKey($record->getKey()),
@@ -197,15 +251,13 @@ class RecordPaymentAction extends Action
      *
      * @return array<string, string>|array<string, array<string, string>>
      */
-    protected static function receivableOptions(?Model $record): array
+    protected static function receivableOptions(?Model $record, Collection $receivables): array
     {
         $label = fn (Receivable $receivable) => __(':label — due :date — :amount outstanding', [
             'label' => $receivable->label,
             'date' => $receivable->due_on->format(Language::resolve(app()->getLocale())->dateFormat()),
-            'amount' => Money::format($receivable->outstanding),
+            'amount' => Money::format($receivable->projectedOutstanding()),
         ]);
-
-        $receivables = static::openReceivables($record);
 
         if ($record !== null) {
             return $receivables->mapWithKeys(fn (Receivable $receivable) => [$receivable->getKey() => $label($receivable)])->all();

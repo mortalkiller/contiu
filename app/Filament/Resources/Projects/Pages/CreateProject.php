@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Projects\Pages;
 
 use App\Enums\Language;
+use App\Filament\Resources\Concerns\HasSaveBar;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Resources\Projects\Schemas\ProjectForm;
 use App\Models\Client;
@@ -30,6 +31,7 @@ use ToneGabes\Filament\Icons\Enums\Phosphor;
  */
 class CreateProject extends CreateRecord
 {
+    use HasSaveBar;
     use HasWizard;
 
     protected static string $resource = ProjectResource::class;

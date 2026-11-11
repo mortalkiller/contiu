@@ -13,13 +13,13 @@ use NunoMaduro\Essentials\Configurables\Unguard;
 
 return [
     AggressivePrefetching::class => false,
-    AutomaticallyEagerLoadRelationships::class => false,
+    AutomaticallyEagerLoadRelationships::class => true,
     FakeSleep::class => false,
-    ForceScheme::class => false,
+    ForceScheme::class => true,
     ImmutableDates::class => false,
     PreventStrayRequests::class => false,
-    ProhibitDestructiveCommands::class => false,
-    SetDefaultPassword::class => false,
+    ProhibitDestructiveCommands::class => true,
+    SetDefaultPassword::class => true,
     ShouldBeStrict::class => env('APP_ENV') === 'local',
     Unguard::class => false,
 ];

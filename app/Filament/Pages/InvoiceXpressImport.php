@@ -13,6 +13,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Support\Components\Attributes\Unexposed;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
@@ -29,7 +30,7 @@ class InvoiceXpressImport extends InvoiceXpressSectionPage
 
     public bool $archived = false;
 
-    /** @var array{account: int, subdomain: string, page: int, totalPages: int}|null */
+    /** @var array{id: string, account: int, subdomain: string, page: int, totalPages: int}|null */
     #[Locked]
     public ?array $previewScope = null;
 
@@ -71,7 +72,10 @@ class InvoiceXpressImport extends InvoiceXpressSectionPage
 
     protected function getViewData(): array
     {
-        return ['summary' => $this->previewScope === null ? [] : $this->summary()];
+        return [
+            'summary' => $this->previewScope === null ? [] : $this->summary(),
+            'reviewedFilters' => $this->only(['from', 'to', 'archived']),
+        ];
     }
 
     /**
@@ -103,17 +107,6 @@ class InvoiceXpressImport extends InvoiceXpressSectionPage
         return InvoiceXpressConfig::current()?->subdomain;
     }
 
-    public function configureAction(): Action
-    {
-        return InvoiceXpressSettingsPage::connectionForm(
-            $this->canWrite(...),
-            function (): void {
-                unset($this->configuredSubdomain);
-                $this->clearPreview();
-            },
-        );
-    }
-
     public function updatedFrom(): void
     {
         $this->clearPreview();
@@ -140,6 +133,12 @@ class InvoiceXpressImport extends InvoiceXpressSectionPage
         $scope = $this->previewScope;
 
         if ($scope === null || ! in_array($direction, [-1, 1], true)) {
+            return;
+        }
+
+        if ($scope['account'] !== CurrentAccount::id() || $scope['subdomain'] !== $this->configuredSubdomain) {
+            $this->clearPreview();
+
             return;
         }
 
@@ -192,6 +191,7 @@ class InvoiceXpressImport extends InvoiceXpressSectionPage
         abort_unless(static::canAccess(), 403);
         $this->clearPreview();
         $accountId = CurrentAccount::id();
+        $reviewId = (string) Str::uuid();
         $client = app(InvoiceXpressClient::class);
         $import = app(Importer::class);
 
@@ -219,7 +219,7 @@ class InvoiceXpressImport extends InvoiceXpressSectionPage
                     }
 
                     $row['review_key'] = hash('sha256', implode('|', [
-                        $accountId, $result['subdomain'], $row['invoice']['id'],
+                        $reviewId, $accountId, $result['subdomain'], $row['invoice']['id'],
                         $row['source_hash'], $row['current_hash'], $row['local_hash'],
                     ]));
                     $this->rows[] = $row;
@@ -235,6 +235,7 @@ class InvoiceXpressImport extends InvoiceXpressSectionPage
         }
 
         $this->previewScope = [
+            'id' => $reviewId,
             'account' => $accountId,
             'subdomain' => $result['subdomain'],
             'page' => $result['page'],
@@ -265,12 +266,12 @@ class InvoiceXpressImport extends InvoiceXpressSectionPage
     #[Unexposed]
     public function getTitle(): string
     {
-        return __('Import from InvoiceXpress');
+        return __('Synchronize documents');
     }
 
     #[Unexposed]
     public static function getNavigationLabel(): string
     {
-        return __('Import from InvoiceXpress');
+        return __('Synchronize documents');
     }
 }

@@ -17,7 +17,7 @@ final class InvoiceXpressSandboxDrafts
     public static function sequence(array $series, int $seriesId, string $type): array
     {
         $documentSeriesId = InvoiceXpressIssueTerms::positiveId($series["current_{$type}_sequence_id"] ?? null);
-        if (! isset(self::DocumentTypes[$type]) || ($series['serie'] ?? null) !== self::Series
+        if ((! isset(self::DocumentTypes[$type]) && ! isset(InvoiceXpressNoteTerms::Types[$type])) || ($series['serie'] ?? null) !== self::Series
             || InvoiceXpressIssueTerms::positiveId($series['id'] ?? null) !== $seriesId || $documentSeriesId === null) {
             throw ValidationException::withMessages(['sequence' => __('The demo series is unavailable for this document.')]);
         }
@@ -37,10 +37,35 @@ final class InvoiceXpressSandboxDrafts
         return ['id' => $customerId, 'name' => trim($name), 'nif' => InvoiceXpressIssueTerms::nif($customer['fiscal_id'] ?? null)];
     }
 
-    /** @param list<int> $itemIds */
-    public function create(string $account, string $type, array $invoice, array $itemIds, string $revision, array $totals, ?array $withholding): int
-    {
+    /**
+     * @param  list<int>  $itemIds
+     * @param  array{id: int, name: string, region: string, basisPoints: int, code?: string}|null  $verifiedTax
+     */
+    public function create(
+        string $account,
+        string $type,
+        array $invoice,
+        array $itemIds,
+        string $revision,
+        array $totals,
+        ?array $withholding,
+        ?array $verifiedTax = null,
+    ): int {
         abort_unless(InvoiceXpressIssueRepository::ownerCanIssue() && InvoiceXpressClient::sandboxDraftsAllowed($account), 403);
+
+        if ($verifiedTax !== null) {
+            $taxes = $this->client->request('GET', '/taxes.json', expectedSubdomain: $account)['taxes'] ?? [];
+            $catalogTax = is_array($taxes) ? InvoiceXpressIssueTerms::tax(
+                $taxes,
+                $verifiedTax['name'],
+                $verifiedTax['region'],
+                $verifiedTax['basisPoints'],
+                draftOnly: true,
+            ) : null;
+            if (($catalogTax['id'] ?? null) !== $verifiedTax['id']) {
+                throw ValidationException::withMessages(['tax' => __('The configured VAT name must identify a single tax with the expected region and rate.')]);
+            }
+        }
 
         $before = [];
         foreach ($itemIds as $index => $id) {
@@ -49,7 +74,8 @@ final class InvoiceXpressSandboxDrafts
             $line = $invoice['items'][$index];
             if ($line['name'] !== $item['name'] || $line['description'] !== $item['description'] || $line['unit'] !== $item['unit']
                 || InvoiceXpressIssueTerms::hundredths($line['unit_price']) !== $item['unitCents']
-                || ($line['tax']['name'] ?? null) !== ($before[$id]['tax']['name'] ?? null)) {
+                || ($line['tax']['name'] ?? null) !== ($before[$id]['tax']['name'] ?? null)
+                || ($verifiedTax !== null && ! InvoiceXpressIssueTerms::matchesItemTax($before[$id]['tax'] ?? null, $verifiedTax))) {
                 throw ValidationException::withMessages(['confirmation' => __('The item has changed in InvoiceXpress. Preview the document again.')]);
             }
         }

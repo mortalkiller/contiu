@@ -4,14 +4,19 @@ namespace App\Filament\Pages;
 
 use App\Enums\FiscalDocumentDirection;
 use App\Filament\Pages\Concerns\HasTaxSubNavigation;
+use App\Filament\Support\PeriodPicker;
 use App\Models\FiscalDocument;
 use App\Support\CurrentAccount;
 use App\Support\FinanceSettings;
 use App\Support\Money;
+use App\Support\Period;
 use App\Support\TaxEstimator;
 use App\Support\TerritorialTurnover;
 use App\Support\VatPeriodReview;
 use BackedEnum;
+use Carbon\CarbonImmutable;
+use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Components\Attributes\Unexposed;
@@ -42,6 +47,9 @@ class VatReviewPage extends Page
 
     #[Url]
     public int $months = 1;
+
+    /** Which documents the table lists: issued or received. */
+    public string $direction = 'issued';
 
     #[Locked]
     public string $revision = '';
@@ -76,6 +84,64 @@ class VatReviewPage extends Page
         $this->reloadReview();
     }
 
+    public function getSubheading(): string
+    {
+        return __('VAT for the period, from the fiscal documents.');
+    }
+
+    /** As in the mock: the period to show, then whether periods are months or quarters. */
+    protected function getHeaderActions(): array
+    {
+        $periods = [];
+
+        foreach (array_unique([today()->year, $this->year, $this->year - 1]) as $year) {
+            foreach (array_reverse($this->months === 3 ? [1, 4, 7, 10] : range(1, 12)) as $month) {
+                if (CarbonImmutable::create($year, $month, 1)->lte(today())) {
+                    $periods[sprintf('%04d-%02d', $year, $month)] = static::periodLabel($year, $month, $this->months);
+                }
+            }
+        }
+
+        krsort($periods);
+        $current = sprintf('%04d-%02d', $this->year, $this->month);
+        $periods[$current] ??= static::periodLabel($this->year, $this->month, $this->months);
+
+        return [
+            PeriodPicker::make('period', $periods, $current, function (int|string $period): void {
+                [$this->year, $this->month] = array_map('intval', explode('-', (string) $period));
+                $this->reloadReview();
+            }, __('Period')),
+            ActionGroup::make([
+                Action::make('monthly')
+                    ->label(__('Monthly'))
+                    ->color($this->months === 1 ? 'primary' : 'gray')
+                    ->action(function (): void {
+                        $this->months = 1;
+                        $this->reloadReview();
+                    }),
+                Action::make('quarterly')
+                    ->label(__('Quarterly'))
+                    ->color($this->months === 3 ? 'primary' : 'gray')
+                    ->action(function (): void {
+                        $this->months = 3;
+                        $this->reloadReview();
+                    }),
+            ])->buttonGroup(),
+        ];
+    }
+
+    /** "4.º trimestre de 2026" or "novembro de 2026". */
+    public static function periodLabel(int $year, int $month, int $months): string
+    {
+        $monthName = app()->getLocale() === 'pt_PT'
+            ? Period::MONTHS[$month - 1]
+            : CarbonImmutable::create(2000, $month, 1)->locale(app()->getLocale())->translatedFormat('F');
+
+        return $months === 3
+            ? __('Q:quarter :year', ['quarter' => intdiv($month - 1, 3) + 1, 'year' => $year])
+            : __(':month, :year', ['month' => $monthName, 'year' => $year]);
+    }
+
     public function updated(string $property): void
     {
         if (in_array($property, ['year', 'month', 'months'], true)) {
@@ -96,8 +162,11 @@ class VatReviewPage extends Page
         $review = $this->review();
         $confirmation = $review->confirmation;
         $this->revision = $review->revision();
-        $this->liquidated = $confirmation === null ? '' : (string) Money::toEuros($confirmation->liquidated);
-        $this->deductible = $confirmation === null ? '' : (string) Money::toEuros($confirmation->deductible);
+        // Before a confirmation, the documents' VAT is the starting point; while exempt under
+        // art. 53.º nothing on the received documents is deductible.
+        $exempt = (new TaxEstimator(app(FinanceSettings::class), $this->year))->vatExempt();
+        $this->liquidated = (string) Money::toEuros($confirmation?->liquidated ?? $review->issuedVat);
+        $this->deductible = (string) Money::toEuros($confirmation?->deductible ?? ($exempt ? 0 : $review->receivedVat));
         $this->adjustments = (string) Money::toEuros($confirmation?->adjustments ?? 0);
         $this->reference = $confirmation?->reference ?? '';
         $this->dueOn = $confirmation?->due_on?->toDateString() ?? '';
@@ -142,7 +211,11 @@ class VatReviewPage extends Page
     {
         $review = $this->review();
 
-        return ['review' => $review, ...$this->summary($review)];
+        return [
+            'review' => $review,
+            'periodLabel' => static::periodLabel($this->year, $this->month, $this->months),
+            ...$this->summary($review),
+        ];
     }
 
     /**
@@ -168,7 +241,7 @@ class VatReviewPage extends Page
                     'value' => Number::format($threshold['percent'], precision: 1, locale: app()->getLocale()).'%',
                     'percent' => $threshold['percent'],
                     'note' => $threshold['detail'],
-                    'tone' => $threshold['status'] === 'ok' ? null : $threshold['status'],
+                    'valueTone' => $threshold['status'] === 'ok' ? null : $threshold['status'],
                 ]]),
             ],
             'summaryNotice' => $threshold === null ? null : [

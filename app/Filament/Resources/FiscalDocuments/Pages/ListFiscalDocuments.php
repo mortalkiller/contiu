@@ -4,12 +4,20 @@ namespace App\Filament\Resources\FiscalDocuments\Pages;
 
 use App\Enums\FiscalDocumentDirection;
 use App\Enums\FiscalDocumentStatus;
+use App\Filament\Pages\FiscalDocumentDraftsPage;
 use App\Filament\Pages\InvoiceXpressImport;
 use App\Filament\Pages\InvoiceXpressIssuePage;
+use App\Filament\Pages\InvoiceXpressNoteIssuePage;
+use App\Filament\Pages\InvoiceXpressReceiptPage;
 use App\Filament\Resources\FiscalDocuments\FiscalDocumentResource;
 use App\Filament\Resources\FiscalDocuments\Widgets\FiscalDocumentsSummary;
 use App\Models\FiscalDocument;
+use App\Support\FiscalProviderRegistry;
+use App\Support\InvoiceXpressIssue;
+use App\Support\InvoiceXpressIssueRepository;
+use App\Support\InvoiceXpressNoteTerms;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -48,18 +56,47 @@ class ListFiscalDocuments extends ListRecords
 
     protected function getHeaderActions(): array
     {
+        $provider = InvoiceXpressIssueRepository::ownerCanIssue()
+            ? app(FiscalProviderRegistry::class)->current()
+            : null;
+        $hasInvoiceXpress = $provider?->provider() === 'invoicexpress';
+        $types = $hasInvoiceXpress && InvoiceXpressIssue::options() !== null
+            ? array_unique([...$provider->draftDocumentTypes(), ...array_keys(InvoiceXpressIssue::DocumentTypes + InvoiceXpressNoteTerms::Types)])
+            : [];
+
         return [
-            Action::make('importFromInvoiceXpress')
-                ->label(__('Import from InvoiceXpress'))
-                ->link()
+            ActionGroup::make([
+                Action::make('issueInvoice')
+                    ->label(__('Invoice'))
+                    ->url(fn (): string => InvoiceXpressIssuePage::getUrl(['type' => 'invoice']))
+                    ->visible(in_array('invoice', $types, true)),
+                Action::make('issueInvoiceReceipt')
+                    ->label(__('Invoice receipt'))
+                    ->url(fn (): string => InvoiceXpressIssuePage::getUrl(['type' => 'invoice_receipt']))
+                    ->visible(in_array('invoice_receipt', $types, true)),
+                Action::make('issueCreditNote')
+                    ->label(__('Credit note'))
+                    ->url(fn (): string => InvoiceXpressNoteIssuePage::getUrl(['type' => 'credit_note']))
+                    ->visible(in_array('credit_note', $types, true)),
+                Action::make('issueDebitNote')
+                    ->label(__('Debit note'))
+                    ->url(fn (): string => InvoiceXpressNoteIssuePage::getUrl(['type' => 'debit_note']))
+                    ->visible(in_array('debit_note', $types, true)),
+                Action::make('issueReceipt')
+                    ->label(__('Receipt'))
+                    ->url(fn (): string => InvoiceXpressReceiptPage::getUrl())
+                    ->visible($hasInvoiceXpress),
+            ])->label(__('New document'))->button()->color('primary'),
+            Action::make('synchronize')
+                ->label(__('Synchronize'))
                 ->color('gray')
                 ->url(fn (): string => InvoiceXpressImport::getUrl())
-                ->visible(fn (): bool => InvoiceXpressImport::canAccess()),
-            Action::make('issueInvoice')
-                ->label(__('Prepare invoice'))
+                ->visible($hasInvoiceXpress && InvoiceXpressImport::canAccess()),
+            Action::make('drafts')
+                ->label(__('Drafts'))
                 ->color('gray')
-                ->url(fn (): string => InvoiceXpressIssuePage::getUrl())
-                ->visible(fn (): bool => InvoiceXpressIssuePage::canAccess()),
+                ->url(fn (): string => FiscalDocumentDraftsPage::getUrl())
+                ->visible($hasInvoiceXpress),
             CreateAction::make()->label(__('Record document')),
         ];
     }

@@ -13,7 +13,6 @@ use App\Models\Payment;
 use App\Models\Project;
 use App\Models\Receivable;
 use App\Models\Supplier;
-use App\Support\Money;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
@@ -113,18 +112,18 @@ it('accepts every unambiguous suggestion at once', function () {
         ->and(BankTransaction::pending()->count())->toBe(1);
 });
 
-it('lets you link a line to a registered expense and warns when the amounts differ', function () {
+it('links a registered expense and retains the difference from the bank line', function () {
     $expense = Expense::factory()->for(Supplier::factory()->create(['name' => 'INPI']))->create(['net_amount' => 15198, 'spent_on' => '2026-10-06', 'paid_on' => '2026-10-06']);
     $line = BankTransaction::create(['hash' => 'z1', 'booked_on' => '2026-10-06', 'description' => 'TRF P/ Ordenado', 'amount' => -15100, 'import_batch' => 'b']);
 
     Livewire::test(BankStatementImport::class)->loadTable()
         ->mountTableAction('link', $line)
         ->fillForm(['targets' => ['paid:'.$expense->id]])
-        ->assertSchemaComponentExists('amountDifference', checkComponentUsing: fn ($callout) => ! $callout->isHidden() && str_contains($callout->getDescription(), Money::format(98)))
         ->callMountedTableAction()
         ->assertHasNoTableActionErrors();
 
     expect($line->fresh()->records()->sole()->is($expense))->toBeTrue()
+        ->and($line->fresh()->difference())->toBe(98)
         ->and(Expense::count())->toBe(1);
 });
 
@@ -222,9 +221,12 @@ it('asks for the columns when it cannot recognise the file', function () {
     expect(BankTransaction::sole())->amount->toBe(-1250);
 });
 
-it('is reachable from the month close page', function () {
+it('is reachable from the month close page while it has lines to process', function () {
+    BankTransaction::create(['hash' => 'm1', 'booked_on' => '2026-11-04', 'description' => 'MBWAY 912', 'amount' => 2000, 'import_batch' => 'b']);
+
     Livewire::test(MonthClose::class)
-        ->assertActionHasUrl('bankStatement', BankStatementImport::getUrl());
+        ->assertSeeInOrder(['3. Extrato', '1 linha por tratar'])
+        ->assertSeeHtml('href="'.BankStatementImport::getUrl().'"');
 });
 
 it('refuses a mapping file set from the browser', function () {

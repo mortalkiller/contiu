@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\PortugueseVatRegion;
 use App\Exceptions\InvoiceXpressException;
 use App\Filament\Pages\Concerns\HasInvoiceXpressPilotSettings;
 use App\Models\InvoiceXpressConfig;
@@ -24,8 +25,6 @@ class InvoiceXpressSettingsPage extends InvoiceXpressSectionPage
 {
     use HasInvoiceXpressPilotSettings;
 
-    protected static bool $shouldRegisterNavigation = true;
-
     protected static string|BackedEnum|null $navigationIcon = Phosphor::Invoice;
 
     protected static ?int $navigationSort = 6;
@@ -37,25 +36,25 @@ class InvoiceXpressSettingsPage extends InvoiceXpressSectionPage
     #[Locked]
     public int $accountId;
 
+    #[Locked]
+    public ?string $settingsSubdomain = null;
+
     /** @var list<string>|null */
     #[Locked]
     public ?array $connectionSeries = null;
+
+    public array $regionalTaxNames = [];
 
     public static function canAccess(): bool
     {
         return InvoiceXpressImport::canAccess();
     }
 
-    public static function getNavigationUrl(): string
-    {
-        return InvoiceXpressIssuePage::canAccess() ? InvoiceXpressIssuePage::getUrl() : InvoiceXpressImport::getUrl();
-    }
-
     public function mount(): void
     {
         abort_unless(static::canAccess(), 403);
         $this->accountId = CurrentAccount::id();
-        $this->fillInvoiceXpressPilotSettings();
+        $this->fillSettings();
     }
 
     public static function connectionForm(Closure $canWrite, Closure $onSaved): Action
@@ -117,7 +116,7 @@ class InvoiceXpressSettingsPage extends InvoiceXpressSectionPage
                 function (): void {
                     $this->reset('catalog', 'connectionSeries');
                     $this->resetValidation();
-                    $this->fillInvoiceXpressPilotSettings();
+                    $this->fillSettings();
                 },
             ),
         ];
@@ -136,7 +135,38 @@ class InvoiceXpressSettingsPage extends InvoiceXpressSectionPage
             'catalogChoices' => $subdomain !== null && $subdomain === ($this->catalog['account'] ?? null) ? $this->catalog : null,
             'canWriteDocuments' => InvoiceXpressIssue::canWriteDocuments(),
             'hasPendingAttempts' => $canManagePilot && InvoiceXpressIssueSettings::hasPendingAttempts(),
+            'vatRegions' => PortugueseVatRegion::cases(),
+            'vatCategories' => [
+                'reduced' => __('Reduced rate'),
+                'intermediate' => __('Intermediate rate'),
+                'standard' => __('Standard rate'),
+            ],
         ];
+    }
+
+    protected function beforeInvoiceXpressCatalogLoad(): void
+    {
+        if ($this->settingsSubdomain !== InvoiceXpressConfig::current()?->subdomain) {
+            $this->fillSettings();
+        }
+    }
+
+    private function fillSettings(): void
+    {
+        $this->settingsSubdomain = InvoiceXpressConfig::current()?->subdomain;
+        $this->fillInvoiceXpressPilotSettings();
+        $this->regionalTaxNames = [];
+        $mappings = InvoiceXpressIssueSettings::regionalTaxNames();
+        foreach (PortugueseVatRegion::cases() as $region) {
+            foreach (array_keys($region->rates()) as $category) {
+                $this->regionalTaxNames[$region->value][$category] = $mappings[$region->value][$category] ?? '';
+            }
+        }
+    }
+
+    protected function regionalTaxNamesForSave(): ?array
+    {
+        return $this->catalog === null ? null : $this->regionalTaxNames;
     }
 
     private function authorizeAccount(): void
@@ -150,6 +180,11 @@ class InvoiceXpressSettingsPage extends InvoiceXpressSectionPage
         return __('InvoiceXpress settings');
     }
 
+    public function getBreadcrumbs(): array
+    {
+        return [IntegrationsPage::getUrl() => __('Integrations'), $this->getTitle()];
+    }
+
     #[Unexposed]
     public static function getNavigationLabel(): string
     {
@@ -159,6 +194,6 @@ class InvoiceXpressSettingsPage extends InvoiceXpressSectionPage
     #[Unexposed]
     public static function getNavigationGroup(): string
     {
-        return __('Revenue');
+        return __('Settings');
     }
 }

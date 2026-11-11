@@ -24,6 +24,8 @@ use App\Models\CreditApplication;
 use App\Models\Expense;
 use App\Models\FinanceReviewItem;
 use App\Models\FiscalDocument;
+use App\Models\FiscalDocumentDraft;
+use App\Models\InvoiceXpressConfig;
 use App\Models\Payment;
 use App\Models\Project;
 use App\Models\Receivable;
@@ -36,6 +38,7 @@ use App\Models\User;
 use App\Support\CurrentAccount;
 use App\Support\ExpenseEvidence;
 use App\Support\FinanceSettings;
+use App\Support\InvoiceXpressImport;
 use App\Support\SocialSecurity;
 use App\Support\TaxObligations;
 use App\Support\VatPeriodReview;
@@ -71,6 +74,7 @@ class ContiuDemoSeeder extends Seeder
                 $this->scenario('ines-por-receber', 'Inês · por receber', 'Inês', 120000);
                 $this->scenario('oficina', 'Oficina · demonstração', 'Oficina', 7000);
                 $this->createScenario('eni-servicos', 'ENI Serviços · demonstração', 'Leonor', $this->eniServices(...));
+                $this->createScenario('integracoes', 'Integrações · demonstração', 'Marta', $this->integrationDocuments(...));
             });
         } catch (Throwable $exception) {
             if ($this->createdEvidencePath !== null) {
@@ -78,6 +82,47 @@ class ContiuDemoSeeder extends Seeder
             }
 
             throw $exception;
+        }
+    }
+
+    private function integrationDocuments(): void
+    {
+        $providerAccount = 'contiu-demo-fixture';
+        InvoiceXpressConfig::store($providerAccount, 'local-fixture-no-api-access');
+        $client = Client::query()->create([
+            'name' => 'Atelier Horizonte',
+            'vat_number' => '508025338',
+            'fiscal_country_code' => 'PT',
+        ]);
+        $date = today();
+        $dueOn = $date->addDays(30);
+        $charge = $this->charge($client, 'IX-DEMO-01', 'Identidade visual', 10000, $date->toDateString(), $dueOn->toDateString());
+
+        app(InvoiceXpressImport::class)->confirmInvoice([
+            'id' => 47001, 'type' => 'Invoice', 'status' => 'final',
+            'inverted_sequence_number' => 'FT DEMO/001',
+            'date' => $date->format('d/m/Y'), 'due_date' => $dueOn->format('d/m/Y'), 'currency' => 'EUR',
+            'before_taxes' => '100.00', 'taxes' => '0.00', 'total' => '100.00',
+            'client' => ['name' => $client->name, 'fiscal_id' => $client->vat_number, 'country' => 'Portugal'],
+        ], expectedSubdomain: $providerAccount, receivableId: $charge->id);
+
+        foreach ([FiscalDocumentDraft::Local => null, FiscalDocumentDraft::Blocked => 47002] as $state => $remoteId) {
+            $draftCharge = $this->charge($client, 'IX-DEMO-'.($remoteId === null ? '02' : '03'),
+                $remoteId === null ? 'Revisão de identidade' : 'Materiais de campanha', 5000, $date->toDateString(), $dueOn->toDateString());
+            FiscalDocumentDraft::query()->create([
+                'provider' => 'invoicexpress', 'provider_account' => $providerAccount, 'document_type' => 'invoice',
+                'payload' => ['inputs' => [
+                    'receivableId' => $draftCharge->id, 'customerId' => 1, 'itemId' => 1, 'quantity' => 1,
+                    'additionalLines' => [], 'documentType' => 'invoice', 'exemptionReason' => 'M10',
+                    'discountBasisPoints' => 0, 'direct' => null, 'euOperationOn' => null, 'withholdingBasisPoints' => 0,
+                ]],
+                'preview' => [
+                    'customer' => ['id' => 1, 'name' => $client->name, 'nif' => $client->vat_number],
+                    'totals' => ['net' => 5000, 'tax' => 0, 'total' => 5000],
+                ],
+                'revision' => hash('sha256', $state.'|'.$draftCharge->id),
+                'state' => $state, 'remote_id' => $remoteId,
+            ]);
         }
     }
 

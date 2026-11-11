@@ -36,8 +36,6 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use pxlrbt\FilamentExcel\Actions\Tables\ExportAction;
-use pxlrbt\FilamentExcel\Actions\Tables\ExportBulkAction;
 use pxlrbt\FilamentExcel\Columns\Column as ExportColumn;
 use pxlrbt\FilamentExcel\Exports\ExcelExport;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
@@ -96,20 +94,7 @@ class PaymentResource extends Resource
             ->defaultNumberLocale(fn (): string => app()->getLocale())
             // Rows load right after the page; a skeleton shows meanwhile (filament-skeleton-loading).
             ->deferLoading()
-            ->headerActions([
-                ExportAction::make()
-                    ->label(__('Export to Excel'))
-                    ->exports([
-                        ExcelExport::make()->fromTable()->ignoreFormatting(fn (ExportColumn $column) => method_exists($column->tableColumn, 'isMoney') && $column->tableColumn->isMoney())->withFilename(fn () => __('payments').'-'.now()->format('Y-m-d')),
-                    ]),
-            ])
-            ->toolbarActions([
-                ExportBulkAction::make()
-                    ->label(__('Export selected'))
-                    ->exports([
-                        ExcelExport::make()->fromTable()->ignoreFormatting(fn (ExportColumn $column) => method_exists($column->tableColumn, 'isMoney') && $column->tableColumn->isMoney())->withFilename(fn () => __('payments').'-'.now()->format('Y-m-d')),
-                    ]),
-            ])
+            ->searchPlaceholder(__('Client, reference or invoice'))
             ->defaultSort('paid_on', 'desc')
             ->columns([
                 TextColumn::make('paid_on')->label(fn (): string => __('Date'))->date()->sortable(),
@@ -119,12 +104,16 @@ class PaymentResource extends Resource
                     ->limit(28),
                 TextColumn::make('receivable.billable.code')
                     ->label(fn (): string => __('For'))
-                    ->description(fn (Payment $record) => $record->is_split || $record->isAdvance() ? $record->receivableLabels() : $record->receivable?->description)
+                    // As in the mock: what the payment was for, and under it the project or retainer.
                     ->state(fn (Payment $record): ?string => match (true) {
                         $record->isAdvance() => __('Advance payment'),
                         $record->is_split => __('Split payment'),
-                        default => $record->receivable?->billable?->code,
+                        default => $record->receivable?->description ?: $record->receivable?->billable?->code,
                     })
+                    ->description(fn (Payment $record): ?string => $record->is_split || $record->isAdvance()
+                        ? $record->receivableLabels()
+                        : collect([$record->receivable?->billable?->code, $record->receivable?->billable?->title])->filter()->implode(' · '))
+                    ->wrap()
                     ->searchable(query: fn (Builder $query, string $search) => $query->where(fn (Builder $query) => $query
                         ->whereRelation('advanceClient', 'name', 'like', "%{$search}%")
                         ->orWhereHas('allocations.receivable', fn (Builder $query) => $query->whereHasMorph(
@@ -139,14 +128,14 @@ class PaymentResource extends Resource
                     ->trueIcon(Phosphor::ShieldCheck)
                     ->falseIcon(null)
                     ->tooltip(fn (Payment $record) => $record->tax_exempt ? __('Excluded from tax estimates') : null)
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('invoice_number')->label(fn (): string => __('Invoice'))->placeholder('—')->searchable(),
                 TextColumn::make('amount')
                     ->label(fn (): string => __('Amount'))
                     ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->weight('medium')
-                    ->summarize(Sum::make()->label(fn (): string => __('Total'))->money('EUR', divideBy: 100)),
+                    ->summarize(Sum::make()->money('EUR', divideBy: 100)),
                 ReconciliationColumns::paymentColumn()->label(fn (): string => __('Bank')),
             ])
             ->filters([
@@ -192,6 +181,15 @@ class PaymentResource extends Resource
             ])
             ->emptyStateHeading(__('No payments'))
             ->emptyStateDescription(__('Use "Record payment" to record incoming payments.'));
+    }
+
+    /** The Excel export of the list, as the table shows it, with plain numbers for the amounts. */
+    public static function excelExport(): ExcelExport
+    {
+        return ExcelExport::make()
+            ->fromTable()
+            ->ignoreFormatting(fn (ExportColumn $column) => method_exists($column->tableColumn, 'isMoney') && $column->tableColumn->isMoney())
+            ->withFilename(fn () => __('payments').'-'.now()->format('Y-m-d'));
     }
 
     public static function getWidgets(): array

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Retainers\Pages;
 
 use App\Actions\GenerateRetainerPeriods;
+use App\Filament\Resources\Concerns\HasSaveBar;
 use App\Filament\Resources\Retainers\RetainerResource;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
@@ -12,6 +13,7 @@ use MortalKiller\FilamentPageHeader\Concerns\HasPageHeader;
 class EditRetainer extends EditRecord
 {
     use HasPageHeader;
+    use HasSaveBar;
 
     protected static string $resource = RetainerResource::class;
 

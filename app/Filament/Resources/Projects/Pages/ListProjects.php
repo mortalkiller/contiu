@@ -4,21 +4,56 @@ namespace App\Filament\Resources\Projects\Pages;
 
 use App\Enums\ProjectStatus;
 use App\Filament\Resources\Projects\ProjectResource;
+use App\Filament\Resources\Projects\Tables\ProjectsTable;
 use App\Filament\Resources\Projects\Widgets\ProjectsSummary;
+use App\Models\Project;
 use App\Models\Receivable;
+use App\Support\Money;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Database\Eloquent\Builder;
+use pxlrbt\FilamentExcel\Actions\ExportAction;
+use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 class ListProjects extends ListRecords
 {
     protected static string $resource = ProjectResource::class;
 
+    /** As in the mock, the list opens on its heading: the menu already says where you are. */
+    public function getBreadcrumbs(): array
+    {
+        return [];
+    }
+
+    /** "6 projects · €5,100.00 in quotes for 2026": every project, and this year's quotes. */
+    public function getSubheading(): string
+    {
+        // The total is worked out from the amount and its VAT, so it is added up here.
+        $quotedThisYear = (int) Project::query()
+            ->where('status', '!=', ProjectStatus::Cancelled)
+            ->whereYear('quoted_on', today()->year)
+            ->get()
+            ->sum(fn (Project $project): int => (int) $project->total);
+
+        return __(':projects · :amount in quotes for :year', [
+            'projects' => trans_choice('{0} No projects|{1} 1 project|[2,*] :count projects', Project::query()->count()),
+            'amount' => Money::format($quotedThisYear),
+            'year' => today()->year,
+        ]);
+    }
+
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make()->label(__('New project')),
+            ExportAction::make()
+                ->label(__('Export to Excel'))
+                ->icon(Phosphor::DownloadSimple)
+                ->color('gray')
+                ->exports([ProjectsTable::excelExport()]),
+            CreateAction::make()
+                ->label(__('New project'))
+                ->icon(Phosphor::Plus),
         ];
     }
 

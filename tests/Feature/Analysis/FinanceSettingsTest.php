@@ -219,11 +219,9 @@ it('asks for the birth date with IRS Jovem but not for the cessation date of a r
     // An account that has not said how it started is not assumed a first start.
     Livewire::test(FinanceSettingsPage::class)
         ->assertSchemaStateSet(['activity_start_kind' => null], 'form')
-        ->assertFormFieldHidden('previous_activity_ended_on')
-        ->assertFormFieldHidden('birth_date')
+        ->assertSeeHtml("x-bind:disabled=\"! (\$get('activity_start_kind') === 'restart')\"")
+        ->assertSeeHtml("x-bind:disabled=\"! (!! \$get('irs_jovem'))\"")
         ->fillForm(['activity_start_kind' => 'restart', 'irs_jovem' => true, 'previous_activity_ended_on' => null, 'birth_date' => null])
-        ->assertFormFieldVisible('previous_activity_ended_on')
-        ->assertFormFieldVisible('birth_date')
         ->assertSee('Sem esta data não aplicamos a redução')
         ->call('save')
         ->assertHasFormErrors(['birth_date' => 'required', 'irs_jovem_year_number' => 'required'])

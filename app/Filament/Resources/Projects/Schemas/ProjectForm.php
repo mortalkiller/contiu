@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources\Projects\Schemas;
 
+use App\Enums\CategoryType;
 use App\Enums\Language;
 use App\Enums\ProjectStatus;
 use App\Filament\Support\FinanceFields;
 use App\Filament\Support\MoneyInput;
+use App\Filament\Support\QuickCreate;
 use App\Support\CurrentAccount;
 use App\Support\Money;
 use Closure;
@@ -102,10 +104,10 @@ class ProjectForm
                 ->label(__('Description'))
                 ->rows(2)
                 ->columnSpanFull(),
-            Select::make('category_id')
+            QuickCreate::category(Select::make('category_id')
                 ->label(__('Category'))
                 ->relationship('category', 'name', fn (Builder $query) => $query->income())
-                ->native(false),
+                ->native(false), CategoryType::Income),
             DatePicker::make('quoted_on')
                 ->label(__('Quote date'))
                 ->native(false)
@@ -146,7 +148,6 @@ class ProjectForm
                         ->default(__('Single payment'))
                         ->required(),
                     MoneyInput::make('amount')
-                        ->live(onBlur: true)
                         ->required(),
                     DatePicker::make('due_on')
                         ->native(false)
@@ -165,13 +166,22 @@ class ProjectForm
                         'difference' => Money::format(abs($difference)),
                         'total' => Money::format($total),
                     ];
-                    $text = match (true) {
-                        $difference > 0 => __('The instalments add up to :planned — :difference below the total of :total.', $amounts),
-                        $difference < 0 => __('The instalments add up to :planned — :difference above the total of :total.', $amounts),
-                        default => __('The instalments add up to the project total.'),
+                    $messages = [
+                        'below' => __('The instalments add up to :planned — :difference below the total of :total.'),
+                        'above' => __('The instalments add up to :planned — :difference above the total of :total.'),
+                        'exact' => __('The instalments add up to the project total.'),
+                    ];
+                    $message = match (true) {
+                        $difference > 0 => $messages['below'],
+                        $difference < 0 => $messages['above'],
+                        default => $messages['exact'],
                     };
 
-                    return new HtmlString('<span class="'.($difference == 0 ? 'text-success-600 dark:text-success-400' : 'text-warning-600 dark:text-warning-400').'">'.e($text).'</span>');
+                    return FinanceFields::preview('plan', strtr($message, [
+                        ':planned' => $amounts['planned'],
+                        ':difference' => $amounts['difference'],
+                        ':total' => $amounts['total'],
+                    ]), $messages);
                 }),
         ];
     }

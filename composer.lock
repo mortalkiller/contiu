@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "6890c964fde3517f0869e57681efceb5",
+    "content-hash": "4b807b90ae837bb3e488368f1a15c94a",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -4519,17 +4519,11 @@
         },
         {
             "name": "mortalkiller/filament-complete-user-profile",
-            "version": "v1.2.2",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/mortalkiller/filament-complete-user-profile.git",
-                "reference": "c2f56b073a754dc285a5fcf59d4b5a8bb47fa49f"
-            },
+            "version": "1.x-dev",
             "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/mortalkiller/filament-complete-user-profile/zipball/c2f56b073a754dc285a5fcf59d4b5a8bb47fa49f",
-                "reference": "c2f56b073a754dc285a5fcf59d4b5a8bb47fa49f",
-                "shasum": ""
+                "type": "path",
+                "url": "../packages/mortalkiller/filament-complete-user-profile",
+                "reference": "5a47039513593aa468358107540e086921f2ec84"
             },
             "require": {
                 "filament/filament": ">=5.8.3 <6.0.0",
@@ -4564,7 +4558,35 @@
                     "Mortalkiller\\FilamentCompleteUserProfile\\": "src/"
                 }
             },
-            "notification-url": "https://packagist.org/downloads/",
+            "autoload-dev": {
+                "psr-4": {
+                    "Mortalkiller\\FilamentCompleteUserProfile\\Tests\\": "tests/",
+                    "Workbench\\App\\": "workbench/app/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "phpunit"
+                ],
+                "lint": [
+                    "pint --test"
+                ],
+                "analyse": [
+                    "phpstan analyse --memory-limit=1G"
+                ],
+                "check": [
+                    "@lint",
+                    "@analyse",
+                    "@test"
+                ],
+                "browser:prepare": [
+                    "@php bin/prepare-workbench.php",
+                    "@php workbench/artisan package:discover",
+                    "@php workbench/artisan migrate:fresh --force",
+                    "@php workbench/artisan storage:link --force",
+                    "@php workbench/artisan filament:assets"
+                ]
+            },
             "license": [
                 "MIT"
             ],
@@ -4581,13 +4603,10 @@
                 "issues": "https://github.com/mortalkiller/filament-complete-user-profile/issues",
                 "source": "https://github.com/mortalkiller/filament-complete-user-profile"
             },
-            "funding": [
-                {
-                    "url": "https://buymeacoffee.com/mortalkiller",
-                    "type": "custom"
-                }
-            ],
-            "time": "2026-10-12T15:15:36+00:00"
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "mortalkiller/filament-page-header",
@@ -4595,7 +4614,7 @@
             "dist": {
                 "type": "path",
                 "url": "../packages/mortalkiller/filament-page-header",
-                "reference": "8ffe90f3df8e3a4e3005fe6278cb1dc78e012ce6"
+                "reference": "f073db53373565a69a609e3486e620478d8b249b"
             },
             "require": {
                 "filament/filament": "^4.12.6 || ^5.8.1",
@@ -5133,6 +5152,84 @@
                 "source": "https://github.com/nikic/PHP-Parser/tree/v5.9.0"
             },
             "time": "2026-09-13T18:51:52+00:00"
+        },
+        {
+            "name": "nunomaduro/essentials",
+            "version": "v1.2.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/nunomaduro/essentials.git",
+                "reference": "c5458ca21a395e592ba7d2ae16ec62632f7c7f3a"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/nunomaduro/essentials/zipball/c5458ca21a395e592ba7d2ae16ec62632f7c7f3a",
+                "reference": "c5458ca21a395e592ba7d2ae16ec62632f7c7f3a",
+                "shasum": ""
+            },
+            "require": {
+                "laravel/framework": "^11.44.2|^12.52.0|^13.0",
+                "php": "^8.3.0"
+            },
+            "require-dev": {
+                "laravel/pint": "^1.27.1",
+                "orchestra/testbench": "^9.0|^10.9.0|^11.0",
+                "pestphp/pest": "^3.8.5|^4.4.1",
+                "pestphp/pest-plugin-type-coverage": "^3.6.1|^4.0.3",
+                "phpstan/phpstan": "^2.1.39",
+                "rector/rector": "^2.3.6",
+                "symfony/var-dumper": "^7.4.4|^8.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "NunoMaduro\\Essentials\\EssentialsServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "NunoMaduro\\Essentials\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Nuno Maduro",
+                    "email": "enunomaduro@gmail.com"
+                }
+            ],
+            "description": "Just better defaults for your Laravel projects.",
+            "keywords": [
+                "essentials",
+                "laravel",
+                "laravel-essentials",
+                "package",
+                "php"
+            ],
+            "support": {
+                "issues": "https://github.com/nunomaduro/essentials/issues",
+                "source": "https://github.com/nunomaduro/essentials/tree/v1.2.0"
+            },
+            "funding": [
+                {
+                    "url": "https://www.paypal.com/paypalme/enunomaduro",
+                    "type": "custom"
+                },
+                {
+                    "url": "https://github.com/nunomaduro",
+                    "type": "github"
+                },
+                {
+                    "url": "https://www.patreon.com/nunomaduro",
+                    "type": "patreon"
+                }
+            ],
+            "time": "2026-02-23T09:37:58+00:00"
         },
         {
             "name": "nunomaduro/termwind",
@@ -12400,84 +12497,6 @@
             "time": "2026-11-10T17:06:52+00:00"
         },
         {
-            "name": "nunomaduro/essentials",
-            "version": "v1.2.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/nunomaduro/essentials.git",
-                "reference": "c5458ca21a395e592ba7d2ae16ec62632f7c7f3a"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/nunomaduro/essentials/zipball/c5458ca21a395e592ba7d2ae16ec62632f7c7f3a",
-                "reference": "c5458ca21a395e592ba7d2ae16ec62632f7c7f3a",
-                "shasum": ""
-            },
-            "require": {
-                "laravel/framework": "^11.44.2|^12.52.0|^13.0",
-                "php": "^8.3.0"
-            },
-            "require-dev": {
-                "laravel/pint": "^1.27.1",
-                "orchestra/testbench": "^9.0|^10.9.0|^11.0",
-                "pestphp/pest": "^3.8.5|^4.4.1",
-                "pestphp/pest-plugin-type-coverage": "^3.6.1|^4.0.3",
-                "phpstan/phpstan": "^2.1.39",
-                "rector/rector": "^2.3.6",
-                "symfony/var-dumper": "^7.4.4|^8.0"
-            },
-            "type": "library",
-            "extra": {
-                "laravel": {
-                    "providers": [
-                        "NunoMaduro\\Essentials\\EssentialsServiceProvider"
-                    ]
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "NunoMaduro\\Essentials\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Nuno Maduro",
-                    "email": "enunomaduro@gmail.com"
-                }
-            ],
-            "description": "Just better defaults for your Laravel projects.",
-            "keywords": [
-                "essentials",
-                "laravel",
-                "laravel-essentials",
-                "package",
-                "php"
-            ],
-            "support": {
-                "issues": "https://github.com/nunomaduro/essentials/issues",
-                "source": "https://github.com/nunomaduro/essentials/tree/v1.2.0"
-            },
-            "funding": [
-                {
-                    "url": "https://www.paypal.com/paypalme/enunomaduro",
-                    "type": "custom"
-                },
-                {
-                    "url": "https://github.com/nunomaduro",
-                    "type": "github"
-                },
-                {
-                    "url": "https://www.patreon.com/nunomaduro",
-                    "type": "patreon"
-                }
-            ],
-            "time": "2026-02-23T09:37:58+00:00"
-        },
-        {
             "name": "pestphp/pest",
             "version": "v4.7.8",
             "source": {
@@ -15209,6 +15228,7 @@
     "minimum-stability": "stable",
     "stability-flags": {
         "mortalkiller/filament-appearance": 20,
+        "mortalkiller/filament-complete-user-profile": 20,
         "mortalkiller/filament-page-header": 20
     },
     "prefer-stable": true,

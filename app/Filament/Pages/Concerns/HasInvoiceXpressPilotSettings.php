@@ -42,7 +42,15 @@ trait HasInvoiceXpressPilotSettings
         $this->validate(['approvedItems' => ['array', 'max:25'], 'approvedItems.*' => ['integer', 'min:1']]);
         $draftOnly = ($this->catalog['account'] ?? null) === InvoiceXpressConfig::current()?->subdomain
             && isset($this->catalog['draftSequences'][$this->sequenceId]);
-        $settings->save(implode(',', $this->approvedItems), $this->taxName, $this->sequenceId, draftOnly: $draftOnly);
+        $regionalTaxNames = $this->regionalTaxNamesForSave();
+        $settings->save(
+            implode(',', $this->approvedItems),
+            $this->taxName,
+            $this->sequenceId,
+            draftOnly: $draftOnly,
+            regionalTaxNames: $regionalTaxNames,
+            expectedSubdomain: $regionalTaxNames !== null ? ($this->catalog['account'] ?? null) : null,
+        );
         $this->afterInvoiceXpressPilotSettingsSave();
 
         Notification::make()->title(__('Issuing settings saved'))->success()->send();
@@ -58,6 +66,11 @@ trait HasInvoiceXpressPilotSettings
         $this->approvedItems = array_map('strval', $settings['item_ids'] ?? []);
         $this->taxName = $settings['tax_name'] ?? '';
         $this->sequenceId = (string) ($settings['sequence_id'] ?? '');
+    }
+
+    protected function regionalTaxNamesForSave(): ?array
+    {
+        return null;
     }
 
     protected function beforeInvoiceXpressCatalogLoad(): void {}

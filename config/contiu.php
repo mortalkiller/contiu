@@ -5,6 +5,8 @@ return [
     // Public sign-up (/register and the login page's link). Off until going live is ready.
     'registration_open' => (bool) env('CONTIU_REGISTRATION_OPEN', false),
 
+    'invoice_email_inbox_enabled' => (bool) env('CONTIU_INVOICE_EMAIL_INBOX_ENABLED', false),
+
     // Days a new account can use everything before it has to subscribe.
     'trial_days' => 14,
 

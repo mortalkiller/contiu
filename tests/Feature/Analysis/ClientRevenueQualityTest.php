@@ -2,6 +2,7 @@
 
 use App\Enums\ExpenseKind;
 use App\Filament\Pages\ClientRevenueQuality as ClientRevenuePage;
+use App\Livewire\ClientRevenueScenario;
 use App\Models\Account;
 use App\Models\Client;
 use App\Models\Expense;
@@ -41,7 +42,9 @@ it('separates clients with the same name and uses the actual allocation and sett
         ->and($quality->rows()[$beta->id])->toMatchArray(['received' => 20000, 'share' => 25.0, 'medianDelay' => null])
         ->and($quality->scenario($beta->id))->toBe(['inflows' => 50000, 'clientInflows' => 50000, 'withoutClient' => 0]);
 
-    Livewire::test(ClientRevenuePage::class)
+    Livewire::test(ClientRevenuePage::class)->assertSeeLivewire(ClientRevenueScenario::class);
+
+    Livewire::test(ClientRevenueScenario::class)
         ->set('clientId', $beta->id)
         ->assertSee('Entradas sem este cliente')
         ->assertSee('Estúdio');
@@ -77,7 +80,7 @@ it('shifts only the selected client’s outstanding and projected inflows by cal
         ->and($generated->fresh()->due_on->toDateString())->toBe('2026-12-22');
     expect($retainer->receivables()->count())->toBe(1);
 
-    Livewire::test(ClientRevenuePage::class)
+    Livewire::test(ClientRevenueScenario::class)
         ->set('clientId', $client->id)
         ->set('delayDays', '10')
         ->assertSee('Entradas sem este cliente')
@@ -135,3 +138,45 @@ it('loads settlement delays once per page render', function () {
         DB::disableQueryLog();
     }
 })->group('performance');
+
+it('updates the cash flow scenario without querying annual settlement delays', function () {
+    actingAsAdmin();
+    $client = Client::factory()->create();
+    $scenario = Livewire::test(ClientRevenueScenario::class);
+
+    DB::enableQueryLog();
+
+    try {
+        foreach (['clientId' => $client->id, 'delayDays' => '10'] as $field => $value) {
+            DB::flushQueryLog();
+            $scenario->set($field, $value)->assertSee('Entradas sem este cliente');
+
+            $annualQueries = collect(DB::getQueryLog())->filter(fn (array $query): bool => str_contains($query['query'], 'from "receivables"')
+                && str_contains($query['query'], '"due_on" between'));
+
+            expect($annualQueries)->toHaveCount(0);
+        }
+    } finally {
+        DB::disableQueryLog();
+    }
+})->group('performance');
+
+it('rejects a scenario for a client in another account', function () {
+    actingAsAdmin();
+    $otherClient = CurrentAccount::run(Account::factory()->create(), fn () => Client::factory()->create(['name' => 'External client']));
+
+    Livewire::test(ClientRevenueScenario::class)
+        ->set('clientId', $otherClient->id)
+        ->assertDontSee('External client')
+        ->assertDontSee('Entradas sem este cliente');
+});
+
+it('blocks a stale scenario after the user becomes a review-only accountant', function () {
+    $user = ownerOf($this->account);
+    $this->actingAs($user);
+    $scenario = Livewire::test(ClientRevenueScenario::class);
+
+    $this->account->users()->updateExistingPivot($user, ['role' => 'accountant']);
+
+    $scenario->set('delayDays', '10')->assertForbidden();
+});

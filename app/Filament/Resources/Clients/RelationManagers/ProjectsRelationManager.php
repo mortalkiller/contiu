@@ -4,16 +4,14 @@ namespace App\Filament\Resources\Clients\RelationManagers;
 
 use App\Filament\Actions\RecordPaymentAction;
 use App\Filament\Resources\Projects\ProjectResource;
+use App\Filament\Resources\Projects\Tables\ProjectsTable;
 use App\Models\Project;
-use App\Support\Money;
 use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Support\Enums\FontWeight;
-use Filament\Tables\Columns\Summarizers\Summarizer;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Query\Builder as QueryBuilder;
 use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
@@ -43,14 +41,6 @@ class ProjectsRelationManager extends RelationManager
      */
     public function table(Table $table): Table
     {
-        $sum = fn (string $attribute): Summarizer => Summarizer::make()
-            ->money('EUR', divideBy: 100)
-            ->using(fn (QueryBuilder $query): int => (int) Project::query()
-                ->whereIn('id', $query->pluck('projects.id'))
-                ->with(['receivables' => fn ($query) => $query->withOutstandingBalance(), 'receivables.payments'])
-                ->get()
-                ->sum($attribute));
-
         return ProjectResource::table($table)
             ->heading(null)
             ->headerActions([])
@@ -60,8 +50,7 @@ class ProjectsRelationManager extends RelationManager
                     ->label(__('Project'))
                     ->description(fn (Project $record): string => (string) $record->code)
                     ->weight(FontWeight::Medium)
-                    ->searchable(['code', 'title'])
-                    ->summarize(Summarizer::make()->using(fn (): string => __('Total'))),
+                    ->searchable(['code', 'title']),
                 TextColumn::make('status')
                     ->label(__('Status'))
                     ->badge(),
@@ -69,27 +58,20 @@ class ProjectsRelationManager extends RelationManager
                     ->label(__('Total'))
                     ->money('EUR', divideBy: 100)
                     ->alignEnd()
-                    ->summarize($sum('total')),
+                    ->summarize(ProjectsTable::sumOf('total')),
                 TextColumn::make('received_amount')
                     ->label(__('Received'))
                     ->money('EUR', divideBy: 100)
                     ->alignEnd()
-                    ->summarize($sum('received_amount')),
-                TextColumn::make('outstanding_amount')
-                    ->label(__('Outstanding'))
-                    ->money('EUR', divideBy: 100)
-                    ->alignEnd()
-                    ->weight(fn (int $state): ?FontWeight => $state > 0 ? FontWeight::SemiBold : null)
-                    ->color(fn (int $state): string => $state > 0 ? 'warning' : 'gray')
-                    ->formatStateUsing(fn (int $state): string => $state > 0 ? Money::format($state) : '—')
-                    ->summarize($sum('outstanding_amount')),
+                    ->summarize(ProjectsTable::sumOf('received_amount')),
+                ProjectsTable::outstandingColumn(),
                 TextColumn::make('payment_status')
                     ->label(__('Payment'))
                     ->badge()
                     ->placeholder('—'),
             ])
             ->recordActions([
-                RecordPaymentAction::make()->button()->size('sm')->color('gray')->icon(null)->label(__('Receive')),
+                RecordPaymentAction::rowButton(),
             ])
             ->toolbarActions([
                 Action::make('newProject')

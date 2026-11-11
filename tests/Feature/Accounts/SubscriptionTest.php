@@ -6,6 +6,7 @@ use App\Filament\Resources\Accounts\AccountResource;
 use App\Filament\Resources\Accounts\Pages\ListAccounts;
 use App\Filament\Resources\Accounts\Pages\ViewAccount;
 use App\Filament\Resources\Accounts\RelationManagers\SubscriptionPaymentsRelationManager;
+use App\Filament\Widgets\AccountantAccessWidget;
 use App\Mail\SubscriptionPaid;
 use App\Models\Account;
 use App\Models\SubscriptionPayment;
@@ -464,3 +465,15 @@ describe('Trial progress', function () {
         expect(Livewire::test(AccountSubscription::class)->instance()->trialProgress())->toBeNull();
     })->group('ui');
 });
+
+it('shows the trial, the two plans and who has accountant access on one page', function () {
+    $this->account->update(['trial_ends_at' => now()->addDays(3)]);
+    openAccountAs($this->account, plainOwnerOf($this->account));
+
+    Livewire::test(AccountSubscription::class)
+        ->assertSee('Faltam 3 dias de experiência.')
+        ->assertSee('Em experiência')
+        ->assertSee('Poupas '.Money::format(600))
+        ->assertSee('Sem IVA. Equivale a '.Money::format(450).' por mês.')
+        ->assertSeeLivewire(AccountantAccessWidget::class);
+})->group('ui');

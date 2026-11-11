@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\FiscalDocuments\Pages;
 
+use App\Filament\Resources\Concerns\HasSaveBar;
 use App\Filament\Resources\FiscalDocuments\Actions\FiscalDocumentPdfActions;
 use App\Filament\Resources\FiscalDocuments\Actions\RecordEuServiceAction;
 use App\Filament\Resources\FiscalDocuments\FiscalDocumentResource;
@@ -13,6 +14,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class EditFiscalDocument extends EditRecord
 {
+    use HasSaveBar;
+
     protected static string $resource = FiscalDocumentResource::class;
 
     protected function getHeaderActions(): array

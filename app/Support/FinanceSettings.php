@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\PortugueseVatRegion;
 use App\Models\Setting;
 use Carbon\CarbonImmutable;
 
@@ -14,6 +15,7 @@ final class FinanceSettings
     public const DEFAULTS = [
         'activity_started_on' => null,
         'vat_exempt' => false,
+        'vat_region' => null,
         'vat_exemption_threshold' => 1500000, // cents
         'ss_rate' => 0.214,
         'ss_relevant_income_share' => 0.70,
@@ -101,6 +103,13 @@ final class FinanceSettings
     public function vatExempt(): bool
     {
         return (bool) $this->all()['vat_exempt'];
+    }
+
+    public function vatRegion(): ?PortugueseVatRegion
+    {
+        $value = $this->all()['vat_region'];
+
+        return is_string($value) ? PortugueseVatRegion::tryFrom($value) : null;
     }
 
     /** Cents. */

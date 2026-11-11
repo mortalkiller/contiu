@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\FiscalProfilePartyType;
 use App\Enums\FiscalProfileViesStatus;
 use App\Enums\Language;
+use App\Enums\PortugueseVatRegion;
 use App\Enums\Seat;
 use App\Models\Concerns\BelongsToAccount;
 use Illuminate\Database\Eloquent\Builder;
@@ -13,6 +14,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 use OwenIt\Auditing\Auditable;
 use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
@@ -36,6 +38,7 @@ class Client extends Model implements AuditableContract
             'seat' => Seat::class,
             'is_business' => 'boolean',
             'fiscal_party_type' => FiscalProfilePartyType::class,
+            'vat_region' => PortugueseVatRegion::class,
             'vat_validation_status' => FiscalProfileViesStatus::class,
             'vat_validated_at' => 'immutable_datetime',
         ];
@@ -68,6 +71,12 @@ class Client extends Model implements AuditableContract
             'party' => $this->fiscal_party_type->value,
             'vat' => $this->vat_number,
         ];
+    }
+
+    /** @return HasOne<ClientAddress, $this> */
+    public function structuredAddress(): HasOne
+    {
+        return $this->hasOne(ClientAddress::class);
     }
 
     /** @var Collection<int, Receivable>|null */

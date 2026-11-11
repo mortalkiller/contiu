@@ -3,7 +3,9 @@
 use App\Enums\FiscalDocumentType;
 use App\Exceptions\AccountIsReadOnly;
 use App\Exceptions\InvoiceXpressException;
+use App\Filament\Pages\IntegrationsPage;
 use App\Filament\Pages\InvoiceXpressImport as InvoiceXpressPage;
+use App\Filament\Pages\InvoiceXpressSettingsPage;
 use App\Models\Account;
 use App\Models\Client;
 use App\Models\FiscalDocument;
@@ -12,6 +14,7 @@ use App\Models\InvoiceXpressSnapshot;
 use App\Models\Payment;
 use App\Models\Project;
 use App\Models\Receivable;
+use App\Models\WithholdingRecord;
 use App\Support\CurrentAccount;
 use App\Support\DocumentedTurnover;
 use App\Support\InvoiceXpressClient;
@@ -151,6 +154,45 @@ it('rejects debit note totals that would subtract from documented billing or can
     [['before_taxes' => -100, 'taxes' => -23, 'total' => -123]],
     [['before_taxes' => 100, 'taxes' => 23, 'total' => 130]],
 ])->group('integration');
+
+it('imports an InvoiceXpress adjustment with withholding at its fiscal gross', function (string $type) {
+    InvoiceXpressConfig::store('contiu-test', 'fake-key');
+    $import = app(InvoiceXpressImport::class);
+    $note = invoiceXpressFixture([
+        'type' => $type,
+        'before_taxes' => 291.34,
+        'taxes' => 67.01,
+        'retention' => '11.5',
+        'total' => 324.85,
+    ]);
+
+    $review = $import->reviewInvoice($note);
+    $document = $import->confirmInvoice($review['invoice']);
+
+    expect($document->total_amount)->toBe(35835)
+        ->and($review['withholding']['retained'])->toBe(3350)
+        ->and($import->confirmInvoice($review['invoice'])->id)->toBe($document->id)
+        ->and(WithholdingRecord::query()->exists())->toBeFalse();
+
+    expect(fn () => $import->reviewInvoice([...$note, 'total' => 324.86]))->toThrow(ValidationException::class);
+})->with(['CreditNote', 'DebitNote'])->group('integration');
+
+it('allows only creation of note drafts in the configured sandbox while finalization stays blocked', function (string $type) {
+    config(['services.invoicexpress.sandbox_draft_account' => 'contiu-test']);
+    InvoiceXpressConfig::store('contiu-test', 'fake-key');
+    Http::fake(["https://contiu-test.app.invoicexpress.com/{$type}s.json?*" => Http::response([
+        $type => ['id' => 7346, 'status' => 'draft'],
+    ], 201)]);
+
+    $client = app(InvoiceXpressClient::class);
+    $payload = [$type => ['owner_invoice_id' => 7345]];
+    expect($client->createSandboxDraft($type, $payload, 'contiu-test')[$type]['status'])->toBe('draft');
+    expect(fn () => $client->request('PUT', "/{$type}s/7346/change-state.json", payload: [$type => ['state' => 'final']]))
+        ->toThrow(InvoiceXpressException::class);
+    expect(fn () => $client->createSandboxDraft($type, $payload, 'different-sandbox'))
+        ->toThrow(InvoiceXpressException::class);
+    Http::assertSentCount(1);
+})->with(['credit_note', 'debit_note'])->group('integration');
 
 it('returns only local failures for redirected, rejected or invalid provider responses', function (int $status, string $body, ?int $exposedStatus) {
     InvoiceXpressConfig::store('contiu-test', 'fake-private-key');
@@ -355,6 +397,34 @@ it('does not apply a modal for an invoice after the preview has switched to anot
     Http::assertSentCount(2);
 })->group('ui');
 
+it('requires a fresh import confirmation after another lookup returns the same document', function () {
+    actingAsAdmin();
+    InvoiceXpressConfig::store('contiu-test', 'fake-key');
+    Http::preventStrayRequests();
+    Http::fake(['https://contiu-test.app.invoicexpress.com/*' => Http::response([
+        'invoices' => [invoiceXpressFixture()],
+        'pagination' => ['current_page' => 1, 'total_pages' => 1],
+    ])]);
+
+    $page = Livewire::test(InvoiceXpressPage::class)
+        ->update(
+            calls: [['method' => 'preview', 'params' => []]],
+            updates: ['from' => '2026-11-01', 'to' => '2026-11-30'],
+        )
+        ->assertSee('FT/10');
+
+    $page->mountAction('importDocument', ['index' => 0, 'review' => $page->get('rows')[0]['review_key']])
+        ->update(
+            calls: [['method' => 'preview', 'params' => []]],
+            updates: ['archived' => true],
+        )
+        ->assertSee('FT/10')
+        ->callMountedAction();
+
+    $this->assertDatabaseEmpty('fiscal_documents');
+    Http::assertSentCount(2);
+})->group('ui');
+
 it('lets the tenant owner configure the connection without returning the key to the page', function () {
     $owner = ownerOf($this->account);
     $other = Account::factory()->create();
@@ -363,16 +433,15 @@ it('lets the tenant owner configure the connection without returning the key to 
         ->get(InvoiceXpressPage::getUrl(panel: 'admin', tenant: $other))
         ->assertNotFound();
     $this->get(InvoiceXpressPage::getUrl(panel: 'admin', tenant: $this->account))
-        ->assertOk()->assertSee('Importar do InvoiceXpress');
+        ->assertOk()->assertSee(IntegrationsPage::getUrl(panel: 'admin', tenant: $this->account));
 
     CurrentAccount::set($this->account);
     Filament::setCurrentPanel('admin');
     Filament::setTenant($this->account);
 
-    Livewire::test(InvoiceXpressPage::class)
+    Livewire::test(InvoiceXpressSettingsPage::class)
         ->callAction('configure', ['subdomain' => 'contiu-test', 'api_key' => 'fake-private-key'])
         ->assertHasNoActionErrors()
-        ->assertSee('Conta contiu-test')
         ->mountAction('configure')
         ->assertSchemaStateSet(['subdomain' => 'contiu-test', 'api_key' => null])
         ->assertDontSee('fake-private-key');

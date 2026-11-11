@@ -13,6 +13,7 @@ use App\Filament\Resources\Clients\RelationManagers\ProjectsRelationManager;
 use App\Filament\Resources\Clients\RelationManagers\RetainersRelationManager;
 use App\Filament\Resources\Clients\Schemas\ClientForm;
 use App\Filament\Resources\Clients\Tables\ClientsTable;
+use App\Filament\Resources\Clients\Widgets\ClientsSummary;
 use App\Models\Client;
 use BackedEnum;
 use Filament\Pages\Enums\SubNavigationPosition;
@@ -70,6 +71,11 @@ class ClientResource extends Resource
             ClientExpensesRelationManager::class,
             AuditsRelationManager::class,
         ];
+    }
+
+    public static function getWidgets(): array
+    {
+        return [ClientsSummary::class];
     }
 
     public static function getPages(): array

@@ -13,7 +13,7 @@ use App\Models\User;
  */
 final class AccountStatus
 {
-    /** @return array{kind: 'trial'|'read_only', message: string, subscribeUrl: ?string}|null */
+    /** @return array{kind: 'trial'|'read_only', message: string, detail?: string, urgent?: bool, subscribeUrl: ?string}|null */
     public static function banner(): ?array
     {
         $account = CurrentAccount::get();
@@ -35,6 +35,9 @@ final class AccountStatus
             return [
                 'kind' => 'trial',
                 'message' => self::trialMessage($account),
+                'detail' => __('After that, the account becomes read-only: you can view and export everything, but not create or edit.'),
+                // The last few days are in amber, as in the mock; before that the notice stays quiet.
+                'urgent' => today()->diffInDays($account->trial_ends_at->copy()->startOfDay()) <= 3,
                 'subscribeUrl' => self::subscribeUrl(),
             ];
         }

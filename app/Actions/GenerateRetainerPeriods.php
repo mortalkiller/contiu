@@ -54,6 +54,32 @@ class GenerateRetainerPeriods
         return $created;
     }
 
+    /**
+     * The next periods the retainer will bill, not created yet: for "Próximos meses" on its page.
+     * Empty for a retainer that ended.
+     *
+     * @return list<array{label: string, due_on: Carbon, amount: int}>
+     */
+    public function upcoming(Retainer $retainer, int $count = 3): array
+    {
+        if (! $retainer->is_active) {
+            return [];
+        }
+
+        $months = $retainer->frequency->months();
+        $periods = [];
+
+        for ($dueOn = $this->firstDueDate($retainer); count($periods) < $count; $dueOn = $this->dueDay($dueOn->copy()->startOfMonth()->addMonths($months), $retainer->due_day)) {
+            if ($retainer->ends_on !== null && $dueOn->gt($retainer->ends_on)) {
+                break;
+            }
+
+            $periods[] = ['label' => PeriodLabel::for($dueOn, $retainer->frequency), 'due_on' => $dueOn->copy(), 'amount' => (int) $retainer->total];
+        }
+
+        return $periods;
+    }
+
     private function firstDueDate(Retainer $retainer): Carbon
     {
         $months = $retainer->frequency->months();

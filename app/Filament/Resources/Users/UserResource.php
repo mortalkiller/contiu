@@ -72,7 +72,7 @@ class UserResource extends Resource
                 ->password()
                 ->revealable()
                 ->required(fn (string $operation) => $operation === 'create')
-                ->rule(Password::min(8))
+                ->rule(Password::default())
                 ->confirmed()
                 ->dehydrated(fn (?string $state) => filled($state)),
             TextInput::make('password_confirmation')

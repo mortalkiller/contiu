@@ -7,12 +7,14 @@ use App\Filament\Analysis\Widgets\UpcomingDeadlines;
 use App\Filament\Analysis\Widgets\WeekAhead;
 use App\Filament\Pages\Calendar;
 use App\Filament\Resources\Expenses\ExpenseResource;
+use App\Models\Account;
 use App\Models\Expense;
 use App\Models\Payment;
 use App\Models\Receivable;
 use App\Models\Retainer;
 use App\Models\Supplier;
 use App\Models\TaxObligationCompletion;
+use App\Support\CurrentAccount;
 use App\Support\FinanceSettings;
 use App\Support\Money;
 use Illuminate\Support\Carbon;
@@ -56,15 +58,9 @@ it('uses the regional English locale for the calendar controls', function () {
 })->group('ui');
 
 /** The events the widget gives FullCalendar for November 2026. */
-function novemberEvents(array $types = []): array
+function novemberEvents(): array
 {
-    $widget = Livewire::test(ActivityCalendarWidget::class);
-
-    if ($types !== []) {
-        $widget->set('filters.types', $types);
-    }
-
-    return $widget->getCalendarEvents('2026-10-26', '2026-12-07');
+    return Livewire::test(ActivityCalendarWidget::class)->getCalendarEvents('2026-10-26', '2026-12-07');
 }
 
 function eventTitled(array $events, string $start): array
@@ -111,26 +107,33 @@ it('colours obligations by status and marks projected and done events', function
         ->and($byId['retainer:'.$retainer->getKey().':2026-11-25']['className'])->toContain('contiu-calendar-projected');
 })->group('integration');
 
-it('shows only the types left on in the filter', function () {
-    Expense::factory()->create(['spent_on' => '2026-11-12']);
-    Payment::factory()->create(['paid_on' => '2026-11-12']);
+it('supplies the browser with typed events for the requested range and account', function () {
+    $expense = Expense::factory()->create(['spent_on' => '2026-11-12']);
+    $receivable = Receivable::factory()->create(['due_on' => '2027-01-15']);
+    $payment = Payment::factory()->for($receivable)->create(['paid_on' => '2026-11-12']);
+    $decemberPayment = Payment::factory()->for($receivable)->create(['paid_on' => '2026-12-07']);
+    CurrentAccount::run(Account::factory()->create(), fn () => Payment::factory()->create(['paid_on' => '2026-11-12']));
 
-    expect(novemberEvents())->toHaveCount(2)
-        ->and(novemberEvents([CalendarEntryType::Payment->value]))->toHaveCount(1)
-        ->and(novemberEvents([CalendarEntryType::Payment->value])[0]['title'])->toStartWith('Recebido');
+    $widget = Livewire::test(ActivityCalendarWidget::class);
+    $november = collect($widget->getCalendarEvents('2026-10-26', '2026-12-07'))->keyBy('id');
+    $december = collect($widget->getCalendarEvents('2026-12-07', '2026-12-14'))->keyBy('id');
+
+    expect($november->keys()->all())->toEqualCanonicalizing(['expense:'.$expense->id, 'payment:'.$payment->id])
+        ->and($november['expense:'.$expense->id]['groupId'] ?? null)->toBe(CalendarEntryType::Expense->value)
+        ->and($november['payment:'.$payment->id]['groupId'] ?? null)->toBe(CalendarEntryType::Payment->value)
+        ->and($december->keys()->all())->toBe(['payment:'.$decemberPayment->id]);
 })->group('integration');
 
 it('offers every type in the filter, all on by default', function () {
-    Livewire::test(ActivityCalendarWidget::class)
-        ->assertSet('filters.types', array_map(fn (CalendarEntryType $type) => $type->value, CalendarEntryType::cases()))
+    $widget = Livewire::test(ActivityCalendarWidget::class)
         ->assertSee('Obrigações fiscais')
         ->assertSee('Recorrentes previstas');
-})->group('ui');
 
-it('refetches as soon as a type is ticked, not on blur', function () {
-    Livewire::test(ActivityCalendarWidget::class)
-        ->assertSeeHtml('wire:model.live="filters.types"')
-        ->assertDontSeeHtml('wire:model.live.blur="filters.types"');
+    foreach (CalendarEntryType::cases() as $type) {
+        $widget->assertSeeHtml('value="'.$type->value.'" checked');
+    }
+
+    $widget->assertDontSeeHtml('wire:model.live="filters.types"');
 })->group('ui');
 
 it('lists the deadlines with the overdue ones first', function () {
@@ -175,7 +178,7 @@ it('adds up what is still to come in and go out until the end of the month', fun
     Expense::factory()->create(['spent_on' => '2026-11-12', 'net_amount' => 2000]); // already paid
 
     Livewire::test(MonthAhead::class)
-        ->assertSee('O resto de')
+        ->assertSee('Novembro em números')
         ->assertSeeInOrder(['Ainda vai entrar', Money::format(40000)])
         ->assertSeeInOrder(['Ainda vai sair', Money::format(6150)])
         ->assertSeeInOrder(['Diferença prevista', Money::format(33850)]);

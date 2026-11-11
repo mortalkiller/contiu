@@ -55,13 +55,13 @@ class ClientSummary extends StatsOverviewWidget
                     $nextDue !== null => __('Due on :date', ['date' => $nextDue->due_on->format(Language::resolve(app()->getLocale())->dateFormat())]),
                     default => __('Already due'),
                 })
-                ->color($outstanding > 0 ? 'warning' : 'gray'),
+                ->valueColor($outstanding > 0 ? 'warning' : null),
             Stat::make(__('Past due'), Money::format($overdue))
                 ->description(match (true) {
                     $late === 0 => __('Nothing overdue'),
                     default => trans_choice(':count amount overdue|:count amounts overdue', $late, ['count' => $late]),
                 })
-                ->color($late > 0 ? 'danger' : 'success'),
+                ->valueColor($late > 0 ? 'danger' : null),
         ];
     }
 

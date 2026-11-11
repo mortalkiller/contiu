@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Clients\Pages;
 use App\Enums\FiscalProfileViesStatus;
 use App\Exceptions\InvoiceXpressException;
 use App\Filament\Resources\Clients\ClientResource;
+use App\Filament\Resources\Concerns\HasSaveBar;
 use App\Models\Client;
 use App\Support\CurrentAccount;
 use App\Support\InvoiceXpressContactSync;
@@ -25,8 +26,11 @@ use MortalKiller\FilamentPageHeader\Concerns\HasPageHeader;
 class EditClient extends EditRecord
 {
     use HasPageHeader;
+    use HasSaveBar;
 
     protected static string $resource = ClientResource::class;
+
+    protected ?bool $hasDatabaseTransactions = true;
 
     /** @var array{country: string, party: string, vat: string}|null */
     #[Locked]

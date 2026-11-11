@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Projects\Widgets;
 
 use App\Enums\ProjectStatus;
+use App\Filament\Resources\Receivables\ReceivableResource;
 use App\Models\Project;
 use App\Support\Money;
 use Filament\Widgets\StatsOverviewWidget;
@@ -10,11 +11,11 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\HtmlString;
 use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
-use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 /**
- * Above the "Trabalhos" list: work in progress, what is still to receive, proposals waiting for
- * an answer, and what was completed this year.
+ * Above the "Trabalhos" list, as in the mock (one card each, no icons): work in progress, what
+ * is still to receive (a way into "A receber"), proposals waiting for an answer, and how many of
+ * this year's proposals went ahead.
  */
 class ProjectsSummary extends StatsOverviewWidget
 {
@@ -52,33 +53,26 @@ class ProjectsSummary extends StatsOverviewWidget
                     : __(':projects · :amount received', [
                         'projects' => $count($active->count()),
                         'amount' => Money::format((int) $active->sum(fn (Project $project): int => $project->received_amount)),
-                    ]))
-                ->icon(Phosphor::Briefcase),
+                    ])),
             Stat::make(__('Awaiting payment'), Money::format((int) $owing->sum(fn (Project $project): int => $project->outstanding_amount)))
                 ->description(match (true) {
                     $owing->isEmpty() => __('All payments received'),
                     $overdue > 0 => __(':amount past due', ['amount' => Money::format($overdue)]),
                     default => __(':projects · none past due', ['projects' => $count($owing->count())]),
                 })
-                ->color(match (true) {
-                    $owing->isEmpty() => 'success',
-                    $overdue > 0 => 'danger',
-                    default => 'warning',
-                })
-                ->icon(Phosphor::HourglassMedium),
+                ->valueColor($owing->isEmpty() ? null : 'warning')
+                ->url(ReceivableResource::getUrl()),
             Stat::make(__('Pending proposals'), Money::format((int) $proposals->sum(fn (Project $project): int => (int) $project->total)))
                 ->description($proposals->isEmpty()
                     ? __('No open proposals')
                     : __(':proposals · the oldest is :age old', [
                         'proposals' => trans_choice('{1} 1 proposal|[2,*] :count proposals', $proposals->count()),
                         'age' => trans_choice('{0} less than a day|{1} 1 day|[2,*] :count days', (int) $oldestProposal->diffInDays(today())),
-                    ]))
-                ->icon(Phosphor::PaperPlaneTilt),
+                    ])),
             Stat::make(__('Approved proposals'), $decided->isEmpty() ? '—' : __(':approved of :total', ['approved' => $approved->count(), 'total' => $decided->count()]))
                 ->description($decided->isEmpty()
                     ? __('No proposals yet in :year', ['year' => today()->year])
-                    : new HtmlString('<span class="fap-progress" role="img" aria-label="'.e(__(':percent% of proposals approved', ['percent' => $approvalRate])).'"><i style="width: '.$approvalRate.'%"></i></span>'))
-                ->icon(Phosphor::CheckCircle),
+                    : new HtmlString('<span class="fap-progress" role="img" aria-label="'.e(__(':percent% of proposals approved', ['percent' => $approvalRate])).'"><i style="width: '.$approvalRate.'%"></i></span>')),
         ];
     }
 }

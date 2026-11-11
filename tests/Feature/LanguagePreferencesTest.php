@@ -133,7 +133,7 @@ it('renders the main resource screens in English', function (string $resource, s
     [SupplierResource::class, 'Suppliers'],
     [ProjectResource::class, 'Projects'],
     [RetainerResource::class, 'Retainers'],
-    [ReceivableResource::class, 'Receivables'],
+    [ReceivableResource::class, 'To receive'],
     [PaymentResource::class, 'Payments'],
     [ExpenseResource::class, 'Expenses'],
     [RecurringExpenseResource::class, 'Recurring Expenses'],

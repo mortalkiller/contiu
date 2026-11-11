@@ -88,7 +88,7 @@ it('closes the month without the statement when there is no business account', f
     expect((new MonthReview(Carbon::parse('2026-11-01')))->pendingCount())->toBe(0);
 
     Livewire::test(MonthClose::class)
-        ->assertActionHidden('bankStatement')
+        ->assertActionDoesNotExist('bankStatement')
         ->assertSee('Mês fechado')
         ->assertDontSee('extrato');
 });
@@ -127,14 +127,23 @@ it('turns the business account off and on in the settings, keeping the names', f
 
     Livewire::test(FinanceSettingsPage::class)
         ->assertSchemaStateSet(['has_business_account' => true, 'account_names' => 'ANA SILVA'], 'form')
+        ->assertSeeHtml("x-bind:disabled=\"! (!! \$get('has_business_account'))\"")
         ->fillForm(['has_business_account' => false])
-        ->assertFormFieldHidden('account_names')
         ->call('save')
         ->assertHasNoFormErrors();
 
     $settings = app(FinanceSettings::class);
 
     expect($settings->hasBusinessAccount())->toBeFalse()
+        ->and($settings->accountNames())->toBe(['ANA SILVA']);
+
+    Livewire::test(FinanceSettingsPage::class)
+        ->assertSchemaStateSet(['has_business_account' => false, 'account_names' => 'ANA SILVA'], 'form')
+        ->fillForm(['has_business_account' => true])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($settings->hasBusinessAccount())->toBeTrue()
         ->and($settings->accountNames())->toBe(['ANA SILVA']);
 });
 

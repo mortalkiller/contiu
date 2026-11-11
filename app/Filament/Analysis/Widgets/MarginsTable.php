@@ -27,16 +27,17 @@ abstract class MarginsTable extends TableWidget
     public function table(Table $table): Table
     {
         return $table
-            ->heading(fn () => $this->heading().' · '.$this->period()->label())
+            ->heading(fn () => $this->heading())
             ->records(fn (): array => $this->rows())
             ->paginated(false)
             ->recordClasses(fn (array $record) => $record['is_total'] ? 'bg-gray-50 dark:bg-white/5' : null)
             ->columns([
+                // Two tables side by side, as in the mock: a long client name wraps instead of widening the table.
                 TextColumn::make('label')
                     ->label($this->groupLabel())
+                    ->wrap()
                     ->weight(fn (array $record) => $record['is_total'] ? 'bold' : 'medium'),
                 TextColumn::make('invoiced')->label(__('Invoiced'))->money('EUR', divideBy: 100)->alignEnd(),
-                TextColumn::make('received')->label(__('Received'))->money('EUR', divideBy: 100)->alignEnd(),
                 TextColumn::make('directCosts')->label(__('Direct costs'))->money('EUR', divideBy: 100)->alignEnd(),
                 TextColumn::make('margin')
                     ->label(__('Margin'))

@@ -18,6 +18,7 @@ use App\Support\ExpenseDocumentCsv;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /** @phpstan-import-type ExpenseDocumentRow from ExpenseDocumentCsv */
@@ -60,14 +61,7 @@ final class ImportExpenseDocuments
                 continue;
             }
 
-            $expenses = $this->expenses($row)
-                ->whereNotIn('id', FiscalDocumentLink::query()->whereNotNull('expense_id')->select('expense_id'))
-                ->with(['supplier:id,name', 'bankLink'])
-                ->orderBy('id')
-                ->lazy(100)
-                ->filter(fn (Expense $expense): bool => $expense->vat_amount === $row['vat_amount'])
-                ->take(self::CANDIDATE_LIMIT + 1)
-                ->collect();
+            $expenses = $this->candidateExpenses($row);
             $exactExpenses = $expenses->filter(fn (Expense $expense): bool => $expense->invoice_number === $row['number']);
             $banks = $this->banks($row)->orderBy('booked_on')->orderBy('id')->limit(self::CANDIDATE_LIMIT + 1)->get();
 
@@ -86,6 +80,42 @@ final class ImportExpenseDocuments
         }
 
         return $preview;
+    }
+
+    /** @param ExpenseDocumentRow $row */
+    public function previousImport(string $source, array $row): ?FiscalDocument
+    {
+        $matches = ExpenseDocumentImport::query()
+            ->whereIn('source_key', $this->sourceKeys($this->sourceAliases($this->source($source)), $row))
+            ->with('fiscalDocument.links')
+            ->limit(2)
+            ->get();
+
+        if ($matches->isEmpty()) {
+            return null;
+        }
+
+        if ($matches->count() !== 1 || ! $this->sameDocument($matches->first(), $row)) {
+            throw new DomainException(__('This reference has already been imported with different details or links.'));
+        }
+
+        return $matches->first()->fiscalDocument;
+    }
+
+    /**
+     * @param  ExpenseDocumentRow  $row
+     * @return Collection<int, Expense>
+     */
+    public function candidateExpenses(array $row): Collection
+    {
+        return $this->expenses($row)
+            ->whereNotIn('id', FiscalDocumentLink::query()->whereNotNull('expense_id')->select('expense_id'))
+            ->with(['supplier:id,name', 'bankLink'])
+            ->orderBy('id')
+            ->lazy(100)
+            ->filter(fn (Expense $expense): bool => $expense->vat_amount === $row['vat_amount'])
+            ->take(self::CANDIDATE_LIMIT + 1)
+            ->collect();
     }
 
     /**

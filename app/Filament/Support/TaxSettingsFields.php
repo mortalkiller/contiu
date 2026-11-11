@@ -89,7 +89,6 @@ final class TaxSettingsFields
                         'first' => __('You have never registered an activity with the Tax Authority.'),
                         'restart' => __('You previously registered an activity, ended it and registered again.'),
                     ])
-                    ->live()
                     ->columnSpanFull(),
                 __('The declaration receipt says “Início” or “Reinício de Atividade”. If you previously registered and ended an activity, this is a restart, even if the portal lists it as “Início de atividade”.'),
             ),
@@ -99,7 +98,9 @@ final class TaxSettingsFields
                     ->helperText(__('Optional. Without this date, the income tax reduction for the first years is skipped. It only applies if you restarted at least five years after ending the previous activity.'))
                     ->native(false)
                     ->displayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
-                    ->visible(fn (Get $get): bool => $get('activity_start_kind') === 'restart')
+                    ->visibleJs("\$get('activity_start_kind') === 'restart'")
+                    ->dehydrated(fn (Get $get): bool => $get('activity_start_kind') === 'restart')
+                    ->validatedWhenNotDehydrated(false)
                     ->columnSpanFull(),
                 __('Check the receipt for the declaration ending your previous activity. If the Portuguese Tax Portal does not show it under “Declarações de Atividade”, request the history through e-balcão or leave it blank.'),
             ),
@@ -145,6 +146,7 @@ final class TaxSettingsFields
     {
         $year = (int) now()->year;
         $irsJovemEnded = ($stored?->irsJovemYearNumber($year) ?? 0) > self::IRS_JOVEM_YEARS;
+        $usesIrsJovem = fn (Get $get): bool => (bool) $get('irs_jovem');
 
         return [
             self::whereToFind(
@@ -165,7 +167,6 @@ final class TaxSettingsFields
                 Toggle::make('irs_jovem')
                     ->label(__('Have you opted into IRS Jovem?'))
                     ->helperText(__('Partial income exemption for the first 10 years, up to age 35 (Article 12-B of the Portuguese Income Tax Code). Social Security contributions are unaffected.'))
-                    ->live()
                     ->columnSpanFull(),
                 __('You opt in on your annual personal income tax return (Form 3, Schedule B). You are opted in if you requested it on your last return.'),
             ),
@@ -174,8 +175,10 @@ final class TaxSettingsFields
                 ->helperText(__('Used to check the age limit of 35.'))
                 ->native(false)
                 ->displayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
-                ->visible(fn (Get $get): bool => (bool) $get('irs_jovem'))
-                ->required(fn (Get $get): bool => (bool) $get('irs_jovem')),
+                ->visibleJs("!! \$get('irs_jovem')")
+                ->dehydrated($usesIrsJovem)
+                ->validatedWhenNotDehydrated(false)
+                ->required(),
             self::whereToFind(TextInput::make('irs_jovem_year_number')
                 ->label(__('In :year, your year number is', ['year' => $year]))
                 ->helperText($irsJovemEnded
@@ -184,8 +187,10 @@ final class TaxSettingsFields
                 ->integer()
                 ->minValue(1)
                 ->maxValue(self::IRS_JOVEM_YEARS)
-                ->visible(fn (Get $get): bool => (bool) $get('irs_jovem'))
-                ->required(fn (Get $get): bool => (bool) $get('irs_jovem')),
+                ->visibleJs("!! \$get('irs_jovem')")
+                ->dehydrated($usesIrsJovem)
+                ->validatedWhenNotDehydrated(false)
+                ->required(),
                 __('Count the years with employment or business income (categories A or B), starting from the first. Skip years with no income and years when you were your parents’ dependent.'),
             ),
         ];

@@ -2,8 +2,12 @@
 
 namespace App\Filament\Analysis\Widgets;
 
+use App\Filament\Pages\SocialSecurity as SocialSecurityPage;
 use App\Support\FinanceSettings;
+use App\Support\SocialSecurity;
 use App\Support\TaxEstimator;
+use Carbon\CarbonImmutable;
+use Filament\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -27,7 +31,14 @@ class TaxQuartersTable extends TableWidget
     {
         return $table
             ->heading(__('Social Security by quarter'))
-            ->description(__('Each quarter’s income determines the contributions for the three months of the next quarter. Each month’s contribution is due between the 10th and 20th of the following month. For example, income from Jul–Sep determines contributions for Oct–Dec, paid from November to January.'))
+            ->description(__('Each quarter sets the contributions of the next three months; each month’s is paid between the 10th and the 20th of the following month.'))
+            ->headerActions([
+                Action::make('socialSecurity')
+                    ->label(__('Open Social Security'))
+                    ->link()
+                    ->url(fn (): string => SocialSecurityPage::getUrl())
+                    ->visible(fn (): bool => SocialSecurityPage::canAccess()),
+            ])
             ->records(fn (): array => $this->rows())
             ->paginated(false)
             ->recordClasses(fn (array $record) => $record['is_total'] ? 'bg-gray-50 dark:bg-white/5' : null)
@@ -43,6 +54,13 @@ class TaxQuartersTable extends TableWidget
                     ->description(fn (array $record) => $record['note'])
                     ->placeholder(''),
                 TextColumn::make('total')->label(__('Total'))->money('EUR', divideBy: 100)->alignEnd()->weight('semibold'),
+                // As in the mock: whether each closed quarter's declaration is on record.
+                TextColumn::make('declaration')
+                    ->label(__('Declaration'))
+                    ->state(fn (array $record): ?string => $record['declaration'][0] ?? null)
+                    ->badge()
+                    ->color(fn (array $record): ?string => $record['declaration'][1] ?? null)
+                    ->placeholder(''),
             ]);
     }
 
@@ -56,6 +74,7 @@ class TaxQuartersTable extends TableWidget
             $rows['q'.($index + 1)] = [
                 ...$quarter,
                 'note' => $this->note($quarter),
+                'declaration' => $this->declaration(sprintf('%d-Q%d', $estimator->year, $index + 1)),
                 'is_total' => false,
             ];
         }
@@ -68,10 +87,37 @@ class TaxQuartersTable extends TableWidget
             'paidIn' => null,
             'note' => null,
             'total' => $estimator->ssYearTotal(),
+            'declaration' => null,
             'is_total' => true,
         ];
 
         return $rows;
+    }
+
+    /**
+     * The quarterly declaration of a closed quarter: on record, late (past the end of the month
+     * after the quarter) or still due. Nothing for a quarter not yet closed.
+     *
+     * @return array{0: string, 1: string}|null the label and its colour
+     */
+    private function declaration(string $quarter): ?array
+    {
+        $security = app(SocialSecurity::class);
+
+        if ($security->closedQuarter($quarter) === null) {
+            return null;
+        }
+
+        if ($security->declaration($quarter) !== null) {
+            return [__('Filed'), 'success'];
+        }
+
+        $dueOn = $security->contributionMonths($quarter)[0]->endOfMonth()->startOfDay();
+        $today = CarbonImmutable::today('Europe/Lisbon');
+
+        return $today->gt($dueOn)
+            ? [trans_choice('{1} 1 day late|[2,*] :count days late', (int) $dueOn->diffInDays($today)), 'danger']
+            : [__('By :date', ['date' => $dueOn->locale(app()->getLocale())->translatedFormat(__('j M'))]), 'warning'];
     }
 
     /**

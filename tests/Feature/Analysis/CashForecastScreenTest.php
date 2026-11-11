@@ -1,7 +1,6 @@
 <?php
 
 use App\Filament\Analysis\Widgets\CashForecastTable;
-use App\Filament\Analysis\Widgets\ForecastInflowsByClientChart;
 use App\Filament\Analysis\Widgets\ForecastInflowsChart;
 use App\Filament\Analysis\Widgets\ForecastOutflowsChart;
 use App\Filament\Pages\CashForecast as CashForecastPage;
@@ -90,16 +89,12 @@ describe('Forecast charts', function () {
             ->and(count($forecast->inflowsByClient()))->toBeGreaterThan(1);
     })->group('integration');
 
-    it('adds the by-client doughnut only for the 6-month horizon', function () {
-        $page = Livewire::test(CashForecastPage::class);
-
-        expect($page->instance()->sideWidgets())->not->toContain(ForecastInflowsByClientChart::class);
-
-        $page->set('months', 6);
-
-        expect($page->instance()->sideWidgets())->toContain(ForecastInflowsByClientChart::class);
-
-        Livewire::test(ForecastInflowsByClientChart::class, ['months' => 6])
+    it('shows where the money comes from and goes as bars, by client only over six months', function () {
+        Livewire::test(CashForecastPage::class)
+            ->assertSee('De onde vem e para onde vai')
+            ->assertSeeHtml('contiu-proportion')
+            ->assertDontSee('Entradas previstas por cliente')
+            ->callAction('sixMonths')
             ->assertSee('Entradas previstas por cliente');
     })->group('ui');
 

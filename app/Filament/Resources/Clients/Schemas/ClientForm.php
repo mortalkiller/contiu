@@ -5,13 +5,18 @@ namespace App\Filament\Resources\Clients\Schemas;
 use App\Enums\FiscalProfilePartyType;
 use App\Enums\FiscalProfileViesStatus;
 use App\Enums\Language;
+use App\Enums\PortugueseVatRegion;
 use App\Filament\Support\FinanceFields;
 use App\Models\Client;
+use App\Models\ClientAddress;
+use App\Models\Country;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 
 class ClientForm
@@ -32,17 +37,25 @@ class ClientForm
                         ->helperText(__('The company’s registered office or the person’s address.')),
                     FinanceFields::isBusiness()
                         ->inline(false),
-                    Textarea::make('address')->label(__('Address'))->rows(2)->columnSpanFull(),
+                    Textarea::make('address')->label(__('Legacy address'))->rows(2)->columnSpanFull()
+                        ->visible(fn (?Client $record): bool => filled($record?->getRawOriginal('address'))),
                     Textarea::make('notes')->label(__('Notes'))->rows(3)->columnSpanFull(),
                 ]),
+            self::structuredAddress(),
             Section::make(__('Tax details'))
                 ->columnSpanFull()
                 ->columns(2)
                 ->schema([
-                    TextInput::make('fiscal_country_code')->label(__('Tax country (ISO code)'))
-                        ->placeholder('PT')->regex('/\A[A-Za-z]{2}\z/'),
+                    Select::make('fiscal_country_code')->label(__('Tax country'))
+                        ->options(fn (?Client $record): array => self::fiscalCountries($record))
+                        ->getOptionLabelUsing(fn (string $value, ?Client $record): ?string => self::fiscalCountries($record)[strtoupper($value)] ?? null)
+                        ->searchable(),
                     Select::make('fiscal_party_type')->label(__('Entity type'))
                         ->options(FiscalProfilePartyType::class),
+                    Select::make('vat_region')->label(__('Recipient establishment VAT region'))
+                        ->options(fn (): array => collect(PortugueseVatRegion::cases())
+                            ->mapWithKeys(fn (PortugueseVatRegion $region): array => [$region->value => $region->label()])
+                            ->all()),
                     TextInput::make('vat_number')->label(__('Tax ID / VAT number'))->maxLength(255)->columnSpanFull(),
                     TextEntry::make('vies_status')->label(__('VIES verification'))
                         ->state(fn (?Client $record): FiscalProfileViesStatus => $record?->vat_validation_status ?? FiscalProfileViesStatus::Pending)
@@ -54,5 +67,67 @@ class ClientForm
                         ->dateTime(),
                 ]),
         ]);
+    }
+
+    private static function structuredAddress(): Section
+    {
+        return Section::make(__('Structured address'))
+            ->relationship('structuredAddress', condition: fn (?array $state): bool => filled($state['country_code'] ?? null))
+            ->columnSpanFull()
+            ->columns(2)
+            ->schema([
+                Select::make('country_code')->label(__('Country'))
+                    ->options(fn (): array => Country::options())
+                    ->searchable()
+                    ->live()
+                    ->afterStateUpdated(function (Set $set): void {
+                        $set('district_code', null);
+                        $set('municipality_code', null);
+                        $set('parish_code', null);
+                        $set('district', null);
+                        $set('parish', null);
+                    }),
+                TextInput::make('street')->label(__('Street address'))->maxLength(255)
+                    ->visible(fn (Get $get): bool => filled($get('country_code')))->columnSpanFull(),
+                TextInput::make('postal_code')->label(__('Postal code'))->maxLength(32)
+                    ->visible(fn (Get $get): bool => filled($get('country_code'))),
+                TextInput::make('locality')->label(__('Postal locality'))->maxLength(255)
+                    ->visible(fn (Get $get): bool => filled($get('country_code'))),
+                self::administrativeArea('district', __('District or island'))
+                    ->afterStateUpdated(function (Set $set): void {
+                        $set('municipality_code', null);
+                        $set('parish_code', null);
+                    }),
+                self::administrativeArea('municipality', __('Municipality'), 'district_code')
+                    ->afterStateUpdated(fn (Set $set) => $set('parish_code', null)),
+                self::administrativeArea('parish', __('Parish'), 'municipality_code'),
+                TextInput::make('district')->label(__('District or region'))->maxLength(255)
+                    ->visible(fn (Get $get): bool => filled($get('country_code')) && $get('country_code') !== 'PT'),
+                TextInput::make('parish')->label(__('Parish'))->maxLength(255)
+                    ->visible(fn (Get $get): bool => filled($get('country_code')) && $get('country_code') !== 'PT'),
+            ]);
+    }
+
+    private static function administrativeArea(string $kind, string $label, ?string $parent = null): Select
+    {
+        return Select::make($kind.'_code')->label($label)
+            ->visible(fn (Get $get): bool => $get('country_code') === 'PT')
+            ->options(fn (Get $get): array => ClientAddress::administrativeAreas($kind, $parent === null ? null : $get($parent))
+                ->orderBy('name')->pluck('name', 'code')->all())
+            ->searchable()
+            ->live();
+    }
+
+    /** @return array<string, string> */
+    private static function fiscalCountries(?Client $record): array
+    {
+        $countries = Country::options();
+        $savedCode = $record?->fiscal_country_code;
+
+        if ($savedCode !== null && ! isset($countries[$savedCode])) {
+            $countries[$savedCode] = $savedCode;
+        }
+
+        return $countries;
     }
 }

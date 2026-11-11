@@ -48,6 +48,9 @@ class CompanyAccountStats extends StatsOverviewWidget
      */
     public bool $withLineProgress = false;
 
+    /** "Extrato bancário" shows the cards on their own, as in the mock: no heading over them. */
+    public bool $withHeading = true;
+
     protected function getColumns(): int|array
     {
         return $this->withLineProgress ? ['md' => 2, 'xl' => 4] : ['md' => 3];
@@ -55,11 +58,15 @@ class CompanyAccountStats extends StatsOverviewWidget
 
     protected function getHeading(): ?string
     {
-        return __('Business account');
+        return $this->withHeading ? __('Business account') : null;
     }
 
     protected function getDescription(): ?string
     {
+        if (! $this->withHeading) {
+            return null;
+        }
+
         $pending = (new CompanyAccount($this->until()))->pendingLines();
 
         return __('Bank balance compared with what you recorded in Contiu.')
@@ -83,7 +90,6 @@ class CompanyAccountStats extends StatsOverviewWidget
             return [
                 Stat::make(__('Business account'), __('No statement'))
                     ->description(__('Import your bank statement to compare the balance.'))
-                    ->icon(Phosphor::Bank)
                     ->url(BankStatementImport::getUrl()),
             ];
         }
@@ -95,28 +101,23 @@ class CompanyAccountStats extends StatsOverviewWidget
         return [
             Stat::make(__('Bank balance'), Money::format($bank, locale: app()->getLocale()))
                 ->description(__('Statement through :date', ['date' => $account->endsOn()?->format(Language::resolve(app()->getLocale())->dateFormat())]))
-                ->icon(Phosphor::Bank)
                 ->url(BankStatementImport::getUrl()),
             Stat::make(__('Balance according to Contiu'), Money::format($account->contiuBalance(), locale: app()->getLocale()))
-                ->description(__('Opening balance + payments received − paid expenses'))
-                ->icon(Phosphor::Calculator),
+                ->description(__('Opening balance + payments received − paid expenses')),
             match (true) {
                 $difference < 0 => Stat::make(__('Amount to transfer to the business account'), Money::format(-$difference, locale: app()->getLocale()))
                     ->description(__('View unreconciled lines'))
                     ->descriptionIcon(Phosphor::ArrowRight)
                     ->url($notReconciled(PaymentResource::class))
-                    ->color('warning')
-                    ->icon(Phosphor::ArrowsLeftRight),
+                    ->valueColor('warning'),
                 $difference > 0 => Stat::make(__('The business owes you'), Money::format($difference, locale: app()->getLocale()))
                     ->description(__('View unreconciled lines'))
                     ->descriptionIcon(Phosphor::ArrowRight)
                     ->url($notReconciled(ExpenseResource::class))
-                    ->color('info')
-                    ->icon(Phosphor::ArrowsLeftRight),
+                    ->valueColor('info'),
                 default => Stat::make(__('Difference'), __('Matches'))
                     ->description($pending > 0 ? __('Some statement lines still need processing.') : __('The bank balance matches Contiu.'))
-                    ->color($pending > 0 ? 'warning' : 'success')
-                    ->icon(Phosphor::CheckCircle),
+                    ->valueColor($pending > 0 ? 'warning' : 'success'),
             },
             ...($this->withLineProgress ? [$this->lineProgressStat()] : []),
         ];
@@ -133,9 +134,7 @@ class CompanyAccountStats extends StatsOverviewWidget
 
         return Stat::make(__('Processed lines'), __(':treated of :total', ['treated' => $treated, 'total' => $total]))
             ->description(new HtmlString(
-                '<span class="fap-progress" role="img" aria-label="'.e(__(':percent% of lines processed', ['percent' => $percent])).'"><i style="width: '.$percent.'%"></i></span>',
-            ))
-            ->color($treated === $total ? 'success' : null)
-            ->icon(Phosphor::ListChecks);
+                '<span class="fap-progress" data-color="'.($treated === $total ? 'success' : 'primary').'" role="img" aria-label="'.e(__(':percent% of lines processed', ['percent' => $percent])).'"><i style="width: '.$percent.'%"></i></span>',
+            ));
     }
 }

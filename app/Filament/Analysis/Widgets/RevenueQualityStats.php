@@ -11,7 +11,6 @@ use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Number;
 use Livewire\Attributes\Reactive;
-use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 /**
  * Top of "Qualidade das receitas": how much the biggest client weighs, how much of the money
@@ -55,14 +54,11 @@ class RevenueQualityStats extends StatsOverviewWidget
         return [
             Stat::make(__('Largest client'), $share === null ? '—' : Number::format($share, precision: 0, locale: app()->getLocale()).'%')
                 ->description($share === null ? __('No payments received this year') : __(':client · over 50% means dependency', ['client' => $biggest['label']]))
-                ->color($share !== null && $share >= 50 ? 'warning' : null)
-                ->icon(Phosphor::UserFocus),
+                ->valueColor($share !== null && $share >= 50 ? 'warning' : null),
             Stat::make(__('Recurring revenue'), $recurringShare === null ? '—' : $recurringShare.'%')
-                ->description($recurringShare === null ? __('No payments received this year') : __(':recurring from retainers out of :received', ['recurring' => Money::format($recurring, locale: app()->getLocale()), 'received' => Money::format($received, locale: app()->getLocale())]))
-                ->icon(Phosphor::Repeat),
+                ->description($recurringShare === null ? __('No payments received this year') : __(':recurring from retainers out of :received', ['recurring' => Money::format($recurring, locale: app()->getLocale()), 'received' => Money::format($received, locale: app()->getLocale())])),
             Stat::make(__('Typical delay'), $usualDelay === null ? '—' : trans_choice('{0} No delay|{1} 1 day|[2,*] :count days', max(0, $usualDelay)))
-                ->description($usualDelay === null ? __('No amounts settled this year') : __('Median across clients after the due date'))
-                ->icon(Phosphor::Timer),
+                ->description($usualDelay === null ? __('No amounts settled this year') : __('Median across clients after the due date')),
         ];
     }
 }

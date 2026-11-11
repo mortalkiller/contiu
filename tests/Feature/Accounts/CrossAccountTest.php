@@ -56,7 +56,7 @@ it('offers only the account\'s own clients on the project form and refuses anoth
 
 it('exports to Excel only the account\'s own records', function () {
     $component = Livewire::test(ListClients::class)->loadTable()
-        ->callTableAction('export')
+        ->callAction('export')
         ->assertFileDownloaded('clientes-2026-11-08.xlsx');
 
     $path = tempnam(sys_get_temp_dir(), 'xlsx');

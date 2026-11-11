@@ -23,7 +23,6 @@ use App\Models\User;
 use App\Support\AccountStatus;
 use App\Support\CurrentAccount;
 use App\Support\FinanceSettings;
-use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Carbon;
@@ -184,7 +183,7 @@ it('disables the writes no policy covers while read-only', function () {
     Livewire::test(MonthExpensesTable::class, ['month' => '2026-11'])
         ->assertTableActionDisabled('markPaid', $expense);
     Livewire::test(FinanceSettingsPage::class)
-        ->assertActionDisabled(TestAction::make('save')->schemaComponent('formActions', 'content'));
+        ->assertActionDisabled('saveSettings');
 
     // Call sites that set their own tooltip keep it, except while read-only.
     expect(RecordPaymentAction::make()->tooltip('Registar recebimento')->getTooltip())->toBe('A conta está só de leitura');
@@ -217,7 +216,7 @@ it('keeps those writes enabled while the account has access', function () {
     Livewire::test(MonthExpensesTable::class, ['month' => '2026-11'])
         ->assertTableActionEnabled('markPaid', $expense);
     Livewire::test(FinanceSettingsPage::class)
-        ->assertActionEnabled(TestAction::make('save')->schemaComponent('formActions', 'content'));
+        ->assertActionEnabled('saveSettings');
     Livewire::test(QuickCreateMenu::class)
         ->assertDontSee('A conta está só de leitura')
         ->assertSeeHtml("wire:click=\"mountAction('oneOffIncome')\"");

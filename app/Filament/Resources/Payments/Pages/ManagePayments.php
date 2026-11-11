@@ -9,20 +9,39 @@ use App\Filament\Actions\RecordPaymentAction;
 use App\Filament\Actions\RecordSplitPaymentAction;
 use App\Filament\Resources\Payments\PaymentResource;
 use App\Filament\Resources\Payments\Widgets\PaymentsSummary;
+use App\Filament\Support\QuickCreate;
 use App\Models\Client;
 use App\Models\Payment;
 use App\Support\CurrentAccount;
 use App\Support\Money;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ManageRecords;
+use pxlrbt\FilamentExcel\Actions\ExportAction;
+use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 class ManagePayments extends ManageRecords
 {
     protected static string $resource = PaymentResource::class;
+
+    /** As in the mock, the list opens on its heading: the menu already says where you are. */
+    public function getBreadcrumbs(): array
+    {
+        return [];
+    }
+
+    /** "What has come in. €3,650.00 in 2026." */
+    public function getSubheading(): string
+    {
+        return __('What has come in. :amount in :year.', [
+            'amount' => Money::format((int) Payment::query()->whereYear('paid_on', today()->year)->sum('amount')),
+            'year' => today()->year,
+        ]);
+    }
 
     protected function getHeaderWidgets(): array
     {
@@ -32,6 +51,18 @@ class ManagePayments extends ManageRecords
     protected function getHeaderActions(): array
     {
         return [
+            // The mock shows three buttons; the export and the split payment are under "More actions".
+            ActionGroup::make([
+                ExportAction::make()
+                    ->label(__('Export to Excel'))
+                    ->icon(Phosphor::DownloadSimple)
+                    ->exports([PaymentResource::excelExport()]),
+                RecordSplitPaymentAction::make()->after(fn () => $this->resetTable()),
+            ])
+                ->label(__('More actions'))
+                ->icon(Phosphor::DotsThree)
+                ->color('gray')
+                ->iconButton(),
             OneOffIncomeAction::make()->color('gray')->after(fn () => $this->resetTable()),
             Action::make('recordCustomerAdvance')
                 ->label(__('Record advance payment'))
@@ -40,7 +71,7 @@ class ManagePayments extends ManageRecords
                 ->disabled(fn (): bool => CurrentAccount::readOnly())
                 ->modalDescription(__('Record the payment you received. You can allocate the advance to a charge later.'))
                 ->schema([
-                    Select::make('client_id')->label(__('Client'))->options(fn (): array => Client::query()->orderBy('name')->pluck('name', 'id')->all())->searchable()->required(),
+                    QuickCreate::client(Select::make('client_id')->label(__('Client'))->options(fn (): array => Client::query()->orderBy('name')->pluck('name', 'id')->all())->searchable()->required()),
                     TextInput::make('amount')->label(__('Amount received'))->suffix('€')->inputMode('decimal')
                         ->regex('/\A[0-9]{1,9}(?:[,.][0-9]{1,2})?\z/')->required(),
                     DatePicker::make('paid_on')->label(__('Date'))->default(today())->maxDate(today())->required(),
@@ -52,8 +83,7 @@ class ManagePayments extends ManageRecords
                     Notification::make()->title(__('Advance payment recorded'))->success()->send();
                     $this->resetTable();
                 }),
-            RecordSplitPaymentAction::make()->after(fn () => $this->resetTable()),
-            RecordPaymentAction::make()->after(fn () => $this->resetTable()),
+            RecordPaymentAction::make()->icon(null)->after(fn () => $this->resetTable()),
         ];
     }
 }

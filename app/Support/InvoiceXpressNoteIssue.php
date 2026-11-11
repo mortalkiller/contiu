@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Enums\FiscalDocumentDirection;
 use App\Enums\FiscalDocumentStatus;
 use App\Enums\FiscalDocumentType;
+use App\Enums\PortugueseVatRegion;
 use App\Exceptions\InvoiceXpressException;
 use App\Models\Account;
 use App\Models\FiscalDocument;
@@ -20,13 +21,14 @@ final class InvoiceXpressNoteIssue
     public function __construct(
         private readonly InvoiceXpressClient $client,
         private readonly InvoiceXpressImport $import,
+        private readonly InvoiceXpressSandboxDrafts $drafts,
     ) {}
 
     public function original(int $originalId): array
     {
         abort_unless(InvoiceXpressIssueRepository::ownerCanIssue(), 403);
 
-        return $this->readOriginal($originalId, $this->client->configuration()->subdomain);
+        return $this->readOriginal($originalId, $this->client->configuration()->subdomain, InvoiceXpressIssue::options()['draftOnly'] ?? false);
     }
 
     public function preview(array $input): array
@@ -42,6 +44,46 @@ final class InvoiceXpressNoteIssue
         });
     }
 
+    public function createDraft(array $input, string $revision): int
+    {
+        abort_unless(InvoiceXpressIssueRepository::ownerCanIssue(), 403);
+        $input = $this->validated($input);
+
+        return $this->locked(function () use ($input, $revision): int {
+            $subdomain = $this->client->configuration()->subdomain;
+            abort_unless(InvoiceXpressClient::sandboxDraftsAllowed($subdomain) && (InvoiceXpressIssue::options()['draftOnly'] ?? false), 403);
+            $snapshot = $this->snapshot($input, $subdomain);
+            if (! ($snapshot['draftOnly'] ?? false) || ! hash_equals($this->revision($snapshot, $subdomain), $revision)) {
+                throw $this->invalidConfirmation();
+            }
+
+            $reference = 'Contiu draft '.$revision;
+            $kind = $input['kind'];
+            $original = $snapshot['original']['providerId'];
+            $existing = array_values(array_filter($this->related($original, $subdomain),
+                fn (array $row): bool => ($row['reference'] ?? null) === $reference));
+            if (count($existing) > 1 || ($existing !== [] && ($existing[0]['type'] !== InvoiceXpressNoteTerms::Types[$kind]
+                || $existing[0]['status'] !== 'draft'))) {
+                throw $this->invalidConfirmation();
+            }
+
+            $id = $existing === [] ? $this->drafts->create(
+                $subdomain, $kind, [...$this->providerPayload($snapshot['payload']), 'reference' => $reference],
+                [$input['itemId']], $revision, $snapshot['totals'], $snapshot['withholding'] ?? null,
+            ) : InvoiceXpressIssueTerms::positiveId($existing[0]['id'] ?? null);
+            if ($id === null || $id === $original) {
+                throw $this->invalidConfirmation();
+            }
+
+            $note = $this->read("/{$kind}s/{$id}.json", $kind, $subdomain);
+            if (($note['status'] ?? null) !== 'draft' || ! $this->matchesRemote($snapshot, $note, $id, $reference, $subdomain)) {
+                throw $this->invalidConfirmation();
+            }
+
+            return $id;
+        });
+    }
+
     public function confirm(array $input, string $revision): InvoiceXpressNoteAttempt
     {
         abort_unless(InvoiceXpressIssueRepository::ownerCanIssue(), 403);
@@ -49,7 +91,7 @@ final class InvoiceXpressNoteIssue
 
         $attempt = $this->locked(function () use ($input, $revision): InvoiceXpressNoteAttempt {
             $subdomain = $this->client->configuration()->subdomain;
-            $this->requireCatalogueSafety();
+            $this->requireCatalogueSafety(['draftOnly' => InvoiceXpressIssue::options()['draftOnly'] ?? false]);
             $existing = InvoiceXpressNoteAttempt::query()->where('revision', $revision)->first();
             if ($existing !== null) {
                 if ($existing->subdomain !== $subdomain || $existing->snapshot['input'] !== $input
@@ -66,6 +108,7 @@ final class InvoiceXpressNoteIssue
             }
 
             $snapshot = $this->snapshot($input, $subdomain);
+            $this->requireCatalogueSafety($snapshot);
 
             if (! hash_equals($this->revision($snapshot, $subdomain), $revision)) {
                 throw $this->invalidConfirmation();
@@ -95,7 +138,7 @@ final class InvoiceXpressNoteIssue
                 return $attempt;
             }
 
-            $this->requireCatalogueSafety();
+            $this->requireCatalogueSafety($attempt->snapshot);
 
             try {
                 if (! $this->stillCurrent($attempt)) {
@@ -103,10 +146,7 @@ final class InvoiceXpressNoteIssue
                 }
 
                 $kind = $attempt->snapshot['input']['kind'];
-                $payload = $this->decimalPayload($attempt->snapshot['payload']);
-                if (isset($payload['items'][0]['discount'])) {
-                    $payload['items'][0]['discount'] = (float) $payload['items'][0]['discount'];
-                }
+                $payload = $this->providerPayload($attempt->snapshot['payload']);
 
                 $response = $this->write($attempt, 'POST', "/{$kind}s.json", [
                     'proprietary_uid' => $attempt->proprietary_uid,
@@ -207,30 +247,42 @@ final class InvoiceXpressNoteIssue
         return $data;
     }
 
-    private function readOriginal(int $originalId, string $subdomain): array
+    private function readOriginal(int $originalId, string $subdomain, bool $draftOnly): array
     {
         $original = FiscalDocument::query()->with('invoiceXpressSnapshot')->find($originalId);
         abort_if($original === null, 404);
         $source = $original->invoiceXpressSnapshot;
 
-        if ($original->type !== FiscalDocumentType::Invoice || $original->status !== FiscalDocumentStatus::Active
+        $resource = match ($original->type) {
+            FiscalDocumentType::Invoice => ['invoice', 'Invoice'],
+            FiscalDocumentType::InvoiceReceipt => ['invoice_receipt', 'InvoiceReceipt'],
+            default => null,
+        };
+
+        if ($resource === null || $original->status !== FiscalDocumentStatus::Active
             || $original->direction !== FiscalDocumentDirection::Issued || $original->currency !== 'EUR'
-            || $source?->subdomain !== $subdomain || ($source->source['provider_type'] ?? null) !== 'Invoice') {
-            throw InvoiceXpressNoteTerms::invalid('originalId', __('Choose an active invoice issued through the current InvoiceXpress connection.'));
+            || $source?->subdomain !== $subdomain || ($source->source['provider_type'] ?? null) !== $resource[1]) {
+            throw InvoiceXpressNoteTerms::invalid('originalId', __('Choose an active invoice or invoice receipt issued through the current InvoiceXpress connection.'));
         }
 
         $providerId = $source->provider_id;
-        $invoice = $this->read("/invoices/{$providerId}.json", 'invoice', $subdomain);
+        $invoice = $this->read("/{$resource[0]}s/{$providerId}.json", $resource[0], $subdomain);
         $client = is_array($invoice['client'] ?? null) ? $invoice['client'] : [];
         $clientId = InvoiceXpressIssueTerms::positiveId($client['id'] ?? null);
+        $lines = InvoiceXpressNoteTerms::lines($invoice, $source->source['tax_lines'] ?? []);
+        $gross = array_sum(array_column(array_column($lines, 'totals'), 'total'));
+        $recordedWithholding = $source->source['withholding'] ?? null;
+        $rate = $lines[0]['withholdingBasisPoints'] ?? 0;
+        $withholding = $rate === 0 ? null : InvoiceXpressIssueTerms::withholdingAmounts($rate, $original->net_amount, $gross);
 
         if (InvoiceXpressIssueTerms::positiveId($invoice['id'] ?? null) !== $providerId
-            || ($invoice['type'] ?? null) !== 'Invoice' || ! in_array($invoice['status'] ?? null, InvoiceXpressNoteTerms::Issued, true)
+            || ($invoice['type'] ?? null) !== $resource[1] || ! in_array($invoice['status'] ?? null, InvoiceXpressNoteTerms::Issued, true)
             || ($invoice['inverted_sequence_number'] ?? null) !== $original->number
             || ($invoice['date'] ?? null) !== $original->document_date->format('d/m/Y') || $original->document_date->gt(today())
             || InvoiceXpressIssueTerms::hundredths($invoice['before_taxes'] ?? null) !== $original->net_amount
             || InvoiceXpressIssueTerms::hundredths($invoice['taxes'] ?? null) !== $original->vat_amount
-            || InvoiceXpressIssueTerms::hundredths($invoice['total'] ?? null) !== $original->total_amount
+            || $gross !== $original->total_amount
+            || ($recordedWithholding !== null && $recordedWithholding !== $withholding)
             || $clientId === null || $original->party_tax_id === null) {
             throw InvoiceXpressNoteTerms::invalid('originalId', __('The original InvoiceXpress invoice does not match the Contiu record.'));
         }
@@ -238,9 +290,10 @@ final class InvoiceXpressNoteIssue
         return [
             'id' => $originalId,
             'providerId' => $providerId,
+            ...($resource[1] === 'InvoiceReceipt' ? ['providerType' => 'InvoiceReceipt'] : []),
             'number' => $original->number,
-            'customer' => InvoiceXpressIssueTerms::customer($client, $clientId, $original->party_tax_id),
-            'lines' => InvoiceXpressNoteTerms::lines($invoice),
+            'customer' => InvoiceXpressNoteTerms::customer($client, $clientId, $original->party_tax_id, $invoice['tax_exemption'] ?? null, $draftOnly),
+            'lines' => $lines,
         ];
     }
 
@@ -251,36 +304,57 @@ final class InvoiceXpressNoteIssue
             throw InvoiceXpressNoteTerms::invalid('itemId', __('Choose an item approved in the InvoiceXpress issuance settings.'));
         }
 
-        $original = $this->readOriginal($input['originalId'], $subdomain);
+        $draftOnly = $options['draftOnly'] ?? false;
+        $original = $this->readOriginal($input['originalId'], $subdomain, $draftOnly);
+        if (($original['providerType'] ?? null) === 'InvoiceReceipt' && $input['kind'] !== 'credit_note') {
+            throw InvoiceXpressNoteTerms::invalid('kind', __('Only a credit note can be issued here for an invoice receipt.'));
+        }
         $lineIndex = $input['line'] - 1;
         $line = $original['lines'][$lineIndex] ?? null;
         if ($line === null) {
             throw InvoiceXpressNoteTerms::invalid('line', __('Choose a line from the original invoice.'));
         }
+        $lineTax = $line['tax'];
+        $region = $lineTax['region'] ?? PortugueseVatRegion::Mainland->value;
+        if (! isset($lineTax['region']) && $lineTax['basisPoints'] !== 0
+            && PortugueseVatRegion::Mainland->categoryFor($lineTax['basisPoints']) === null) {
+            throw InvoiceXpressNoteTerms::invalid('line', __('The original line must identify the VAT region before a note can be issued.'));
+        }
+
         InvoiceXpressNoteTerms::originalLineIndex($original['lines'], $line);
 
         $customerId = $original['customer']['id'];
-        $customer = InvoiceXpressIssueTerms::customer(
-            $this->read("/clients/{$customerId}.json", 'client', $subdomain), $customerId, $original['customer']['nif'],
+        $customer = InvoiceXpressNoteTerms::customer(
+            $this->read("/clients/{$customerId}.json", 'client', $subdomain), $customerId, $original['customer']['nif'], $line['exemptionReason'] ?? null, $draftOnly,
         );
         $itemId = $input['itemId'];
         $remoteItem = $this->read("/items/{$itemId}.json", 'item', $subdomain);
         $item = InvoiceXpressIssueTerms::item($remoteItem, $itemId);
         unset($item['id']);
-        $tax = InvoiceXpressIssueTerms::tax($this->read('/taxes.json', 'taxes', $subdomain), $line['tax']['name'], 'PT', $line['tax']['basisPoints']);
+        $tax = InvoiceXpressIssueTerms::tax($this->read('/taxes.json', 'taxes', $subdomain), $lineTax['name'], $region, $lineTax['basisPoints'], $draftOnly);
+        $itemTax = is_array($remoteItem['tax'] ?? null) ? $remoteItem['tax'] : [];
 
         if ($item !== $line['article'] || $customer !== $original['customer']
-            || $tax['id'] !== $line['tax']['id'] || InvoiceXpressIssueTerms::positiveId(data_get($remoteItem, 'tax.id')) !== $tax['id']
-            || data_get($remoteItem, 'tax.name') !== $tax['name']
-            || InvoiceXpressIssueTerms::hundredths(data_get($remoteItem, 'tax.value')) !== $tax['basisPoints']) {
+            || $tax['id'] !== $lineTax['id']
+            || (array_key_exists('id', $itemTax) && InvoiceXpressIssueTerms::positiveId($itemTax['id']) !== $tax['id'])
+            || ! InvoiceXpressIssueTerms::matchesTaxRegion($itemTax['region'] ?? null, $tax['region'])
+            || (isset($lineTax['code'], $itemTax['code']) && $itemTax['code'] !== '' && $itemTax['code'] !== $lineTax['code'])
+            || ($itemTax['name'] ?? null) !== $tax['name']
+            || InvoiceXpressIssueTerms::hundredths($itemTax['value'] ?? null) !== $tax['basisPoints']
+            || ! in_array(InvoiceXpressIssueTerms::hundredths($remoteItem['retention'] ?? 0), [0, $line['withholdingBasisPoints'] ?? 0], true)) {
             throw InvoiceXpressNoteTerms::invalid('itemId', __('The customer, approved item and VAT must match the original invoice.'));
         }
 
         $sequenceId = $options['sequenceId'];
-        $sequence = InvoiceXpressNoteTerms::sequence($this->read("/sequences/{$sequenceId}.json", 'sequence', $subdomain), $sequenceId, $input['kind']);
-        $history = $this->history($original, $subdomain, $attempt);
+        $sequence = InvoiceXpressNoteTerms::sequence($this->read("/sequences/{$sequenceId}.json", 'sequence', $subdomain), $sequenceId, $input['kind'], $draftOnly);
+        $history = $this->history($original, $subdomain, $attempt, $draftOnly);
         $remaining = ['quantity' => $line['quantity'], 'total' => $line['totals']['total']];
         $available = $line['totals'];
+        $originalWithholding = InvoiceXpressNoteTerms::withholding($line);
+        if ($originalWithholding !== null) {
+            $available['retained'] = $originalWithholding['retained'];
+            $available['cash'] = $originalWithholding['cash'];
+        }
 
         foreach ($history as $note) {
             if ($note['type'] !== InvoiceXpressNoteTerms::Types[$input['kind']]) {
@@ -293,19 +367,29 @@ final class InvoiceXpressNoteIssue
                     foreach (['net', 'tax', 'total'] as $key) {
                         $available[$key] -= $adjustment['totals'][$key];
                     }
+                    if ($originalWithholding !== null) {
+                        $available['retained'] -= $adjustment['withholding']['retained'];
+                        $available['cash'] -= $adjustment['withholding']['cash'];
+                    }
                 }
             }
         }
 
         $remaining['total'] = $available['total'];
+        if ($originalWithholding !== null) {
+            $remaining['retained'] = $available['retained'];
+            $remaining['cash'] = $available['cash'];
+        }
         $discountBasisPoints = $line['discountBasisPoints'] ?? 0;
         $totals = InvoiceXpressIssueTerms::totals($item['unitCents'], $input['quantity'], $tax['basisPoints'], $discountBasisPoints);
+        $withholding = InvoiceXpressNoteTerms::withholding($line, $totals);
         if ($input['kind'] === 'debit_note' && $totals['total'] === 0) {
             throw InvoiceXpressNoteTerms::invalid('quantity', __('The debit note total must be positive.'));
         }
 
         if ($input['quantity'] > $remaining['quantity'] || $totals['total'] > $available['total']
-            || $totals['net'] > $available['net'] || $totals['tax'] > $available['tax']) {
+            || $totals['net'] > $available['net'] || $totals['tax'] > $available['tax']
+            || ($withholding !== null && ($withholding['retained'] > $available['retained'] || $withholding['cash'] > $available['cash']))) {
             throw InvoiceXpressNoteTerms::invalid('quantity', __('The quantity or amount exceeds the verifiable balance of this line for this note type.'));
         }
 
@@ -313,10 +397,12 @@ final class InvoiceXpressNoteIssue
 
         return [
             'input' => $input,
+            ...($draftOnly ? ['draftOnly' => true] : []),
             'original' => $original,
             'history' => $history,
             'remaining' => $remaining,
             'totals' => $totals,
+            ...($withholding === null ? [] : ['withholding' => $withholding]),
             'sequence' => $sequence,
             'payload' => [
                 'date' => $date,
@@ -325,6 +411,8 @@ final class InvoiceXpressNoteIssue
                 'sequence_id' => (string) $sequence['id'],
                 'currency_code' => 'EUR',
                 'owner_invoice_id' => $original['providerId'],
+                ...(isset($line['exemptionReason']) ? ['tax_exemption_reason' => $line['exemptionReason']] : []),
+                ...($withholding === null ? [] : ['retention_basis_points' => $withholding['basisPoints']]),
                 'client' => ['id' => $customerId],
                 'items' => [[
                     'name' => $item['name'],
@@ -334,40 +422,63 @@ final class InvoiceXpressNoteIssue
                     'quantity' => $input['quantity'],
                     'tax' => ['name' => $tax['name']],
                     ...($discountBasisPoints === 0 ? [] : ['discount_basis_points' => $discountBasisPoints]),
+                    ...(isset($line['lineRetentionBasisPoints']) ? ['retention_basis_points' => $line['lineRetentionBasisPoints']] : []),
                 ]],
             ],
         ];
     }
 
-    private function history(array $original, string $subdomain, ?InvoiceXpressNoteAttempt $attempt): array
+    private function history(array $original, string $subdomain, ?InvoiceXpressNoteAttempt $attempt, bool $draftOnly): array
     {
         $history = [];
+        $seen = [];
+        $ownNote = false;
 
         foreach ($this->related($original['providerId'], $subdomain) as $note) {
-            if (! in_array($note['type'], InvoiceXpressNoteTerms::Types, true) || $note['status'] === 'canceled') {
+            if (! in_array($note['type'], InvoiceXpressNoteTerms::Types, true)) {
                 continue;
             }
 
             $id = InvoiceXpressIssueTerms::positiveId($note['id'] ?? null);
-            if ($id !== null && $attempt !== null && ($note['reference'] ?? null) === $this->reference($attempt)
-                && $this->matches($attempt, $note, $id, related: true)) {
+            $owner = $note['owner_invoice_id'] ?? null;
+            if ($id === null || $id === $original['providerId'] || isset($seen[$id])
+                || ($owner !== null && InvoiceXpressIssueTerms::positiveId($owner) !== $original['providerId'])) {
+                throw $this->invalidConfirmation();
+            }
+            $seen[$id] = true;
+
+            if ($attempt !== null && ($note['reference'] ?? null) === $this->reference($attempt)) {
+                if ($ownNote || ! in_array($note['status'], ['draft', ...InvoiceXpressNoteTerms::Issued], true)
+                    || ! $this->matches($attempt, $note, $id, related: true)) {
+                    throw $this->invalidConfirmation();
+                }
+                $ownNote = true;
+
                 continue;
             }
 
-            if ($id === null || isset($history[$id]) || ! in_array($note['status'], InvoiceXpressNoteTerms::Issued, true)) {
+            if ($note['status'] === 'canceled' || ($draftOnly && $note['status'] === 'draft')) {
+                continue;
+            }
+            if (! in_array($note['status'], InvoiceXpressNoteTerms::Issued, true)) {
                 throw InvoiceXpressNoteTerms::invalid('confirmation', __('A linked note has no verifiable status or balance in InvoiceXpress.'));
             }
 
             $client = is_array($note['client'] ?? null) ? $note['client'] : [];
-            if (InvoiceXpressIssueTerms::customer($client, $original['customer']['id'], $original['customer']['nif']) !== $original['customer']) {
+            if (InvoiceXpressNoteTerms::customer($client, $original['customer']['id'], $original['customer']['nif'], $original['lines'][0]['exemptionReason'] ?? null, $draftOnly) !== $original['customer']) {
                 throw $this->invalidConfirmation();
             }
 
-            $lines = array_map(fn (array $line): array => [
-                'index' => InvoiceXpressNoteTerms::originalLineIndex($original['lines'], $line),
-                'quantity' => $line['quantity'],
-                'totals' => $line['totals'],
-            ], InvoiceXpressNoteTerms::lines($note));
+            $lines = [];
+            foreach (InvoiceXpressNoteTerms::lines($note) as $line) {
+                $withholding = InvoiceXpressNoteTerms::withholding($line);
+                $lines[] = [
+                    'index' => InvoiceXpressNoteTerms::originalLineIndex($original['lines'], $line),
+                    'quantity' => $line['quantity'],
+                    'totals' => $line['totals'],
+                    ...($withholding === null ? [] : ['withholding' => $withholding]),
+                ];
+            }
 
             $history[$id] = ['type' => $note['type'], 'lines' => $lines];
         }
@@ -392,41 +503,26 @@ final class InvoiceXpressNoteIssue
 
     private function matches(InvoiceXpressNoteAttempt $attempt, array $note, ?int $id = null, bool $related = false): bool
     {
-        $snapshot = $attempt->snapshot;
-        $original = $snapshot['original'];
-        $kind = $snapshot['input']['kind'];
         $id ??= $attempt->remote_id;
 
-        try {
-            $rawOwner = $note['owner_invoice_id'] ?? null;
-            $owner = InvoiceXpressIssueTerms::positiveId($rawOwner);
-            if ($rawOwner === null && ! $related) {
-                $related = collect($this->related($original['providerId'], $attempt->subdomain))->contains(
-                    fn (array $row): bool => InvoiceXpressIssueTerms::positiveId($row['id'] ?? null) === $id
-                        && $row['type'] === InvoiceXpressNoteTerms::Types[$kind],
-                );
-            }
+        return $id !== null && ($attempt->remote_id === null || $id === $attempt->remote_id)
+            && $this->matchesRemote($attempt->snapshot, $note, $id, $this->reference($attempt), $attempt->subdomain, $related);
+    }
 
-            $lines = InvoiceXpressNoteTerms::lines($note);
-            $client = is_array($note['client'] ?? null) ? $note['client'] : [];
-            $customer = InvoiceXpressIssueTerms::customer($client, $original['customer']['id'], $original['customer']['nif']);
-        } catch (ValidationException) {
-            return false;
+    public function matchesRemote(array $snapshot, array $note, int $id, string $reference, string $subdomain, bool $related = false): bool
+    {
+        $original = $snapshot['original']['providerId'];
+        if (($note['owner_invoice_id'] ?? null) === null && ! $related) {
+            $matches = array_values(array_filter($this->related($original, $subdomain),
+                fn (array $row): bool => InvoiceXpressIssueTerms::positiveId($row['id'] ?? null) === $id));
+            $related = count($matches) === 1
+                && $matches[0]['type'] === InvoiceXpressNoteTerms::Types[$snapshot['input']['kind']]
+                && $matches[0]['status'] === ($note['status'] ?? null)
+                && (($matches[0]['owner_invoice_id'] ?? null) === null
+                    || InvoiceXpressIssueTerms::positiveId($matches[0]['owner_invoice_id']) === $original);
         }
 
-        $expectedLine = $original['lines'][$snapshot['input']['line'] - 1];
-
-        return ($owner === $original['providerId'] || ($rawOwner === null && $related))
-            && ($attempt->remote_id === null || $id === $attempt->remote_id)
-            && InvoiceXpressIssueTerms::positiveId($note['id'] ?? null) === $id
-            && ($note['type'] ?? null) === InvoiceXpressNoteTerms::Types[$kind]
-            && is_string($note['status'] ?? null)
-            && InvoiceXpressIssueTerms::positiveId($note['sequence_id'] ?? null) === $snapshot['sequence']['id']
-            && ($note['date'] ?? null) === $snapshot['payload']['date']
-            && ($note['observations'] ?? null) === $snapshot['input']['reason']
-            && ($note['reference'] ?? null) === $this->reference($attempt)
-            && $customer === $original['customer']
-            && $lines === [[...$expectedLine, 'quantity' => $snapshot['input']['quantity'], 'totals' => $snapshot['totals']]];
+        return InvoiceXpressNoteTerms::matchesDocument($note, $snapshot, $id, $reference, $related);
     }
 
     private function recordFinal(InvoiceXpressNoteAttempt $attempt, array $note): InvoiceXpressNoteAttempt
@@ -443,13 +539,21 @@ final class InvoiceXpressNoteIssue
 
         try {
             $document = DB::transaction(function () use ($attempt, $note, $original): FiscalDocument {
+                $originalLine = $attempt->snapshot['original']['lines'][$attempt->snapshot['input']['line'] - 1];
                 $review = $this->import->reviewInvoice($note, $attempt->subdomain);
-                if (! in_array($review['state'], ['new', 'same'], true)) {
+                if (! in_array($review['state'], ['new', 'same'], true) || $review['withholding'] !== ($attempt->snapshot['withholding'] ?? null)) {
                     throw $this->invalidConfirmation();
                 }
 
-                $document = $this->import->confirmInvoice($review['invoice'], expectedSubdomain: $attempt->subdomain);
                 $expected = $review['after'];
+                if ($expected['total_amount'] !== $attempt->snapshot['totals']['total']
+                    || $expected['net_amount'] !== $attempt->snapshot['totals']['net']
+                    || $expected['vat_amount'] !== $attempt->snapshot['totals']['tax']) {
+                    throw $this->invalidConfirmation();
+                }
+                $document = $this->import->confirmInvoice(
+                    $review['invoice'], expectedSubdomain: $attempt->subdomain, verifiedLineTax: $originalLine['tax'],
+                );
                 if ($document->type->value !== $expected['type'] || $document->direction->value !== $expected['direction']
                     || $document->status->value !== $expected['status'] || $document->number !== $expected['number']
                     || $document->currency !== $expected['currency'] || $document->document_date->toDateString() !== $expected['document_date']
@@ -502,6 +606,18 @@ final class InvoiceXpressNoteIssue
         }
     }
 
+    public function providerPayload(array $payload): array
+    {
+        $payload = $this->decimalPayload($payload);
+        foreach (['discount', 'retention'] as $rate) {
+            if (isset($payload['items'][0][$rate])) {
+                $payload['items'][0][$rate] = (float) $payload['items'][0][$rate];
+            }
+        }
+
+        return $payload;
+    }
+
     private function decimalPayload(array $payload): array
     {
         $item = [];
@@ -509,10 +625,16 @@ final class InvoiceXpressNoteIssue
             match ($field) {
                 'unit_price_cents' => $item['unit_price'] = sprintf('%d.%02d', intdiv($value, 100), $value % 100),
                 'discount_basis_points' => $item['discount'] = sprintf('%d.%02d', intdiv($value, 100), $value % 100),
+                'retention_basis_points' => $item['retention'] = sprintf('%d.%02d', intdiv($value, 100), $value % 100),
                 default => $item[$field] = $value,
             };
         }
         $payload['items'][0] = $item;
+        if (isset($payload['retention_basis_points'])) {
+            $rate = $payload['retention_basis_points'];
+            $payload['retention'] = sprintf('%d.%02d', intdiv($rate, 100), $rate % 100);
+            unset($payload['retention_basis_points']);
+        }
 
         return $payload;
     }
@@ -563,16 +685,22 @@ final class InvoiceXpressNoteIssue
         });
     }
 
-    private function requireCatalogueSafety(): void
+    private function requireCatalogueSafety(array $snapshot = []): void
     {
+        if ($snapshot['draftOnly'] ?? false) {
+            throw InvoiceXpressNoteTerms::invalid('confirmation', __('The selected series only allows draft creation.'));
+        }
         if (! InvoiceXpressIssue::canWriteDocuments()) {
             throw InvoiceXpressNoteTerms::invalid('confirmation', __('Issuance is pending validation of the InvoiceXpress catalog.'));
+        }
+        if (isset($snapshot['withholding']) && ! InvoiceXpressIssue::canWriteWithholding()) {
+            throw InvoiceXpressNoteTerms::invalid('confirmation', __('Issuance is pending validation of withholding tax in the InvoiceXpress sandbox.'));
         }
     }
 
     private function write(InvoiceXpressNoteAttempt $attempt, string $method, string $path, array $payload): array
     {
-        $this->requireCatalogueSafety();
+        $this->requireCatalogueSafety($attempt->snapshot);
 
         return $this->client->request($method, $path, payload: $payload, expectedSubdomain: $attempt->subdomain);
     }

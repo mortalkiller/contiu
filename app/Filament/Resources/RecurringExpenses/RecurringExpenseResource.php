@@ -11,6 +11,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Str;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 class RecurringExpenseResource extends Resource
@@ -31,6 +32,17 @@ class RecurringExpenseResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('recurring expenses');
+    }
+
+    /** Portuguese capitalises the first word only: "Despesas recorrentes", not "Despesas Recorrentes". */
+    public static function getTitleCasePluralModelLabel(): string
+    {
+        return str_starts_with(app()->getLocale(), 'pt') ? Str::ucfirst(static::getPluralModelLabel()) : parent::getTitleCasePluralModelLabel();
+    }
+
+    public static function getTitleCaseModelLabel(): string
+    {
+        return str_starts_with(app()->getLocale(), 'pt') ? Str::ucfirst(static::getModelLabel()) : parent::getTitleCaseModelLabel();
     }
 
     public static function getNavigationLabel(): string

@@ -2,14 +2,18 @@
 
 namespace App\Support;
 
+use App\Enums\PortugueseVatRegion;
 use App\Exceptions\InvoiceXpressException;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * @phpstan-type RegionalTaxes array<string, array<string, list<array{name: string, code: ?string, basisPoints: int}>>>
+ */
 final class InvoiceXpressCatalog
 {
     public function __construct(private readonly InvoiceXpressClient $client) {}
 
-    /** @return array{account: string, clients: array<int, string>, items: array<int, string>, taxes: list<string>, sequences: array<int, string>, draftSequences: array<int, string>} */
+    /** @return array{account: string, clients: array<int, string>, items: array<int, string>, itemPrices: array<int, int>, taxes: list<string>, regionalTaxes: RegionalTaxes, sequences: array<int, string>, draftSequences: array<int, string>} */
     public function choices(): array
     {
         abort_unless(InvoiceXpressIssueRepository::ownerCanIssue(), 403);
@@ -32,17 +36,23 @@ final class InvoiceXpressCatalog
         }
 
         $items = [];
+        $itemPrices = [];
         foreach ($this->list('items', $subdomain, paginated: true) as $item) {
             $id = InvoiceXpressIssueTerms::positiveId($item['id'] ?? null);
             $name = $item['name'] ?? null;
 
             if ($id !== null && is_string($name) && trim($name) !== '') {
                 $items[$id] = $name;
+                $unitCents = InvoiceXpressIssueTerms::hundredths($item['unit_price'] ?? null);
+                if ($unitCents !== null && $unitCents > 0 && $unitCents <= 99_999_999) {
+                    $itemPrices[$id] = $unitCents;
+                }
             }
         }
 
         $taxes = [];
-        foreach ($this->list('taxes', $subdomain) as $tax) {
+        $providerTaxes = $this->list('taxes', $subdomain);
+        foreach ($providerTaxes as $tax) {
             $name = $tax['name'] ?? null;
             $rate = InvoiceXpressIssueTerms::hundredths($tax['value'] ?? null);
             $region = $tax['region'] ?? null;
@@ -83,10 +93,54 @@ final class InvoiceXpressCatalog
             'account' => $subdomain,
             'clients' => $clients,
             'items' => $items,
+            'itemPrices' => $itemPrices,
             'taxes' => array_values(array_unique($taxes)),
+            'regionalTaxes' => $this->regionalTaxChoices($providerTaxes, $sandbox),
             'sequences' => $sequences,
             'draftSequences' => $draftSequences,
         ];
+    }
+
+    /** @return RegionalTaxes */
+    public function regionalTaxes(string $subdomain): array
+    {
+        abort_unless(InvoiceXpressIssueRepository::ownerCanIssue(), 403);
+
+        return $this->regionalTaxChoices($this->list('taxes', $subdomain), InvoiceXpressClient::sandboxDraftsAllowed($subdomain));
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $taxes
+     * @return RegionalTaxes
+     */
+    private function regionalTaxChoices(array $taxes, bool $sandbox): array
+    {
+        $nameCounts = array_count_values(array_filter(array_column($taxes, 'name'), is_string(...)));
+        $choices = [];
+
+        foreach ($taxes as $tax) {
+            $name = $tax['name'] ?? null;
+            $code = $tax['code'] ?? null;
+            $region = is_string($tax['region'] ?? null) ? PortugueseVatRegion::tryFrom($tax['region']) : null;
+            $basisPoints = InvoiceXpressIssueTerms::hundredths($tax['value'] ?? null);
+            $category = match ($code) {
+                'RED' => 'reduced',
+                'INT' => 'intermediate',
+                'NOR' => 'standard',
+                null => $sandbox && $basisPoints !== null ? $region?->categoryFor($basisPoints) : null,
+                default => null,
+            };
+
+            if (! is_string($name) || $name === '' || trim($name) !== $name || $nameCounts[$name] !== 1
+                || InvoiceXpressIssueTerms::positiveId($tax['id'] ?? null) === null
+                || $region === null || $category === null || $basisPoints !== $region->basisPoints($category)) {
+                continue;
+            }
+
+            $choices[$region->value][$category][] = ['name' => $name, 'code' => $code, 'basisPoints' => $basisPoints];
+        }
+
+        return $choices;
     }
 
     /** @return list<array<string, mixed>> */

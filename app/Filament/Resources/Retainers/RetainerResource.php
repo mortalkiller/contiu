@@ -11,6 +11,7 @@ use App\Filament\Resources\Retainers\Schemas\RetainerInfolist;
 use App\Filament\Resources\Retainers\Tables\RetainersTable;
 use App\Filament\Resources\Retainers\Widgets\RetainersAhead;
 use App\Filament\Resources\Retainers\Widgets\RetainersSummary;
+use App\Filament\Resources\Retainers\Widgets\RetainerSummary;
 use App\Filament\Resources\Shared\RelationManagers\ExpensesRelationManager;
 use App\Filament\Resources\Shared\RelationManagers\PaymentsRelationManager;
 use App\Filament\Resources\Shared\RelationManagers\ReceivablesRelationManager;
@@ -85,7 +86,7 @@ class RetainerResource extends Resource
 
     public static function getWidgets(): array
     {
-        return [RetainersSummary::class, RetainersAhead::class];
+        return [RetainersSummary::class, RetainersAhead::class, RetainerSummary::class];
     }
 
     public static function getPages(): array

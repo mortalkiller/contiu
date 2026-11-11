@@ -17,7 +17,9 @@ use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Components\Attributes\Unexposed;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
@@ -38,6 +40,7 @@ class ImportWorkbook extends Page
     public ?array $data = [];
 
     /** Result of the last dry run, shown before importing. */
+    #[Locked]
     public ?array $preview = null;
 
     /** The workbook this page stored on the last run: the only path its file field takes back. */
@@ -84,7 +87,6 @@ class ImportWorkbook extends Page
                         Checkbox::make('replace')
                             ->label(__('Replace current data'))
                             ->helperText(__('Deletes all clients, jobs, retainers, payments received, expenses and suppliers before importing. This cannot be undone.'))
-                            ->live()
                             ->afterStateUpdated(fn () => $this->preview = null),
                         Actions::make([
                             Action::make('preview')
@@ -96,6 +98,10 @@ class ImportWorkbook extends Page
                                 ->label(__('Import'))
                                 ->icon(Phosphor::FileArrowUp)
                                 ->visible(fn () => $this->preview !== null)
+                                ->extraAttributes(fn (): array => [
+                                    'x-show' => (($this->preview['replace'] ?? false) ? '$wire.data.replace' : '! $wire.data.replace')
+                                        .' && Object.values($wire.data.file ?? {})[0] === $wire.storedFile',
+                                ])
                                 ->requiresConfirmation(fn () => (bool) ($this->data['replace'] ?? false))
                                 ->modalHeading(__('Replace current data?'))
                                 ->modalDescription(__('The current financial data will be deleted and replaced with the file contents.'))
@@ -110,11 +116,20 @@ class ImportWorkbook extends Page
     {
         $result = $this->runImport(dryRun: true);
 
-        $this->preview = $result?->toArray();
+        $this->preview = $result === null ? null : [
+            ...$result->toArray(),
+            'replace' => (bool) ($this->data['replace'] ?? false),
+        ];
     }
 
     public function import(): void
     {
+        if ($this->preview === null
+            || $this->preview['replace'] !== (bool) ($this->data['replace'] ?? false)
+            || Arr::first(Arr::wrap($this->data['file'] ?? null)) !== $this->storedFile) {
+            throw ValidationException::withMessages(['data.replace' => __('Preview the document again before confirming.')]);
+        }
+
         $result = $this->runImport(dryRun: false);
 
         if ($result === null) {

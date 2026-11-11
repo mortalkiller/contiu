@@ -3,10 +3,13 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Support\ProportionBar;
+use App\Models\Expense;
+use App\Models\Payment;
 use App\Support\DocumentedTurnover;
 use App\Support\MinimumPriceCalculator;
 use App\Support\Money;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
@@ -42,9 +45,47 @@ class MinimumPriceSimulator extends Page
     #[Locked]
     public ?array $inputs = null;
 
+    public function getSubheading(): string
+    {
+        return __('How much you need to invoice to reach the income you want.');
+    }
+
+    /**
+     * Opens on this year's numbers, as in the mock, and already worked out when the year has
+     * both income and costs: the screen shows a result to start from rather than a blank form.
+     */
     public function mount(): void
     {
-        $this->form->fill();
+        $this->form->fill($numbers = $this->yearNumbers());
+
+        if (filled($numbers['incomeGoal']) && filled($numbers['costs'])) {
+            $this->calculate();
+        }
+    }
+
+    /**
+     * "Usar os de 2026": the year so far, carried to twelve months. Costs are the expenses
+     * recorded; the income target is what came in less those costs. Months, hours and the
+     * reserve start from common values.
+     *
+     * @return array<string, string>
+     */
+    public function yearNumbers(): array
+    {
+        $year = today()->year;
+        $months = max(1, today()->month);
+        $costs = (int) Expense::query()->whereYear('spent_on', $year)->get()->sum(fn (Expense $expense): int => (int) $expense->total);
+        $received = (int) Payment::query()->whereYear('paid_on', $year)->sum('amount');
+        $annual = fn (int $cents): int => (int) round($cents / $months * 12);
+        $euros = fn (int $cents): string => number_format($cents / 100, 2, ',', '');
+
+        return [
+            'incomeGoal' => $received > 0 ? $euros(max(0, $annual($received) - $annual($costs))) : '',
+            'costs' => $costs > 0 ? $euros($annual($costs)) : '',
+            'billableMonths' => '11',
+            'hoursPerMonth' => '100',
+            'reservePercent' => '25',
+        ];
     }
 
     public function form(Schema $schema): Schema
@@ -52,16 +93,32 @@ class MinimumPriceSimulator extends Page
         return $schema
             ->statePath('data')
             ->components([
-                Section::make(__('Scenario inputs'))
-                    ->columns(['md' => 2])
+                Section::make(__('Your numbers'))
+                    ->key('yourNumbers')
+                    ->headerActions([
+                        Action::make('useYear')
+                            ->label(__('Use :year\'s', ['year' => today()->year]))
+                            ->link()
+                            ->action(function (): void {
+                                $this->form->fill($numbers = $this->yearNumbers());
+                                $this->updatedData();
+
+                                if (filled($numbers['incomeGoal']) && filled($numbers['costs'])) {
+                                    $this->calculate();
+                                }
+                            }),
+                    ])
+                    ->columns(2)
                     ->schema([
                         $this->decimalInput('incomeGoal', 9)
                             ->label(__('Annual income target'))
+                            ->columnSpanFull()
                             ->suffix('€')
                             ->helperText(__('How much you want left for the year after covering costs and the reserve.'))
                             ->validationMessages(['regex' => __('Enter an amount between €0 and €999,999,999.99 with up to two decimal places.')]),
                         $this->decimalInput('costs', 9)
                             ->label(__('Annual business costs'))
+                            ->columnSpanFull()
                             ->suffix('€')
                             ->helperText(__('Add up the full year’s costs, including months with no invoicing.'))
                             ->validationMessages(['regex' => __('Enter an amount between €0 and €999,999,999.99 with up to two decimal places.')]),
@@ -87,6 +144,7 @@ class MinimumPriceSimulator extends Page
                             ]),
                         $this->decimalInput('reservePercent', 2)
                             ->label(__('Reserve from invoiced revenue'))
+                            ->columnSpanFull()
                             ->suffix('%')
                             ->helperText(__('Choose the percentage of invoiced revenue to set aside. Enter 0 if you want to set aside nothing.'))
                             ->validationMessages(['regex' => __('Enter a percentage between 0 and 99.99 with up to two decimal places.')]),

@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Enums\Language;
 use App\Exceptions\AccountIsReadOnly;
 use App\Filament\Support\PhosphorIconAliases;
+use App\Filament\Support\TableEmptyState;
 use App\Http\Middleware\ApplyUserLanguage;
 use App\Models\Account;
 use App\Policies\AuditPolicy;
@@ -14,6 +15,7 @@ use App\Support\FinanceSettings;
 use App\Support\ReadOnlyAccountAccess;
 use Filament\Forms\Components\FileUpload;
 use Filament\Notifications\Notification;
+use Filament\Pages\BasePage as Page;
 use Filament\Schemas\Schema;
 use Filament\Support\Facades\FilamentIcon;
 use Filament\Tables\Table;
@@ -66,6 +68,7 @@ class AppServiceProvider extends ServiceProvider
         $this->detectLazyLoading();
         $this->registerPhosphorIcons();
         $this->configureFormatting();
+        $this->configureFormActions();
         $this->configureBilling();
         $this->registerAccountGates();
         $this->showReadOnlyAccountAsNotification();
@@ -122,11 +125,24 @@ class AppServiceProvider extends ServiceProvider
         });
     }
 
+    /**
+     * As in the mock ("Página de formulário"): a form's buttons stay in view at the bottom of
+     * the screen, at its end. Their order and labels are in HasSaveBar.
+     */
+    private function configureFormActions(): void
+    {
+        Page::stickyFormActions();
+        Page::alignFormActionsEnd();
+    }
+
     private function configureFormatting(): void
     {
         $dateFormat = fn (): string => Language::resolve(app()->getLocale())->dateFormat();
 
+        // No table sets empty-state actions of its own: every one gets "Limpar filtros", shown only
+        // when a search or a filter hides all its records (App\Filament\Support\TableEmptyState).
         Table::configureUsing(fn (Table $table) => $table
+            ->emptyStateActions([TableEmptyState::clearAction()])
             ->defaultNumberLocale(fn (): string => app()->getLocale())
             ->defaultDateDisplayFormat($dateFormat)
             ->defaultDateTimeDisplayFormat(fn (): string => $dateFormat().' H:i'));

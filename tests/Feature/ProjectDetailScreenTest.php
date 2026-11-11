@@ -9,12 +9,14 @@ use App\Filament\Resources\Projects\RelationManagers\ProjectExpensesRelationMana
 use App\Filament\Resources\Projects\RelationManagers\ProjectPaymentsRelationManager;
 use App\Filament\Resources\Projects\RelationManagers\ProjectReceivablesRelationManager;
 use App\Filament\Resources\Projects\Schemas\ProjectTimeline;
+use App\Filament\Resources\Projects\Widgets\ProjectSummary;
 use App\Models\Expense;
 use App\Models\FiscalDocument;
 use App\Models\Payment;
 use App\Models\Project;
 use App\Models\Receivable;
 use App\Support\Money;
+use Filament\Actions\Testing\TestAction;
 use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 
@@ -47,17 +49,47 @@ it('tells the story of a project: the quote, what came in and when, and what is 
     ]);
 })->group('integration');
 
-it('shows the timeline, the details and a note under each figure on the project page', function () {
+it('shows the title, one line about the project and the timeline beside the details on the project page', function () {
     Livewire::test(ViewProject::class, ['record' => $this->project->getRouteKey()])
+        ->assertSee('Correção por rever')
+        ->assertSeeInOrder(['Em execução', $this->project->payment_status->getLabel(), $this->project->client->name, 'Orçamento de 01/09/2026'])
+        ->assertDontSee('Visualizar')
         ->assertSee('Linha do tempo')
         ->assertSee('Recebido: Sinal de 50%')
         ->assertSee('Detalhes')
-        ->assertSee('Sem IVA')
-        ->assertSee('81% do faturado')
-        ->assertSee('Venceu a 01/11/2026')
-        ->assertSee('52,5% · '.Money::format(38000).' de custos diretos', escape: false)
+        ->assertSeeHtml('fap-key-value')
         ->assertActionExists('recordPayment')
         ->assertActionHidden('issueInvoice');
+})->group('ui');
+
+it('sums the project up under its title: total, received, still open and margin', function () {
+    Livewire::test(ProjectSummary::class, ['record' => $this->project])
+        ->assertSeeInOrder(['Total', Money::format(80000), 'Sem IVA'])
+        ->assertSeeInOrder(['Recebido', Money::format(65000)])
+        ->assertSeeHtml('width: 81.3%')
+        ->assertSeeInOrder(['Em aberto', Money::format(15000), 'Venceu a 01/11/2026'])
+        ->assertSee('52,5% · '.Money::format(38000).' de custos diretos', escape: false);
+})->group('ui');
+
+it('lists the payment plan with how far off each open amount is and what is still to invoice', function () {
+    Livewire::test(ProjectReceivablesRelationManager::class, ['ownerRecord' => $this->project, 'pageClass' => ViewProject::class])
+        ->loadTable()
+        ->assertSee('Plano de pagamento em 4 partes')
+        ->assertSee('daqui a 105 dias')
+        ->assertSee('há 9 dias')
+        ->assertSee('Por emitir')
+        ->assertTableActionHidden('recordPayment', $this->deposit)
+        ->assertTableActionVisible('recordPayment', $this->late);
+})->group('ui');
+
+it('edits an instalment from its description and deletes it from there only while nothing was paid on it', function () {
+    Livewire::test(ProjectReceivablesRelationManager::class, ['ownerRecord' => $this->project, 'pageClass' => ViewProject::class])
+        ->loadTable()
+        ->assertActionHidden([TestAction::make('edit')->table($this->deposit), TestAction::make('delete')])
+        ->callAction([TestAction::make('edit')->table($this->late), TestAction::make('delete')]);
+
+    expect(Receivable::query()->whereKey($this->late->id)->exists())->toBeFalse()
+        ->and(Receivable::query()->whereKey($this->deposit->id)->exists())->toBeTrue();
 })->group('ui');
 
 it('counts the records on each tab and lists the fiscal documents of the project', function () {

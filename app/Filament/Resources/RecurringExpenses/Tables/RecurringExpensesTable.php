@@ -4,13 +4,16 @@ namespace App\Filament\Resources\RecurringExpenses\Tables;
 
 use App\Enums\Language;
 use App\Filament\Resources\Expenses\Schemas\ExpenseForm;
+use App\Filament\Support\TableEmptyState;
 use App\Models\RecurringExpense;
 use Filament\Actions\ActionGroup;
+use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\Summarizers\Summarizer;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
+use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 
 class RecurringExpensesTable
@@ -67,7 +70,18 @@ class RecurringExpensesTable
                     DeleteAction::make(),
                 ]),
             ])
-            ->emptyStateHeading(__('No recurring expenses'))
-            ->emptyStateDescription(__('Create one for recurring costs such as subscriptions or servers.'));
+            // As in the mock: with nothing yet, what the list is for and the way to start it.
+            ->emptyStateHeading(fn (HasTable $livewire): string => TableEmptyState::heading($livewire, __('You have no recurring expenses yet'), __('recurring expenses')))
+            ->emptyStateDescription(fn (HasTable $livewire): string => TableEmptyState::isNarrowed($livewire)
+                ? __('Clear the search or the filters to see them all.')
+                : __('Add hosting, software and subscriptions here. They then show up in the cash forecast and the calendar.'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('New recurring expense'))
+                    ->modalWidth('5xl')
+                    ->mutateDataUsing(fn (array $data) => ExpenseForm::normalize($data))
+                    ->hidden(fn (HasTable $livewire): bool => TableEmptyState::isNarrowed($livewire)),
+                TableEmptyState::clearAction(),
+            ]);
     }
 }

@@ -1,6 +1,5 @@
 <?php
 
-use App\Filament\MonthClose\Widgets\MonthExpensesTable;
 use App\Filament\Resources\Expenses\Pages\EditExpense;
 use App\Filament\Resources\Payments\Pages\ManagePayments;
 use App\Filament\Resources\Projects\Pages\ViewProject;
@@ -12,6 +11,7 @@ use App\Models\Payment;
 use App\Models\Project;
 use App\Models\Receivable;
 use App\Support\Money;
+use App\Support\MonthReview;
 use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 
@@ -91,14 +91,11 @@ it('shows the bank column on the payments and expenses of a job', function () {
         ->assertSee('Por reconciliar');
 });
 
-it('shows the bank column in the month close expenses', function () {
+it('counts a paid expense the statement does not explain yet as data to complete in the month close', function () {
     detailLine('2026-11-01', 0, 0, 'matched', 'ABERTURA');
-    Expense::factory()->create(['net_amount' => 1000, 'paid_on' => '2026-11-02', 'spent_on' => '2026-11-02']);
+    $expense = Expense::factory()->create(['net_amount' => 1000, 'paid_on' => '2026-11-02', 'spent_on' => '2026-11-02']);
 
-    Livewire::test(MonthExpensesTable::class, ['month' => '2026-11'])
-        ->loadTable()
-        ->assertSee('Banco')
-        ->assertSee('Por reconciliar');
+    expect((new MonthReview(Carbon::parse('2026-11-01')))->dataIssues($expense))->toContain(__('Pending reconciliation'));
 });
 
 it('totals the direct costs of a job in cents, VAT per invoice', function () {

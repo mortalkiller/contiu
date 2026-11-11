@@ -3,21 +3,42 @@
 namespace App\Filament\Resources\Retainers\Pages;
 
 use App\Filament\Resources\Retainers\RetainerResource;
+use App\Filament\Resources\Retainers\Tables\RetainersTable;
 use App\Filament\Resources\Retainers\Widgets\RetainersAhead;
 use App\Filament\Resources\Retainers\Widgets\RetainersSummary;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Database\Eloquent\Builder;
+use pxlrbt\FilamentExcel\Actions\ExportAction;
+use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 class ListRetainers extends ListRecords
 {
     protected static string $resource = RetainerResource::class;
 
+    /** As in the mock, the list opens on its heading: the menu already says where you are. */
+    public function getBreadcrumbs(): array
+    {
+        return [];
+    }
+
+    public function getSubheading(): string
+    {
+        return __('Amounts that repeat. Contiu creates the amount to receive for each period.');
+    }
+
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make()->label(__('New retainer')),
+            ExportAction::make()
+                ->label(__('Export to Excel'))
+                ->icon(Phosphor::DownloadSimple)
+                ->color('gray')
+                ->exports([RetainersTable::excelExport()]),
+            CreateAction::make()
+                ->label(__('New retainer'))
+                ->icon(Phosphor::Plus),
         ];
     }
 

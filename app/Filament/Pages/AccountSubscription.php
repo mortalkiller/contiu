@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Enums\Language;
 use App\Filament\Pages\Tenancy\EditAccountProfile;
+use App\Filament\Widgets\AccountantAccessWidget;
 use App\Models\Account;
 use App\Support\Money;
 use BackedEnum;
@@ -13,11 +14,14 @@ use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Actions;
+use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Livewire;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Text;
 use Filament\Schemas\Schema;
 use Filament\Support\Components\Attributes\Unexposed;
+use Filament\Support\Enums\TextSize;
 use Illuminate\Support\HtmlString;
 use InvalidArgumentException;
 use RuntimeException;
@@ -132,33 +136,63 @@ class AccountSubscription extends Page
 
     public function getSubheading(): string
     {
-        return __('Pay by card through Stripe. VAT exempt under Article 53 of the Portuguese VAT Code.');
+        return __('Paid through Stripe. You can change plan or cancel whenever you like.');
     }
 
+    /** As in the mock: the Stripe portal, once there is a subscription to manage. */
+    protected function getHeaderActions(): array
+    {
+        return [$this->manageAction()];
+    }
+
+    /**
+     * As in the mock: a word while the trial runs out, the account's state beside the two plans,
+     * then the accountants who can see it.
+     */
     public function content(Schema $schema): Schema
     {
+        $plansVisible = fn (): bool => $this->isMember() && ! $this->account()->subscribed('default');
+
         return $schema->components([
-            Section::make(__('Status'))
-                ->icon(Phosphor::Info)
-                ->schema([
-                    Text::make(fn (): string => $this->statusText()),
-                    Text::make(fn (): HtmlString => new HtmlString(
-                        '<span class="fap-progress" role="img" aria-label="'.e($this->trialProgress()['label']).'"><i style="width: '.$this->trialProgress()['percent'].'%"></i></span>'
-                        .'<span class="mt-1 block text-sm text-gray-500 dark:text-gray-400">'.e($this->trialProgress()['label']).'</span>',
-                    ))->visible(fn (): bool => $this->trialProgress() !== null),
-                ]),
-            Grid::make(['md' => 2])
-                ->visible(fn (): bool => $this->isMember() && ! $this->account()->subscribed('default'))
-                ->schema([
-                    $this->planSection('monthly', $this->subscribeMonthlyAction()),
-                    $this->planSection('yearly', $this->subscribeYearlyAction()),
-                ]),
-            Section::make(__('Manage subscription'))
-                ->description(__('Change your card, view receipts or cancel in the Stripe billing portal.'))
-                ->icon(Phosphor::Wrench)
-                ->visible(fn (): bool => $this->isMember() && $this->account()->subscription('default') !== null)
-                ->schema([Actions::make([$this->manageAction()])]),
+            Callout::make(fn (): string => trans_choice('{1} 1 trial day left.|[2,*] :count trial days left.', max(1, (int) ceil(now()->diffInDays($this->account()->trial_ends_at)))))
+                ->description(__('After that, the account becomes read-only until you subscribe.'))
+                ->icon(Phosphor::WarningCircle)
+                ->status('warning')
+                ->visible(fn (): bool => $this->trialProgress() !== null && $plansVisible()),
+            Grid::make(['default' => 1, 'md' => 3])->schema([
+                Section::make(__('Status'))
+                    ->afterHeader([
+                        Text::make(fn (): string => $this->statusBadge()[0])->badge()->color(fn (): string => $this->statusBadge()[1]),
+                    ])
+                    ->columnSpan(fn (): array => $plansVisible() ? ['default' => 1] : ['default' => 1, 'md' => 3])
+                    ->schema([
+                        Text::make(fn (): string => $this->statusText()),
+                        Text::make(fn (): HtmlString => new HtmlString(
+                            '<span class="fap-progress" role="img" aria-label="'.e($this->trialProgress()['label']).'"><i style="width: '.$this->trialProgress()['percent'].'%"></i></span>'
+                            .'<span class="mt-1 block text-sm text-gray-500 dark:text-gray-400">'.e($this->trialProgress()['label']).'</span>',
+                        ))->visible(fn (): bool => $this->trialProgress() !== null),
+                        Text::make(__('Your data is never deleted automatically.'))->color('gray'),
+                    ]),
+                $this->planSection('monthly', $this->subscribeMonthlyAction())->visible($plansVisible),
+                $this->planSection('yearly', $this->subscribeYearlyAction())->visible($plansVisible),
+            ]),
+            Livewire::make(AccountantAccessWidget::class)->visible(fn (): bool => AccountantAccessWidget::canView()),
         ]);
+    }
+
+    /** @return array{0: string, 1: string} the state in a word, and its colour */
+    private function statusBadge(): array
+    {
+        $account = $this->account();
+        $subscription = $account->subscription('default');
+
+        return match (true) {
+            $subscription?->valid() && $subscription->pastDue() => [__('Payment failed'), 'danger'],
+            $subscription?->valid() && $subscription->onGracePeriod() => [__('Subscription canceled'), 'warning'],
+            (bool) $subscription?->valid() => [__('Subscription active'), 'success'],
+            $account->onGenericTrial() => [__('On trial'), 'warning'],
+            default => [__('Read-only'), 'gray'],
+        };
     }
 
     /**
@@ -198,7 +232,6 @@ class AccountSubscription extends Page
     {
         return Action::make('manage')
             ->label(__('Open the Stripe portal'))
-            ->icon(Phosphor::ArrowSquareOut)
             ->color('gray')
             ->visible(fn (): bool => $this->isMember() && $this->account()->subscription('default') !== null)
             ->action(fn () => $this->callStripe(
@@ -234,23 +267,29 @@ class AccountSubscription extends Page
     {
         return Action::make('subscribe'.ucfirst($plan))
             ->label(__('Subscribe :plan', ['plan' => mb_strtolower(__(self::PLANS[$plan]['label']))]))
-            ->icon(Phosphor::CreditCard)
             ->color($plan === 'yearly' ? 'primary' : 'gray')
             ->visible(fn (): bool => $this->isMember() && ! $this->account()->subscribed('default'))
             ->action(fn () => $this->checkout($plan));
     }
 
+    /** A plan as a card: its price, what it amounts to and the button. The yearly one is outlined, as in the mock. */
     private function planSection(string $plan, Action $action): Section
     {
         $details = self::PLANS[$plan];
         $saving = 12 * self::PLANS['monthly']['amount'] - self::PLANS['yearly']['amount'];
+        $locale = app()->getLocale();
 
         return Section::make(__($details['label']))
-            ->description(Money::format($details['amount'], locale: app()->getLocale()).' '.__($details['per']))
+            ->afterHeader($plan === 'yearly' ? [
+                Text::make(__('Save :amount', ['amount' => Money::format($saving, locale: $locale)]))->badge()->color('primary'),
+            ] : [])
+            ->extraAttributes($plan === 'yearly' ? ['class' => 'ring-2 ring-primary-600 dark:ring-primary-500'] : [])
             ->schema([
+                Text::make(Money::format($details['amount'], locale: $locale).' '.__($details['per']))->size(TextSize::Large)->extraAttributes(['class' => 'font-semibold']),
                 Text::make($plan === 'yearly'
-                    ? __('Save :amount per year compared with monthly billing.', ['amount' => Money::format($saving, locale: app()->getLocale())])
-                    : __('Cancel any time. Your account stays active until the end of the month you paid for.')),
+                    ? __('No VAT. The same as :amount per month.', ['amount' => Money::format(intdiv(self::PLANS['yearly']['amount'], 12), locale: $locale)])
+                    : __('No VAT. Cancel any time; your account stays active until the end of the month you paid for.'))
+                    ->color('gray'),
                 Actions::make([$action]),
             ]);
     }

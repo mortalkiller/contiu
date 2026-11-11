@@ -6,6 +6,7 @@ use App\Enums\FiscalDocumentDirection;
 use App\Enums\FiscalDocumentStatus;
 use App\Enums\FiscalDocumentType;
 use App\Enums\Language;
+use App\Filament\Pages\IntegrationsPage;
 use App\Filament\Pages\InvoiceXpressImport;
 use App\Filament\Resources\Receivables\ReceivableResource;
 use App\Models\CreditApplication;
@@ -127,11 +128,15 @@ class FiscalDocumentsSummary extends StatsOverviewWidget
 
         return Stat::make('InvoiceXpress', $connected ? __('Connected') : __('Not connected'))
             ->description(match (true) {
-                ! $connected => __('Connect the account to import and issue invoices'),
+                ! $connected => __('Connect an integration to synchronize fiscal documents'),
                 $lastImport === null => __('No documents imported yet'),
                 default => __('Last imported on :date', ['date' => $lastImport->format(Language::resolve(app()->getLocale())->dateFormat())]),
             })
-            ->url(InvoiceXpressImport::canAccess() ? InvoiceXpressImport::getUrl() : null)
+            ->url(match (true) {
+                $connected && InvoiceXpressImport::canAccess() => InvoiceXpressImport::getUrl(),
+                ! $connected && IntegrationsPage::canAccess() => IntegrationsPage::getUrl(),
+                default => null,
+            })
             ->icon(Phosphor::PlugsConnected);
     }
 }

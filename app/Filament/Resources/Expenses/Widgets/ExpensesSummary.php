@@ -3,13 +3,14 @@
 namespace App\Filament\Resources\Expenses\Widgets;
 
 use App\Enums\ExpenseKind;
+use App\Filament\Pages\ExpenseDocumentImport;
+use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Support\ProportionBar;
 use App\Models\Expense;
 use App\Support\Money;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
-use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 /**
  * Above the "Despesas" list: what is still to pay, what was paid this month (with the last six
@@ -37,6 +38,7 @@ class ExpensesSummary extends StatsOverviewWidget
             ->get();
 
         $paidByMonth = [];
+        $monthLabels = [];
 
         for ($monthsAgo = 5; $monthsAgo >= 0; $monthsAgo--) {
             $month = today()->startOfMonth()->subMonths($monthsAgo);
@@ -44,6 +46,7 @@ class ExpensesSummary extends StatsOverviewWidget
             $paidByMonth[] = $paid
                 ->filter(fn (Expense $expense): bool => $expense->paid_on?->isSameMonth($month) ?? false)
                 ->sum(fn (Expense $expense): int => (int) $expense->total);
+            $monthLabels[] = ucfirst($month->locale(app()->getLocale())->translatedFormat('F'));
         }
 
         $thisYear = Expense::query()->whereYear('spent_on', today()->year)->get();
@@ -55,24 +58,20 @@ class ExpensesSummary extends StatsOverviewWidget
 
         return [
             Stat::make(__('Unpaid'), Money::format((int) $unpaid->sum(fn (Expense $expense): int => (int) $expense->total), locale: app()->getLocale()))
-                ->description($unpaid->isEmpty() ? __('All paid') : trans_choice('{1} 1 expense|[2,*] :count expenses', $unpaid->count()))
-                ->color($unpaid->isEmpty() ? 'success' : 'warning')
-                ->icon(Phosphor::Clock),
+                ->description($unpaid->isEmpty() ? __('All paid') : __(':expenses · see only these', ['expenses' => trans_choice('{1} 1 expense|[2,*] :count expenses', $unpaid->count())]))
+                ->valueColor($unpaid->isEmpty() ? null : 'warning')
+                ->url($unpaid->isEmpty() ? null : ExpenseResource::getUrl('index', ['tab' => 'unpaid'])),
             Stat::make(__('Expenses paid in :month', ['month' => today()->locale(app()->getLocale())->translatedFormat('F')]), Money::format((int) end($paidByMonth), locale: app()->getLocale()))
-                ->description(__('Last 6 months'))
-                ->chart($paidByMonth)
-                ->color('clay')
-                ->icon(Phosphor::Receipt),
+                // As in the mock: one bar per month, the current one in full colour.
+                ->bars($paidByMonth, 'clay', label: __('Last 6 months'), labels: $monthLabels, formatValueUsing: fn (int $cents): string => Money::format($cents, locale: app()->getLocale())),
             Stat::make(__('Missing supporting document'), (string) $withoutProof)
                 ->description($withoutProof === 0 ? __('All documented') : __('Attach them in Import invoices'))
-                ->color($withoutProof === 0 ? 'success' : null)
-                ->icon(Phosphor::Paperclip),
+                ->url($withoutProof === 0 || ! ExpenseDocumentImport::canAccess() ? null : ExpenseDocumentImport::getUrl()),
             Stat::make(__('In :year', ['year' => today()->year]), Money::format($byKind(ExpenseKind::Overhead) + $byKind(ExpenseKind::Direct), locale: app()->getLocale()))
                 ->description(ProportionBar::render([
                     ['label' => __('Overhead'), 'cents' => $byKind(ExpenseKind::Overhead), 'tone' => 'clay'],
                     ['label' => __('Direct expenses'), 'cents' => $byKind(ExpenseKind::Direct), 'tone' => 'strong'],
-                ]))
-                ->icon(Phosphor::ChartPieSlice),
+                ])),
         ];
     }
 }

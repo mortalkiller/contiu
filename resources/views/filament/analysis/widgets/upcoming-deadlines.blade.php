@@ -3,7 +3,7 @@
 @endphp
 
 <x-filament-widgets::widget>
-    <x-filament::section :heading="__('Upcoming deadlines')" :icon="Phosphor::CalendarCheck" compact>
+    <x-filament::section :heading="__('Upcoming deadlines')" compact>
         @if ($rows === [])
             <p class="flex items-center gap-2 text-sm font-medium text-success-700 dark:text-success-400">
                 <x-filament::icon :icon="Phosphor::CheckCircle" class="size-4" />

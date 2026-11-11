@@ -2,9 +2,12 @@
 
 use App\Filament\Pages\MinimumPriceSimulator;
 use App\Models\Account;
+use App\Models\Expense;
 use App\Models\FiscalDocument;
+use App\Models\Payment;
 use App\Support\CurrentAccount;
 use App\Support\Money;
+use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Illuminate\Support\Carbon;
 use Livewire\Livewire;
@@ -149,5 +152,28 @@ describe('Comparison with annual turnover', function () {
             ->call('calculate')
             ->assertSee('Como se chega aqui')
             ->assertDontSee('Comparado com o que cobras hoje');
+    })->group('ui');
+    it('opens on this year\'s numbers carried to twelve months, already worked out', function () {
+        Expense::factory()->create(['spent_on' => '2026-03-01', 'net_amount' => 11000, 'vat_rate' => 0]);
+        Payment::factory()->create(['paid_on' => '2026-04-01', 'amount' => 110000]);
+
+        Livewire::test(MinimumPriceSimulator::class)
+            ->assertSet('data.costs', '120,00')
+            ->assertSet('data.incomeGoal', '1080,00')
+            // (1 080 + 120) ÷ (1 − 25%) = 1 600 per year.
+            ->assertSet('result.annual', 160000)
+            ->assertDontSee('Carrega em Calcular')
+            ->assertSee('Como se chega aqui')
+            ->set('data.costs', '1,00')
+            ->assertSet('result', null)
+            ->callAction(TestAction::make('useYear')->schemaComponent('yourNumbers', 'form'))
+            ->assertSet('data.costs', '120,00')
+            ->assertSet('result.annual', 160000);
+    })->group('ui');
+
+    it('waits for the numbers when the year has no income or costs yet', function () {
+        Livewire::test(MinimumPriceSimulator::class)
+            ->assertSet('result', null)
+            ->assertSee('Carrega em Calcular');
     })->group('ui');
 });

@@ -35,7 +35,7 @@
         </div>
 
         {{-- min-w-0: a grid cell is otherwise as wide as its longest row, and pushes the card off a phone screen. --}}
-        <div class="min-w-0 px-5 pb-4 pt-1 text-sm">
+        <div class="min-w-0 px-5 pb-4 pt-1 text-sm" x-data="{ showAll: false, showDone: false }">
             <p class="pt-2 text-xs text-gray-500 dark:text-gray-400">
                 {{ trans_choice('{0} Nothing to do.|{1} You have 1 thing to do.|[2,*] You have :count things to do.', $taskCount) }}
             </p>
@@ -50,17 +50,40 @@
                 @include('filament.widgets.partials.tax-obligation-row', ['row' => $row, 'readOnlyTooltip' => $readOnlyTooltip])
             @endforeach
 
+            @if ($extraTasks !== [])
+                <div wire:key="tax-obligations-extra" @if ($localTaskToggle) x-show="showAll" x-cloak @endif>
+                    @foreach ($extraTasks as $row)
+                        @include('filament.widgets.partials.tax-obligation-row', ['row' => $row, 'readOnlyTooltip' => $readOnlyTooltip])
+                    @endforeach
+                </div>
+            @endif
+
             @if ($hiddenCount > 0)
                 <div class="flex justify-center border-b border-gray-950/5 py-1 dark:border-white/10">
                     <x-filament::link
                         tag="button"
                         size="sm"
                         color="gray"
-                        :icon="$showAll ? Phosphor::CaretUp : Phosphor::CaretDown"
-                        icon-position="after"
-                        wire:click="toggleAll"
+                        :wire:click="$localTaskToggle ? null : 'toggleAll'"
+                        :x-on:click="$localTaskToggle ? 'showAll = ! showAll' : null"
+                        :x-bind:aria-expanded="$localTaskToggle ? 'showAll' : null"
+                        :aria-expanded="$localTaskToggle ? null : ($showAll ? 'true' : 'false')"
                     >
-                        {{ $showAll ? __('Show less') : __('Show :count more', ['count' => $hiddenCount]) }}
+                        @if ($localTaskToggle)
+                            <span class="inline-flex items-center gap-1" x-show="! showAll">
+                                {{ __('Show :count more', ['count' => $hiddenCount]) }}
+                                <x-filament::icon :icon="Phosphor::CaretDown" class="size-4" />
+                            </span>
+                            <span class="inline-flex items-center gap-1" x-show="showAll" x-cloak>
+                                {{ __('Show less') }}
+                                <x-filament::icon :icon="Phosphor::CaretUp" class="size-4" />
+                            </span>
+                        @else
+                            <span class="inline-flex items-center gap-1">
+                                {{ $showAll ? __('Show less') : __('Show :count more', ['count' => $hiddenCount]) }}
+                                <x-filament::icon :icon="$showAll ? Phosphor::CaretUp : Phosphor::CaretDown" class="size-4" />
+                            </span>
+                        @endif
                     </x-filament::link>
                 </div>
             @endif
@@ -91,20 +114,33 @@
                 </div>
             @endif
 
-            @if ($upcoming !== '' || $done !== [])
+            @if ($upcoming !== '' || $doneCount > 0)
                 <div class="flex flex-wrap items-center justify-between gap-2 pt-3 text-xs text-gray-400 dark:text-gray-500">
                     <span>{{ $upcoming !== '' ? __('Coming up: :upcoming', ['upcoming' => $upcoming]) : '' }}</span>
 
-                    @if ($done !== [])
-                        <x-filament::link tag="button" size="xs" color="gray" wire:click="toggleDone">
-                            {{ $showDone ? __('Hide completed') : __('Show completed (:count)', ['count' => count($done)]) }}
+                    @if ($doneCount > 0)
+                        <x-filament::link
+                            tag="button"
+                            size="xs"
+                            color="gray"
+                            :wire:click="$localDoneToggle ? null : 'toggleDone'"
+                            :x-on:click="$localDoneToggle ? 'showDone = ! showDone' : null"
+                            :x-bind:aria-expanded="$localDoneToggle ? 'showDone' : null"
+                            :aria-expanded="$localDoneToggle ? null : ($showDone ? 'true' : 'false')"
+                        >
+                            @if ($localDoneToggle)
+                                <span x-show="! showDone">{{ __('Show completed (:count)', ['count' => $doneCount]) }}</span>
+                                <span x-show="showDone" x-cloak>{{ __('Hide completed') }}</span>
+                            @else
+                                {{ $showDone ? __('Hide completed') : __('Show completed (:count)', ['count' => $doneCount]) }}
+                            @endif
                         </x-filament::link>
                     @endif
                 </div>
             @endif
 
-            @if ($showDone && $done !== [])
-                <div class="mt-1">
+            @if ($done !== [])
+                <div class="mt-1" wire:key="tax-obligations-done" @if ($localDoneToggle) x-show="showDone" x-cloak @endif>
                     @foreach ($done as $row)
                         @include('filament.widgets.partials.tax-obligation-row', ['row' => $row, 'readOnlyTooltip' => $readOnlyTooltip, 'isDone' => true])
                     @endforeach

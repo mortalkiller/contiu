@@ -99,4 +99,14 @@ describe('Charts and client concentration', function () {
 
         expect($margins->instance()->getWidgetData())->toMatchArray(['year' => 2025, 'month' => 3]);
     });
+    it('picks the period in the header and splits the invoiced money as one bar', function () {
+        Livewire::test(Margins::class, ['year' => 2026])
+            ->assertSee('O que faturaste, menos os custos diretos de cada trabalho e avença.')
+            ->assertSeeHtml('contiu-proportion')
+            ->assertSee('Para onde vai o faturado')
+            ->callAction('month_3')
+            ->assertSet('month', 3)
+            ->callAction('month_0')
+            ->assertSet('month', null);
+    });
 });

@@ -7,7 +7,8 @@ use App\Support\ActivityCalendar;
 use App\Support\CalendarEntry;
 use App\Support\FinanceSettings;
 use Carbon\CarbonImmutable;
-use Filament\Forms\Components\CheckboxList;
+use Filament\Actions\Action;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Tables\Enums\FiltersLayout;
 use Saade\FilamentFullCalendar\Data\EventData;
@@ -16,7 +17,7 @@ use Saade\FilamentFullCalendar\Widgets\FullCalendarWidget;
 
 /**
  * The "Calendário" page's calendar: read-only, in European Portuguese, month / week / list / year, with
- * the kinds of rows to show as checkboxes above it. The rows come from App\Support\ActivityCalendar.
+ * the kinds of rows to show as coloured chips above it. The rows come from App\Support\ActivityCalendar.
  */
 class ActivityCalendarWidget extends FullCalendarWidget
 {
@@ -24,7 +25,8 @@ class ActivityCalendarWidget extends FullCalendarWidget
 
     protected bool $hasDeferredFilters = false;
 
-    /** One field (the checkboxes) across the whole width; the checkboxes make their own columns. */
+    protected bool $persistsFiltersInSession = false;
+
     protected int|array|null $filtersFormColumns = 1;
 
     /** @return list<EventData> */
@@ -35,27 +37,54 @@ class ActivityCalendarWidget extends FullCalendarWidget
         // FullCalendar's end is exclusive.
         return array_map(
             $this->toEvent(...),
-            $calendar->entries($info->start, $info->end->subDay(), $this->selectedTypes()),
+            $calendar->entries($info->start, $info->end->subDay(), CalendarEntryType::cases()),
         );
     }
 
     public function filtersSchema(Schema $schema): Schema
     {
         return $schema->components([
-            // The plugin makes the filters live on blur (live(true) is "onBlur"); a tick should refetch.
-            CheckboxList::make('types')
-                ->live()
-                ->hiddenLabel()
-                ->options(CalendarEntryType::class)
-                ->default(array_map(fn (CalendarEntryType $type) => $type->value, CalendarEntryType::cases()))
-                ->columns(['default' => 2, 'md' => 3, 'xl' => 6]),
+            View::make('filament.analysis.widgets.activity-calendar-types'),
         ]);
+    }
+
+    public function filtersResetAction(Action $action): Action
+    {
+        return $action->livewireClickHandlerEnabled(false)->alpineClickHandler(<<<'JS'
+            $el.closest('.fi-fc-filters').querySelector('[data-calendar-types]')
+                .dispatchEvent(new Event('contiu-calendar-reset'))
+            JS);
+    }
+
+    /** @return array<string, string> */
+    public function jsCallbacks(): array
+    {
+        return [
+            'datesSet' => <<<'JS'
+                ({ view }) => {
+                    $el.closest('.fi-wi-widget').querySelector('[data-calendar-types]')
+                        .dispatchEvent(new CustomEvent('contiu-calendar-ready', { detail: view.calendar }))
+                }
+                JS,
+            'eventSourceSuccess' => <<<'JS'
+                (events) => {
+                    const unchecked = $el.closest('.fi-wi-widget')
+                        .querySelectorAll('[data-calendar-types] input:not(:checked)')
+                    const hiddenTypes = new Set(Array.from(unchecked, input => input.value))
+
+                    return events.map(event => hiddenTypes.has(event.groupId)
+                        ? { ...event, display: 'none' }
+                        : event)
+                }
+                JS,
+        ];
     }
 
     private function toEvent(CalendarEntry $entry): EventData
     {
         $event = EventData::make()
             ->id($entry->id)
+            ->groupId($entry->type->value)
             ->title($entry->title)
             ->start($entry->date->toDateString())
             ->allDay()
@@ -93,18 +122,6 @@ class ActivityCalendarWidget extends FullCalendarWidget
         };
     }
 
-    /** @return list<CalendarEntryType> */
-    private function selectedTypes(): array
-    {
-        $selected = $this->filters['types'] ?? null;
-
-        if (! is_array($selected)) {
-            return CalendarEntryType::cases();
-        }
-
-        return array_values(array_filter(array_map(fn (mixed $value) => CalendarEntryType::tryFrom((string) $value), $selected)));
-    }
-
     public function getLocale(): string
     {
         return str_replace('_', '-', app()->getLocale());
@@ -136,9 +153,9 @@ class ActivityCalendarWidget extends FullCalendarWidget
     protected function toolbarButtons(): array
     {
         return [
-            'start' => [['prev', 'next'], 'today'],
-            'center' => ['title'],
-            'end' => [['dayGridMonth', 'dayGridWeek', 'listMonth', 'multiMonthYear']],
+            // As in the mock: the month on the left; the way through it and the views on the right.
+            'start' => ['title'],
+            'end' => [['prev', 'next'], 'today', ['dayGridMonth', 'dayGridWeek', 'listMonth', 'multiMonthYear']],
         ];
     }
 }

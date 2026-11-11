@@ -17,13 +17,14 @@ use App\Filament\Resources\Payments\Widgets\PaymentsSummary;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Resources\Projects\Widgets\ProjectsSummary;
 use App\Filament\Resources\Receivables\ReceivableResource;
+use App\Filament\Resources\Receivables\Widgets\ReceivablesByClient;
 use App\Filament\Resources\Receivables\Widgets\ReceivablesSummary;
 use App\Filament\Resources\Retainers\RetainerResource;
 use App\Filament\Resources\Retainers\Widgets\RetainersAhead;
 use App\Filament\Resources\Retainers\Widgets\RetainersSummary;
 use App\Filament\Resources\Suppliers\Pages\ManageSuppliers;
 use App\Filament\Resources\Suppliers\SupplierResource;
-use App\Filament\Resources\Suppliers\Widgets\SuppliersSummary;
+use App\Filament\Resources\Suppliers\Widgets\SuppliersBySpend;
 use App\Filament\Support\ProportionBar;
 use App\Models\Category;
 use App\Models\Client;
@@ -55,8 +56,7 @@ it('splits what is still to receive by how soon it is due', function () {
         ->assertSee('Em aberto')
         ->assertSee('910,00 €')
         ->assertSeeInOrder(['Vencido', '180,00 €', 'Até 7 dias', '400,00 €', '8 a 30 dias', '180,00 €', 'Mais tarde', '150,00 €'])
-        ->assertSee('1 valor · 1 cliente')
-        ->assertSeeInOrder(['Quem deve', '4 clientes']);
+        ->assertSee('1 valor · 1 cliente');
 })->group('ui');
 
 it('says nothing is late when every open amount is still to come', function () {
@@ -196,17 +196,17 @@ it('splits the fiscal documents list into tabs by direction, with the voided one
         ->assertCanNotSeeTableRecords([$issued, $received]);
 })->group('ui');
 
-it('shows who this year\'s expenses went to', function () {
+it('shows who this year\'s expenses went to beside the suppliers', function () {
     $cloud = Supplier::factory()->create(['name' => 'Cloud Demo']);
     $shop = Supplier::factory()->create(['name' => 'Loja Demo']);
-    Expense::factory()->for($cloud)->create(['net_amount' => 30000, 'spent_on' => '2026-02-25']);
-    Expense::factory()->for($shop)->create(['net_amount' => 10000, 'spent_on' => '2026-11-10']);
-    Expense::factory()->for($shop)->create(['net_amount' => 99900, 'spent_on' => '2025-11-10']);
+    Expense::factory()->for($cloud)->create(['net_amount' => 30000, 'vat_rate' => 0, 'spent_on' => '2026-02-25']);
+    Expense::factory()->for($shop)->create(['net_amount' => 10000, 'vat_rate' => 0, 'spent_on' => '2026-11-10']);
+    Expense::factory()->for($shop)->create(['net_amount' => 99900, 'vat_rate' => 0, 'spent_on' => '2025-11-10']);
 
-    Livewire::test(SuppliersSummary::class)
-        ->assertSeeInOrder(['Gasto em 2026', '400,00 €', '2 fornecedores com despesas'])
-        ->assertSeeInOrder(['Maior fornecedor', 'Cloud Demo', '300,00 € · 75% do total'])
-        ->assertSeeInOrder(['Onde gastas mais', 'Cloud Demo', '300,00 €', 'Loja Demo', '100,00 €']);
+    $this->get(SupplierResource::getUrl())->assertOk()->assertSeeLivewire(SuppliersBySpend::class);
+
+    Livewire::test(SuppliersBySpend::class)
+        ->assertSeeInOrder(['Onde gastas mais', 'Cloud Demo', '75%', 'Loja Demo', '25%']);
 })->group('ui');
 
 it('shows a summary above each of the other lists', function (string $resource, string $widget) {
@@ -216,7 +216,6 @@ it('shows a summary above each of the other lists', function (string $resource, 
     'avenças' => [RetainerResource::class, RetainersSummary::class],
     'recebimentos' => [PaymentResource::class, PaymentsSummary::class],
     'documentos fiscais' => [FiscalDocumentResource::class, FiscalDocumentsSummary::class],
-    'fornecedores' => [SupplierResource::class, SuppliersSummary::class],
 ])->group('ui');
 
 it('shows how long clients take to pay and who owes the most', function () {
@@ -228,8 +227,11 @@ it('shows how long clients take to pay and who owes the most', function () {
     Payment::factory()->for($late)->create(['amount' => 10000, 'paid_on' => '2026-10-11']);
 
     Livewire::test(ReceivablesSummary::class)
-        ->assertSeeInOrder(['Demoram a pagar, em média', '10 dias', 'Depois do vencimento'])
-        ->assertSeeInOrder(['Quem deve', '2 clientes', 'Estúdio Brisa', Money::format(40000), 'Oficina Norte', Money::format(18000), 'vencidos']);
+        ->assertSeeInOrder(['Demoram a pagar, em média', '10 dias', 'Depois do vencimento']);
+
+    Livewire::test(ReceivablesByClient::class)
+        ->assertSeeInOrder(['Quem deve', 'Estúdio Brisa', Money::format(40000), 'Oficina Norte', Money::format(18000), 'vencidos'])
+        ->assertSee('Ver extrato de um cliente');
 })->group('ui');
 
 it('shows how many of this year\'s proposals went ahead', function () {

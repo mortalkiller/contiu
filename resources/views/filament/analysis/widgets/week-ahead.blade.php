@@ -3,7 +3,7 @@
 @endphp
 
 <x-filament-widgets::widget>
-    <x-filament::section :heading="__('This week')" description="{{ $range }}" :icon="Phosphor::CalendarDots" compact>
+    <x-filament::section :heading="__('This week')" description="{{ $range }}" compact>
         <dl class="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5 text-sm">
             <dt class="text-gray-600 dark:text-gray-300">
                 {{ __('Coming in this week') }}

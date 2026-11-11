@@ -42,7 +42,8 @@ class Calendar extends Page
                     ->columnSpan(['default' => 1, 'lg' => 3])
                     ->schema(fn (): array => $this->getWidgetsSchemaComponents([ActivityCalendarWidget::class])),
                 Grid::make(1)
-                    ->schema(fn (): array => $this->getWidgetsSchemaComponents([WeekAhead::class, MonthAhead::class, UpcomingDeadlines::class])),
+                    // As in the mock: the month in figures and the deadlines first; the week after them.
+                    ->schema(fn (): array => $this->getWidgetsSchemaComponents([MonthAhead::class, UpcomingDeadlines::class, WeekAhead::class])),
             ]),
         ]);
     }
