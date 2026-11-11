@@ -7,6 +7,7 @@ use App\Enums\FiscalProfileViesStatus;
 use App\Enums\Language;
 use App\Enums\PortugueseVatRegion;
 use App\Filament\Support\FinanceFields;
+use App\Filament\Support\FormPart;
 use App\Models\Client;
 use App\Models\ClientAddress;
 use App\Models\Country;
@@ -21,30 +22,27 @@ use Filament\Schemas\Schema;
 
 class ClientForm
 {
+    /**
+     * As in the mock ("Novo cliente"): who the client is, their tax details, their address and
+     * private notes, one block each; cards on the edit page, blocks under a hairline in a modal.
+     */
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make()
+            FormPart::make()
                 ->columnSpanFull()
-                ->columns(2)
+                ->columns(['default' => 1, 'sm' => 2])
                 ->schema([
                     TextInput::make('name')->label(__('Name'))->required()->columnSpanFull(),
                     TextInput::make('email')->label(__('Email'))->email(),
-                    TextInput::make('phone')->label(__('Phone'))->tel(),
+                    TextInput::make('phone')->label(__('Phone'))->tel()->placeholder('+351 …'),
                     Select::make('language')->label(__('Language'))->options(Language::options())
+                        ->helperText(__('The language of the documents and emails you send them.'))
                         ->default(Language::PortuguesePortugal->value)->required()->in(array_keys(Language::options())),
-                    FinanceFields::seat(__('Where is the client based?'))
-                        ->helperText(__('The company’s registered office or the person’s address.')),
-                    FinanceFields::isBusiness()
-                        ->inline(false),
-                    Textarea::make('address')->label(__('Legacy address'))->rows(2)->columnSpanFull()
-                        ->visible(fn (?Client $record): bool => filled($record?->getRawOriginal('address'))),
-                    Textarea::make('notes')->label(__('Notes'))->rows(3)->columnSpanFull(),
                 ]),
-            self::structuredAddress(),
-            Section::make(__('Tax details'))
+            FormPart::make(__('Tax details'))
                 ->columnSpanFull()
-                ->columns(2)
+                ->columns(['default' => 1, 'sm' => 2])
                 ->schema([
                     Select::make('fiscal_country_code')->label(__('Tax country'))
                         ->options(fn (?Client $record): array => self::fiscalCountries($record))
@@ -52,11 +50,16 @@ class ClientForm
                         ->searchable(),
                     Select::make('fiscal_party_type')->label(__('Entity type'))
                         ->options(FiscalProfilePartyType::class),
-                    Select::make('vat_region')->label(__('Recipient establishment VAT region'))
+                    TextInput::make('vat_number')->label(__('Tax ID / VAT number'))->maxLength(255),
+                    Select::make('vat_region')->label(__('VAT region'))
+                        ->helperText(__('Of the establishment that receives the invoice.'))
                         ->options(fn (): array => collect(PortugueseVatRegion::cases())
                             ->mapWithKeys(fn (PortugueseVatRegion $region): array => [$region->value => $region->label()])
                             ->all()),
-                    TextInput::make('vat_number')->label(__('Tax ID / VAT number'))->maxLength(255)->columnSpanFull(),
+                    FinanceFields::seat(__('Where is the client based?'))
+                        ->helperText(__('The company’s registered office or the person’s address.')),
+                    FinanceFields::isBusiness()
+                        ->inline(false),
                     TextEntry::make('vies_status')->label(__('VIES verification'))
                         ->state(fn (?Client $record): FiscalProfileViesStatus => $record?->vat_validation_status ?? FiscalProfileViesStatus::Pending)
                         ->visible(fn (?Client $record): bool => $record !== null)
@@ -66,12 +69,21 @@ class ClientForm
                         ->visible(fn (?Client $record): bool => $record?->vat_validated_at !== null)
                         ->dateTime(),
                 ]),
+            self::structuredAddress(),
+            FormPart::make()
+                ->columnSpanFull()
+                ->schema([
+                    Textarea::make('address')->label(__('Legacy address'))->rows(2)
+                        ->visible(fn (?Client $record): bool => filled($record?->getRawOriginal('address'))),
+                    Textarea::make('notes')->label(__('Notes'))->rows(2)
+                        ->placeholder(__('Only for you. It does not appear on documents.')),
+                ]),
         ]);
     }
 
     private static function structuredAddress(): Section
     {
-        return Section::make(__('Structured address'))
+        return FormPart::make(__('Address'))
             ->relationship('structuredAddress', condition: fn (?array $state): bool => filled($state['country_code'] ?? null))
             ->columnSpanFull()
             ->columns(2)

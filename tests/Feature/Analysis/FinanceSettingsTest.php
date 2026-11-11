@@ -130,8 +130,8 @@ it('saves and reloads every activity, IRS, Segurança Social and VAT setting', f
             'birth_date' => '1998-05-20',
             'irs_jovem_year_number' => 3,
             'ss_rate' => '0.252',
-            'ss_relevant_income_share_percent' => 70,
             'ss_contribution_exempt' => true,
+            'ss_exemption_reason' => 'accumulation',
             'reverse_charge_vat_rate_percent' => 22,
         ])
         ->assertSee('Em 2026, és no ano n.º')
@@ -167,6 +167,7 @@ it('saves and reloads every activity, IRS, Segurança Social and VAT setting', f
             'irs_jovem_year_number' => 3,
             'ss_rate' => '0.252',
             'ss_contribution_exempt' => true,
+            'ss_exemption_reason' => 'accumulation',
             'reverse_charge_vat_rate_percent' => 22.0,
         ], 'form');
 })->group('ui');
@@ -250,6 +251,7 @@ it('estimates Pedro\'s account from his settings: exempt from SS, IRS at 0,75 wi
             'ss_enrolled_from' => '2025-08-01',
             'ss_rate' => '0.214',
             'ss_contribution_exempt' => true,
+            'ss_exemption_reason' => 'accumulation',
             'dependent_income_current_year' => true,
             'irs_coefficient' => '0.75',
         ])

@@ -82,7 +82,7 @@ it('shows the account events as whole-day events with their colours', function (
         'start' => '2026-11-12',
         'allDay' => true,
         'color' => 'var(--gray-500)',
-        'url' => ExpenseResource::getUrl('edit', ['record' => $expense]),
+        'url' => ExpenseResource::getUrl('view', ['record' => $expense]),
     ])
         ->and(eventTitled($events, 'Recebido')['color'])->toBe('var(--primary-500)')
         ->and(collect($events)->first(fn (array $event) => str_contains($event['title'], 'Fatura 23'))['color'])->toBe('var(--info-500)')
@@ -138,15 +138,16 @@ it('offers every type in the filter, all on by default', function () {
 
 it('lists the deadlines with the overdue ones first', function () {
     $this->account->forceFill(['created_at' => '2026-10-01', 'billing_exempt' => true])->save();
-    app(FinanceSettings::class)->set(['activity_started_on' => '2024-01-01', 'activity_start_kind' => 'first']);
+    app(FinanceSettings::class)->set(['activity_started_on' => '2024-01-01', 'activity_start_kind' => 'first', 'vat_exempt' => true]);
 
+    // 31 October 2026 and 31 January 2027 fall on a weekend: the declarations move to Monday.
     Livewire::test(UpcomingDeadlines::class)
         ->assertSeeInOrder([
             'Prazos a seguir',
             'Segurança Social · outubro', '10 a 20 out.', 'em atraso',
-            'Declaração trimestral da Segurança Social', 'até 31 out.', 'em atraso',
+            'Declaração trimestral da Segurança Social', 'até 2 nov.', 'em atraso',
             'Segurança Social · novembro', Money::format(2000), '10 a 20 nov.', '11 dias',
-            'Declaração trimestral da Segurança Social', 'até 31 jan.',
+            'Declaração trimestral da Segurança Social', 'até 1 fev.',
         ]);
 })->group('ui');
 

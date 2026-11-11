@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\ExpenseAttribution;
 use App\Models\Expense;
 use App\Models\FiscalProfile;
 use App\Models\Payment;
@@ -9,20 +10,26 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
 /**
- * Rough tax picture for an ENI in the simplified regime. ESTIMATES ONLY — confirm with an accountant.
+ * Rough tax picture of a freelancer in the simplified regime. ESTIMATES ONLY — confirm with an accountant.
+ * The rules follow docs/fiscal/memoria-fiscal-ti-eni-portugal-2026.md (rule IDs in brackets).
  *
- * - "Rendimento relevante" is approximated by the payments received (fatura-recibo is issued on payment).
+ * - Income: payments received without the VAT inside them, plus the IRS withheld by the client
+ *   (the income is gross of withholding and never includes VAT: SS021).
  * - Segurança Social (trabalhador independente): each quarter's income is declared in the following
  *   month (Jan, Apr, Jul, Oct) and sets the contribution of that month's quarter: base = income ×
- *   relevant share / 3, contribution = base × rate, never below the 20 € minimum (art. 163.º), also
- *   in quarters without income. The contribution of a month is paid between the 10th and the 20th of
- *   the next month (art. 155.º): October's, from jul–set, is paid in November. The obligation starts
- *   on the SS enrolment date, or else 12 months after a first start (art. 145.º, n.º 1) or on a
- *   restart (n.º 3); months before it are "1.º enquadramento", so the first payment is the month
- *   after the start. A recognised exemption (art. 157.º) leaves every month without contribution.
+ *   relevant share (70 % services, 20 % goods: SS020) / 3 (SS030), plus the chosen adjustment
+ *   (±25 %: SS032), never above 12 IAS (SS033); contribution = base × rate, never below 20 €
+ *   (SS031). Months before the enrolment takes effect are not charged, and their income does not
+ *   count (SS051), so the first contributions are the 20 € minimum until the first declaration
+ *   (SS015). The contribution of a month is paid between the 10th and the 20th of the next one.
+ *   The accumulation exemption (art. 157.º, SS040) ends for a quarter whose relevant income reaches
+ *   4 IAS a month: the contribution is then on the excess, without the 20 € minimum, and not below
+ *   5 € (SS042). Other recognised exemptions leave every month without contribution.
  * - IRS (art. 31.º and 12.º-B CIRS): IRS Jovem exempts a share of the gross income first (capped at
- *   55 × IAS), then the configured coefficient, reduced by 50 % / 25 % in the first two years of
- *   activity, gives the taxable income. The tax itself is not computed.
+ *   55 × IAS), then the coefficient, reduced by 50 % / 25 % in the first two years of services
+ *   (INI001), gives the taxable income; the contributions above 10 % of the gross are deducted
+ *   (DES001) and the expenses missing to reach 15 % of the gross are added (DES002). The tax
+ *   itself is not computed.
  * - IVA: art. 53.º exemption → progress against the yearly threshold; otherwise VAT collected vs paid.
  */
 final class TaxEstimator
@@ -32,8 +39,14 @@ final class TaxEstimator
     /** IRS Jovem exempts at most this many times the year's IAS. */
     public const IRS_JOVEM_IAS_CAP = 55;
 
-    /** Cents: the monthly contribution of a trabalhador independente never goes below it. */
+    /** Cents: the monthly contribution of a trabalhador independente never goes below it (SS031). */
     public const SS_MINIMUM_CONTRIBUTION = 2000;
+
+    /** Cents: a contribution on the excess over 4 IAS below this is not due (SS042). */
+    public const SS_MINIMUM_EXCESS_CONTRIBUTION = 500;
+
+    /** The monthly base never goes above this many IAS (SS033). */
+    public const SS_BASE_CAP_IAS = 12;
 
     /**
      * The accumulation exemption (art. 157.º, n.º 1, al. a)) holds while the relevant income stays
@@ -43,6 +56,17 @@ final class TaxEstimator
 
     /** @var array<string, int> */
     private array $incomeCache = [];
+
+    /** @var array<int, Collection<int, array{paidOn: string, retained: int}>> */
+    private array $withholdingByYear = [];
+
+    /** @var array<string, int> */
+    private array $vatCollectedCache = [];
+
+    /** @var array<string, array{status: string, base: int, contribution: int}> */
+    private array $ssMonths = [];
+
+    private ?int $ssPaidInYear = null;
 
     /** @var array<int, Collection<int, FiscalProfile>> */
     private array $fiscalProfilesByAccount = [];
@@ -95,6 +119,12 @@ final class TaxEstimator
         return $this->fiscalProfileOn($date)?->activity_started_on ?? $this->settings->activityStartedOn();
     }
 
+    /** Income between two dates, inclusive (cents): see incomeBetween(). */
+    public function incomeIn(CarbonImmutable $from, CarbonImmutable $to): int
+    {
+        return $this->incomeBetween($from->startOfDay(), $to->startOfDay());
+    }
+
     public function income(): int
     {
         return $this->incomeBetween(CarbonImmutable::create($this->year, 1, 1), CarbonImmutable::create($this->year, 12, 31));
@@ -103,7 +133,8 @@ final class TaxEstimator
     /**
      * Per quarter of income: the contributions it sets (the next quarter's months, `chargedMonths` of
      * them charged), paid each the month after (`paidIn`: Q3 → contributions Oct–Dec → paid Nov–Jan).
-     * `status` is the one of the first of those contributions (charged, first_enrolment or exempt).
+     * `base` and `monthly` are the ones of the first charged month (or the first month), `status`
+     * the one of the first of those contributions (charged, first_enrolment or exempt).
      *
      * @return array<int, array{label: string, income: int, base: int, monthly: int, chargedMonths: int, total: int, paidIn: string, status: string} (cents)>
      */
@@ -113,25 +144,23 @@ final class TaxEstimator
 
         foreach (range(0, 3) as $index) {
             $start = CarbonImmutable::create($this->year, $index * 3 + 1, 1);
-            $income = $this->incomeBetween($start, $start->addMonths(2)->endOfMonth());
-            [$base, $monthly] = $this->contribution($income);
-
-            $contributionMonths = collect(range(0, 2))->map(fn (int $offset) => $start->addMonths(3 + $offset));
-            $charged = $contributionMonths->filter(fn (CarbonImmutable $month) => $this->ssMonthStatus($month) === 'charged')->count();
-            $firstPayment = $contributionMonths->first()->addMonth();
-            $lastPayment = $contributionMonths->last()->addMonth();
+            $months = collect(range(0, 2))->map(fn (int $offset): array => $this->ssMonth($start->addMonths(3 + $offset)));
+            $charged = $months->where('status', 'charged');
+            $shown = $charged->first() ?? $months->first();
+            $firstPayment = $start->addMonths(4);
+            $lastPayment = $start->addMonths(6);
 
             $quarters[] = [
                 'label' => __(self::QUARTER_LABELS[$index]),
-                'income' => $income,
-                'base' => $base,
-                'monthly' => $monthly,
-                'chargedMonths' => $charged,
-                'total' => $monthly * $charged,
+                'income' => $this->incomeBetween($start, $start->addMonths(2)->endOfMonth()),
+                'base' => $shown['base'],
+                'monthly' => $shown['contribution'],
+                'chargedMonths' => $charged->count(),
+                'total' => (int) $charged->sum('contribution'),
                 'paidIn' => Period::monthName($firstPayment->month, short: true)
                     .($firstPayment->year === $lastPayment->year ? '' : ' '.$firstPayment->year)
                     .' – '.Period::monthName($lastPayment->month, short: true).' '.$lastPayment->year,
-                'status' => $this->ssMonthStatus($contributionMonths->first()),
+                'status' => $months->first()['status'],
             ];
         }
 
@@ -149,16 +178,7 @@ final class TaxEstimator
      */
     public function ssContributionForMonth(CarbonImmutable $month): int
     {
-        $month = $month->startOfMonth();
-
-        if ($this->ssMonthStatus($month) !== 'charged') {
-            return 0;
-        }
-
-        $quarterStart = $month->firstOfQuarter()->subMonths(3);
-        [, $monthly] = $this->contribution($this->incomeBetween($quarterStart, $quarterStart->addMonths(2)->endOfMonth()));
-
-        return $monthly;
+        return $this->ssMonth($month)['contribution'];
     }
 
     /** Paid between the 10th and the 20th of a month: the contribution of the month before. */
@@ -171,6 +191,21 @@ final class TaxEstimator
     public function ssPaymentStatus(CarbonImmutable $month): string
     {
         return $this->ssMonthStatus($month->startOfMonth()->subMonth());
+    }
+
+    /**
+     * Contributions paid in the year (January pays December's): the amount the Social Security
+     * confirmed when there is one, else the estimate. For the IRS deductions (DES001, DES003).
+     */
+    public function ssPaidInYear(): int
+    {
+        $confirmed = app(SocialSecurity::class);
+
+        return $this->ssPaidInYear ??= (int) collect(range(1, 12))->sum(function (int $month) use ($confirmed): int {
+            $date = CarbonImmutable::create($this->year, $month, 1);
+
+            return $confirmed->confirmedPaymentInMonth($date) ?? $this->ssPaymentInMonth($date);
+        });
     }
 
     /**
@@ -198,53 +233,94 @@ final class TaxEstimator
         return $this->settings->ssEnrolledFrom() === null && $this->ssObligationStartsOn() !== null;
     }
 
-    /** Of a month's contribution: charged | first_enrolment (before the obligation starts) | exempt (art. 157.º). */
+    /**
+     * Of a month's contribution: charged | first_enrolment (before the obligation starts) | exempt
+     * (art. 157.º). An accumulation exemption is charged again, on the excess, in the months whose
+     * declared quarter reached 4 IAS a month (SS042).
+     */
     public function ssMonthStatus(CarbonImmutable $month): string
+    {
+        return $this->ssMonth($month)['status'];
+    }
+
+    /**
+     * Status, base and contribution of a month (cents). The base comes from the quarter declared in
+     * the month's quarter (the quarter before), the caps from the IAS of the month's year.
+     *
+     * @return array{status: string, base: int, contribution: int}
+     */
+    public function ssMonth(CarbonImmutable $month): array
     {
         $month = $month->startOfMonth();
 
+        return $this->ssMonths[$month->format('Y-m')] ??= $this->computeSsMonth($month);
+    }
+
+    /** @return array{status: string, base: int, contribution: int} */
+    private function computeSsMonth(CarbonImmutable $month): array
+    {
+        $startsOn = $this->ssObligationStartsOn($month);
+        $beforeStart = $startsOn !== null && $month->lt($startsOn);
+        $relevant = $this->ssRelevantMonthlyIncome($month->firstOfQuarter()->subMonths(3));
+        $ias = YearlyParameter::ias($month->year);
+        $cap = self::SS_BASE_CAP_IAS * $ias;
+
         if ($this->fiscalProfileOn($month)?->ss_contribution_exempt ?? $this->settings->ssContributionExempt()) {
-            return 'exempt';
+            $excess = $relevant - self::SS_ACCUMULATION_LIMIT_IAS * $ias;
+
+            if ($this->settings->ssExemptionReason() !== 'accumulation' || $excess < 0 || $beforeStart) {
+                return ['status' => 'exempt', 'base' => 0, 'contribution' => 0];
+            }
+
+            $base = min($excess, $cap);
+            $contribution = Money::share($base, $this->settings->ssRate());
+
+            return ['status' => 'charged', 'base' => $base, 'contribution' => $contribution < self::SS_MINIMUM_EXCESS_CONTRIBUTION ? 0 : $contribution];
         }
 
-        $startsOn = $this->ssObligationStartsOn($month);
+        if ($beforeStart) {
+            return ['status' => 'first_enrolment', 'base' => 0, 'contribution' => 0];
+        }
 
-        return $startsOn !== null && $month->lt($startsOn) ? 'first_enrolment' : 'charged';
+        $base = min(Money::round($relevant * (1 + $this->settings->ssBaseAdjustment())), $cap);
+
+        return ['status' => 'charged', 'base' => $base, 'contribution' => max(Money::share($base, $this->settings->ssRate()), self::SS_MINIMUM_CONTRIBUTION)];
     }
 
     /** Indexante dos Apoios Sociais of the year in cents; the closest known year when missing. */
     public function ias(): int
     {
-        $table = config('contiu.ias');
-
-        if (isset($table[$this->year])) {
-            return (int) $table[$this->year];
-        }
-
-        $known = array_keys($table);
-        $earlier = array_filter($known, fn (int $year) => $year < $this->year);
-
-        return (int) $table[$earlier === [] ? min($known) : max($earlier)];
+        return YearlyParameter::ias($this->year);
     }
 
-    /** The year has no IAS in the table yet: the cap uses another year's. */
     /** Cents a month: 4 × IAS of the year. */
     public function ssAccumulationLimit(): int
     {
         return self::SS_ACCUMULATION_LIMIT_IAS * $this->ias();
     }
 
-    /** Relevant income per month of the quarter starting on $quarterStart (cents): income × share ÷ 3. */
+    /**
+     * Relevant income per month of the quarter starting on $quarterStart (cents): income × share ÷ 3
+     * (SS020, SS030), counting only the months from the enrolment's start (SS051).
+     */
     public function ssRelevantMonthlyIncome(CarbonImmutable $quarterStart): int
     {
-        [$base] = $this->contribution($this->incomeBetween($quarterStart, $quarterStart->addMonths(2)->endOfMonth()));
+        $from = $quarterStart->startOfMonth();
+        $to = $from->addMonths(2)->endOfMonth();
+        $startsOn = $this->ssObligationStartsOn($to);
 
-        return $base;
+        if ($startsOn !== null && $startsOn->gt($from)) {
+            $from = $startsOn;
+        }
+
+        $income = $from->gt($to) ? 0 : $this->incomeBetween($from, $to);
+
+        return Money::round($income * $this->settings->ssRelevantIncomeShare() / 3);
     }
 
     public function iasIsProvisional(): bool
     {
-        return ! isset(config('contiu.ias')[$this->year]);
+        return YearlyParameter::isProvisional('ias', $this->year);
     }
 
     /**
@@ -315,9 +391,16 @@ final class TaxEstimator
         return null;
     }
 
-    /** 50 % in the start year, 25 % in the next, before any blocker. */
+    /**
+     * 50 % in the start year, 25 % in the next, before any blocker. Only for services: sales of
+     * goods, restaurants and hotels (the 0.15 coefficient) never get it (INI001).
+     */
     private function irsEarlyYearReduction(): float
     {
+        if ($this->settings->sellsGoodsUnderIrs()) {
+            return 0.0;
+        }
+
         $start = $this->activityStartedOn($this->annualReferenceDate());
 
         return match ($start === null ? null : $this->year - $start->year) {
@@ -332,10 +415,70 @@ final class TaxEstimator
         return round($this->settings->irsCoefficient() * (1 - $this->irsCoefficientReduction()), 6);
     }
 
-    /** (gross − IRS Jovem) × coefficient, in cents. */
+    /**
+     * (gross − IRS Jovem) × coefficient − contributions above 10 % + expenses missing to reach 15 %,
+     * in cents, never below zero. The shortfall is left out while it cannot be worked out
+     * (irsExpenseShortfall() null).
+     */
     public function irsTaxableIncome(): int
     {
-        return Money::share($this->income() - $this->irsJovemExempt(), $this->effectiveIrsCoefficient());
+        $afterCoefficient = Money::share($this->income() - $this->irsJovemExempt(), $this->effectiveIrsCoefficient());
+
+        return max(0, $afterCoefficient - $this->irsContributionsDeduction()) + ($this->irsExpenseShortfall() ?? 0);
+    }
+
+    /**
+     * Art. 31.º, n.º 2, CIRS (DES001): the compulsory contributions paid in the year, in the part
+     * above 10 % of the gross income of services. Not for sales of goods (0.15 coefficient).
+     */
+    public function irsContributionsDeduction(): int
+    {
+        if ($this->settings->sellsGoodsUnderIrs()) {
+            return 0;
+        }
+
+        return max(0, $this->ssPaidInYear() - Money::share($this->income(), 0.10));
+    }
+
+    /**
+     * Art. 31.º, n.º 13, CIRS (DES002): 15 % of the gross income of services must be backed by
+     * expenses; what is missing is added to the taxable income. The automatic part is the
+     * art. 25.º deduction, or the contributions not deducted above when larger (DES003). Null with
+     * IRS Jovem: how the two combine is not confirmed (JOV008), so no figure is shown.
+     */
+    public function irsExpenseShortfall(): ?int
+    {
+        if ($this->settings->sellsGoodsUnderIrs()) {
+            return 0;
+        }
+
+        if ($this->irsJovemPercent() > 0) {
+            return null;
+        }
+
+        $gross = $this->income();
+        $automatic = max(YearlyParameter::irsSpecificDeduction($this->year), min($this->ssPaidInYear(), Money::share($gross, 0.10)));
+
+        return max(0, Money::share($gross, 0.15) - $automatic - $this->irsEligibleExpenses());
+    }
+
+    /**
+     * Expenses of the year that count for the 15 % (art. 31.º, n.º 13, DES004, DES005): those of
+     * business use in full, those of mixed use at 25 %. With the VAT exemption the VAT is a cost
+     * and counts; otherwise only the amount without VAT.
+     */
+    public function irsEligibleExpenses(): int
+    {
+        $vatIsCost = $this->vatExempt();
+
+        return (int) Expense::query()
+            ->whereBetween('spent_on', [CarbonImmutable::create($this->year, 1, 1)->toDateString(), CarbonImmutable::create($this->year, 12, 31)->toDateString()])
+            ->get()
+            ->sum(function (Expense $expense) use ($vatIsCost): int {
+                $amount = $vatIsCost ? $expense->total : (int) $expense->net_amount;
+
+                return $expense->attribution === ExpenseAttribution::Mixed ? Money::share($amount, 0.25) : $amount;
+            });
     }
 
     public function vatExempt(?CarbonImmutable $date = null): bool
@@ -430,7 +573,7 @@ final class TaxEstimator
 
     private function vatCollectedBetween(CarbonImmutable $from, CarbonImmutable $to): int
     {
-        return (int) $this->payments($from, $to)
+        return $this->vatCollectedCache[$from->toDateString().'|'.$to->toDateString()] ??= (int) $this->payments($from, $to)
             ->sum(function (Payment $payment): int {
                 return $payment->allocations->sum(function ($allocation): int {
                     $rate = (string) ($allocation->receivable->billable?->vat_rate ?? 0);
@@ -459,22 +602,42 @@ final class TaxEstimator
         return $this->vatCollected() - $this->vatPaid();
     }
 
-    /** @return array{0: int, 1: int} [base, monthly contribution with the minimum] in cents */
-    private function contribution(int $income): array
-    {
-        $base = Money::round($income * $this->settings->ssRelevantIncomeShare() / 3);
-
-        return [$base, max(Money::share($base, $this->settings->ssRate()), self::SS_MINIMUM_CONTRIBUTION)];
-    }
-
+    /**
+     * Income of the period (cents): the payments received, without the VAT inside them, plus the
+     * IRS the clients withheld on them (SS021; the income is gross of withholding).
+     */
     private function incomeBetween(CarbonImmutable $from, CarbonImmutable $to): int
     {
         $key = $from->toDateString().'|'.$to->toDateString();
 
-        return $this->incomeCache[$key] ??= (int) Payment::query()
-            ->whereBetween('paid_on', [$from->startOfDay()->toDateTimeString(), $to->endOfDay()->toDateTimeString()])
-            ->where('tax_exempt', false)
-            ->sum('amount');
+        if (! isset($this->incomeCache[$key])) {
+            $received = (int) Payment::query()
+                ->whereBetween('paid_on', [$from->startOfDay()->toDateTimeString(), $to->endOfDay()->toDateTimeString()])
+                ->where('tax_exempt', false)
+                ->sum('amount');
+
+            $this->incomeCache[$key] = $received === 0 ? $this->withheldBetween($from, $to)
+                : $received - $this->vatCollectedBetween($from, $to) + $this->withheldBetween($from, $to);
+        }
+
+        return $this->incomeCache[$key];
+    }
+
+    /** IRS withheld by clients on the payments of the period, as the withholding review confirms it. */
+    private function withheldBetween(CarbonImmutable $from, CarbonImmutable $to): int
+    {
+        $total = 0;
+
+        foreach (range($from->year, $to->year) as $year) {
+            $total += (int) ($this->withholdingByYear[$year] ??= WithholdingReview::forYear($year)->rows
+                ->where('current', true)
+                ->map(fn (array $row): array => ['paidOn' => $row['record']->paid_on->toDateString(), 'retained' => (int) $row['record']->retained_amount])
+                ->values())
+                ->filter(fn (array $row): bool => $row['paidOn'] >= $from->toDateString() && $row['paidOn'] <= $to->toDateString())
+                ->sum('retained');
+        }
+
+        return $total;
     }
 
     /** @return Collection<int, Payment> */

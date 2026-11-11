@@ -2,6 +2,7 @@
 
 namespace App\Enums;
 
+use App\Support\Money;
 use Filament\Support\Contracts\HasLabel;
 
 enum Frequency: string implements HasLabel
@@ -17,6 +18,18 @@ enum Frequency: string implements HasLabel
             self::Quarterly => __('Quarterly'),
             self::Yearly => __('Annual'),
         };
+    }
+
+    /** An amount billed once per period, spread per month and rounded half up (184,50 € quarterly → 61,50 €). */
+    public function perMonth(int $cents): int
+    {
+        return Money::round($cents / $this->months());
+    }
+
+    /** An amount billed once per period, over a year (20 € monthly → 240 €). */
+    public function perYear(int $cents): int
+    {
+        return Money::round($cents * 12 / $this->months());
     }
 
     public function months(): int

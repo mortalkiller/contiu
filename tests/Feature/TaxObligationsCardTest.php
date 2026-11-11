@@ -25,12 +25,14 @@ pest()->group('fiscal');
 /**
  * The card as seen on $today by an account that exists since $since (default: the 1st of $today's
  * month, so no earlier month is overdue unless the test says so) and whose SS started long ago.
+ * The account has the art. 53.º VAT exemption, as most freelancers do, so it files no periodic
+ * VAT returns.
  */
 function cardOn(string $today, array $settings = [], ?string $since = null): void
 {
     test()->travelTo(Carbon::parse($today));
     test()->account->forceFill(['created_at' => $since ?? CarbonImmutable::parse($today)->startOfMonth(), 'billing_exempt' => true])->save();
-    app(FinanceSettings::class)->set(['activity_started_on' => '2024-01-01', 'activity_start_kind' => 'first', ...$settings]);
+    app(FinanceSettings::class)->set(['activity_started_on' => '2024-01-01', 'activity_start_kind' => 'first', 'vat_exempt' => true, ...$settings]);
 }
 
 /** A plain owner (never read-only like a super admin) inside an account whose trial is over. */
@@ -68,7 +70,7 @@ it('shows this month obligations on the dashboard', function () {
         ->assertSeeInOrder(['Ao Estado em novembro', Money::format(2230), 'a pagar · 2 tarefas'])
         ->assertSeeInOrder(['Segurança Social', 'até 20 nov', Money::format(2000), 'Pago'])
         ->assertSeeInOrder(['IVA das compras ao estrangeiro', 'até 30 nov', Money::format(230), 'Pago'])
-        ->assertSee('A seguir: Declaração trimestral da Segurança Social · até 31 jan')
+        ->assertSee('A seguir: Declaração trimestral da Segurança Social · até 1 fev')
         ->assertDontSee('Nada a pagar este mês');
 
     $this->get(Dashboard::getUrl())->assertSeeLivewire(TaxObligationsCard::class);
@@ -106,7 +108,8 @@ it('flags overdue rows and shows the VAT exemption threshold', function () {
     actingAsAdmin();
 
     Livewire::test(TaxObligationsCard::class)
-        ->assertSeeInOrder(['Segurança Social', 'atrasado 36 dias', 'Declaração trimestral', 'atrasado 25 dias', 'Segurança Social', 'atrasado 5 dias'])
+        // The quarterly declaration was due on 31 October, a Saturday: it moved to Monday 2 November.
+        ->assertSeeInOrder(['Segurança Social', 'atrasado 36 dias', 'Declaração trimestral', 'atrasado 23 dias', 'Segurança Social', 'atrasado 5 dias'])
         ->assertSeeInOrder([Money::format(4000), 'a pagar · 3 tarefas'])
         ->assertSeeInOrder(['Isenção de IVA · aproximação', '0,0 %'])
         ->assertSee('Aproximação por recebimentos');

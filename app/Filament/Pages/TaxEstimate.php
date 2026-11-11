@@ -93,6 +93,14 @@ class TaxEstimate extends Page
 
         return $schema->components([
             ...($estimator->settings()->isIncomplete() ? [self::incompleteSettingsCallout()] : []),
+            ...($estimator->settings()->estimatesTaxes() ? [] : [
+                Callout::make($estimator->settings()->activityOpened() ? __('Organised accounting') : __('You have not opened your activity yet'))
+                    ->description($estimator->settings()->activityOpened()
+                        ? __('With organised accounting, personal income tax and Social Security depend on your taxable profit, which your accountant works out. The figures below follow the simplified regime and do not apply to you.')
+                        : __('Taxes start on the day you open your activity. The figures below are only a simulation.'))
+                    ->icon(Phosphor::Info)
+                    ->status('info'),
+            ]),
             Callout::make(__('Estimate — check the amounts with your accountant.'))
                 ->description(__('See the basis for each amount and the domestic turnover coverage.'))
                 ->icon(Phosphor::WarningCircle)
@@ -361,7 +369,8 @@ class TaxEstimate extends Page
     }
 
     /**
-     * Taxable income, then each step: gross, IRS Jovem, coefficient used and why.
+     * Taxable income, then each step: gross, IRS Jovem, coefficient used and why, the contributions
+     * deducted (DES001) and the expenses missing to reach 15 % (DES002).
      *
      * @return array<int, TextEntry>
      */
@@ -398,8 +407,22 @@ class TaxEstimate extends Page
                     ]),
                     $estimator->irsCoefficientReductionBlocker() === 'dependent_income' => __(' (no reduction: year with a salary or pension)'),
                     $estimator->irsCoefficientReductionBlocker() === 'recent_restart' => __(' (no reduction: restarted less than five years after ceasing activity)'),
+                    $estimator->settings()->sellsGoodsUnderIrs() => __(' (sales of goods: no reduction in the first years)'),
                     default => '',
                 }),
+            ($deduction = $estimator->irsContributionsDeduction()) > 0
+                ? $line('irs_contributions', __('Social Security contributions above 10% of gross income: −:amount (Article 31(2))', [
+                    'amount' => Money::format($deduction, locale: app()->getLocale()),
+                ]))
+                : null,
+            match ($shortfall = $estimator->irsExpenseShortfall()) {
+                null => $line('irs_expenses', __('The 15% expenses check is not calculated with IRS Jovem: how the two combine has not been confirmed. Check it with your accountant.')),
+                0 => $estimator->settings()->sellsGoodsUnderIrs() ? null : $line('irs_expenses', __('Expenses cover the 15% of gross income required (Article 31(13)).')),
+                default => $line('irs_expenses', __('Expenses missing to reach 15% of gross income: +:amount (Article 31(13)). Business expenses recorded: :expenses.', [
+                    'amount' => Money::format($shortfall, locale: app()->getLocale()),
+                    'expenses' => Money::format($estimator->irsEligibleExpenses(), locale: app()->getLocale()),
+                ])),
+            },
             $jovemPercent > 0 && $reduction > 0
                 ? $line('irs_interpretation', __('Combining IRS Jovem with the reduction for the first years is an interpretation of Articles 12-B and 31 of the Portuguese Income Tax Code, without a binding ruling from the Tax Authority.'))
                 : null,
@@ -433,6 +456,8 @@ class TaxEstimate extends Page
         $startsOn = $estimator->ssObligationStartsOn()?->locale(app()->getLocale());
 
         return match (true) {
+            // With a job, the months whose quarter reached 4 IAS a month pay on the excess (SS042).
+            $estimator->settings()->ssContributionExempt() && $estimator->settings()->ssExemptionReason() === 'accumulation' && $estimator->ssYearTotal() > 0 => __('Exempt (Article 157), except on the excess over 4 IAS a month in the quarters that reached it.'),
             // An exemption covers every month alike.
             $estimator->ssMonthStatus(CarbonImmutable::create($estimator->year, 1, 1)) === 'exempt' => __('Exempt (Article 157).'),
             // The year's income sets the contributions from April on; an earlier start leaves none of them exempt.

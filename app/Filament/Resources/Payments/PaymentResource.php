@@ -6,6 +6,8 @@ use App\Actions\ManageCustomerAdvance;
 use App\Enums\Language;
 use App\Enums\PaymentMethod;
 use App\Filament\Resources\Payments\Pages\ManagePayments;
+use App\Filament\Resources\Payments\Pages\ViewPayment;
+use App\Filament\Resources\Payments\Schemas\PaymentInfolist;
 use App\Filament\Resources\Payments\Widgets\PaymentsSummary;
 use App\Filament\Support\MoneyInput;
 use App\Filament\Support\ReconciliationColumns;
@@ -16,6 +18,7 @@ use App\Models\Receivable;
 use App\Support\CurrentAccount;
 use App\Support\Money;
 use BackedEnum;
+use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -29,6 +32,7 @@ use Filament\Forms\Components\ToggleButtons;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\Summarizers\Sum;
@@ -74,6 +78,11 @@ class PaymentResource extends Resource
             ->defaultDateDisplayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
             ->defaultNumberLocale(fn (): string => app()->getLocale())
             ->columns(2)->components([
+                Callout::make(__('A payment split across several receivables adds up its parts; change the amount on each one.'))
+                    ->info()
+                    ->icon(Phosphor::Info)
+                    ->visible(fn (?Payment $record): bool => (bool) $record?->is_split)
+                    ->columnSpanFull(),
                 DatePicker::make('paid_on')->label(__('Date'))->native(false)->displayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())->required(),
                 MoneyInput::make('amount')->label(__('Payment amount'))->required()->disabled(fn (?Payment $record): bool => (bool) $record?->is_split),
                 ToggleButtons::make('method')->label(__('Method'))->options(PaymentMethod::class)->inline()->required()->columnSpanFull(),
@@ -87,6 +96,11 @@ class PaymentResource extends Resource
             ]);
     }
 
+    public static function infolist(Schema $schema): Schema
+    {
+        return PaymentInfolist::configure($schema);
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -96,6 +110,7 @@ class PaymentResource extends Resource
             ->deferLoading()
             ->searchPlaceholder(__('Client, reference or invoice'))
             ->defaultSort('paid_on', 'desc')
+            ->recordUrl(fn (Payment $record): ?string => static::canView($record) ? static::getUrl('view', ['record' => $record]) : null)
             ->columns([
                 TextColumn::make('paid_on')->label(fn (): string => __('Date'))->date()->sortable(),
                 TextColumn::make('client')
@@ -159,21 +174,8 @@ class PaymentResource extends Resource
             ])
             ->recordActions([
                 ActionGroup::make([
-                    EditAction::make()->modalHeading(__('Edit payment'))->visible(fn (Payment $record): bool => ! $record->isAdvance()),
-                    Action::make('applyCustomerAdvance')
-                        ->label(__('Allocate advance to a charge'))
-                        ->visible(fn (Payment $record): bool => $record->isAdvance() && $record->allocations->isEmpty())
-                        ->authorize('update')
-                        ->disabled(fn (): bool => CurrentAccount::readOnly())
-                        ->schema([
-                            Select::make('receivable_id')->label(__('Charge'))->searchable()->required()
-                                ->options(fn (Payment $record): array => Receivable::query()->forClient($record->advance_client_id)
-                                    ->excludingCancelled()->open()->with(['payments', 'billable'])->orderBy('due_on')->get()
-                                    ->filter(fn (Receivable $receivable): bool => $receivable->outstanding >= $record->amount)
-                                    ->mapWithKeys(fn (Receivable $receivable): array => [$receivable->id => $receivable->label.' · '.Money::format($receivable->outstanding, locale: app()->getLocale())])->all()),
-                            DatePicker::make('allocated_on')->label(__('Allocation date'))->default(today())->maxDate(today())->required(),
-                        ])
-                        ->action(fn (Payment $record, array $data, ManageCustomerAdvance $service) => $service->apply($record->id, (int) $data['receivable_id'], $data['allocated_on'])),
+                    static::editAction(),
+                    static::applyAdvanceAction(),
                     ReconciliationColumns::detailsAction(),
                     static::historyAction(),
                     DeleteAction::make(),
@@ -201,18 +203,76 @@ class PaymentResource extends Resource
     {
         return [
             'index' => ManagePayments::route('/'),
+            'view' => ViewPayment::route('/{record}'),
         ];
     }
 
+    /** "Editar", on a payment's row and on its page. An advance is not edited: its date, client and amount are fixed. */
+    public static function editAction(): EditAction
+    {
+        return EditAction::make()
+            ->modalHeading(__('Edit payment'))
+            // Whose payment it is and what it paid, as in the mock: "Estúdio Brisa · Loja online · Sinal de 50%".
+            ->modalDescription(fn (Payment $record): string => collect([
+                $record->client?->name,
+                ...($record->is_split ? [$record->receivableLabels()] : [$record->receivable?->billable?->title, $record->receivable?->description]),
+            ])->filter()->implode(' · '))
+            ->visible(fn (Payment $record): bool => ! $record->isAdvance());
+    }
+
+    /** "Afetar sinal a cobrança", on the row and on the page of an advance not allocated yet. */
+    public static function applyAdvanceAction(): Action
+    {
+        return Action::make('applyCustomerAdvance')
+            ->label(__('Allocate advance to a charge'))
+            ->visible(fn (Payment $record): bool => $record->isAdvance() && $record->allocations->isEmpty())
+            ->authorize('update')
+            ->disabled(fn (): bool => CurrentAccount::readOnly())
+            ->schema([
+                Select::make('receivable_id')->label(__('Charge'))->searchable()->required()
+                    ->options(fn (Payment $record): array => Receivable::query()->forClient($record->advance_client_id)
+                        ->excludingCancelled()->open()->with(['payments', 'billable'])->orderBy('due_on')->get()
+                        ->filter(fn (Receivable $receivable): bool => $receivable->outstanding >= $record->amount)
+                        ->mapWithKeys(fn (Receivable $receivable): array => [$receivable->id => $receivable->label.' · '.Money::format($receivable->outstanding, locale: app()->getLocale())])->all()),
+                DatePicker::make('allocated_on')->label(__('Allocation date'))->default(today())->maxDate(today())->required(),
+            ])
+            ->action(fn (Payment $record, array $data, ManageCustomerAdvance $service) => $service->apply($record->id, (int) $data['receivable_id'], $data['allocated_on']));
+    }
+
     /**
-     * Payments are edited in modals (no view page for a relation manager), so their audit trail
-     * opens in a slide-over instead of a "Histórico" tab.
+     * What was recorded about a payment, newest first: the audit trail behind the "Histórico"
+     * slide-over and the card of the payment's page.
+     *
+     * @return list<array{name: string, at: CarbonInterface, when: string, who: string, event: string, changes: string}>
      */
-    public static function historyAction(): Action
+    public static function historyEntries(Payment $payment): array
     {
         $labels = ['paid_on' => __('Date'), 'amount' => __('Payment amount'), 'method' => __('Method'), 'invoice_number' => __('Invoice'), 'notes' => __('Notes'), 'receivable_id' => __('Receivable')];
         $events = ['created' => __('Created'), 'updated' => __('Updated'), 'deleted' => __('Deleted'), 'restored' => __('Restored')];
 
+        return $payment->audits()->with('user')->latest()->get()->map(fn ($audit) => [
+            'name' => $audit->event,
+            'at' => $audit->created_at,
+            'when' => $audit->created_at->format(Language::resolve(app()->getLocale())->dateFormat().' H:i'),
+            'who' => $audit->user?->name ?? __('System'),
+            'event' => $events[$audit->event] ?? $audit->event,
+            'changes' => collect($audit->new_values)
+                ->except(['created_at', 'updated_at', 'id'])
+                ->map(function ($new, $field) use ($labels, $audit): string {
+                    // Amounts are stored in cents; the history shows euros like the rest of the app.
+                    $show = fn ($value) => $value === null ? '—' : ($field === 'amount' ? Money::format((int) $value, locale: app()->getLocale()) : $value);
+
+                    return ($labels[$field] ?? $field).': '
+                        .(array_key_exists($field, (array) $audit->old_values) ? $show($audit->old_values[$field] ?? null).' → ' : '')
+                        .$show($new);
+                })
+                ->implode("\n"),
+        ])->all();
+    }
+
+    /** The audit trail of a payment in a slide-over, from its row and from the menu of its page. */
+    public static function historyAction(): Action
+    {
         return Action::make('history')
             ->label(__('History'))
             ->icon(Phosphor::ClockCounterClockwise)
@@ -225,22 +285,7 @@ class PaymentResource extends Resource
             ->schema(fn (Payment $record): array => [
                 RepeatableEntry::make('history')
                     ->hiddenLabel()
-                    ->state(fn () => $record->audits()->with('user')->latest()->get()->map(fn ($audit) => [
-                        'when' => $audit->created_at->format(Language::resolve(app()->getLocale())->dateFormat().' H:i'),
-                        'who' => $audit->user?->name ?? __('System'),
-                        'event' => $events[$audit->event] ?? $audit->event,
-                        'changes' => collect($audit->new_values)
-                            ->except(['created_at', 'updated_at', 'id'])
-                            ->map(function ($new, $field) use ($labels, $audit): string {
-                                // Amounts are stored in cents; the history shows euros like the rest of the app.
-                                $show = fn ($value) => $value === null ? '—' : ($field === 'amount' ? Money::format((int) $value, locale: app()->getLocale()) : $value);
-
-                                return ($labels[$field] ?? $field).': '
-                                    .(array_key_exists($field, (array) $audit->old_values) ? $show($audit->old_values[$field] ?? null).' → ' : '')
-                                    .$show($new);
-                            })
-                            ->implode("\n"),
-                    ])->all())
+                    ->state(fn (): array => static::historyEntries($record))
                     ->schema([
                         TextEntry::make('event')->hiddenLabel()->badge()->color('gray'),
                         TextEntry::make('who')->hiddenLabel()->icon(Phosphor::User),

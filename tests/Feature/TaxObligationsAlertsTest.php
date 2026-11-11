@@ -15,8 +15,11 @@ beforeEach(function () {
     $this->account->users()->attach($this->alertsUser, ['role' => 'owner']);
 });
 
-/** Runs the command on $today for an account that exists since $since (default: the 1st of that month) and whose SS started long ago. */
-function alertsPrepare(string $today, array $settings = ['activity_started_on' => '2024-01-01', 'activity_start_kind' => 'first'], ?string $since = null): void
+/**
+ * Runs the command on $today for an account that exists since $since (default: the 1st of that
+ * month), whose SS started long ago and that has the art. 53.º VAT exemption (no periodic VAT returns).
+ */
+function alertsPrepare(string $today, array $settings = ['activity_started_on' => '2024-01-01', 'activity_start_kind' => 'first', 'vat_exempt' => true], ?string $since = null): void
 {
     test()->travelTo(Carbon::parse($today));
     test()->account->forceFill(['created_at' => $since ?? CarbonImmutable::parse($today)->startOfMonth(), 'billing_exempt' => true])->save();

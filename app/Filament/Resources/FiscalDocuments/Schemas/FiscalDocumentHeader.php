@@ -8,10 +8,10 @@ use App\Enums\FiscalDocumentType;
 use App\Enums\Language;
 use App\Filament\Resources\FiscalDocuments\FiscalDocumentPresenter;
 use App\Filament\Resources\FiscalDocuments\FiscalDocumentResource;
+use App\Filament\Support\DetailPage;
 use App\Models\FiscalDocument;
 use Carbon\CarbonImmutable;
 use Filament\Schemas\Schema;
-use Illuminate\Support\Facades\Blade;
 use MortalKiller\FilamentPageHeader\Components\Header;
 
 /**
@@ -34,13 +34,7 @@ class FiscalDocumentHeader
     /** "Fatura FT 2026/15" and its badges (issued, still to be collected), as HTML. Every value is escaped. */
     public static function titleLine(FiscalDocument $document): string
     {
-        $badges = Blade::render(<<<'BLADE'
-            @foreach ($badges as $badge)
-                <x-filament::badge :color="$badge['color']">{{ $badge['label'] }}</x-filament::badge>
-            @endforeach
-            BLADE, ['badges' => FiscalDocumentPresenter::badges($document)]);
-
-        return '<span class="flex flex-wrap items-center gap-x-3 gap-y-1"><span>'.e(FiscalDocumentPresenter::heading($document)).'</span>'.$badges.'</span>';
+        return DetailPage::titleWithBadges(FiscalDocumentPresenter::heading($document), FiscalDocumentPresenter::badges($document));
     }
 
     /**

@@ -36,7 +36,7 @@ final class QuickCreate
                 return $client->getKey();
             })
             ->createOptionModalHeading(__('New client'))
-            ->createOptionAction(fn (Action $action): Action => $action->modalWidth(Width::TwoExtraLarge)->databaseTransaction());
+            ->createOptionAction(fn (Action $action): Action => $action->modalWidth(Width::ThreeExtraLarge)->databaseTransaction());
     }
 
     public static function supplier(Select $select): Select
@@ -58,6 +58,6 @@ final class QuickCreate
             ->createOptionForm(fn (Schema $schema): Schema => CategoryForm::configure($schema))
             ->createOptionUsing(fn (array $data): int => Category::query()->create([...$data, 'type' => $data['type'] ?? $type])->getKey())
             ->createOptionModalHeading(__('New category'))
-            ->createOptionAction(fn (Action $action): Action => $action->fillForm(['type' => $type, 'sort' => 99]));
+            ->createOptionAction(fn (Action $action): Action => $action->modalWidth(Width::Medium)->fillForm(['type' => $type, 'sort' => 99]));
     }
 }

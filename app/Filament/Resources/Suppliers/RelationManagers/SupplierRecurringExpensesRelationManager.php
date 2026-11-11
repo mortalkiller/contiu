@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Suppliers\RelationManagers;
 
+use App\Filament\Resources\RecurringExpenses\RecurringExpenseResource;
 use App\Models\RecurringExpense;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Support\Enums\FontWeight;
@@ -36,6 +37,7 @@ class SupplierRecurringExpensesRelationManager extends RelationManager
         return $table
             ->modifyQueryUsing(fn (Builder $query) => $query->with('category'))
             ->heading(null)
+            ->recordUrl(fn (RecurringExpense $record): ?string => RecurringExpenseResource::canView($record) ? RecurringExpenseResource::getUrl('view', ['record' => $record]) : null)
             ->columns([
                 TextColumn::make('description')
                     ->label(__('Description'))

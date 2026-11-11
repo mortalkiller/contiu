@@ -1,0 +1,7 @@
+[
+    {"name": "a monthly retainer starting on its due day", "total": 18450, "frequency": "monthly", "starts_on": "2027-01-01", "due_day": 1, "expected": {"per_month": 18450, "per_year": 221400, "first_due": "2027-01-01"}},
+    {"name": "a quarterly retainer whose first due day falls before the start", "total": 18450, "frequency": "quarterly", "starts_on": "2026-11-15", "due_day": 10, "expected": {"per_month": 6150, "per_year": 73800, "first_due": "2027-02-10"}},
+    {"name": "a quarterly amount that does not split into whole cents", "total": 1001, "frequency": "quarterly", "starts_on": "2026-01-31", "due_day": 28, "expected": {"per_month": 334, "per_year": 4004, "first_due": "2026-04-28"}},
+    {"name": "an annual retainer due later in the start month", "total": 10000, "frequency": "yearly", "starts_on": "2026-02-20", "due_day": 28, "expected": {"per_month": 833, "per_year": 10000, "first_due": "2026-02-28"}},
+    {"name": "an annual retainer that starts after its due day in December", "total": 12345, "frequency": "yearly", "starts_on": "2026-12-29", "due_day": 28, "expected": {"per_month": 1029, "per_year": 12345, "first_due": "2027-12-28"}}
+]

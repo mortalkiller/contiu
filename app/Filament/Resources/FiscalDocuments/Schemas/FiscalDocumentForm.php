@@ -6,6 +6,7 @@ use App\Enums\FiscalDocumentDirection;
 use App\Enums\FiscalDocumentStatus;
 use App\Enums\FiscalDocumentType;
 use App\Enums\Language;
+use App\Filament\Support\DetachedFileUpload;
 use App\Filament\Support\MoneyInput;
 use App\Models\Expense;
 use App\Models\FiscalDocument;
@@ -16,7 +17,6 @@ use App\Support\FiscalDocumentPdfs;
 use App\Support\Money;
 use Closure;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
@@ -47,15 +47,11 @@ final class FiscalDocumentForm
                         DatePicker::make('operation_date')->label(__('Transaction date')),
                         Select::make('status')->label(__('Status'))->options(FiscalDocumentStatus::class)
                             ->default(FiscalDocumentStatus::Active->value)->required(),
-                        FileUpload::make('pdf_upload')
+                        DetachedFileUpload::make('pdf_upload')
                             ->label(fn (?FiscalDocument $record): string => $record?->currentPdf ? __('Replace PDF') : __('Document PDF'))
-                            ->hidden(fn (?FiscalDocument $record, string $operation): bool => $operation === 'view' || $record?->invoiceXpressSnapshot !== null)
+                            ->hidden(fn (?FiscalDocument $record, string $operation): bool => $operation === 'view' || $record?->integrationRecord !== null)
                             ->acceptedFileTypes(['application/pdf'])
-                            ->maxSize(FiscalDocumentPdfs::MAX_KIB)
-                            ->storeFiles(false)
-                            ->preventFilePathTampering()
-                            ->getUploadedFileUsing(null)
-                            ->previewable(false),
+                            ->maxSize(FiscalDocumentPdfs::MAX_KIB),
                     ])->columns(2)->columnSpanFull(),
                 Section::make(__('Amounts'))
                     ->schema([

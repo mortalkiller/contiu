@@ -7,10 +7,12 @@ use App\Filament\Pages\FinanceSettingsPage;
 use App\Filament\Pages\SocialSecurity as SocialSecurityPage;
 use App\Filament\Pages\TaxEstimate;
 use App\Filament\Pages\TerritorialTurnoverPage;
+use App\Filament\Pages\VatReviewPage;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\FiscalDocuments\FiscalDocumentResource;
 use App\Models\Account;
 use App\Models\Expense;
+use App\Models\FiscalProfile;
 use App\Models\TaxObligationCompletion;
 use App\Models\User;
 use App\Models\VatPeriodConfirmation;
@@ -21,13 +23,26 @@ use Illuminate\Support\Collection;
  * What the account has to pay or deliver, month by month (the "Este mês" card and its alerts).
  * ESTIMATES ONLY — the amounts come from TaxEstimator and ReverseChargeVat.
  *
- * Keys and deadlines:
+ * Keys and deadlines (rule IDs of docs/fiscal/memoria-fiscal-ti-eni-portugal-2026.md):
  * - ss:YYYY-MM — Segurança Social paid in the month, between the 10th and the 20th: the contribution
- *   of the month before (art. 155.º);
- * - ss-declaration:YYYY-Qn — quarterly SS declaration, by the end of the month after the quarter;
- * - vat-reverse:YYYY-MM — VAT self-assessed on the month's foreign services, by the end of the next month;
+ *   of the month before (art. 155.º, SS060);
+ * - ss-declaration:YYYY-Qn — quarterly SS declaration, by the end of the month after the quarter (SS050);
+ * - ss-annual:YYYY — in January, the confirmation of the year before's declared income (SS054);
+ * - vat-return:YYYY-MM or YYYY-Qn — periodic VAT return outside the art. 53.º exemption, by the 20th
+ *   of the second month after the period, paid by the 25th; June and the second quarter in
+ *   September (IVA26, IVA27);
+ * - vat-reverse:YYYY-MM — with the VAT exemption, VAT self-assessed on the month's foreign services,
+ *   by the end of the next month (IVA18); outside it, that VAT goes in the periodic return;
  * - recapitulativa:operacoes:YYYY-MM or YYYY-Qn — verified EU services by operation date;
- * - irs-modelo3:YYYY — the year's IRS return, from 1 April to 30 June of the next year.
+ * - irs-modelo3:YYYY — the year's IRS return, from 1 April to 30 June of the next year;
+ * - irs-ppc:YYYY-N — the IRS payments on account of July, September and December (PPC001).
+ *
+ * Every deadline goes through PortugueseDeadline: weekends and national holidays move it to the next
+ * working day, and one in August ends on 31 August (OBR03, SS052, SS061).
+ *
+ * An account waiting to open its activity has no obligations; one with organised accounting gets
+ * no Social Security figures nor declarations (the Social Security sets its base from the taxable
+ * profit: SS034, SS051).
  *
  * An obligation not marked done stays listed after its deadline as overdue, for at most
  * OVERDUE_MONTHS back and never from before the account existed (it could not have been marked),
@@ -50,6 +65,9 @@ final class TaxObligations
 
     /** @var Collection<string, TaxObligationCompletion>|null */
     private ?Collection $completions = null;
+
+    /** @var Collection<string, VatPeriodConfirmation>|null */
+    private ?Collection $vatConfirmations = null;
 
     public function __construct(private readonly FinanceSettings $settings, CarbonImmutable $today)
     {
@@ -125,7 +143,7 @@ final class TaxObligations
      */
     public function upcoming(): array
     {
-        if ($this->settings->isIncomplete()) {
+        if ($this->settings->isIncomplete() || ! $this->settings->activityOpened()) {
             return [];
         }
 
@@ -220,13 +238,20 @@ final class TaxObligations
      */
     private function dueIn(CarbonImmutable $month): array
     {
+        if (! $this->settings->activityOpened()) {
+            return [];
+        }
+
         $previous = $month->subMonth();
 
         return [...array_values(array_filter([
             $this->settings->isIncomplete() ? null : $this->ss($month),
             $month->month % 3 === 1 ? $this->ssDeclaration($month->subMonths(3)) : null,
+            $month->month === 1 ? $this->ssAnnualConfirmation($month->year - 1) : null,
             $this->vatReverse($previous),
+            ...$this->vatReturnsDueIn($month),
             $month->month === 6 ? $this->irsReturn($month->year - 1) : null,
+            ...$this->irsPrepaymentsDueIn($month),
         ])), ...$this->recapitulativasDueIn($month)];
     }
 
@@ -269,12 +294,15 @@ final class TaxObligations
             ? $this->ssReviewUrl($source)
             : $this->url(fn (Account $account) => TaxEstimate::getUrl(['year' => $source->year], panel: 'admin', tenant: $account));
         $confirmed = app(SocialSecurity::class)->confirmedPaymentInMonth($month);
-        $status = $this->estimator()->ssPaymentStatus($month);
+        $organised = $this->settings->accountingRegime() === 'organised';
+        $status = $organised ? 'charged' : $this->estimator()->ssPaymentStatus($month);
+        $estimate = $organised || ! $sourceClosed ? null : $this->estimator()->ssPaymentInMonth($month);
 
-        if ($confirmed === 0 || ($confirmed === null && $status !== 'charged')) {
+        if ($confirmed === 0 || ($confirmed === null && ($status !== 'charged' || $estimate === 0))) {
             $detail = match (true) {
                 $confirmed === 0 => __('No contribution due · confirmed amount'),
                 $status === 'exempt' => __('Exempt (Art. 157)'),
+                $status === 'charged' => __('No contribution due · under €5 on the excess over 4 IAS'),
                 default => __('Exempt (first enrollment)'),
             };
 
@@ -282,7 +310,8 @@ final class TaxObligations
         }
 
         // While the quarter of income is still open its figure would be partial (or the minimum).
-        $amount = $confirmed ?? ($sourceClosed ? $this->estimator()->ssPaymentInMonth($month) : null);
+        // With organised accounting the Social Security sets the amount from the taxable profit.
+        $amount = $confirmed ?? $estimate;
         $detail = __('Pay between :month 10 and 20 · :contributionMonth contribution · income from :quarter', [
             'month' => self::monthName($month),
             'contributionMonth' => self::monthName($contributionMonth),
@@ -290,6 +319,7 @@ final class TaxObligations
         ]);
         $amountStatus = match (true) {
             $confirmed !== null => __('confirmed amount'),
+            $amount === null && $organised => __('amount set by the Social Security from your taxable profit'),
             $amount === null => __('amount to be determined'),
             $amount === TaxEstimator::SS_MINIMUM_CONTRIBUTION => __('minimum contribution'),
             default => null,
@@ -297,19 +327,24 @@ final class TaxObligations
         if ($amountStatus !== null) {
             $detail .= ' · '.$amountStatus;
         }
-        $dueOn = $month->setDay(20);
+        $dueOn = PortugueseDeadline::of($month->setDay(20));
 
         return new TaxObligation($key, 'ss', __('Social Security'), $amount, $dueOn, $month->setDay(10), $detail, $url, $this->status($key, $dueOn));
     }
 
-    /** Declared in the month after the quarter; not while the SS obligation has not started. */
+    /**
+     * Declared in the month after the quarter (SS050). Only workers who must contribute declare
+     * (art. 151.º-A, n.º 1, SS051): not for a quarter wholly before the enrolment takes effect, nor
+     * with a contribution exemption; with the accumulation one, the quarter whose relevant income
+     * reached 4 IAS a month is declared again (SS045). Not with organised accounting either.
+     */
     private function ssDeclaration(CarbonImmutable $quarter): ?TaxObligation
     {
-        $dueOn = $quarter->addMonths(3)->endOfMonth()->startOfDay();
+        $dueOn = PortugueseDeadline::of($quarter->addMonths(3)->endOfMonth()->startOfDay());
 
-        // Only workers who must contribute declare (art. 151.º-A, n.º 1): not during the first
-        // enrolment, nor with a contribution exemption such as the art. 157.º accumulation.
-        if ($this->settings->isIncomplete() || $this->estimator()->ssMonthStatus($dueOn) !== 'charged') {
+        if ($this->settings->isIncomplete() || $this->settings->accountingRegime() === 'organised'
+            || $this->estimator()->ssMonthStatus($quarter->addMonths(3)) !== 'charged'
+            || $this->estimator()->ssMonthStatus($quarter->addMonths(2)) === 'first_enrolment') {
             return null;
         }
 
@@ -340,9 +375,16 @@ final class TaxObligations
         ], panel: 'admin', tenant: $account));
     }
 
-    /** Only for a month with foreign services to self-assess. */
+    /**
+     * Only for a month with foreign services to self-assess, with the VAT exemption (art. 27.º,
+     * n.º 3, IVA18). Outside it, the periodic return carries that VAT.
+     */
     private function vatReverse(CarbonImmutable $month): ?TaxObligation
     {
+        if (! $this->estimator()->vatExempt($month->endOfMonth()->startOfDay())) {
+            return null;
+        }
+
         $vat = (new ReverseChargeVat($this->settings))->forMonth($month);
 
         if ($vat['vat'] <= 0) {
@@ -350,7 +392,7 @@ final class TaxObligations
         }
 
         $key = 'vat-reverse:'.$month->format('Y-m');
-        $dueOn = $month->addMonth()->endOfMonth()->startOfDay();
+        $dueOn = PortugueseDeadline::of($month->addMonth()->endOfMonth()->startOfDay());
 
         return new TaxObligation(
             $key,
@@ -359,7 +401,7 @@ final class TaxObligations
             $vat['vat'],
             $dueOn,
             null,
-            __('File the periodic VAT return and pay by :dueMonth :day · :month purchases (:base excluding VAT)', [
+            __('Declare and pay by :dueMonth :day · :month purchases (:base excluding VAT)', [
                 'dueMonth' => self::monthName($dueOn),
                 'day' => $dueOn->day,
                 'month' => self::monthName($month),
@@ -415,7 +457,7 @@ final class TaxObligations
         }
 
         $key = 'irs-modelo3:'.$year;
-        $dueOn = CarbonImmutable::create($year + 1, 6, 30);
+        $dueOn = PortugueseDeadline::of(CarbonImmutable::create($year + 1, 6, 30));
 
         return new TaxObligation(
             $key,
@@ -428,6 +470,140 @@ final class TaxObligations
             $this->url(fn (Account $account) => TaxEstimate::getUrl(['year' => $year], panel: 'admin', tenant: $account)),
             $this->status($key, $dueOn),
         );
+    }
+
+    /**
+     * In January, the confirmation of the income declared for the year before, for whoever had to
+     * file at least one quarterly declaration about that year (SS054). It goes with January's
+     * declaration, by the same deadline.
+     */
+    private function ssAnnualConfirmation(int $year): ?TaxObligation
+    {
+        $declared = collect(range(1, 4))
+            ->map(fn (int $quarter) => $this->ssDeclaration(CarbonImmutable::create($year, $quarter * 3 - 2, 1)))
+            ->filter();
+
+        if ($declared->isEmpty()) {
+            return null;
+        }
+
+        $key = 'ss-annual:'.$year;
+        $dueOn = PortugueseDeadline::of(CarbonImmutable::create($year + 1, 1, 31));
+
+        return new TaxObligation(
+            $key,
+            'ss-annual',
+            __('Social Security annual confirmation'),
+            null,
+            $dueOn,
+            null,
+            __('Confirm or correct the income declared for :year, with January’s quarterly declaration', ['year' => $year]),
+            $this->ssReviewUrl(CarbonImmutable::create($year, 10, 1)),
+            $this->status($key, $dueOn),
+        );
+    }
+
+    /**
+     * The periodic VAT returns due in the month, outside the art. 53.º exemption: the period that
+     * ended two months before, by the 20th; June and the second quarter are due in September
+     * (IVA26, IVA27). Monthly or quarterly as the account says (or its confirmed tax profile).
+     *
+     * @return list<TaxObligation>
+     */
+    private function vatReturnsDueIn(CarbonImmutable $month): array
+    {
+        // Until the settings are complete the VAT regime is only the default, not the account's.
+        if ($month->month === 8 || $this->settings->isIncomplete()) {
+            return [];
+        }
+
+        $rows = [];
+        $periodEnds = $month->month === 9 ? [$month->subMonths(3), $month->subMonths(2)] : [$month->subMonths(2)];
+
+        foreach ($periodEnds as $periodEnd) {
+            $months = $this->vatPeriodMonths($periodEnd);
+
+            if (($months === 3 && $periodEnd->month % 3 !== 0) || $this->estimator()->vatExempt($periodEnd->endOfMonth()->startOfDay())) {
+                continue;
+            }
+
+            $start = $periodEnd->subMonths($months - 1)->startOfMonth();
+            $key = 'vat-return:'.($months === 1 ? $start->format('Y-m') : $start->year.'-Q'.$start->quarter);
+            $dueOn = PortugueseDeadline::of($month->setDay(20));
+            $payBy = PortugueseDeadline::of($month->setDay(25));
+            $confirmation = $this->vatConfirmations()->get($start->toDateString().'|'.$months);
+            $amount = $confirmation === null ? null : VatPeriodReview::forPeriod($start->year, $start->month, $months)->amountDue();
+
+            $rows[] = new TaxObligation(
+                $key,
+                'vat-return',
+                __('Periodic VAT return'),
+                $amount,
+                $dueOn,
+                null,
+                __('File by :month :day and pay by :payDay · :period :year', [
+                    'month' => self::monthName($dueOn),
+                    'day' => $dueOn->day,
+                    'payDay' => $payBy->day,
+                    'period' => $months === 1 ? self::monthName($start) : self::quarterName($start),
+                    'year' => $start->year,
+                ]),
+                $this->url(fn (Account $account): string => VatReviewPage::getUrl([
+                    'year' => $start->year, 'month' => $start->month, 'months' => $months,
+                ], panel: 'admin', tenant: $account)),
+                $this->status($key, $dueOn),
+            );
+        }
+
+        return $rows;
+    }
+
+    /** 1 or 3: the confirmed tax profile's VAT regime in force at the period's end, else the settings. */
+    private function vatPeriodMonths(CarbonImmutable $periodEnd): int
+    {
+        $profile = FiscalProfile::effectiveOn($periodEnd->endOfMonth()->startOfDay());
+
+        return ($profile === null ? null : EuServiceEvidence::recapMonths($profile)) ?? $this->settings->vatPeriodMonths();
+    }
+
+    /** @return Collection<string, VatPeriodConfirmation> by "start date|months" */
+    private function vatConfirmations(): Collection
+    {
+        return $this->vatConfirmations ??= VatPeriodConfirmation::query()->get()
+            ->keyBy(fn (VatPeriodConfirmation $row): string => $row->starts_on->toDateString().'|'.$row->months);
+    }
+
+    /**
+     * The IRS payments on account due in the month (July, September, December), from the assessment
+     * the account entered (IrsPrepayments). Only those of 50 € or more are due (PPC002).
+     *
+     * @return list<TaxObligation>
+     */
+    private function irsPrepaymentsDueIn(CarbonImmutable $month): array
+    {
+        $rows = [];
+
+        foreach ((new IrsPrepayments($this->settings))->forYear($month->year) as $number => $installment) {
+            if ($installment['dueOn']->month !== $month->month) {
+                continue;
+            }
+
+            $key = 'irs-ppc:'.$month->year.'-'.$number;
+
+            $rows[] = new TaxObligation(
+                $key,
+                'irs-ppc',
+                __('Personal income tax payment on account'),
+                $installment['amount'],
+                $installment['dueOn'],
+                null,
+                __('Payment :number of 3 · computed from the :year assessment', ['number' => $number, 'year' => $month->year - 2]),
+                $this->url(fn (Account $account): string => FinanceSettingsPage::getUrl(panel: 'admin', tenant: $account)),
+                $this->status($key, $installment['dueOn']),
+            );
+        }
+
+        return $rows;
     }
 
     /** @return array{label: string, amount: int, percent: float, status: string, detail: string, notice: ?string, advisory: ?string, usesReceipts: bool}|null */
@@ -459,6 +635,55 @@ final class TaxObligations
     private function notes(): array
     {
         $notes = [];
+        $settingsUrl = $this->url(fn (Account $account) => FinanceSettingsPage::getUrl(panel: 'admin', tenant: $account));
+
+        if (! $this->settings->activityOpened()) {
+            return [new TaxObligation(
+                'activity-not-opened',
+                'activity-not-opened',
+                __('You have not opened your activity yet'),
+                null,
+                null,
+                null,
+                __('Taxes and the tax calendar start on the day you open it with the Tax Authority. Enter that date in your tax settings.'),
+                $settingsUrl,
+                'info',
+            )];
+        }
+
+        // After a restart only the Social Security knows when the obligation starts again (SS012).
+        if ($this->settings->activityStartKind() === 'restart' && $this->settings->ssEnrolledFrom() === null) {
+            $notes[] = new TaxObligation(
+                'ss-enrolment-date',
+                'ss-enrolment-date',
+                __('Enter your Social Security start date'),
+                null,
+                null,
+                null,
+                __('After a restart, contributions start on the date shown in Social Security Direct (“Enquadrado a partir de”). Until you enter it, they are counted from the month of the restart.'),
+                $settingsUrl,
+                'info',
+            );
+        }
+
+        if (($waiver = new WithholdingWaiver($this->settings))->hasEnded($this->today)) {
+            $endsOn = $waiver->endsOn($this->today->year);
+            $notes[] = new TaxObligation(
+                'withholding-waiver-ended:'.$this->today->year,
+                'withholding-waiver-ended',
+                __('Your withholding waiver has ended'),
+                null,
+                null,
+                null,
+                $endsOn === null
+                    ? __('Your income last year reached the limit, so business clients withhold IRS on your receipts this year (Article 101-B).')
+                    : __('Your income reached the limit, so from :date business clients withhold IRS on your receipts (Article 101-B).', [
+                        'date' => $endsOn->format(Language::resolve(app()->getLocale())->dateFormat()),
+                    ]),
+                $settingsUrl,
+                'info',
+            );
+        }
 
         if ($this->settings->isIncomplete()) {
             $notes[] = new TaxObligation(
@@ -533,7 +758,7 @@ final class TaxObligations
                     'description' => $expense->description,
                     'date' => $expense->spent_on->format(Language::resolve(app()->getLocale())->dateFormat()),
                 ]),
-                $this->url(fn (Account $account) => ExpenseResource::getUrl('edit', ['record' => $expense], panel: 'admin', tenant: $account)),
+                $this->url(fn (Account $account) => ExpenseResource::getUrl('view', ['record' => $expense], panel: 'admin', tenant: $account)),
                 'info',
             );
         }

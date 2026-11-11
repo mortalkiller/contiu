@@ -21,6 +21,8 @@ use App\Support\FiscalDocumentRules;
 use App\Support\FiscalDocumentTotals;
 use App\Support\FiscalTerms;
 use App\Support\Money;
+use App\Support\WithholdingWaiver;
+use Carbon\CarbonImmutable;
 use Closure;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
@@ -124,7 +126,7 @@ class FiscalDocumentDraftForm
             'withholding_basis_points' => (int) ($state['withholding_basis_points'] ?? 0),
             'vat_exemption_reason' => $state['vat_exemption_reason'] ?? null,
             'client_reference' => $state['client_reference'] ?? null,
-            'notes' => $state['notes'] ?? null,
+            'notes' => static::notesWithWaiver($state, $type),
             'reason' => $state['reason'] ?? null,
             'receivable_effect' => $state['receivable_effect'] ?? null,
             'amount' => $type === FiscalDocumentType::Receipt ? (int) ($state['amount'] ?? 0) : null,
@@ -264,7 +266,7 @@ class FiscalDocumentDraftForm
                 ->label(__('IRS withholding'))
                 ->options([0 => __('No withholding')] + FiscalTerms::WITHHOLDING_RATES)
                 ->inline()
-                ->helperText(__('A business client withholds this and pays it to the tax authority for you.')) : null,
+                ->helperText(fn (): string => static::withholdingHelp()) : null,
             $type->hasLines() && $type !== FiscalDocumentType::TransportGuide ? Select::make('vat_exemption_reason')
                 ->label(__('Why no VAT is charged'))
                 ->options(fn (): array => static::exemptionReasons())
@@ -273,6 +275,43 @@ class FiscalDocumentDraftForm
                 ->validatedWhenNotDehydrated(false)
                 ->required(fn (Get $get): bool => static::totals((array) $get('lines'))->net > 0) : null,
         ])));
+    }
+
+    /**
+     * Which rate applies (art. 101.º CIRS, RET002): 23 % for the occupations of the art. 151.º table,
+     * 11.5 % for other services, none for sales of goods; or that the waiver of art. 101.º-B is in
+     * force (RET004). Only business clients with accounts withhold.
+     */
+    private static function withholdingHelp(): string
+    {
+        $settings = app(FinanceSettings::class);
+
+        return match (true) {
+            (new WithholdingWaiver($settings))->appliesOn(CarbonImmutable::today()) => __('Your withholding waiver (Article 101-B) is in force: choose no withholding. The legal mention is added to the document.'),
+            $settings->sellsGoodsUnderIrs() => __('Sales of goods have no IRS withholding.'),
+            round($settings->irsCoefficient(), 2) === 0.75 => __('A business client withholds 23% (occupations in Article 151) and pays it to the tax authority for you.'),
+            default => __('A business client withholds 11.5% (other services) and pays it to the tax authority for you.'),
+        };
+    }
+
+    /**
+     * The notes as typed, plus the legal mention of the withholding waiver on a billing document
+     * without withholding issued while the waiver applies (art. 101.º-B, n.º 3, RET005).
+     *
+     * @param  array<string, mixed>  $state
+     */
+    private static function notesWithWaiver(array $state, FiscalDocumentType $type): ?string
+    {
+        $notes = filled($state['notes'] ?? null) ? (string) $state['notes'] : null;
+        $date = filled($state['document_date'] ?? null) ? CarbonImmutable::parse($state['document_date']) : CarbonImmutable::today();
+
+        if (! $type->countsAsBilling() || (int) ($state['withholding_basis_points'] ?? 0) !== 0
+            || str_contains((string) $notes, WithholdingWaiver::MENTION)
+            || ! (new WithholdingWaiver(app(FinanceSettings::class)))->appliesOn($date)) {
+            return $notes;
+        }
+
+        return $notes === null ? WithholdingWaiver::MENTION : $notes."\n".WithholdingWaiver::MENTION;
     }
 
     private static function reasonSection(): Section

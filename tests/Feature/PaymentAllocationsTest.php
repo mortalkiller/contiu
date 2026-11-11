@@ -85,3 +85,24 @@ it('records the split through the payments screen', function () {
 
     expect(Payment::query()->sole()->amount)->toBe(70003);
 })->group('ui');
+
+it('explains in the edit form why a split payment\'s amount cannot change there', function () {
+    actingAsAdmin();
+    $client = Client::factory()->create(['name' => 'Estúdio Brisa']);
+    $project = Project::factory()->for($client)->create();
+    $first = Receivable::factory()->for($project, 'billable')->create(['amount' => 50000]);
+    $second = Receivable::factory()->for($project, 'billable')->create(['amount' => 60000]);
+    $split = app(RecordAllocatedPayment::class)->handle([
+        'amount' => 70000, 'paid_on' => today(), 'method' => PaymentMethod::Transfer,
+    ], [$first->id => 40000, $second->id => 30000]);
+    $single = Payment::factory()->for($first)->create(['amount' => 10000]);
+
+    Livewire::test(ManagePayments::class)
+        ->mountTableAction('edit', $split)
+        ->assertMountedActionModalSee(['Estúdio Brisa', 'o valor é a soma das partes']);
+
+    Livewire::test(ManagePayments::class)
+        ->mountTableAction('edit', $single)
+        ->assertMountedActionModalSee('Estúdio Brisa')
+        ->assertMountedActionModalDontSee('o valor é a soma das partes');
+})->group('ui');

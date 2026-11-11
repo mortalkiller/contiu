@@ -157,9 +157,13 @@ it('uses the configured IRS coefficient', function () {
 
     $estimate = estimator(2026, ['irs_coefficient' => 0.35, 'activity_started_on' => '2020-01-01', 'activity_start_kind' => 'first']);
 
+    // 4 000 € × 0.35 = 1 400 €, less the 779.19 € of contributions paid in the year above 10 % of
+    // the gross (400 €); the automatic 4 587.09 € covers the 15 % of expenses.
     expect($estimate->irsCoefficientReduction())->toBe(0.0)
         ->and($estimate->effectiveIrsCoefficient())->toBe(0.35)
-        ->and($estimate->irsTaxableIncome())->toBe(140000);
+        ->and($estimate->irsContributionsDeduction())->toBe(37919)
+        ->and($estimate->irsExpenseShortfall())->toBe(0)
+        ->and($estimate->irsTaxableIncome())->toBe(102081);
 });
 
 it('reduces the coefficient in the first two years', function () {

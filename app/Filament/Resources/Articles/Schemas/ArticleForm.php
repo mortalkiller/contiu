@@ -14,16 +14,16 @@ use Illuminate\Validation\Rules\Unique;
 
 class ArticleForm
 {
+    /** As in the mock ("Novo artigo"): name and code, unit and usual price, then the VAT and whether it is offered. */
     public static function configure(Schema $schema): Schema
     {
         return $schema
-            ->columns(2)
+            ->columns(['default' => 1, 'sm' => 2])
             ->components([
                 TextInput::make('name')
                     ->label(__('Name'))
                     ->required()
-                    ->maxLength(255)
-                    ->columnSpanFull(),
+                    ->maxLength(255),
                 TextInput::make('code')
                     ->label(__('Code'))
                     ->required()
@@ -43,7 +43,8 @@ class ArticleForm
                 Select::make('vat_basis_points')
                     ->label(__('VAT'))
                     ->options(fn (?Article $record): array => static::vatOptions($record?->vat_basis_points))
-                    ->placeholder(__('The document decides'))
+                    ->placeholder(__('Same as the document'))
+                    ->helperText(__('Left empty, the line takes the VAT of the document.'))
                     // An empty choice must stay empty: cast to a number it would read as "exempt".
                     ->dehydrateStateUsing(fn (mixed $state): ?int => filled($state) ? (int) $state : null),
                 Toggle::make('is_active')

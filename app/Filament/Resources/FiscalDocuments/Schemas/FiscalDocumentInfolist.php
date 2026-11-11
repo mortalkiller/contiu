@@ -7,13 +7,14 @@ use App\Enums\FiscalDocumentStatus;
 use App\Enums\FiscalDocumentType;
 use App\Enums\IntegrationOperationStatus;
 use App\Enums\IntegrationRecordState;
-use App\Enums\Language;
 use App\Enums\PaymentMethod;
 use App\Filament\Resources\Clients\ClientResource;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\FiscalDocuments\FiscalDocumentPresenter;
 use App\Filament\Resources\FiscalDocuments\FiscalDocumentResource;
+use App\Filament\Resources\Payments\PaymentResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
+use App\Filament\Support\DetailPage;
 use App\Models\Client;
 use App\Models\FiscalDocument;
 use App\Models\FiscalDocumentLine;
@@ -26,7 +27,6 @@ use App\Support\FiscalTerms;
 use App\Support\Invoicing\Invoicing;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
-use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\RepeatableEntry\TableColumn;
@@ -34,7 +34,6 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\Component;
-use Filament\Schemas\Components\Flex;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
@@ -42,7 +41,6 @@ use Filament\Schemas\Components\Text;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\TextSize;
-use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Number;
 
@@ -62,7 +60,7 @@ class FiscalDocumentInfolist
     {
         return $schema
             ->columns(1)
-            ->defaultDateDisplayFormat(fn (): string => static::dateFormat())
+            ->defaultDateDisplayFormat(fn (): string => DetailPage::dateFormat())
             ->components(fn (FiscalDocument $record): array => [
                 ...static::notices($record),
                 Grid::make(['default' => 1, 'xl' => 7])->schema([
@@ -179,39 +177,34 @@ class FiscalDocumentInfolist
         $startsAt = $type === FiscalDocumentType::TransportGuide ? ($record->transport['starts_at'] ?? null) : null;
         $plate = $type === FiscalDocumentType::TransportGuide ? ($record->transport['plate'] ?? null) : null;
         $reference = $isNote || $type === FiscalDocumentType::TransportGuide || $record->direction === FiscalDocumentDirection::Received
-            ? (filled($record->client_reference) ? static::cell('client_reference', __('Client reference'), $record->client_reference) : null)
-            : static::cell('client_reference', __('Client reference'), $record->client_reference);
+            ? (filled($record->client_reference) ? DetailPage::cell('client_reference', __('Client reference'), $record->client_reference) : null)
+            : DetailPage::cell('client_reference', __('Client reference'), $record->client_reference);
 
         return array_values(array_filter([
-            static::cell('document_date', __('Date'), static::date($record->document_date)),
+            DetailPage::cell('document_date', __('Date'), DetailPage::date($record->document_date)),
             match (true) {
-                $type->hasTerm() => static::cell('due_date', match ($type) {
+                $type->hasTerm() => DetailPage::cell('due_date', match ($type) {
                     FiscalDocumentType::Quote => __('Valid until'),
                     FiscalDocumentType::ProForma => __('Pay by'),
                     default => __('Due date'),
-                }, $record->due_date === null ? null : static::date($record->due_date)),
-                $type->settlesOnIssue() => static::cell('due_date', __('Due date'), __('Paid on issue')),
+                }, $record->due_date === null ? null : DetailPage::date($record->due_date)),
+                $type->settlesOnIssue() => DetailPage::cell('due_date', __('Due date'), __('Paid on issue')),
                 default => null,
             },
-            $original === null ? null : static::cell(
+            $original === null ? null : DetailPage::cell(
                 'original',
                 $type === FiscalDocumentType::CreditNote ? __('Corrects') : ($type === FiscalDocumentType::DebitNote ? __('Adds to') : __('Invoice')),
-                __(':number of :date', ['number' => FiscalDocumentPresenter::title($original), 'date' => static::date($original->document_date)]),
+                __(':number of :date', ['number' => FiscalDocumentPresenter::title($original), 'date' => DetailPage::date($original->document_date)]),
             )->url(FiscalDocumentResource::getUrl('view', ['record' => $original])),
-            $isNote ? static::cell('reason', __('Reason'), $record->reason) : null,
-            $isNote && filled($record->receivable_effect) ? static::cell('receivable_effect', __('Effect'), static::effect($record->receivable_effect)) : null,
-            $type === FiscalDocumentType::Receipt ? static::cell('payment_method', __('How it was paid'), static::paymentMethod($record)) : null,
-            $type === FiscalDocumentType::Receipt && filled($record->payment['account'] ?? null) ? static::cell('payment_account', __('Went into'), $record->payment['account']) : null,
-            blank($startsAt) ? null : static::cell('transport_starts_at', __('Transport starts'), static::moment(CarbonImmutable::parse($startsAt))),
-            blank($plate) ? null : static::cell('transport_plate', __('Number plate'), $plate)->fontFamily('mono'),
-            $category === null ? null : static::cell('category', __('Category'), $category),
+            $isNote ? DetailPage::cell('reason', __('Reason'), $record->reason) : null,
+            $isNote && filled($record->receivable_effect) ? DetailPage::cell('receivable_effect', __('Effect'), static::effect($record->receivable_effect)) : null,
+            $type === FiscalDocumentType::Receipt ? DetailPage::cell('payment_method', __('How it was paid'), static::paymentMethod($record)) : null,
+            $type === FiscalDocumentType::Receipt && filled($record->payment['account'] ?? null) ? DetailPage::cell('payment_account', __('Went into'), $record->payment['account']) : null,
+            blank($startsAt) ? null : DetailPage::cell('transport_starts_at', __('Transport starts'), DetailPage::moment(CarbonImmutable::parse($startsAt))),
+            blank($plate) ? null : DetailPage::cell('transport_plate', __('Number plate'), $plate)->fontFamily('mono'),
+            $category === null ? null : DetailPage::cell('category', __('Category'), $category),
             $reference,
         ]));
-    }
-
-    private static function cell(string $name, string $label, ?string $state): TextEntry
-    {
-        return TextEntry::make($name)->label($label)->state($state)->placeholder('—');
     }
 
     /** What a note does to what the client owes, as chosen when it was written. */
@@ -248,10 +241,10 @@ class FiscalDocumentInfolist
 
         return Section::make(__('Transport'))->contained(false)->schema([
             Grid::make(['default' => 1, 'md' => 2])->schema(array_values(array_filter([
-                static::cell('transport_load', __('Loading place'), $place('load')),
-                static::cell('transport_unload', __('Unloading place'), $place('unload')),
-                $guide || blank($transport['starts_at'] ?? null) ? null : static::cell('transport_starts_at', __('Transport starts'), static::moment(CarbonImmutable::parse($transport['starts_at']))),
-                $guide || blank($transport['plate'] ?? null) ? null : static::cell('transport_plate', __('Number plate'), $transport['plate'])->fontFamily('mono'),
+                DetailPage::cell('transport_load', __('Loading place'), $place('load')),
+                DetailPage::cell('transport_unload', __('Unloading place'), $place('unload')),
+                $guide || blank($transport['starts_at'] ?? null) ? null : DetailPage::cell('transport_starts_at', __('Transport starts'), DetailPage::moment(CarbonImmutable::parse($transport['starts_at']))),
+                $guide || blank($transport['plate'] ?? null) ? null : DetailPage::cell('transport_plate', __('Number plate'), $transport['plate'])->fontFamily('mono'),
             ])))->extraAttributes(['class' => 'fap-caps-labels']),
         ]);
     }
@@ -335,7 +328,7 @@ class FiscalDocumentInfolist
                 ->extraAttributes(['class' => 'fap-plain-table'])
                 ->state([[
                     'number' => FiscalDocumentPresenter::title($invoice),
-                    'date' => static::date($invoice->document_date),
+                    'date' => DetailPage::date($invoice->document_date),
                     'total' => Money::format($invoice->total_amount),
                     'paid' => Money::format($record->total_amount),
                     'left' => $receivable === null ? null : Money::format((int) $receivable->outstanding),
@@ -414,9 +407,9 @@ class FiscalDocumentInfolist
 
         return Section::make(__('Payment'))->contained(false)->schema([
             Grid::make(['default' => 2, 'md' => 4])->schema(array_values(array_filter([
-                static::cell('payment_method', __('How it was paid'), static::paymentMethod($record)),
-                static::cell('payment_paid_on', __('Received on'), blank($paidOn) ? null : static::date(CarbonImmutable::parse($paidOn))),
-                filled($record->payment['account'] ?? null) ? static::cell('payment_account', __('Went into'), $record->payment['account']) : null,
+                DetailPage::cell('payment_method', __('How it was paid'), static::paymentMethod($record)),
+                DetailPage::cell('payment_paid_on', __('Received on'), blank($paidOn) ? null : DetailPage::date(CarbonImmutable::parse($paidOn))),
+                filled($record->payment['account'] ?? null) ? DetailPage::cell('payment_account', __('Went into'), $record->payment['account']) : null,
             ])))->extraAttributes(['class' => 'fap-caps-labels']),
         ]);
     }
@@ -433,7 +426,7 @@ class FiscalDocumentInfolist
             $isNote ? null : $record->reason,
             $record->vat_amount === 0 && filled($record->vat_exemption_reason) ? (FiscalDocumentDraftForm::exemptionReasons()[$record->vat_exemption_reason] ?? null) : null,
             $record->withholding_amount > 0 ? __('IRS withheld at source at :rate, article 101 of the IRS code.', ['rate' => static::percent($record->withholding_basis_points)]) : null,
-            $original === null ? null : __('About invoice :number of :date.', ['number' => FiscalDocumentPresenter::title($original), 'date' => static::date($original->document_date)]),
+            $original === null ? null : __('About invoice :number of :date.', ['number' => FiscalDocumentPresenter::title($original), 'date' => DetailPage::date($original->document_date)]),
             $type === FiscalDocumentType::Receipt ? __('A receipt has no lines: it says which invoices were paid and how much.') : null,
             ! $type->countsAsBilling() && $type !== FiscalDocumentType::Receipt ? __('This document is not an invoice.') : null,
         ], filled(...)));
@@ -448,9 +441,9 @@ class FiscalDocumentInfolist
         return array_values(array_filter([
             static::originCard($record),
             static::originalCard($record),
-            static::rowsCard(__('Linked to'), 'linked', static::linkRows($record)),
+            DetailPage::rowsCard(__('Linked to'), 'linked', static::linkRows($record)),
             static::relatedCard($record),
-            static::rowsCard(__('History'), 'history', static::historyRows($record)),
+            DetailPage::rowsCard(__('History'), 'history', static::historyRows($record)),
         ]));
     }
 
@@ -465,36 +458,36 @@ class FiscalDocumentInfolist
         $manual = ! $received && $entry === null && ! $record->isDraft();
         $issuer = FiscalDocumentPresenter::issuer($record);
         $cancellation = FiscalDocumentPresenter::cancellation($record);
-        $row = fn (string $name, string $label, ?string $state): TextEntry => static::cell($name, $label, $state);
+        $row = fn (string $name, string $label, ?string $state): TextEntry => DetailPage::cell($name, $label, $state);
         $providerUrl = $entry === null ? null : Invoicing::provider()?->documentUrl($entry->remote_type, $entry->remote_id);
 
         $rows = match (true) {
             $received => [
                 $row('origin', __('Source'), $record->origin),
-                $row('recorded_at', FiscalDocumentPresenter::agree($record, 'Recorded on'), $record->created_at === null ? null : static::moment($record->created_at)),
+                $row('recorded_at', FiscalDocumentPresenter::agree($record, 'Recorded on'), $record->created_at === null ? null : DetailPage::moment($record->created_at)),
                 $row('issued_by', FiscalDocumentPresenter::agree($record, 'Issued by'), $record->party_name),
                 filled($record->atcud) ? $row('atcud', 'ATCUD', $record->atcud)->fontFamily('mono') : null,
                 $row('pdf', __('PDF'), $record->currentPdf === null ? __('PDF to attach') : __('PDF saved')),
             ],
             $manual => [
                 $row('origin', __('Source'), $record->origin),
-                $row('recorded_at', FiscalDocumentPresenter::agree($record, 'Recorded on'), $record->created_at === null ? null : static::moment($record->created_at)),
+                $row('recorded_at', FiscalDocumentPresenter::agree($record, 'Recorded on'), $record->created_at === null ? null : DetailPage::moment($record->created_at)),
                 filled($record->series) ? $row('series', __('Series'), $record->series) : null,
                 $row('atcud', 'ATCUD', $record->atcud)->fontFamily(filled($record->atcud) ? 'mono' : null),
                 $row('pdf', __('PDF'), $record->currentPdf === null ? __('PDF to attach') : __('PDF saved')),
-                static::help('not_issued_here', __('Contiu did not issue this document nor report it to the tax authority: the program that issued it did.')),
+                DetailPage::help('not_issued_here', __('Contiu did not issue this document nor report it to the tax authority: the program that issued it did.')),
             ],
             default => [
                 $row('issued_by', FiscalDocumentPresenter::agree($record, 'Issued by'), $issuer['label']),
-                $record->isDraft() ? null : $row('issued_at', __('When'), $record->issued_at === null ? null : static::moment($record->issued_at)),
-                $cancellation === null ? null : $row('cancelled_at', __('Cancellation'), static::moment($cancellation->created_at)),
+                $record->isDraft() ? null : $row('issued_at', __('When'), $record->issued_at === null ? null : DetailPage::moment($record->issued_at)),
+                $cancellation === null ? null : $row('cancelled_at', __('Cancellation'), DetailPage::moment($cancellation->created_at)),
                 $cancellation === null || blank($cancellation->detail) ? null : $row('cancellation_reason', __('Reason'), $cancellation->detail),
                 filled($record->series) ? $row('series', __('Series'), $record->series) : null,
                 $record->isDraft() || (blank($record->atcud) && ! $record->type->countsAsBilling()) ? null : $row('atcud', 'ATCUD', $record->atcud)->fontFamily(filled($record->atcud) ? 'mono' : null),
                 match ($record->type) {
-                    FiscalDocumentType::Quote => static::help('not_fiscal', __('A quote is not an invoice: it does not count as billed and brings no tax.')),
-                    FiscalDocumentType::ProForma => static::help('not_fiscal', __('A pro forma asks for payment before invoicing: it does not count as billed and brings no tax.')),
-                    FiscalDocumentType::TransportGuide => static::help('not_fiscal', __('A guide goes with the goods: it charges nothing and does not count as billed.')),
+                    FiscalDocumentType::Quote => DetailPage::help('not_fiscal', __('A quote is not an invoice: it does not count as billed and brings no tax.')),
+                    FiscalDocumentType::ProForma => DetailPage::help('not_fiscal', __('A pro forma asks for payment before invoicing: it does not count as billed and brings no tax.')),
+                    FiscalDocumentType::TransportGuide => DetailPage::help('not_fiscal', __('A guide goes with the goods: it charges nothing and does not count as billed.')),
                     default => null,
                 },
                 $providerUrl === null ? null : Actions::make([
@@ -521,11 +514,6 @@ class FiscalDocumentInfolist
                 }),
             ])
             ->schema(array_values(array_filter($rows)));
-    }
-
-    private static function help(string $name, string $text): TextEntry
-    {
-        return TextEntry::make($name)->hiddenLabel()->inlineLabel(false)->color('gray')->state($text);
     }
 
     /**
@@ -595,7 +583,7 @@ class FiscalDocumentInfolist
         return array_values(array_filter([
             $receivable === null ? null : [
                 'title' => $receivable->description,
-                'meta' => __('Receivable · due on :date', ['date' => static::date($receivable->due_on)]),
+                'meta' => __('Receivable · due on :date', ['date' => DetailPage::date($receivable->due_on)]),
                 'amount' => Money::format((int) $receivable->amount),
                 'badge' => $receivable->outstanding <= 0
                     ? ['label' => __('Received'), 'color' => 'success']
@@ -610,15 +598,16 @@ class FiscalDocumentInfolist
                 'url' => $receivable->billableUrl(),
             ] : null,
             $payment === null ? null : [
-                'title' => __('Payment on :date', ['date' => static::date($payment->paid_on)]),
+                'title' => __('Payment on :date', ['date' => DetailPage::date($payment->paid_on)]),
                 'meta' => implode(' · ', array_filter([$method?->getLabel(), $record->type->settlesOnIssue() ? __('recorded on issue') : null])) ?: null,
+                'url' => PaymentResource::canView($payment) ? PaymentResource::getUrl('view', ['record' => $payment]) : null,
                 'amount' => Money::format((int) $payment->amount),
                 'badge' => ['label' => __('Received'), 'color' => 'success'],
             ],
             $expense === null ? null : [
                 'title' => $expense->description ?: __('Expense'),
-                'meta' => __('Expense on :date', ['date' => static::date($expense->spent_on)]),
-                'url' => ExpenseResource::canEdit($expense) ? ExpenseResource::getUrl('edit', ['record' => $expense]) : null,
+                'meta' => __('Expense on :date', ['date' => DetailPage::date($expense->spent_on)]),
+                'url' => ExpenseResource::canView($expense) ? ExpenseResource::getUrl('view', ['record' => $expense]) : null,
                 'amount' => Money::format((int) $expense->total),
                 'badge' => $expense->is_paid
                     ? ['label' => __('Paid (feminine)'), 'color' => 'success']
@@ -660,8 +649,8 @@ class FiscalDocumentInfolist
                 $record->type === FiscalDocumentType::Invoice ? static::followUp($record, FiscalDocumentType::Receipt) : null,
             ])) : [])
             ->schema([
-                ...static::rows('related', $rows),
-                ...($hint === null ? [] : [static::help('no_related', $hint)]),
+                ...DetailPage::rows('related', $rows),
+                ...($hint === null ? [] : [DetailPage::help('no_related', $hint)]),
             ]);
     }
 
@@ -738,61 +727,11 @@ class FiscalDocumentInfolist
 
                 return [
                     'title' => $operation->summary,
-                    'meta' => implode(' · ', array_filter([static::moment($operation->created_at), $operation->user?->name, $failed ? $operation->detail : null])),
+                    'meta' => implode(' · ', array_filter([DetailPage::moment($operation->created_at), $operation->user?->name, $failed ? $operation->detail : null])),
                     'color' => $failed ? 'danger' : 'gray',
                 ];
             })
             ->all();
-    }
-
-    /** @param list<array<string, mixed>> $rows */
-    private static function rowsCard(string $heading, string $name, array $rows): ?Section
-    {
-        return $rows === [] ? null : Section::make($heading)->schema(static::rows($name, $rows))->extraAttributes(['class' => 'fap-divided']);
-    }
-
-    /**
-     * The rows of a side card, as in the mock: a title (a link when it leads somewhere) over a
-     * muted line, and at the end an amount over its state.
-     *
-     * @param  list<array<string, mixed>>  $rows  each with title and meta, and optionally url, amount, badge (label and color) and color (of the meta)
-     * @return list<Flex>
-     */
-    private static function rows(string $name, array $rows): array
-    {
-        return Collection::make($rows)->map(function (array $row, int $index) use ($name): Flex {
-            $key = "{$name}_{$index}";
-            $url = $row['url'] ?? null;
-            $badge = $row['badge'] ?? null;
-            $aside = array_values(array_filter([
-                isset($row['amount']) ? TextEntry::make("{$key}_amount")->hiddenLabel()->state($row['amount'])->alignEnd() : null,
-                $badge === null ? null : TextEntry::make("{$key}_state")->hiddenLabel()->state($badge['label'])->badge()->color($badge['color'])->alignEnd(),
-            ]));
-
-            return Flex::make(array_values(array_filter([
-                Group::make(array_values(array_filter([
-                    TextEntry::make("{$key}_title")->hiddenLabel()->state($row['title'])->weight('medium')->url($url)->color($url === null ? null : 'primary'),
-                    blank($row['meta'] ?? null) ? null : TextEntry::make("{$key}_meta")->hiddenLabel()->state($row['meta'])->color($row['color'] ?? 'gray'),
-                ])))->gap(false),
-                $aside === [] ? null : Group::make($aside)->gap(false)->grow(false),
-            ])));
-        })->all();
-    }
-
-    private static function dateFormat(): string
-    {
-        return Language::resolve(app()->getLocale())->dateFormat();
-    }
-
-    private static function date(CarbonInterface $date): string
-    {
-        return $date->format(static::dateFormat());
-    }
-
-    /** "12/11/2026 às 10:42". */
-    private static function moment(CarbonInterface $at): string
-    {
-        return __(':date at :time', ['date' => static::date($at), 'time' => $at->format('H:i')]);
     }
 
     private static function quantity(int $thousandths): string

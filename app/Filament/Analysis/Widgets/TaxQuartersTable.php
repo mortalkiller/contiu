@@ -4,6 +4,7 @@ namespace App\Filament\Analysis\Widgets;
 
 use App\Filament\Pages\SocialSecurity as SocialSecurityPage;
 use App\Support\FinanceSettings;
+use App\Support\PortugueseDeadline;
 use App\Support\SocialSecurity;
 use App\Support\TaxEstimator;
 use Carbon\CarbonImmutable;
@@ -96,7 +97,8 @@ class TaxQuartersTable extends TableWidget
 
     /**
      * The quarterly declaration of a closed quarter: on record, late (past the end of the month
-     * after the quarter) or still due. Nothing for a quarter not yet closed.
+     * after the quarter, on a working day), still due, or not required (SS051: exempt, before the
+     * enrolment takes effect, or with organised accounting). Nothing for a quarter not yet closed.
      *
      * @return array{0: string, 1: string}|null the label and its colour
      */
@@ -112,7 +114,16 @@ class TaxQuartersTable extends TableWidget
             return [__('Filed'), 'success'];
         }
 
-        $dueOn = $security->contributionMonths($quarter)[0]->endOfMonth()->startOfDay();
+        $firstMonth = $security->contributionMonths($quarter)[0];
+        $settings = app(FinanceSettings::class);
+        $estimator = new TaxEstimator($settings, $firstMonth->year);
+
+        if ($settings->accountingRegime() === 'organised' || $estimator->ssMonthStatus($firstMonth) !== 'charged'
+            || $estimator->ssMonthStatus($firstMonth->subMonth()) === 'first_enrolment') {
+            return [__('Not required'), 'gray'];
+        }
+
+        $dueOn = PortugueseDeadline::of($firstMonth->endOfMonth()->startOfDay());
         $today = CarbonImmutable::today('Europe/Lisbon');
 
         return $today->gt($dueOn)

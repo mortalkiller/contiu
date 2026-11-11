@@ -17,7 +17,8 @@ class ManageCategories extends ManageRecords
     {
         return [
             CreateAction::make()
-                ->label(__('New category'))
+                ->label(__('New category'))->modalHeading(__('New category'))
+                ->modalWidth('md')
                 ->fillForm(fn () => ['type' => $this->activeTab === 'income' ? CategoryType::Income : CategoryType::Expense, 'sort' => 99]),
         ];
     }

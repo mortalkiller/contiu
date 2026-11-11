@@ -150,7 +150,8 @@ it('serves a private all-day calendar to guests with stable event IDs and option
         ->getContent();
     expect($fiscal)
         ->toContain("BEGIN:VCALENDAR\r\n")
-        ->toContain("DTSTART;VALUE=DATE:20261031\r\nDTEND;VALUE=DATE:20261101\r\nSUMMARY:Quarterly Social Security return\r\n")
+        // Due on 31 October 2026, a Saturday: the deadline moves to Monday 2 November.
+        ->toContain("DTSTART;VALUE=DATE:20261102\r\nDTEND;VALUE=DATE:20261103\r\nSUMMARY:Quarterly Social Security return\r\n")
         ->toContain("DTSTART;VALUE=DATE:20261120\r\nDTEND;VALUE=DATE:20261121\r\nSUMMARY:Social Security\r\n")
         ->not->toContain('DTSTART;VALUE=DATE:20261224')
         ->not->toContain('DESCRIPTION:')

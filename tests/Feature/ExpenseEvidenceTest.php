@@ -14,6 +14,8 @@ use App\Models\Supplier;
 use App\Models\User;
 use App\Support\CurrentAccount;
 use Filament\Actions\Testing\TestAction;
+use Filament\Forms\Components\FileUpload;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -73,6 +75,20 @@ it('stores a private PDF and records attribution and review independently of pay
         ->and($expense->is_reviewed)->toBeTrue()
         ->and($expense->is_paid)->toBeFalse()
         ->and($expense->net_amount)->toBe(1234);
+});
+
+it('opens the edit form with strict models, as they are in the local environment', function () {
+    actingAsAdmin();
+    $expense = expenseEvidenceFixture();
+    Model::shouldBeStrict();
+
+    try {
+        Livewire::test(EditExpense::class, ['record' => $expense->getRouteKey()])
+            ->assertOk()
+            ->assertFormFieldExists('proof_upload', fn (FileUpload $field): bool => $field->getUploadedFiles() === []);
+    } finally {
+        Model::shouldBeStrict(false);
+    }
 });
 
 it('rejects an existing object path supplied to the upload field', function () {

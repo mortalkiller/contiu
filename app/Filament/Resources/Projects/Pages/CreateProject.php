@@ -6,33 +6,25 @@ use App\Enums\Language;
 use App\Filament\Resources\Concerns\HasSaveBar;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Resources\Projects\Schemas\ProjectForm;
-use App\Models\Client;
 use App\Support\InstalmentPlanner;
 use App\Support\Money;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
-use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Pages\CreateRecord;
-use Filament\Resources\Pages\CreateRecord\Concerns\HasWizard;
-use Filament\Schemas\Components\Actions;
-use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
-use Filament\Schemas\Components\Wizard\Step;
+use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 /**
- * "Novo trabalho" in four steps: client → job and value → payment plan (with presets) → summary.
- * The edit page keeps the full single-page form (ProjectForm::configure).
+ * "Novo trabalho", as in the mock: the same single-page form as the edit page, with quick plans
+ * that fill the instalments from the total.
  */
 class CreateProject extends CreateRecord
 {
     use HasSaveBar;
-    use HasWizard;
 
     protected static string $resource = ProjectResource::class;
 
@@ -49,64 +41,9 @@ class CreateProject extends CreateRecord
         }
     }
 
-    protected function getSteps(): array
+    public function form(Schema $schema): Schema
     {
-        return [
-            Step::make(__('Client'))
-                ->description(__('Who it’s for'))
-                ->icon(Phosphor::User)
-                ->columns(2)
-                ->schema(ProjectForm::clientFields()),
-
-            Step::make(__('Project'))
-                ->description(__('What and how much'))
-                ->icon(Phosphor::Briefcase)
-                ->columns(3)
-                ->schema([
-                    Grid::make(2)
-                        ->columnSpan(2)
-                        ->schema([
-                            ProjectForm::codeField(),
-                            ProjectForm::statusField(),
-                            ...ProjectForm::projectFields(),
-                        ]),
-                    Grid::make(1)
-                        ->columnSpan(1)
-                        ->schema(ProjectForm::valueFields()),
-                ]),
-
-            Step::make(__('Payment plan'))
-                ->description(__('When you’ll be paid'))
-                ->icon(Phosphor::CalendarBlank)
-                ->schema([
-                    Actions::make($this->planPresetActions())
-                        ->key('planPresets'),
-                    ...ProjectForm::planFields(),
-                ]),
-
-            Step::make(__('Summary'))
-                ->description(__('Confirm'))
-                ->icon(Phosphor::CheckCircle)
-                ->columns(2)
-                ->schema([
-                    TextEntry::make('summary_client')
-                        ->label(__('Client'))
-                        ->state(fn (Get $get) => Client::find($get('client_id'))?->name ?? '—'),
-                    TextEntry::make('summary_total')
-                        ->label(__('Total'))
-                        ->state(fn (Get $get) => Money::format(ProjectForm::totalFrom($get))),
-                    TextEntry::make('summary_code')
-                        ->label(__('Project'))
-                        ->state(fn (Get $get) => trim($get('code').' — '.$get('title'), ' —')),
-                    TextEntry::make('summary_quoted_on')
-                        ->label(__('Quote date'))
-                        ->state(fn (Get $get) => filled($get('quoted_on')) ? Carbon::parse($get('quoted_on'))->format(Language::resolve(app()->getLocale())->dateFormat()) : '—'),
-                    TextEntry::make('summary_plan')
-                        ->label(__('Payment plan'))
-                        ->columnSpanFull()
-                        ->state(fn (Get $get) => $this->planSummary($get('receivables'))),
-                ]),
-        ];
+        return ProjectForm::configure($schema, $this->planPresetActions());
     }
 
     /**
@@ -161,20 +98,5 @@ class CreateProject extends CreateRecord
                 ])
                 ->action(fn (array $data, Get $get, Set $set) => $apply($set, InstalmentPlanner::monthlyUntil(ProjectForm::totalFrom($get), $firstDue($get), $data['last_due_on']))),
         ];
-    }
-
-    protected function planSummary(mixed $rows): HtmlString
-    {
-        $rows = collect(is_array($rows) ? $rows : []);
-
-        if ($rows->isEmpty()) {
-            return new HtmlString('—');
-        }
-
-        return new HtmlString('<ul class="space-y-1">'.$rows->map(fn (array $row): string => '<li>'.e(__(':description — :amount — due :date', [
-            'description' => $row['description'] ?? '',
-            'amount' => Money::format(Money::toCents($row['amount'] ?? null) ?? 0),
-            'date' => filled($row['due_on'] ?? null) ? Carbon::parse($row['due_on'])->format(Language::resolve(app()->getLocale())->dateFormat()) : '—',
-        ])).'</li>')->implode('').'</ul>');
     }
 }

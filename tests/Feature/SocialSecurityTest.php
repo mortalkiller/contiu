@@ -200,8 +200,9 @@ describe('Closed quarter summary', function () {
         Livewire::withQueryParams(['quarter' => '2026-Q3'])->test(SocialSecurityPage::class)
             ->assertSee('Segurança Social, por trimestre fechado.')
             ->assertSeeInOrder(['O ciclo deste trimestre', '1. Recebimentos', Money::format(305000).' registados'], false)
-            ->assertSeeInOrder(['2. Declaração', 'Atrasada 10 dias'])
-            ->assertSeeInOrder(['3. Outubro', 'Por confirmar · até 20 nov.', '4. Novembro', 'Por confirmar · até 20 dez.', '5. Dezembro', 'Estimativa:'])
-            ->assertSeeInOrder(['Por declarar', 'A declaração trimestral era até 31/10/2026', 'Valor a declarar, pelos registos', Money::format(300000)], false);
+            // 31 October and 20 December 2026 fall on a weekend: both deadlines move to the Monday.
+            ->assertSeeInOrder(['2. Declaração', 'Atrasada 8 dias'])
+            ->assertSeeInOrder(['3. Outubro', 'Por confirmar · até 20 nov.', '4. Novembro', 'Por confirmar · até 21 dez.', '5. Dezembro', 'Estimativa:'])
+            ->assertSeeInOrder(['Por declarar', 'A declaração trimestral era até 02/11/2026', 'Valor a declarar, pelos registos', Money::format(300000)], false);
     })->group('integration');
 });

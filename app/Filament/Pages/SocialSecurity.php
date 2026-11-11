@@ -8,6 +8,7 @@ use App\Models\SocialSecurityContribution;
 use App\Support\CurrentAccount;
 use App\Support\Money;
 use App\Support\Period;
+use App\Support\PortugueseDeadline;
 use App\Support\SocialSecurity as SocialSecurityService;
 use BackedEnum;
 use Carbon\CarbonImmutable;
@@ -211,10 +212,10 @@ class SocialSecurity extends Page
         ];
     }
 
-    /** The quarterly declaration is due by the end of the month after the quarter. */
+    /** The quarterly declaration is due by the end of the month after the quarter, on a working day (SS052). */
     private function declarationDueOn(): CarbonImmutable
     {
-        return app(SocialSecurityService::class)->contributionMonths($this->quarter)[0]->endOfMonth()->startOfDay();
+        return PortugueseDeadline::of(app(SocialSecurityService::class)->contributionMonths($this->quarter)[0]->endOfMonth()->startOfDay());
     }
 
     /**
@@ -254,7 +255,7 @@ class SocialSecurity extends Page
 
         foreach ($security->contributionMonths($this->quarter) as $month) {
             $record = $confirmed->get($month->format('Y-m'))?->first();
-            $paymentDue = $month->addMonth()->setDay(20);
+            $paymentDue = PortugueseDeadline::of($month->addMonth()->setDay(20));
 
             $steps[] = [
                 'label' => Str::ucfirst($month->locale($locale)->translatedFormat('F')),

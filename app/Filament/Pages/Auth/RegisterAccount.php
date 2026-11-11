@@ -10,6 +10,7 @@ use App\Models\Account;
 use App\Models\User;
 use App\Rules\PortugueseNif;
 use App\Support\Money;
+use App\Support\YearlyParameter;
 use Filament\Actions\Action;
 use Filament\Auth\Pages\Register;
 use Filament\Forms\Components\Checkbox;
@@ -139,7 +140,7 @@ class RegisterAccount extends Register
                     MoneyInput::make('vat_exemption_threshold')
                         ->label(__('Annual VAT exemption threshold'))
                         ->helperText(__('Annual invoicing threshold below which the exemption applies.'))
-                        ->default(1500000)
+                        ->default(fn (): int => YearlyParameter::vatExemptionLimit((int) now()->year))
                         ->minValue(0)
                         ->visibleJs("!! \$get('vat_exempt')")
                         ->dehydrated(fn (Get $get): bool => (bool) $get('vat_exempt'))
@@ -295,7 +296,8 @@ class RegisterAccount extends Register
         $percent = fn (float $value) => Number::format(round($value, 2), maxPrecision: 2, locale: app()->getLocale());
         $replacements = [
             'rate' => $percent((float) $get('ss_rate') * 100),
-            'share' => $percent((float) $get('ss_relevant_income_share_percent')),
+            // Art. 162.º CRC: 20 % of sales of goods, restaurants and hotels, 70 % of services.
+            'share' => $percent(round((float) $get('irs_coefficient'), 2) === 0.15 ? 20.0 : 70.0),
         ];
 
         return $get('ss_contribution_exempt')

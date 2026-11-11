@@ -15,6 +15,7 @@ use App\Support\Money;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -25,6 +26,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\EmbeddedSchema;
+use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
@@ -62,6 +64,13 @@ class FinanceSettingsPage extends Page
             'payments_exempt_by_default' => $settings->paymentsExemptByDefault(),
             'has_business_account' => $settings->hasBusinessAccount(),
             'account_names' => implode("\n", $settings->accountNames()),
+            'activity_opened' => $settings->activityOpened(),
+            'accounting_regime' => $settings->accountingRegime(),
+            'ss_base_adjustment' => (string) (int) round($settings->ssBaseAdjustment() * 100),
+            'vat_period' => $settings->vatPeriodMonths() === 1 ? 'monthly' : 'quarterly',
+            'withholding_waiver' => $settings->withholdingWaiver(),
+            // Only the assessment that sets this year's payments (two years back) is shown.
+            'irs_prepayment' => ($basis = $settings->irsPrepaymentBasis()) !== null && $basis['income_year'] === (int) now()->year - 2 ? $basis : null,
         ]);
     }
 
@@ -160,6 +169,25 @@ class FinanceSettingsPage extends Page
                     ->description(__('When and how you started trading determines initial Social Security contributions and the income tax reduction for the first years.'))
                     ->columns(2)
                     ->schema([
+                        Toggle::make('activity_opened')
+                            ->label(__('I have opened my activity with the Tax Authority'))
+                            ->helperText(__('Off while you have not opened it yet: Contiu shows no taxes nor tax calendar until you do.'))
+                            ->columnSpanFull(),
+                        TaxSettingsFields::whereToFind(
+                            Radio::make('accounting_regime')
+                                ->label(__('Accounting regime'))
+                                ->options([
+                                    'simplified' => __('Simplified regime'),
+                                    'organised' => __('Organised accounting'),
+                                ])
+                                ->descriptions([
+                                    'simplified' => __('Most freelancers. Contiu estimates your personal income tax and Social Security.'),
+                                    'organised' => __('With a certified accountant. Contiu does not estimate personal income tax nor Social Security, which are based on your taxable profit.'),
+                                ])
+                                ->required()
+                                ->columnSpanFull(),
+                            __('On your activity declaration, under “Regime de tributação”. If you never chose organised accounting and invoice up to €200,000 a year, you are in the simplified regime.'),
+                        ),
                         TaxSettingsFields::activityStartedOn()->columnSpanFull(),
                         ...TaxSettingsFields::activity(withPreviousYear: true),
                         ...TaxSettingsFields::trade(),
@@ -167,17 +195,54 @@ class FinanceSettingsPage extends Page
                 Section::make(__('Personal income tax'))
                     ->description(__('Under the simplified regime, taxable income is gross income multiplied by the coefficient.'))
                     ->columns(2)
-                    ->schema(TaxSettingsFields::irs(app(FinanceSettings::class))),
+                    ->schema([
+                        ...TaxSettingsFields::irs(app(FinanceSettings::class)),
+                        TaxSettingsFields::whereToFind(
+                            Toggle::make('withholding_waiver')
+                                ->label(__('I waive IRS withholding on my receipts (Article 101-B)'))
+                                ->helperText(__('Only while your income stays under the VAT exemption limit (€15,000), this year and last. Contiu adds the legal mention to your documents and warns you when the waiver ends.'))
+                                ->columnSpanFull(),
+                            __('You choose it yourself: the receipts you issue say so, and business clients then pay you the full amount.'),
+                        ),
+                        Fieldset::make(__('Payments on account'))
+                            ->statePath('irs_prepayment')
+                            ->columns(2)
+                            ->columnSpanFull()
+                            ->schema([
+                                Text::make(__('From the assessment of your :year income (the “nota de liquidação”), to work out the three payments on account of :nextYear (Article 102). Leave blank if the Tax Authority did not ask for any.', ['year' => now()->year - 2, 'nextYear' => now()->year]))
+                                    ->color('gray')
+                                    ->columnSpanFull(),
+                                MoneyInput::make('tax')->label(__('Net tax (coleta líquida)'))->minValue(0),
+                                MoneyInput::make('withheld')->label(__('Business income withheld'))->minValue(0),
+                                MoneyInput::make('net_business')->label(__('Net business income (category B)'))->minValue(0),
+                                MoneyInput::make('net_total')->label(__('Total net income'))->minValue(0),
+                            ]),
+                    ]),
                 Section::make(__('Social Security'))
                     ->description(__('Contribution based on each quarter’s relevant income.'))
                     ->columns(2)
-                    ->schema(TaxSettingsFields::socialSecurity()),
+                    ->schema([
+                        ...TaxSettingsFields::socialSecurity(),
+                        Select::make('ss_base_adjustment')
+                            ->label(__('Adjustment to your relevant income'))
+                            ->options(collect(FinanceSettings::SS_BASE_ADJUSTMENTS)->mapWithKeys(fn (int $percent): array => [
+                                (string) $percent => $percent === 0 ? __('No adjustment') : ($percent > 0 ? '+' : '−').abs($percent).'%',
+                            ])->all())
+                            ->helperText(__('The change you chose on the quarterly declaration, from −25% to +25% (Article 164). It does not apply to the excess over 4 IAS.'))
+                            ->required(),
+                    ]),
                 Section::make(__('VAT'))
                     ->schema([
                         Select::make('vat_region')->label(__('Activity VAT region'))
                             ->options(fn (): array => collect(PortugueseVatRegion::cases())
                                 ->mapWithKeys(fn (PortugueseVatRegion $region): array => [$region->value => $region->label()])
                                 ->all()),
+                        Select::make('vat_period')
+                            ->label(__('Periodic VAT return'))
+                            ->options(['quarterly' => __('Quarterly'), 'monthly' => __('Monthly')])
+                            ->helperText(__('Quarterly unless your turnover reached €650,000 or you chose monthly returns (Article 41).'))
+                            ->hiddenJs("!! \$get('vat_exempt')")
+                            ->required(),
                         Toggle::make('payments_exempt_by_default')
                             ->label(__('Payments received are exempt by default'))
                             ->helperText(__('New payments received and retainers are marked as tax exempt and excluded from the estimate. You can change them individually.')),
@@ -331,6 +396,12 @@ class FinanceSettingsPage extends Page
             'vat_exemption_threshold' => (int) ($data['vat_exemption_threshold'] ?? 0),
             'payments_exempt_by_default' => (bool) ($data['payments_exempt_by_default'] ?? false),
             'has_business_account' => $hasBusinessAccount = (bool) ($data['has_business_account'] ?? false),
+            'activity_opened' => (bool) ($data['activity_opened'] ?? true),
+            'accounting_regime' => $data['accounting_regime'] ?? 'simplified',
+            'ss_base_adjustment' => (int) ($data['ss_base_adjustment'] ?? 0),
+            'vat_period' => $data['vat_period'] ?? 'quarterly',
+            'withholding_waiver' => (bool) ($data['withholding_waiver'] ?? false),
+            'irs_prepayment_basis' => self::prepaymentBasis($data['irs_prepayment'] ?? []),
             // Hidden while off: kept as they were, for when it is turned back on.
             'account_names' => $hasBusinessAccount
                 ? (implode("\n", array_filter(array_map('trim', preg_split('/\R/', (string) ($data['account_names'] ?? '')) ?: []))) ?: null)
@@ -338,6 +409,23 @@ class FinanceSettingsPage extends Page
         ]);
 
         Notification::make()->title(__('Settings saved'))->success()->send();
+    }
+
+    /**
+     * The assessment figures for the payments on account (IrsPrepayments), all four or none.
+     *
+     * @param  array<string, mixed>  $values
+     * @return array{income_year: int, tax: int, withheld: int, net_business: int, net_total: int}|null
+     */
+    private static function prepaymentBasis(array $values): ?array
+    {
+        $amounts = array_intersect_key($values, array_flip(['tax', 'withheld', 'net_business', 'net_total']));
+
+        if (count(array_filter($amounts, fn ($value): bool => filled($value))) < 4) {
+            return null;
+        }
+
+        return ['income_year' => (int) now()->year - 2, ...array_map('intval', $amounts)];
     }
 
     #[Unexposed]

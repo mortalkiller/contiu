@@ -42,7 +42,10 @@ class ManageArticles extends ManageRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make()->label(__('New article')),
+            CreateAction::make()
+                ->label(__('New article'))->modalHeading(__('New article'))
+                ->modalWidth('lg')
+                ->modalDescription(__('It becomes available on the lines of new documents.')),
         ];
     }
 

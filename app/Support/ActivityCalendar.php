@@ -136,7 +136,7 @@ final class ActivityCalendar
                 ]),
                 amount: $expense->total,
                 status: $expense->is_paid ? 'paid' : 'unpaid',
-                url: ExpenseResource::getUrl('edit', ['record' => $expense]),
+                url: ExpenseResource::getUrl('view', ['record' => $expense]),
             ))
             ->all();
     }

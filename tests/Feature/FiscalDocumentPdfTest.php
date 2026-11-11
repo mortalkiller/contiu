@@ -16,6 +16,8 @@ use App\Support\Invoicing\RemoteDocument;
 use App\Support\Invoicing\RemoteDocumentState;
 use Carbon\CarbonImmutable;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\FileUpload;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
@@ -117,6 +119,20 @@ it('attaches a manual PDF on creation and retains each version when the PDF is r
     $history = $this->get(fiscalPdfUrl($document, $this->account).'/'.$original->id)->assertOk();
     expect($history->streamedContent())->toBe(fiscalPdfBytes());
     $this->get(fiscalPdfUrl($anotherDocument, $this->account).'/'.$original->id)->assertNotFound();
+});
+
+it('opens the edit form with strict models, as they are in the local environment', function () {
+    actingAsAdmin();
+    $document = FiscalDocument::factory()->create();
+    Model::shouldBeStrict();
+
+    try {
+        Livewire::test(EditFiscalDocument::class, ['record' => $document->id])
+            ->assertOk()
+            ->assertFormFieldExists('pdf_upload', fn (FileUpload $field): bool => $field->getUploadedFiles() === []);
+    } finally {
+        Model::shouldBeStrict(false);
+    }
 });
 
 it('rejects invalid PDF content before saving an edit', function (string $content) {

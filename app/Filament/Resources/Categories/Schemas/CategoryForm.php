@@ -19,6 +19,7 @@ class CategoryForm
                     ->options(CategoryType::class)
                     ->default(CategoryType::Expense)
                     ->inline()
+                    ->grouped()
                     ->required(),
                 TextInput::make('name')
                     ->label(__('Name'))

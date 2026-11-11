@@ -36,7 +36,7 @@ class CategoriesTable
             ])
             ->recordActions([
                 ActionGroup::make([
-                    EditAction::make(),
+                    EditAction::make()->modalWidth('md'),
                     DeleteAction::make()
                         ->visible(fn (Category $record) => static::usage($record) === 0),
                 ]),

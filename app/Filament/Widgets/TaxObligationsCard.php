@@ -188,8 +188,8 @@ class TaxObligationsCard extends Widget implements HasActions, HasSchemas
     {
         $days = $obligation->daysLeft($today);
         [$mark, $markTooltip] = in_array($obligation->status, ['due', 'overdue'], true) ? match ($obligation->kind) {
-            'ss', 'vat-reverse' => [__('Paid'), __('Mark as paid')],
-            'ss-declaration', 'recapitulativa', 'irs-modelo3' => [__('Filed'), __('Mark as filed')],
+            'ss', 'vat-reverse', 'irs-ppc' => [__('Paid'), __('Mark as paid')],
+            'ss-declaration', 'ss-annual', 'vat-return', 'recapitulativa', 'irs-modelo3' => [__('Filed'), __('Mark as filed')],
             default => [null, null],
         } : [null, null];
 
@@ -320,6 +320,10 @@ class TaxObligationsCard extends Widget implements HasActions, HasSchemas
     {
         if ($obligation->kind === 'irs-modelo3') {
             return ' · '.substr($obligation->key, -4);
+        }
+
+        if (in_array($obligation->kind, ['vat-return', 'ss-annual', 'irs-ppc'], true)) {
+            return ' · '.$obligation->period();
         }
 
         if (! in_array($obligation->kind, ['ss', 'vat-reverse', 'recapitulativa'], true)) {

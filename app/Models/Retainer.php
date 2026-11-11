@@ -7,7 +7,6 @@ use App\Models\Concerns\BelongsToAccount;
 use App\Models\Concerns\HasReceivables;
 use App\Models\Concerns\HasVatAmounts;
 use App\Support\FinanceSettings;
-use App\Support\Money;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -75,7 +74,7 @@ class Retainer extends Model implements AuditableContract
     /** Value per year at the current amount (e.g. 20 € monthly → 240 €). */
     protected function yearlyValue(): Attribute
     {
-        return Attribute::get(fn (): int => Money::round($this->total * 12 / $this->frequency->months()));
+        return Attribute::get(fn (): int => $this->frequency->perYear((int) $this->total));
     }
 
     protected function nextDueOn(): Attribute

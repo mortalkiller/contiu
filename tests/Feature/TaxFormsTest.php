@@ -11,7 +11,7 @@ use App\Models\Client;
 use App\Models\Expense;
 use App\Models\Supplier;
 use Filament\Actions\Testing\TestAction;
-use Filament\Forms\Components\Select;
+use Filament\Forms\Components\ToggleButtons;
 use Livewire\Livewire;
 
 pest()->group('ui', 'fiscal');
@@ -38,7 +38,7 @@ function taxFormsExpenseData(Supplier $supplier, array $overrides = []): array
 it('asks where a supplier is seated and shows it in the list', function () {
     Livewire::test(ManageSuppliers::class)
         ->mountAction('create')
-        ->assertFormFieldExists('seat', 'mountedActionSchema0', fn (Select $field): bool => $field->getLabel() === 'Onde fica a sede da empresa?')
+        ->assertFormFieldExists('seat', 'mountedActionSchema0', fn (ToggleButtons $field): bool => $field->getLabel() === 'Sede')
         ->assertSchemaStateSet(['seat' => Seat::Portugal], 'mountedActionSchema0')
         ->fillForm(['name' => 'Hetzner', 'seat' => Seat::EuropeanUnion->value])
         ->callMountedAction()

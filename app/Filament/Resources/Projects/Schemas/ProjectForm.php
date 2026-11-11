@@ -11,13 +11,16 @@ use App\Filament\Support\QuickCreate;
 use App\Support\CurrentAccount;
 use App\Support\Money;
 use Closure;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Component;
+use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
@@ -28,36 +31,71 @@ use Illuminate\Validation\Rules\Unique;
 
 class ProjectForm
 {
-    /** The full form, used by the edit page (the create page is a wizard built from the same parts). */
-    public static function configure(Schema $schema): Schema
+    /**
+     * As in the mock ("Novo trabalho"), on both the create and the edit page: the project, its
+     * amount, the payment plan and notes, one card each, with a summary beside them that follows
+     * what is typed. The create page adds quick plans over the instalments.
+     *
+     * @param  array<int, Action>  $planPresets
+     */
+    public static function configure(Schema $schema, array $planPresets = []): Schema
     {
         return $schema
-            ->columns(3)
+            ->defaultDateDisplayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
+            ->defaultNumberLocale(fn (): string => app()->getLocale())
+            ->columns(['default' => 1, 'lg' => 3])
             ->components([
-                Section::make(__('Project'))
-                    ->columnSpan(2)
-                    ->columns(2)
-                    ->schema([
-                        static::codeField(),
-                        static::statusField(),
-                        ...static::clientFields(),
-                        ...static::projectFields(),
-                    ]),
+                Group::make([
+                    Section::make(__('Project'))
+                        ->columns(['default' => 1, 'sm' => 2])
+                        ->schema([
+                            static::codeField(),
+                            static::statusField(),
+                            ...static::clientFields(),
+                            ...static::projectFields(),
+                        ]),
 
-                Section::make(__('Amount'))
-                    ->columnSpan(1)
-                    ->schema(static::valueFields()),
+                    Section::make(__('Amount'))
+                        ->columns(['default' => 1, 'sm' => 3])
+                        ->schema(static::valueFields()),
 
-                Section::make(__('Payment plan'))
-                    ->description(__('Add one row per instalment. For a single payment, leave one row with the full amount.'))
-                    ->columnSpanFull()
-                    ->schema(static::planFields()),
+                    Section::make(__('Payment plan'))
+                        ->schema([
+                            ...($planPresets === [] ? [] : [Actions::make($planPresets)->key('planPresets')]),
+                            ...static::planFields(),
+                        ]),
 
-                Section::make(__('Notes'))
-                    ->columnSpanFull()
-                    ->collapsed()
-                    ->schema([static::notesField()]),
+                    Section::make(__('Notes'))
+                        ->schema([static::notesField()]),
+                ])->columnSpan(['default' => 1, 'lg' => 2]),
+
+                static::summarySection(),
             ]);
+    }
+
+    /** The amounts, what the instalments add up to and until when, and the project's status. */
+    private static function summarySection(): Section
+    {
+        $statuses = collect(ProjectStatus::cases())->mapWithKeys(fn (ProjectStatus $status): array => [$status->value => $status->getLabel()])->all();
+
+        return FinanceFields::summary([
+            ...FinanceFields::amountLines(),
+            TextEntry::make('summary_planned')
+                ->label(__('Planned'))
+                ->state(fn (Get $get): HtmlString => FinanceFields::preview('planned', static::plannedCents($get('receivables')))),
+            TextEntry::make('summary_instalments')
+                ->label(__('Instalments'))
+                ->state(fn (): HtmlString => FinanceFields::preview('instalments', '—', ['some' => __(':count · until :date')])),
+            TextEntry::make('summary_status')
+                ->hiddenLabel()
+                ->inlineLabel(false)
+                ->state(fn (Get $get): HtmlString => FinanceFields::preview(
+                    'choice',
+                    ($get('status') instanceof ProjectStatus ? $get('status') : ProjectStatus::tryFrom((string) $get('status')))?->getLabel() ?? '',
+                    $statuses,
+                    'status',
+                )),
+        ]);
     }
 
     public static function codeField(): TextInput
@@ -119,11 +157,7 @@ class ProjectForm
     /** @return array<int, Component> */
     public static function valueFields(): array
     {
-        return [
-            FinanceFields::netAmount(),
-            FinanceFields::vatRate(),
-            FinanceFields::totalPreview(),
-        ];
+        return FinanceFields::amountFields();
     }
 
     /** The instalments repeater and the live "do they add up?" line. @return array<int, Component> */
@@ -188,7 +222,7 @@ class ProjectForm
 
     public static function notesField(): Textarea
     {
-        return Textarea::make('notes')->hiddenLabel()->rows(3);
+        return Textarea::make('notes')->hiddenLabel()->rows(3)->placeholder(__('Only for you.'));
     }
 
     /** Project total in cents from the form (which holds euros). */

@@ -51,7 +51,7 @@ function registrationData(array $overrides = []): array
         'vat_exempt' => true,
         'vat_exemption_threshold' => 15000,
         'ss_rate' => '0.214',
-        'ss_relevant_income_share_percent' => 70,
+        'ss_exemption_reason' => 'accumulation',
         'ss_contribution_exempt' => true,
         'has_business_account' => true,
         'account_names' => " RITA SILVA \n\nOrdenado",
@@ -136,7 +136,7 @@ it('starts with the usual rates and VAT limit', function () {
         'dependent_income_current_year' => false,
         'ss_rate' => '0.214',
         'ss_contribution_exempt' => false,
-        'ss_relevant_income_share_percent' => 70,
+        'ss_exemption_reason' => null,
         'vat_exemption_threshold' => 15000,
         'terms' => false,
     ]);

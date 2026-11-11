@@ -21,7 +21,6 @@ final class FinanceSettings
         'vat_region' => null,
         'vat_exemption_threshold' => 1500000, // cents
         'ss_rate' => 0.214,
-        'ss_relevant_income_share' => 0.70,
         'payments_exempt_by_default' => false,
         'account_names' => null, // one per line: the holder's name and the holder's own accounts
         // A bank account only for the activity, whose statement is imported. On for accounts from
@@ -41,7 +40,30 @@ final class FinanceSettings
         'tax_reserve_transfer' => null,
         // From when the obligations card lists overdue obligations (default: the account's creation).
         'obligations_tracked_from' => null,
+        // Whether the activity is already open with the Finanças; off: an account waiting to open it,
+        // with no obligations nor estimates yet.
+        'activity_opened' => true,
+        // simplified | organised: Contiu only estimates IRS and Social Security in the simplified regime.
+        'accounting_regime' => 'simplified',
+        // Why the Social Security exemption applies (art. 157.º): accumulation | pension | minimum | other.
+        'ss_exemption_reason' => null,
+        // Percent added to the declared relevant income, from -25 to 25 in steps of 5 (art. 164.º).
+        'ss_base_adjustment' => 0,
+        // monthly | quarterly periodic VAT return, outside the art. 53.º exemption (art. 41.º CIVA).
+        'vat_period' => 'quarterly',
+        // The worker waived IRS withholding on their receipts (art. 101.º-B CIRS).
+        'withholding_waiver' => false,
+        /*
+         * From the IRS assessment of a year (nota de liquidação), for the payments on account two
+         * years later (art. 102.º CIRS): {"income_year": 2024, "tax": cents, "withheld": cents,
+         * "net_business": cents, "net_total": cents}.
+         */
+        'irs_prepayment_basis' => null,
     ];
+
+    public const SS_EXEMPTION_REASONS = ['accumulation', 'pension', 'minimum', 'other'];
+
+    public const SS_BASE_ADJUSTMENTS = [-25, -20, -15, -10, -5, 0, 5, 10, 15, 20, 25];
 
     /** @var array<int, array<string, mixed>> */
     private array $valuesByAccount = [];
@@ -136,9 +158,75 @@ final class FinanceSettings
         return (float) $this->all()['ss_rate'];
     }
 
+    /**
+     * Share of the income that is relevant for the Social Security (art. 162.º CRC, SS020): 20 % of
+     * sales of goods, restaurants and hotels (the IRS 0.15 coefficient), 70 % of services.
+     */
     public function ssRelevantIncomeShare(): float
     {
-        return (float) $this->all()['ss_relevant_income_share'];
+        return $this->sellsGoodsUnderIrs() ? 0.20 : 0.70;
+    }
+
+    /** The IRS coefficient is the one of sales of goods, restaurants and hotels (art. 31.º, n.º 1, a), SIM001). */
+    public function sellsGoodsUnderIrs(): bool
+    {
+        return round($this->irsCoefficient(), 2) === 0.15;
+    }
+
+    /** accumulation | pension | minimum | other; null when exempt without saying why. */
+    public function ssExemptionReason(): ?string
+    {
+        $reason = $this->all()['ss_exemption_reason'];
+
+        return in_array($reason, self::SS_EXEMPTION_REASONS, true) ? $reason : null;
+    }
+
+    /** The chosen change to the relevant income, as a fraction (−0.25 to 0.25). */
+    public function ssBaseAdjustment(): float
+    {
+        $percent = (int) $this->all()['ss_base_adjustment'];
+
+        return in_array($percent, self::SS_BASE_ADJUSTMENTS, true) ? $percent / 100 : 0.0;
+    }
+
+    public function activityOpened(): bool
+    {
+        return (bool) $this->all()['activity_opened'];
+    }
+
+    /** simplified | organised. */
+    public function accountingRegime(): string
+    {
+        return $this->all()['accounting_regime'] === 'organised' ? 'organised' : 'simplified';
+    }
+
+    /** IRS and Social Security are only estimated for the simplified regime with an open activity. */
+    public function estimatesTaxes(): bool
+    {
+        return $this->activityOpened() && $this->accountingRegime() === 'simplified';
+    }
+
+    /** 1 for monthly VAT returns, 3 for quarterly ones. */
+    public function vatPeriodMonths(): int
+    {
+        return $this->all()['vat_period'] === 'monthly' ? 1 : 3;
+    }
+
+    public function withholdingWaiver(): bool
+    {
+        return (bool) $this->all()['withholding_waiver'];
+    }
+
+    /** @return array{income_year: int, tax: int, withheld: int, net_business: int, net_total: int}|null */
+    public function irsPrepaymentBasis(): ?array
+    {
+        $basis = $this->all()['irs_prepayment_basis'];
+
+        if (! is_array($basis) || ! isset($basis['income_year'], $basis['tax'], $basis['withheld'], $basis['net_business'], $basis['net_total'])) {
+            return null;
+        }
+
+        return array_map('intval', array_intersect_key($basis, array_flip(['income_year', 'tax', 'withheld', 'net_business', 'net_total'])));
     }
 
     public function activityStartedOn(): ?CarbonImmutable
@@ -213,10 +301,13 @@ final class FinanceSettings
         return (float) $this->all()['reverse_charge_vat_rate'];
     }
 
-    /** The account still has to say when and how the activity started. */
+    /**
+     * The account still has to say when and how the activity started. An account waiting to open
+     * the activity is not incomplete: it has nothing to say yet.
+     */
     public function isIncomplete(): bool
     {
-        return $this->activityStartedOn() === null || $this->activityStartKind() === null;
+        return $this->activityOpened() && ($this->activityStartedOn() === null || $this->activityStartKind() === null);
     }
 
     private function date(string $key): ?CarbonImmutable

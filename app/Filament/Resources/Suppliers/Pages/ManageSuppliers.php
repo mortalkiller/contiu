@@ -47,7 +47,7 @@ class ManageSuppliers extends ManageRecords
                 ->icon(Phosphor::DownloadSimple)
                 ->color('gray')
                 ->exports([SuppliersTable::excelExport()]),
-            CreateAction::make()->label(__('New supplier')),
+            CreateAction::make()->label(__('New supplier'))->modalHeading(__('New supplier'))->modalWidth('lg'),
         ];
     }
 

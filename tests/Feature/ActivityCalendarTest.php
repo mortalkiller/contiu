@@ -177,6 +177,7 @@ it('sorts the entries by date', function () {
 
 it('names the month or year each obligation is about', function () {
     $this->travelTo(Carbon::parse('2027-05-09'));
+    app(FinanceSettings::class)->set(['vat_exempt' => true]);
     Expense::factory()->for(Supplier::factory()->create(['seat' => Seat::EuropeanUnion]))
         ->create(['spent_on' => '2027-04-15', 'is_goods' => false, 'vat_rate' => 0, 'net_amount' => 1000]);
 

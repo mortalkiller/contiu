@@ -86,7 +86,7 @@ class UpcomingTaxPayments extends Widget
 
     private function isDeclaration(TaxObligation $obligation): bool
     {
-        return in_array($obligation->kind, ['ss-declaration', 'recapitulativa', 'irs-modelo3'], true);
+        return in_array($obligation->kind, ['ss-declaration', 'ss-annual', 'vat-return', 'recapitulativa', 'irs-modelo3'], true);
     }
 
     private function obligations(): TaxObligations

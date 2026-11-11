@@ -47,21 +47,10 @@ final class EuServicesRecap
         return $bases;
     }
 
+    /** The 20th of the month, moved by PortugueseDeadline (IVA17). */
     public function deadline(CarbonImmutable $month): CarbonImmutable
     {
-        if ($month->month === 8) {
-            return $month->endOfMonth()->startOfDay();
-        }
-
-        $deadline = $month->setDay(20);
-        // The movable national holidays that can fall on or just after the 20th.
-        $easter = CarbonImmutable::create($month->year, 3, 21)->addDays(easter_days($month->year));
-
-        while ($deadline->isWeekend() || $deadline->isSameDay($easter->subDays(2)) || $deadline->isSameDay($easter->addDays(60))) {
-            $deadline = $deadline->addDay();
-        }
-
-        return $deadline;
+        return PortugueseDeadline::of($month->setDay(20));
     }
 
     /** @return array{documents: int, payments: int, unknownFrequency: int, editedDocuments: int} */

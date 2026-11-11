@@ -16,10 +16,6 @@ use Illuminate\Validation\ValidationException;
 
 final readonly class TerritorialTurnover
 {
-    public const ANNUAL_LIMIT = 1500000;
-
-    public const IN_YEAR_LIMIT = 1875000;
-
     /**
      * @param  array<int, array{document: FiscalDocument, review: ?TerritorialTurnoverReview, stale: bool, credit_verified: bool, source: string, revision: string}>  $documents
      */
@@ -198,7 +194,7 @@ final readonly class TerritorialTurnover
     public function nextYearNotice(): ?string
     {
         if ($this->year >= 2025 && $this->coverage() !== null && ! $this->hasUnverifiedCreditNotes()
-            && $this->subtotal() > self::ANNUAL_LIMIT) {
+            && $this->subtotal() > YearlyParameter::vatExemptionLimit($this->year)) {
             return __($this->year === $this->asOfYear
                 ? 'Turnover exceeded €15,000 in :year. If the total remains above that amount at year end, Article 58 requires VAT from January 1, :nextYear.'
                 : 'Turnover exceeded €15,000 in :year. Article 58 requires VAT from January 1, :nextYear.', [
@@ -231,7 +227,7 @@ final readonly class TerritorialTurnover
         $subtotal = $this->subtotal();
         $fallback = $subtotal === null;
         $amount = $subtotal ?? $estimator->income();
-        $limit = $fallback || $this->year < 2025 ? $estimator->vatExemptionThreshold($this->through) : self::ANNUAL_LIMIT;
+        $limit = $fallback || $this->year < 2025 ? $estimator->vatExemptionThreshold($this->through) : YearlyParameter::vatExemptionLimit($this->year);
         $percent = $limit > 0 ? round($amount / $limit * 100, 1) : 0.0;
         $notice = $this->notice();
         $advisory = $this->advisory() ?? ($fallback && $percent >= 80
@@ -365,14 +361,15 @@ final readonly class TerritorialTurnover
         }
 
         ksort($days);
+        $limit = YearlyParameter::vatExemptionTolerance($this->year);
         $balance = 0;
         $possible = false;
 
         foreach ($days as $day) {
             // The daily close is certain. The peak before credits is possible without a known order.
-            $possible = $possible || $balance + $day['invoices'] > self::IN_YEAR_LIMIT;
+            $possible = $possible || $balance + $day['invoices'] > $limit;
             $balance += $day['invoices'] - $day['credits'];
-            if ($balance > self::IN_YEAR_LIMIT) {
+            if ($balance > $limit) {
                 return 'confirmed';
             }
         }

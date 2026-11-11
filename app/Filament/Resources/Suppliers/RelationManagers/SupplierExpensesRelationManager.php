@@ -45,7 +45,7 @@ class SupplierExpensesRelationManager extends RelationManager
             ->defaultSort('spent_on', 'desc')
             ->heading(null)
             ->searchPlaceholder(__('Description or invoice number'))
-            ->recordUrl(fn (Expense $record): ?string => ExpenseResource::canEdit($record) ? ExpenseResource::getUrl('edit', ['record' => $record]) : null)
+            ->recordUrl(fn (Expense $record): ?string => ExpenseResource::canView($record) ? ExpenseResource::getUrl('view', ['record' => $record]) : null)
             ->columns([
                 TextColumn::make('description')
                     ->label(__('Expense'))

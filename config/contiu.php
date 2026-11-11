@@ -19,8 +19,43 @@ return [
         'yearly' => env('STRIPE_PRICE_YEARLY'),
     ],
 
-    // Indexante dos Apoios Sociais by year, in cents.
-    'ias' => [2025 => 52250, 2026 => 53713],
+    /*
+     * Fiscal values that change every year, keyed by the year they apply to. Read them through
+     * App\Support\YearlyParameter. Sources: docs/fiscal/memoria-fiscal-ti-eni-portugal-2026.md
+     * (rule IDs in brackets). Amounts in cents.
+     */
+
+    // Indexante dos Apoios Sociais (SS080).
+    'ias' => [2023 => 48043, 2024 => 50926, 2025 => 52250, 2026 => 53713],
+
+    // Art. 53.º CIVA exemption limit (IVA07) and, from 2025, the immediate-exit limit (IVA10).
+    'vat_exemption_limit' => [2023 => 1350000, 2024 => 1450000, 2025 => 1500000, 2026 => 1500000],
+    'vat_exemption_tolerance' => [2025 => 1875000, 2026 => 1875000],
+
+    // Art. 25.º, n.º 1, a), CIRS: the automatic part of the 15 % expenses check (DES003, HIST001).
+    'irs_specific_deduction' => [2023 => 410400, 2024 => 435024, 2025 => 446215, 2026 => 458709],
+
+    // Art. 102.º CIRS: share of the computed amount paid on account (PPC002).
+    'irs_prepayment_factor' => [2023 => 0.765, 2024 => 0.765, 2025 => 0.65, 2026 => 0.65],
+
+    /*
+     * Art. 68.º CIRS, mainland: upper limit of each bracket in cents, then the marginal and the
+     * average rate in thousandths of a percent (2026 after DL 212/2026). The last bracket has no
+     * limit nor average rate.
+     */
+    'irs_brackets' => [
+        2026 => [
+            [834200, 12200, 12200],
+            [1258700, 15200, 13212],
+            [1783800, 20700, 15416],
+            [2308900, 23600, 17277],
+            [2939700, 30600, 20136],
+            [4309000, 34600, 24732],
+            [4656600, 43100, 26103],
+            [8663400, 44600, 34658],
+            [null, 48000, null],
+        ],
+    ],
 
     /*
      * Account slugs are the first URL segment (/{slug}/…), so no account may take a name the

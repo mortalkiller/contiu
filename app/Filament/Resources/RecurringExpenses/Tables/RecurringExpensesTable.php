@@ -4,6 +4,7 @@ namespace App\Filament\Resources\RecurringExpenses\Tables;
 
 use App\Enums\Language;
 use App\Filament\Resources\Expenses\Schemas\ExpenseForm;
+use App\Filament\Resources\RecurringExpenses\RecurringExpenseResource;
 use App\Filament\Support\TableEmptyState;
 use App\Models\RecurringExpense;
 use Filament\Actions\ActionGroup;
@@ -24,6 +25,9 @@ class RecurringExpensesTable
             ->defaultDateDisplayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
             ->defaultNumberLocale(fn (): string => app()->getLocale())
             ->defaultSort('description')
+            ->recordUrl(fn (RecurringExpense $record): ?string => RecurringExpenseResource::canView($record)
+                ? RecurringExpenseResource::getUrl('view', ['record' => $record])
+                : null)
             ->columns([
                 TextColumn::make('supplier.name')
                     ->label(__('Supplier'))
@@ -65,7 +69,7 @@ class RecurringExpensesTable
             ->recordActions([
                 ActionGroup::make([
                     EditAction::make()
-                        ->modalWidth('5xl')
+                        ->modalWidth('3xl')
                         ->mutateDataUsing(fn (array $data) => ExpenseForm::normalize($data)),
                     DeleteAction::make(),
                 ]),
@@ -77,8 +81,9 @@ class RecurringExpensesTable
                 : __('Add hosting, software and subscriptions here. They then show up in the cash forecast and the calendar.'))
             ->emptyStateActions([
                 CreateAction::make()
-                    ->label(__('New recurring expense'))
-                    ->modalWidth('5xl')
+                    ->label(__('New recurring expense'))->modalHeading(__('New recurring expense'))
+                    ->modalDescription(__('Contiu creates the expense on the right day, unpaid, for you to just confirm.'))
+                    ->modalWidth('3xl')
                     ->mutateDataUsing(fn (array $data) => ExpenseForm::normalize($data))
                     ->hidden(fn (HasTable $livewire): bool => TableEmptyState::isNarrowed($livewire)),
                 TableEmptyState::clearAction(),

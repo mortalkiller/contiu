@@ -141,7 +141,7 @@ describe('Upcoming payments and declarations', function () {
     beforeEach(function () {
         $this->travelTo(CarbonImmutable::parse('2026-11-10'));
         actingAsAdmin();
-        app(FinanceSettings::class)->set(['activity_started_on' => '2020-01-01', 'activity_start_kind' => 'first', 'obligations_tracked_from' => '2026-10-01']);
+        app(FinanceSettings::class)->set(['activity_started_on' => '2020-01-01', 'activity_start_kind' => 'first', 'obligations_tracked_from' => '2026-10-01', 'vat_exempt' => true]);
     });
 
     it('lists what is late and lets the late declaration be marked filed', function () {
@@ -159,7 +159,8 @@ describe('Upcoming payments and declarations', function () {
     it('says whether each closed quarter\'s declaration is on record', function () {
         Livewire::test(TaxQuartersTable::class, ['year' => 2026])
             ->assertSee('Declaração')
-            ->assertSee('Atrasada 10 dias')
+            // Due on 31 October, a Saturday: the deadline moved to Monday 2 November.
+            ->assertSee('Atrasada 8 dias')
             ->assertSee('Abrir Segurança Social');
     });
 });

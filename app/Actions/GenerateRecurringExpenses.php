@@ -116,7 +116,7 @@ class GenerateRecurringExpenses
                     ->actions([
                         Action::make('open')
                             ->label(__('View expense'))
-                            ->url(ExpenseResource::getUrl('edit', ['record' => $expense], panel: 'admin', tenant: CurrentAccount::get())),
+                            ->url(ExpenseResource::getUrl('view', ['record' => $expense], panel: 'admin', tenant: CurrentAccount::get())),
                     ])
                     ->sendToDatabase($users);
             });

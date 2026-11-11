@@ -6,20 +6,11 @@ use InvalidArgumentException;
 
 final class IrsSettlementEstimate
 {
+    /**
+     * The year the brackets are known for (config `contiu.irs_brackets`, art. 68.º CIRS). The page
+     * only offers the settlement for it: another year's income needs that year's tables.
+     */
     public const int YEAR = 2026;
-
-    /** Article 68: upper limit in cents, normal and average rates in thousandths of a percent. */
-    private const array BRACKETS = [
-        [834200, 12200, 12200],
-        [1258700, 15200, 13212],
-        [1783800, 20700, 15416],
-        [2308900, 23600, 17277],
-        [2939700, 30600, 20136],
-        [4309000, 34600, 24732],
-        [4656600, 43100, 26103],
-        [8663400, 44600, 34658],
-        [PHP_INT_MAX, 48000, 0],
-    ];
 
     /**
      * Individual mainland taxation on an already established taxable base, with non-refundable deductions.
@@ -30,7 +21,9 @@ final class IrsSettlementEstimate
     {
         $inputs = [$taxable, $deductions, $withholding, $advancePayments];
 
-        if ($year !== self::YEAR || min($inputs) < 0 || max($inputs) > 99_999_999_999) {
+        $brackets = config('contiu.irs_brackets')[$year] ?? null;
+
+        if ($brackets === null || min($inputs) < 0 || max($inputs) > 99_999_999_999) {
             throw new InvalidArgumentException(__('The data is outside the scope of this personal income tax estimate.'));
         }
 
@@ -38,7 +31,9 @@ final class IrsSettlementEstimate
         $lowerAverage = 0;
         $weighted = 0;
 
-        foreach (self::BRACKETS as [$upper, $marginal, $average]) {
+        foreach ($brackets as [$upper, $marginal, $average]) {
+            $upper ??= PHP_INT_MAX;
+
             if ($taxable < $upper) {
                 $weighted = $lower * $lowerAverage + ($taxable - $lower) * $marginal;
                 break;

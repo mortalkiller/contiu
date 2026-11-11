@@ -76,7 +76,7 @@ class ListClients extends ListRecords
                 ->icon(Phosphor::DownloadSimple)
                 ->color('gray')
                 ->exports([ClientsTable::excelExport()]),
-            CreateAction::make()->label(__('New client'))->icon(Phosphor::Plus)->modalWidth('2xl')->databaseTransaction(),
+            CreateAction::make()->label(__('New client'))->modalHeading(__('New client'))->icon(Phosphor::Plus)->modalWidth('3xl')->databaseTransaction(),
         ];
     }
 }

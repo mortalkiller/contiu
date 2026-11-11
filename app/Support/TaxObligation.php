@@ -7,8 +7,9 @@ use Carbon\CarbonImmutable;
 /**
  * One line of the "Este mês" card: something to pay or deliver (or a note about the VAT regime).
  *
- * kind: ss | ss-declaration | vat-reverse | recapitulativa | irs-modelo3 (things to do),
- * vat-threshold | foreign-vat-warning | incomplete-settings (notes, status info).
+ * kind: ss | ss-declaration | ss-annual | vat-return | vat-reverse | recapitulativa | irs-modelo3 |
+ * irs-ppc (things to do), vat-threshold | foreign-vat-warning | incomplete-settings |
+ * activity-not-opened | ss-enrolment-date | withholding-waiver-ended (notes, status info).
  * status: due | overdue | done | exempt | info. Amounts in cents; null when there is nothing to pay.
  */
 final readonly class TaxObligation
@@ -27,8 +28,9 @@ final readonly class TaxObligation
         public string $status,
     ) {
         $this->periodLabel = match ($this->kind) {
-            'irs-modelo3' => substr($this->key, -4),
-            'recapitulativa' => preg_match('/-Q([1-4])$/', $this->key, $parts)
+            'irs-modelo3', 'ss-annual' => substr($this->key, -4),
+            'irs-ppc' => substr($this->key, -6, 4),
+            'recapitulativa', 'vat-return' => preg_match('/-Q([1-4])$/', $this->key, $parts)
                 ? __('Q:quarter', ['quarter' => $parts[1]])
                 : Period::monthName((int) substr($this->key, -2), inSentence: true),
             'ss', 'vat-reverse' => Period::monthName((int) substr($this->key, -2), inSentence: true),

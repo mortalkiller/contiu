@@ -28,6 +28,15 @@ final class TaxSettingsFields
     public const IRS_COEFFICIENTS = [
         '0.75' => 'Services listed in Article 151 (0.75 coefficient)',
         '0.35' => 'Other services (0.35 coefficient)',
+        '0.15' => 'Sale of goods, restaurants and hotels (0.15 coefficient)',
+    ];
+
+    /** Why the Social Security exemption applies (art. 157.º CRC). */
+    public const SS_EXEMPTION_REASONS = [
+        'accumulation' => 'I also have a job with someone else (accumulation)',
+        'pension' => 'I receive an old-age or disability pension',
+        'minimum' => 'Last year I only paid the minimum contribution',
+        'other' => 'Another reason recognised by Social Security',
     ];
 
     /** IRS Jovem lasts this many years (art. 12.º-B do CIRS). */
@@ -107,7 +116,9 @@ final class TaxSettingsFields
             self::whereToFind(
                 DatePicker::make('ss_enrolled_from')
                     ->label(__('Social Security coverage starts on'))
-                    ->helperText(__('Optional. Leave blank to calculate it as 12 months after your first registration or the month of a restart.'))
+                    ->helperText(__('After a restart, enter the date Social Security shows: it depends on your previous activity. For a first registration you can leave it blank: it is the first day of the 12th month after the month you started.'))
+                    // SS012: after a restart only the Social Security knows when the obligation starts again.
+                    ->requiredIf('activity_start_kind', 'restart')
                     ->native(false)
                     ->displayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
                     ->columnSpanFull(),
@@ -177,6 +188,7 @@ final class TaxSettingsFields
                     ->descriptions([
                         '0.75' => __('Occupations listed in Article 151 of the Portuguese Income Tax Code, such as programmers, designers and consultants.'),
                         '0.35' => __('Services not listed in the table.'),
+                        '0.15' => __('Selling goods or products, restaurants, bars and hotels. Social Security counts 20% of this income instead of 70%.'),
                     ])
                     ->helperText(__('Classification depends on the service you provide, regardless of the registered CAE or CIRS code (Tax Authority Circular 2/2016). The coefficient determines the taxable share of income.'))
                     ->required()
@@ -226,21 +238,7 @@ final class TaxSettingsFields
                     ->options(array_map(fn (string $label): string => __($label), self::SS_RATES))
                     ->default('0.214')
                     ->required(),
-                __(':path: “Forma de atividade (taxa)”.', ['path' => __(self::SS_DIRECTA_ACTIVITY)]),
-            ),
-            // Stored as a fraction (0.70); typed as a percentage.
-            self::whereToFind(
-                TextInput::make('ss_relevant_income_share_percent')
-                    ->label(__('Relevant income'))
-                    ->helperText(__('70% for services.'))
-                    ->numeric()
-                    ->step(1)
-                    ->minValue(0)
-                    ->maxValue(100)
-                    ->suffix('%')
-                    ->default(70)
-                    ->required(),
-                __('70% for services and 20% for sales of goods (Article 162 of the Social Security Contributions Code). Leave it at 70% if unsure.'),
+                __(':path: “Forma de atividade (taxa)”. The 25.2% rate is for sole traders (ENI) whose activity is only commercial or industrial; selling services is 21.4%.', ['path' => __(self::SS_DIRECTA_ACTIVITY)]),
             ),
             self::whereToFind(
                 Toggle::make('ss_contribution_exempt')
@@ -249,6 +247,15 @@ final class TaxSettingsFields
                     ->columnSpanFull(),
                 __(':path: under “Situação atual”, enable this option if it says “Não tem obrigação de contribuir”.', ['path' => __(self::SS_DIRECTA_ACTIVITY)]),
             ),
+            Select::make('ss_exemption_reason')
+                ->label(__('Why are you exempt?'))
+                ->options(array_map(fn (string $label): string => __($label), self::SS_EXEMPTION_REASONS))
+                ->helperText(__('With a job, the exemption only holds while your relevant income stays under 4 IAS a month. Above that you pay on the excess, and the quarterly declaration is due again.'))
+                ->visibleJs("!! \$get('ss_contribution_exempt')")
+                ->dehydrated(fn (Get $get): bool => (bool) $get('ss_contribution_exempt'))
+                ->validatedWhenNotDehydrated(false)
+                ->required()
+                ->columnSpanFull(),
         ];
     }
 
@@ -277,8 +284,8 @@ final class TaxSettingsFields
             // Outside 1–10 the field would not validate and block every save.
             'irs_jovem_year_number' => self::irsJovemYearNumberInRange($settings, $year),
             'ss_rate' => (string) $settings->ssRate(),
-            'ss_relevant_income_share_percent' => round($settings->ssRelevantIncomeShare() * 100, 2),
             'ss_contribution_exempt' => $settings->ssContributionExempt(),
+            'ss_exemption_reason' => $settings->ssExemptionReason(),
         ];
     }
 
@@ -314,9 +321,12 @@ final class TaxSettingsFields
             'irs_coefficient' => (float) $data['irs_coefficient'],
             'irs_jovem' => (bool) ($data['irs_jovem'] ?? false),
             'ss_rate' => (float) $data['ss_rate'],
-            'ss_relevant_income_share' => round((float) $data['ss_relevant_income_share_percent'] / 100, 4),
             'ss_contribution_exempt' => (bool) ($data['ss_contribution_exempt'] ?? false),
         ];
+
+        if (array_key_exists('ss_exemption_reason', $data)) {
+            $values['ss_exemption_reason'] = $values['ss_contribution_exempt'] ? $data['ss_exemption_reason'] : null;
+        }
 
         if (array_key_exists('cae', $data)) {
             $values['cae'] = blank($data['cae']) ? null : trim((string) $data['cae']);

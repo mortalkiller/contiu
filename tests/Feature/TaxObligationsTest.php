@@ -28,6 +28,12 @@ pest()->group('integration', 'fiscal');
 const OBLIGATIONS_COMPLETE_SETTINGS = ['activity_started_on' => '2024-01-01', 'activity_start_kind' => 'first'];
 
 /**
+ * The same account with the art. 53.º VAT exemption: it self-assesses the VAT of foreign services
+ * on its own (vat-reverse), instead of in the periodic VAT return.
+ */
+const OBLIGATIONS_VAT_EXEMPT_SETTINGS = [...OBLIGATIONS_COMPLETE_SETTINGS, 'vat_exempt' => true];
+
+/**
  * The obligations seen on $today by an account that exists since $since (default: the 1st of
  * $today's month, so no earlier month is overdue unless the test says so).
  */
@@ -64,11 +70,11 @@ function paymentFrom(Client $client, string $on, int $amount): Payment
 it('lists what is due this month with amount and deadline', function () {
     serviceBoughtAbroad('2026-10-15', 1000);
 
-    $obligations = obligationsOn('2026-11-09');
+    $obligations = obligationsOn('2026-11-09', OBLIGATIONS_VAT_EXEMPT_SETTINGS);
     $rows = byKey($obligations->thisMonth());
     $today = CarbonImmutable::parse('2026-11-09');
 
-    expect(array_keys($rows))->toBe(['ss:2026-11', 'vat-reverse:2026-10'])
+    expect(array_keys($rows))->toBe(['ss:2026-11', 'vat-reverse:2026-10', 'vat-threshold:2026'])
         ->and($rows['ss:2026-11'])->toMatchObject(['kind' => 'ss', 'title' => 'Segurança Social', 'amount' => 2000, 'status' => 'due'])
         ->and($rows['ss:2026-11']->dueOn->toDateString())->toBe('2026-11-20')
         ->and($rows['ss:2026-11']->opensOn->toDateString())->toBe('2026-11-10')
@@ -84,13 +90,15 @@ it('lists what is due this month with amount and deadline', function () {
 it('shows the January set across the year boundary', function () {
     serviceBoughtAbroad('2026-11-20', 5000);
 
-    $rows = byKey(obligationsOn('2027-01-05', since: '2026-12-01')->thisMonth());
+    $rows = byKey(obligationsOn('2027-01-05', OBLIGATIONS_VAT_EXEMPT_SETTINGS, since: '2026-12-01')->thisMonth());
 
-    expect($rows)->toHaveKeys(['ss:2027-01', 'ss-declaration:2026-Q4', 'vat-reverse:2026-11'])
+    expect($rows)->toHaveKeys(['ss:2027-01', 'ss-declaration:2026-Q4', 'ss-annual:2026', 'vat-reverse:2026-11'])
         // January pays December's contribution, set by the income of jul–set.
         ->and($rows['ss:2027-01']->detail)->toContain('contribuição de dezembro')->toContain('rendimentos de jul–set')
         ->and($rows['ss-declaration:2026-Q4'])->toMatchObject(['kind' => 'ss-declaration', 'amount' => null, 'status' => 'due'])
-        ->and($rows['ss-declaration:2026-Q4']->dueOn->toDateString())->toBe('2027-01-31')
+        // 31 January 2027 is a Sunday: the deadline moves to Monday (SS052).
+        ->and($rows['ss-declaration:2026-Q4']->dueOn->toDateString())->toBe('2027-02-01')
+        ->and($rows['ss-annual:2026']->dueOn->toDateString())->toBe('2027-02-01')
         ->and($rows['vat-reverse:2026-11'])->toMatchObject(['status' => 'overdue', 'amount' => 1150])
         ->and($rows['vat-reverse:2026-11']->dueOn->toDateString())->toBe('2026-12-31')
         ->and($rows['vat-reverse:2026-11']->daysLeft(CarbonImmutable::parse('2027-01-05')))->toBe(-5)
@@ -150,7 +158,7 @@ it('shows SS as exempt without a deadline', function () {
         ->and($rows['ss:2026-11']->daysLeft(CarbonImmutable::parse('2026-11-09')))->toBeNull()
         // Exempt months are never overdue.
         ->and(collect($rows)->where('kind', 'ss'))->toHaveCount(1)
-        ->and(obligationsOn('2026-11-09', [...OBLIGATIONS_COMPLETE_SETTINGS, 'ss_contribution_exempt' => true])->pending())->toBe([]);
+        ->and(obligationsOn('2026-11-09', [...OBLIGATIONS_VAT_EXEMPT_SETTINGS, 'ss_contribution_exempt' => true])->pending())->toBe([]);
 });
 
 it('shows SS as exempt during the first enrolment', function () {
@@ -162,10 +170,10 @@ it('shows SS as exempt during the first enrolment', function () {
 it('asks to complete the settings when they are incomplete', function () {
     serviceBoughtAbroad('2026-10-15', 1000);
 
-    $obligations = obligationsOn('2026-11-09', ['activity_started_on' => '2024-01-01', 'activity_start_kind' => null]);
+    $obligations = obligationsOn('2026-11-09', ['activity_started_on' => '2024-01-01', 'activity_start_kind' => null, 'vat_exempt' => true]);
     $rows = byKey($obligations->thisMonth());
 
-    expect(array_keys($rows))->toBe(['vat-reverse:2026-10', 'incomplete-settings'])
+    expect(array_keys($rows))->toBe(['vat-reverse:2026-10', 'incomplete-settings', 'vat-threshold:2026'])
         ->and($rows['incomplete-settings'])->toMatchObject(['status' => 'info', 'title' => 'Completa as definições fiscais'])
         ->and($rows['incomplete-settings']->url)->toContain('definicoes-fiscais')
         ->and($obligations->upcoming())->toBe([]);
@@ -342,21 +350,22 @@ it('lists overdue obligations from the date the account tracks them, before the 
     serviceBoughtAbroad('2026-10-27', 8374);
 
     // Created in November 2026: without a tracking date, April's purchases are not listed.
-    expect(byKey(obligationsOn('2026-11-09', OBLIGATIONS_COMPLETE_SETTINGS, since: '2026-11-08')->thisMonth()))
+    expect(byKey(obligationsOn('2026-11-09', OBLIGATIONS_VAT_EXEMPT_SETTINGS, since: '2026-11-08')->thisMonth()))
         ->not->toHaveKey('vat-reverse:2026-04')
         ->toHaveKey('vat-reverse:2026-10');
 
-    $rows = byKey(obligationsOn('2026-11-09', [...OBLIGATIONS_COMPLETE_SETTINGS, 'obligations_tracked_from' => '2025-08-01'], since: '2026-11-08')->thisMonth());
+    $rows = byKey(obligationsOn('2026-11-09', [...OBLIGATIONS_VAT_EXEMPT_SETTINGS, 'obligations_tracked_from' => '2025-08-01'], since: '2026-11-08')->thisMonth());
 
     expect($rows['vat-reverse:2026-04'])->toMatchObject(['status' => 'overdue', 'amount' => 1822])
-        ->and($rows['vat-reverse:2026-04']->dueOn->toDateString())->toBe('2026-05-31')
+        // 31 May 2026 is a Sunday: the deadline moves to Monday.
+        ->and($rows['vat-reverse:2026-04']->dueOn->toDateString())->toBe('2026-06-01')
         ->and($rows)->toHaveKey('vat-reverse:2026-10');
 });
 
 it('still goes back at most 12 months from the tracking date', function () {
     serviceBoughtAbroad('2025-09-10', 5000);
 
-    $rows = byKey(obligationsOn('2026-11-09', [...OBLIGATIONS_COMPLETE_SETTINGS, 'obligations_tracked_from' => '2025-01-01'], since: '2026-11-08')->thisMonth());
+    $rows = byKey(obligationsOn('2026-11-09', [...OBLIGATIONS_VAT_EXEMPT_SETTINGS, 'obligations_tracked_from' => '2025-01-01'], since: '2026-11-08')->thisMonth());
 
     // September 2025's VAT was due on 31 October 2025: more than 12 months before November 2026.
     expect($rows)->not->toHaveKey('vat-reverse:2025-09');
@@ -429,11 +438,11 @@ function keysOf(array $obligations): array
 
 it('lists the obligations of any range, past and future, by deadline', function () {
     serviceBoughtAbroad('2026-10-15', 1000);
-    $obligations = obligationsOn('2026-11-09', since: '2026-01-01');
+    $obligations = obligationsOn('2026-11-09', OBLIGATIONS_VAT_EXEMPT_SETTINGS, since: '2026-01-01');
 
-    $keys = keysOf($obligations->between(CarbonImmutable::parse('2026-11-01'), CarbonImmutable::parse('2027-01-31')));
+    $keys = keysOf($obligations->between(CarbonImmutable::parse('2026-11-01'), CarbonImmutable::parse('2027-02-01')));
 
-    expect($keys)->toBe(['ss:2026-11', 'vat-reverse:2026-10', 'ss:2026-12', 'ss:2027-01', 'ss-declaration:2026-Q4']);
+    expect($keys)->toBe(['ss:2026-11', 'vat-reverse:2026-10', 'ss:2026-12', 'ss:2027-01', 'ss-declaration:2026-Q4', 'ss-annual:2026']);
 });
 
 it('leaves out what is before the tracking start or more than 12 months back', function () {
@@ -449,7 +458,7 @@ it('stops 12 months back even when tracking started earlier', function () {
 
     $keys = keysOf($obligations->between(CarbonImmutable::parse('2025-09-01'), CarbonImmutable::parse('2025-12-31')));
 
-    expect($keys)->toBe(['ss:2025-11', 'ss:2025-12']);
+    expect($keys)->toBe(['ss:2025-11', 'vat-return:2025-Q3', 'ss:2025-12']);
 });
 
 it('leaves out exempt obligations, which have no deadline', function () {
@@ -468,6 +477,7 @@ it('shows the SS amount only once its income quarter has closed', function () {
         ->and($rows['ss:2027-01']->amount)->toBe(TaxEstimator::SS_MINIMUM_CONTRIBUTION)
         ->and($rows['ss:2027-02']->amount)->toBeNull()
         ->and($rows['ss:2027-02']->detail)->toContain('Pagar entre 10 e 20 de fevereiro')->toContain('valor por apurar')->not->toContain('contribuição mínima')
-        ->and($rows['ss:2027-02']->dueOn->toDateString())->toBe('2027-02-20')
+        // 20 February 2027 is a Saturday: the payment can be made on Monday.
+        ->and($rows['ss:2027-02']->dueOn->toDateString())->toBe('2027-02-22')
         ->and($rows['ss:2027-02']->status)->toBe('due');
 });
