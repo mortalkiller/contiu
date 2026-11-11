@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources\Projects\Pages;
 
+use App\Enums\FiscalDocumentType;
 use App\Filament\Actions\RecordPaymentAction;
-use App\Filament\Pages\InvoiceXpressIssuePage;
+use App\Filament\Resources\FiscalDocuments\FiscalDocumentResource;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Resources\Projects\Widgets\ProjectSummary;
+use App\Support\Invoicing\Invoicing;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
@@ -33,8 +35,11 @@ class ViewProject extends ViewRecord
             Action::make('issueInvoice')
                 ->label(__('Issue invoice'))
                 ->color('gray')
-                ->url(fn (): string => InvoiceXpressIssuePage::getUrl())
-                ->visible(fn (): bool => $this->record->outstanding_amount > 0 && InvoiceXpressIssuePage::canAccess()),
+                ->url(fn (): string => FiscalDocumentResource::getUrl('compose', array_filter([
+                    'type' => FiscalDocumentType::Invoice->value,
+                    'receivable' => $this->record->receivables()->excludingCancelled()->open()->orderBy('due_on')->value('id'),
+                ])))
+                ->visible(fn (): bool => $this->record->outstanding_amount > 0 && Invoicing::canIssue() && Invoicing::connected()),
             RecordPaymentAction::make()->after(fn () => $this->record->refresh()),
         ];
     }

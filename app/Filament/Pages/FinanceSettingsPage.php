@@ -162,6 +162,7 @@ class FinanceSettingsPage extends Page
                     ->schema([
                         TaxSettingsFields::activityStartedOn()->columnSpanFull(),
                         ...TaxSettingsFields::activity(withPreviousYear: true),
+                        ...TaxSettingsFields::trade(),
                     ]),
                 Section::make(__('Personal income tax'))
                     ->description(__('Under the simplified regime, taxable income is gross income multiplied by the coefficient.'))

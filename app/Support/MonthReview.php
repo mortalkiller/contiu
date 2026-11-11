@@ -39,11 +39,11 @@ final class MonthReview
     public function receivablesQuery(bool $withFiscalReference = false): Builder
     {
         $issuedInvoice = fn (): Builder => $this->fiscalReferenceQuery(FiscalDocumentDirection::Issued, [
-            FiscalDocumentType::Invoice, FiscalDocumentType::InvoiceReceipt, FiscalDocumentType::DebitNote,
+            ...FiscalDocumentType::invoices(), FiscalDocumentType::DebitNote,
         ])->whereHas('links', fn (Builder $links) => $links
             ->whereColumn('receivable_id', 'receivables.id')
             ->orWhere(fn (Builder $links) => $links
-                ->where('fiscal_documents.type', FiscalDocumentType::InvoiceReceipt)
+                ->whereIn('fiscal_documents.type', [FiscalDocumentType::InvoiceReceipt, FiscalDocumentType::SimplifiedInvoice])
                 ->whereExists(PaymentAllocation::query()
                     ->whereColumn('payment_id', 'fiscal_document_links.payment_id')
                     ->whereColumn('receivable_id', 'receivables.id'))));
@@ -79,9 +79,7 @@ final class MonthReview
                 ->orWhere(fn (Builder $query) => $query->whereDate('spent_on', '<', $this->start)->where('is_paid', false)))
             ->with(['supplier', 'category', 'project', 'retainer'])
             ->when($withFiscalReference, fn (Builder $query) => $query->addSelect([
-                'fiscal_reference' => $this->fiscalReferenceQuery(FiscalDocumentDirection::Received, [
-                    FiscalDocumentType::Invoice, FiscalDocumentType::InvoiceReceipt,
-                ])->whereHas('links', fn (Builder $links) => $links->whereColumn('expense_id', 'expenses.id')),
+                'fiscal_reference' => $this->fiscalReferenceQuery(FiscalDocumentDirection::Received, FiscalDocumentType::invoices())->whereHas('links', fn (Builder $links) => $links->whereColumn('expense_id', 'expenses.id')),
             ]))
             ->orderBy('spent_on')
             ->orderBy('id');
@@ -97,7 +95,7 @@ final class MonthReview
     public function paymentsQuery(): Builder
     {
         $paymentDocument = $this->fiscalReferenceQuery(FiscalDocumentDirection::Issued, [
-            FiscalDocumentType::Receipt, FiscalDocumentType::InvoiceReceipt,
+            FiscalDocumentType::Receipt, FiscalDocumentType::InvoiceReceipt, FiscalDocumentType::SimplifiedInvoice,
         ]);
         $allocationDocument = (clone $paymentDocument)->whereHas('links', fn (Builder $links) => $links
             ->whereColumn('payment_id', 'payments.id')

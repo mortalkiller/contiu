@@ -14,6 +14,9 @@ final class FinanceSettings
 {
     public const DEFAULTS = [
         'activity_started_on' => null,
+        'cae' => null, // the main activity code, as registered with the tax authority
+        // Sells or moves goods: turns on transport guides and the transport details of an invoice.
+        'sells_goods' => false,
         'vat_exempt' => false,
         'vat_region' => null,
         'vat_exemption_threshold' => 1500000, // cents
@@ -98,6 +101,16 @@ final class FinanceSettings
     public function taxReserveTransfer(): ?array
     {
         return $this->all()['tax_reserve_transfer'];
+    }
+
+    public function cae(): ?string
+    {
+        return $this->all()['cae'];
+    }
+
+    public function sellsGoods(): bool
+    {
+        return (bool) $this->all()['sells_goods'];
     }
 
     public function vatExempt(): bool

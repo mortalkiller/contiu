@@ -137,6 +137,26 @@ final class TaxSettingsFields
     }
 
     /**
+     * The registered activity code and whether goods are sold or moved, which is what offers
+     * transport guides. Only the settings page asks them.
+     *
+     * @return array<int, Component>
+     */
+    public static function trade(): array
+    {
+        return [
+            TextInput::make('cae')
+                ->label(__('Main CAE'))
+                ->maxLength(64)
+                ->columnSpanFull(),
+            Toggle::make('sells_goods')
+                ->label(__('I sell or transport goods'))
+                ->helperText(__('Shows transport guides and the transport details on invoices. It comes on when the CAE is for trade or production.'))
+                ->columnSpanFull(),
+        ];
+    }
+
+    /**
      * With the $stored settings (the settings page), the IRS Jovem number says when its 10 years are
      * over (fill() then leaves it blank).
      *
@@ -243,6 +263,8 @@ final class TaxSettingsFields
 
         return [
             'activity_started_on' => $settings->activityStartedOn()?->toDateString(),
+            'cae' => $settings->cae(),
+            'sells_goods' => $settings->sellsGoods(),
             'activity_start_kind' => $settings->activityStartKind(),
             'previous_activity_ended_on' => $settings->previousActivityEndedOn()?->toDateString(),
             'ss_enrolled_from' => $settings->ssEnrolledFrom()?->toDateString(),
@@ -262,7 +284,7 @@ final class TaxSettingsFields
 
     /**
      * Settings values of the submitted answers. The salary years not asked are kept from
-     * $storedYears; a field not submitted (hidden) is left out.
+     * $storedYears; a field not submitted (hidden, or not asked by the form) is left out.
      *
      * @param  array<string, mixed>  $data
      * @param  list<int>  $storedYears
@@ -295,6 +317,14 @@ final class TaxSettingsFields
             'ss_relevant_income_share' => round((float) $data['ss_relevant_income_share_percent'] / 100, 4),
             'ss_contribution_exempt' => (bool) ($data['ss_contribution_exempt'] ?? false),
         ];
+
+        if (array_key_exists('cae', $data)) {
+            $values['cae'] = blank($data['cae']) ? null : trim((string) $data['cae']);
+        }
+
+        if (array_key_exists('sells_goods', $data)) {
+            $values['sells_goods'] = (bool) $data['sells_goods'];
+        }
 
         if (array_key_exists('previous_activity_ended_on', $data)) {
             $values['previous_activity_ended_on'] = self::date($data['previous_activity_ended_on']);

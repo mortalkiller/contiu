@@ -11,8 +11,8 @@ use App\Models\Payment;
 use App\Models\Receivable;
 use App\Support\AccountantAccess;
 use App\Support\CurrentAccount;
-use App\Support\InvoiceXpressIssueAdvance;
-use App\Support\InvoiceXpressIssueTerms;
+use App\Support\FiscalTerms;
+use App\Support\InvoiceAdvance;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
@@ -33,13 +33,13 @@ final class LinkInvoiceAdvance
             Gate::authorize('update', $final);
             $advance = $documents->get($advanceId);
             $link = $final->links;
-            $nif = InvoiceXpressIssueTerms::nif($final->party_tax_id);
+            $nif = FiscalTerms::nif($final->party_tax_id);
 
             if ($advance === null || $final->is($advance) || $final->type !== FiscalDocumentType::Invoice
                 || ! in_array($advance->type, [FiscalDocumentType::Invoice, FiscalDocumentType::InvoiceReceipt], true)
                 || ! $this->activeEuroDocument($advance) || ! $this->activeEuroDocument($final)
                 || $advance->document_date->gt($final->document_date)
-                || $nif === null || $nif !== InvoiceXpressIssueTerms::nif($advance->party_tax_id)
+                || $nif === null || $nif !== FiscalTerms::nif($advance->party_tax_id)
                 || $link?->receivable_id === null
                 || ($link->related_fiscal_document_id !== null && $link->related_fiscal_document_id !== $advanceId)) {
                 throw ValidationException::withMessages(['advance' => __('Choose the unlinked advance invoice for this client.')]);
@@ -49,7 +49,7 @@ final class LinkInvoiceAdvance
             $charge = Receivable::query()->excludingCancelled()->lockForUpdate()->find($link->receivable_id);
 
             if ($payment === null || ! $payment->isAdvance() || $charge === null
-                || ! InvoiceXpressIssueAdvance::sourceForFinal($charge, $payment, $final)->is($advance)) {
+                || ! InvoiceAdvance::sourceForFinal($charge, $payment, $final)->is($advance)) {
                 throw ValidationException::withMessages(['advance' => __('Confirm the deposit allocated to the receivable and the linked advance invoice.')]);
             }
 

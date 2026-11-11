@@ -12,7 +12,7 @@ final class FiscalDocumentPdf extends Model
 
     public const UPDATED_AT = null;
 
-    protected $fillable = ['invoice_xpress_snapshot_id', 'user_id', 'storage_key', 'sha256', 'size'];
+    protected $fillable = ['source', 'user_id', 'storage_key', 'sha256', 'size'];
 
     public function path(): ?string
     {

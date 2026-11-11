@@ -2,22 +2,16 @@
 
 namespace App\Filament\Resources\Clients\Pages;
 
-use App\Exceptions\InvoiceXpressException;
 use App\Filament\Resources\Clients\ClientResource;
 use App\Filament\Resources\Clients\Tables\ClientsTable;
 use App\Filament\Resources\Clients\Widgets\ClientsSummary;
 use App\Models\Client;
 use App\Models\Receivable;
-use App\Support\InvoiceXpressContactSync;
 use App\Support\Money;
-use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
-use Filament\Forms\Components\TextInput;
-use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Validation\ValidationException;
 use pxlrbt\FilamentExcel\Actions\ExportAction;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
@@ -82,24 +76,6 @@ class ListClients extends ListRecords
                 ->icon(Phosphor::DownloadSimple)
                 ->color('gray')
                 ->exports([ClientsTable::excelExport()]),
-            Action::make('importInvoiceXpressClient')
-                ->label(__('Import from InvoiceXpress'))
-                ->color('gray')
-                ->visible(fn (): bool => InvoiceXpressContactSync::available())
-                ->modalHeading(__('Import client from InvoiceXpress'))
-                ->modalDescription(__('If the tax ID already exists in Contiu, the fields filled in on InvoiceXpress update the existing record.'))
-                ->modalSubmitActionLabel(__('Import client'))
-                ->schema([TextInput::make('nif')->label(__('Portuguese tax ID'))->required()->maxLength(24)])
-                ->action(function (array $data, InvoiceXpressContactSync $sync, Action $action): void {
-                    try {
-                        $sync->pull($data['nif']);
-                    } catch (InvoiceXpressException|ValidationException $exception) {
-                        Notification::make()->danger()->title($exception->getMessage())->send();
-                        $action->halt();
-                    }
-
-                    Notification::make()->success()->title(__('Client synced to Contiu'))->send();
-                }),
             CreateAction::make()->label(__('New client'))->icon(Phosphor::Plus)->modalWidth('2xl')->databaseTransaction(),
         ];
     }

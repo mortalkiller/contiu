@@ -22,12 +22,6 @@ return [
         'key' => env('RESEND_API_KEY'),
     ],
 
-    'invoicexpress' => [
-        'catalog_safe_accounts' => [],
-        'withholding_validated_accounts' => [],
-        'sandbox_draft_account' => env('INVOICEXPRESS_SANDBOX_DRAFT_ACCOUNT'),
-    ],
-
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),

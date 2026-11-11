@@ -7,12 +7,14 @@ use Filament\Support\Contracts\HasLabel;
 
 enum FiscalDocumentStatus: string implements HasColor, HasLabel
 {
+    case Draft = 'draft';
     case Active = 'active';
     case Voided = 'voided';
 
     public function getLabel(): string
     {
         return match ($this) {
+            self::Draft => __('Draft'),
             self::Active => __('Active'),
             self::Voided => __('Voided'),
         };
@@ -22,7 +24,7 @@ enum FiscalDocumentStatus: string implements HasColor, HasLabel
     {
         return match ($this) {
             self::Active => 'success',
-            self::Voided => 'gray',
+            self::Draft, self::Voided => 'gray',
         };
     }
 }

@@ -7,6 +7,7 @@ use App\Filament\Resources\FiscalDocuments\FiscalDocumentResource;
 use App\Filament\Resources\FiscalDocuments\Pages\CreateFiscalDocument;
 use App\Filament\Resources\FiscalDocuments\Pages\EditFiscalDocument;
 use App\Filament\Resources\FiscalDocuments\Pages\ListFiscalDocuments;
+use App\Filament\Resources\FiscalDocuments\Pages\ViewFiscalDocument;
 use App\Models\Account;
 use App\Models\Expense;
 use App\Models\FiscalDocument;
@@ -14,7 +15,6 @@ use App\Models\Payment;
 use App\Models\Receivable;
 use App\Models\User;
 use App\Support\CurrentAccount;
-use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -118,9 +118,9 @@ it('registers an invoice-receipt as one document with an explicit expense link',
         ->and($document->links->expense_id)->toBe($expense->id)
         ->and($document->links->related_fiscal_document_id)->toBeNull();
 
-    Livewire::test(ListFiscalDocuments::class)
-        ->mountAction(TestAction::make('view')->table($document))
-        ->assertSchemaStateSet(['expense_id' => $expense->id]);
+    Livewire::test(ViewFiscalDocument::class, ['record' => $document->id])
+        ->assertSee('FR 12')
+        ->assertSee('Ligado a');
 
     Livewire::test(EditFiscalDocument::class, ['record' => $document->id])
         ->assertSee('LEGADO FORNECEDOR');

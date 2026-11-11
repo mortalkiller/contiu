@@ -136,6 +136,22 @@
 }
 
 /*
+ * Breadcrumbs sit right over the page title, as in the mocks: filament-page-header leaves a full
+ * line between them.
+ */
+.fi-body .fph-breadcrumbs + .fph-root {
+    margin-top: -1.5rem;
+}
+
+.fi-body .fph-root .fph-header > .fph-breadcrumbs {
+    margin-bottom: 0.5rem;
+}
+
+.fi-body .fph-root .fph-surface > .fph-breadcrumbs {
+    padding-bottom: 0.5rem;
+}
+
+/*
  * Page header summary (Total, Recebido, Em aberto…): keep each money value on one line.
  * Columns size to their content and wrap as whole items instead of breaking "2 400,00 €".
  */

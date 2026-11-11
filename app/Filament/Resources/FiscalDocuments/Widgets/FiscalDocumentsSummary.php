@@ -2,35 +2,32 @@
 
 namespace App\Filament\Resources\FiscalDocuments\Widgets;
 
-use App\Enums\FiscalDocumentDirection;
 use App\Enums\FiscalDocumentStatus;
-use App\Enums\FiscalDocumentType;
-use App\Enums\Language;
+use App\Enums\IntegrationRecordState;
 use App\Filament\Pages\IntegrationsPage;
-use App\Filament\Pages\InvoiceXpressImport;
+use App\Filament\Pages\InvoicingSyncPage;
+use App\Filament\Resources\FiscalDocuments\FiscalDocumentResource;
 use App\Filament\Resources\Receivables\ReceivableResource;
-use App\Models\CreditApplication;
 use App\Models\FiscalDocument;
 use App\Models\FiscalDocumentLink;
-use App\Models\InvoiceXpressConfig;
-use App\Models\InvoiceXpressSnapshot;
+use App\Models\IntegrationRecord;
 use App\Models\Receivable;
 use App\Support\DocumentedTurnover;
+use App\Support\Invoicing\Invoicing;
 use App\Support\Money;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Database\Eloquent\Builder;
+use MortalKiller\FilamentAppearance\Widgets\Concerns\GroupsStats;
 use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
-use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 /**
- * Above the "Documentos fiscais" list: this year's documented billing (the same figure as the
- * tax estimate, App\Support\DocumentedTurnover) with the last six months as a sparkline, the
- * charges already due that still have no document, the issued credit notes not yet applied, and
- * where the InvoiceXpress connection stands. Counts by direction live on the page's tabs.
+ * Over the list of fiscal documents: what was billed this year, what still has no document, the
+ * drafts waiting to be issued and how the invoicing provider stands.
  */
 class FiscalDocumentsSummary extends StatsOverviewWidget
 {
+    use GroupsStats;
     use HasSkeletonPlaceholder;
 
     protected int|string|array $columnSpan = 'full';
@@ -45,50 +42,58 @@ class FiscalDocumentsSummary extends StatsOverviewWidget
         $year = today()->year;
         $turnover = DocumentedTurnover::forYear($year);
         $undocumented = $this->undocumentedCharges();
-        $unappliedCredits = $this->unappliedCreditNotes();
 
         return [
-            Stat::make(__('Billed in :year, excluding VAT', ['year' => $year]), $turnover->billedNet === null ? '—' : Money::format($turnover->billedNet, locale: app()->getLocale()))
+            Stat::make(__('Billed in :year, excluding VAT', ['year' => $year]), $turnover->billedNet === null ? '—' : Money::format($turnover->billedNet))
                 ->description($turnover->nonEuroDocumentCount > 0
                     ? trans_choice('{1} 1 document in another currency excluded from the total|[2,*] :count documents in other currencies excluded from the total', $turnover->nonEuroDocumentCount)
-                    : __('Credit notes reduce the total'))
-                ->color($turnover->nonEuroDocumentCount > 0 ? 'warning' : 'primary')
-                ->chart($this->billedByMonth())
-                ->icon(Phosphor::Invoice),
+                    : trans_choice('{0} No documents issued|{1} 1 document issued|[2,*] :count documents issued', $turnover->documentCount)),
             Stat::make(__('Charges without a document'), (string) $undocumented)
+                ->valueColor($undocumented === 0 ? null : 'warning')
                 ->description($undocumented === 0 ? __('All due charges have an invoice') : __('Due or paid · issue invoice'))
-                ->color($undocumented === 0 ? 'success' : 'warning')
-                ->url($undocumented === 0 ? null : ReceivableResource::getUrl())
-                ->icon(Phosphor::FileDashed),
-            Stat::make(__('Unapplied credit notes'), (string) $unappliedCredits)
-                ->description($unappliedCredits === 0 ? __('All applied') : __('Apply them to the original invoice'))
-                ->color($unappliedCredits === 0 ? 'success' : 'warning')
-                ->icon(Phosphor::ArrowUUpLeft),
-            $this->invoiceXpressStat(),
+                ->url($undocumented === 0 ? null : ReceivableResource::getUrl()),
+            $this->draftsStat(),
+            $this->providerStat(),
         ];
     }
 
-    /**
-     * Net billing in EUR for each of the last six months, oldest first, for the sparkline.
-     *
-     * @return list<float>
-     */
-    private function billedByMonth(): array
+    private function draftsStat(): Stat
     {
-        $first = today()->startOfMonth()->subMonths(5);
+        $drafts = FiscalDocument::query()->where('status', FiscalDocumentStatus::Draft);
+        $count = (clone $drafts)->count();
+        $latest = $count === 0 ? null : $drafts->latest('id')->first(['id', 'party_name', 'total_amount']);
 
-        $byMonth = DocumentedTurnover::billingDocuments()
-            ->where('currency', 'EUR')
-            ->where('document_date', '>=', $first->toDateString())
-            ->get(['type', 'net_amount', 'document_date'])
-            ->groupBy(fn (FiscalDocument $document): string => $document->document_date->format('Y-m'))
-            ->map(fn ($documents): int => (int) $documents->sum(
-                fn (FiscalDocument $document): int => $document->type === FiscalDocumentType::CreditNote ? -abs($document->net_amount) : $document->net_amount,
-            ));
+        return Stat::make(__('Drafts to issue'), (string) $count)
+            ->description($latest === null
+                ? __('Nothing waiting to be issued')
+                : implode(' · ', array_filter([$latest->party_name, Money::format($latest->total_amount)])))
+            ->url($latest === null ? null : FiscalDocumentResource::getUrl('index', ['tab' => 'drafts']));
+    }
 
-        return collect(range(0, 5))
-            ->map(fn (int $offset): float => max(0, $byMonth->get($first->copy()->addMonths($offset)->format('Y-m'), 0)) / 100)
-            ->all();
+    /** Whether a provider is connected and, when it is, when it was last compared and what differs. */
+    private function providerStat(): Stat
+    {
+        $connection = Invoicing::connection();
+
+        if ($connection === null) {
+            return Stat::make(__('Invoicing provider'), __('Not connected'))
+                ->description(__('Connect one to create and issue documents here'))
+                ->url(IntegrationsPage::canAccess() ? IntegrationsPage::getUrl() : null);
+        }
+
+        $differences = IntegrationRecord::query()
+            ->where('integration_connection_id', $connection->getKey())
+            ->whereIn('state', [IntegrationRecordState::Differs, IntegrationRecordState::RemoteOnly])
+            ->count();
+
+        return Stat::make(Invoicing::providerLabel(), $differences === 0
+            ? __('In sync')
+            : trans_choice('{1} 1 difference|[2,*] :count differences', $differences))
+            ->valueColor($differences === 0 ? null : 'warning')
+            ->description($connection->last_synced_at === null
+                ? __('Not synchronised yet')
+                : __('Synchronised :when', ['when' => $connection->last_synced_at->diffForHumans()]))
+            ->url(InvoicingSyncPage::canAccess() ? InvoicingSyncPage::getUrl() : null);
     }
 
     /** Charges of this year that are due or already paid, with no active document on them or on their payments. */
@@ -106,37 +111,5 @@ class FiscalDocumentsSummary extends StatsOverviewWidget
                 FiscalDocumentLink::query()->whereNotNull('payment_id')->whereHas('fiscalDocument', $activeDocument)->select('payment_id'),
             ))
             ->count();
-    }
-
-    /** Active credit notes issued in EUR with no application in force. */
-    private function unappliedCreditNotes(): int
-    {
-        return FiscalDocument::query()
-            ->where('type', FiscalDocumentType::CreditNote)
-            ->where('direction', FiscalDocumentDirection::Issued)
-            ->where('status', FiscalDocumentStatus::Active)
-            ->where('currency', 'EUR')
-            ->whereNotIn('id', CreditApplication::query()->whereNull('reversed_on')->select('credit_note_id'))
-            ->count();
-    }
-
-    /** Whether the account is connected to InvoiceXpress and when a document last came from there. */
-    private function invoiceXpressStat(): Stat
-    {
-        $connected = InvoiceXpressConfig::current() !== null;
-        $lastImport = InvoiceXpressSnapshot::query()->latest()->value('created_at');
-
-        return Stat::make('InvoiceXpress', $connected ? __('Connected') : __('Not connected'))
-            ->description(match (true) {
-                ! $connected => __('Connect an integration to synchronize fiscal documents'),
-                $lastImport === null => __('No documents imported yet'),
-                default => __('Last imported on :date', ['date' => $lastImport->format(Language::resolve(app()->getLocale())->dateFormat())]),
-            })
-            ->url(match (true) {
-                $connected && InvoiceXpressImport::canAccess() => InvoiceXpressImport::getUrl(),
-                ! $connected && IntegrationsPage::canAccess() => IntegrationsPage::getUrl(),
-                default => null,
-            })
-            ->icon(Phosphor::PlugsConnected);
     }
 }

@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\FiscalDocumentDirection;
+use App\Enums\FiscalDocumentStatus;
 use App\Enums\FiscalDocumentType;
 use App\Models\FiscalDocument;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -23,5 +24,11 @@ class FiscalDocumentFactory extends Factory
             'vat_amount' => 2300,
             'total_amount' => 12300,
         ];
+    }
+
+    /** Still being written: no number, and it counts for nothing until it is issued. */
+    public function draft(): static
+    {
+        return $this->state(['status' => FiscalDocumentStatus::Draft, 'number' => null]);
     }
 }

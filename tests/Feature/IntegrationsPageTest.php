@@ -1,35 +1,43 @@
 <?php
 
+use App\Enums\IntegrationRecordState;
 use App\Filament\Pages\IntegrationsPage;
-use App\Filament\Pages\InvoiceXpressSettingsPage;
+use App\Filament\Pages\InvoicingProviderPage;
+use App\Filament\Pages\InvoicingSyncPage;
 use App\Models\Account;
-use App\Models\InvoiceXpressConfig;
+use App\Models\FiscalDocument;
+use App\Models\IntegrationConnection;
+use App\Models\IntegrationRecord;
 use App\Models\User;
 use App\Support\CurrentAccount;
 use Dom\HTMLDocument;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Http;
 
-pest()->group('ui', 'invoicexpress');
+pest()->group('ui', 'invoicing');
 
-it('shows the InvoiceXpress status and links to the settings for the account in the URL', function (bool $configured, string $status, string $action) {
+it('shows the invoicing provider status and links to its page for the account in the URL', function (bool $connected, string $status, string $action) {
     $owner = ownerOf($this->account);
-    $configuredAccount = $configured ? $this->account : Account::factory()->create();
+    $connectedAccount = $connected ? $this->account : Account::factory()->create();
     $this->actingAs($owner);
-    CurrentAccount::run($configuredAccount, fn () => InvoiceXpressConfig::store('configured-account', 'private-test-key'));
+    CurrentAccount::run($connectedAccount, fn () => IntegrationConnection::factory()->create([
+        'credentials' => ['subdomain' => 'connected-account', 'api_key' => 'private-test-key'],
+    ]));
     Http::preventStrayRequests()->fake([]);
     asAWebRequest();
 
     $url = url("/{$this->account->slug}/integracoes");
     $response = $this->get($url)->assertOk();
 
-    $response->assertSeeText(__($status))->assertDontSee('private-test-key');
+    $response->assertDontSee('private-test-key')
+        ->assertSeeText(__('Only one invoicing provider can be connected at a time.'));
 
     $document = HTMLDocument::createFromString($response->getContent(), LIBXML_NOERROR);
-    $settingsUrl = InvoiceXpressSettingsPage::getUrl(tenant: $this->account);
-    $actionLink = $document->querySelector('main a[href="'.$settingsUrl.'"]');
+    $providerUrl = InvoicingProviderPage::getUrl(['provider' => 'invoicexpress'], tenant: $this->account);
+    $actionLink = $document->querySelector('main a[href="'.$providerUrl.'"]');
 
-    expect(trim($actionLink?->textContent ?? ''))->toBe(__($action));
+    expect(trim($actionLink?->textContent ?? ''))->toBe(__($action))
+        ->and(trim($actionLink?->closest('.fi-section')?->querySelector('.fi-badge')?->textContent ?? ''))->toBe(__($status));
 
     $navigationLink = $document->querySelector('.fi-sidebar-group a[href="'.$url.'"]');
     $groupLabel = $navigationLink?->closest('.fi-sidebar-group')?->querySelector('.fi-sidebar-group-label');
@@ -39,16 +47,39 @@ it('shows the InvoiceXpress status and links to the settings for the account in 
 
     Http::assertNothingSent();
 })->with([
-    'only another account has a configuration' => [false, 'Not configured', 'Configure'],
-    'the current account has a configuration' => [true, 'Configured', 'Manage'],
+    'only another account is connected' => [false, 'Not connected', 'Configure'],
+    'the current account is connected' => [true, 'Connected', 'Manage'],
 ]);
 
-it('keeps the integrations navigation active on the InvoiceXpress settings page', function () {
+it('says when the connected provider last synchronised and links to what differs', function () {
+    $this->actingAs(ownerOf($this->account));
+    $connection = IntegrationConnection::factory()->create(['last_synced_at' => now()->subMinutes(5)]);
+
+    foreach ([[IntegrationRecordState::Differs, '9001'], [IntegrationRecordState::Differs, '9002'], [IntegrationRecordState::InSync, '9003']] as [$state, $remoteId]) {
+        $record = new IntegrationRecord(['integration_connection_id' => $connection->getKey(), 'remote_type' => 'invoices', 'remote_id' => $remoteId, 'state' => $state]);
+        $record->record()->associate(FiscalDocument::factory()->create());
+        $record->save();
+    }
+
+    Http::preventStrayRequests()->fake([]);
+    asAWebRequest();
+
+    $response = $this->get(url("/{$this->account->slug}/integracoes"))->assertOk();
+    $document = HTMLDocument::createFromString($response->getContent(), LIBXML_NOERROR);
+    $differences = $document->querySelector('main a[href="'.InvoicingSyncPage::getUrl(tenant: $this->account).'"]');
+
+    $response->assertSeeText(__('Synchronised :when', ['when' => now()->subMinutes(5)->diffForHumans()]));
+    expect(trim($differences?->textContent ?? ''))->toBe(trans_choice('{1} 1 difference|[2,*] :count differences', 2));
+
+    Http::assertNothingSent();
+});
+
+it('keeps the integrations navigation active on an invoicing provider\'s page', function () {
     $this->actingAs(ownerOf($this->account));
     Http::preventStrayRequests()->fake([]);
     asAWebRequest();
 
-    $response = $this->get(InvoiceXpressSettingsPage::getUrl(tenant: $this->account))->assertOk();
+    $response = $this->get(InvoicingProviderPage::getUrl(['provider' => 'invoicexpress'], tenant: $this->account))->assertOk();
     $document = HTMLDocument::createFromString($response->getContent(), LIBXML_NOERROR);
     $integrationsUrl = IntegrationsPage::getUrl(tenant: $this->account);
     $navigationLink = $document->querySelector('.fi-sidebar-item-btn[href="'.$integrationsUrl.'"]');

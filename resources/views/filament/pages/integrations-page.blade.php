@@ -1,13 +1,24 @@
 <x-filament-panels::page>
     @php
+        $invoicingLogos = ['invoicexpress' => ['invoicexpress.png', 150, 22]];
+        $invoicing = [];
+
+        foreach ($invoicingProviders as $key => $provider) {
+            $invoicing[$provider['label']] = [
+                ...(isset($invoicingLogos[$key]) ? ['logo' => $invoicingLogos[$key]] : []),
+                'settingsUrl' => $provider['url'],
+                'configured' => $provider['connected'],
+                'status' => $provider['connected'] ? 'Connected' : 'Not connected',
+                'description' => 'Creates drafts, issues documents and keeps everything in sync.',
+                'sync' => $provider['connected'] ? $provider : null,
+            ];
+        }
+
+        $notes = ['Invoicing' => 'Only one invoicing provider can be connected at a time.'];
+
         $categories = [
             'Invoicing' => [
-                'InvoiceXpress' => [
-                    'logo' => ['invoicexpress.png', 150, 22],
-                    'settingsUrl' => $invoiceXpressSettingsUrl,
-                    'configured' => $invoiceXpressConfigured,
-                    'description' => 'Send test drafts and import issued documents.',
-                ],
+                ...$invoicing,
                 'Moloni' => [
                     'logo' => ['moloni.svg', 129, 22],
                     'description' => 'Send drafts and link imported invoices to receivables.',
@@ -82,9 +93,15 @@
         @php($headingId = str($category)->slug() . '-integrations-heading')
 
         <section aria-labelledby="{{ $headingId }}" class="space-y-4">
-            <h2 id="{{ $headingId }}" class="text-xl font-semibold">
-                {{ __($category) }}
-            </h2>
+            <div class="space-y-1">
+                <h2 id="{{ $headingId }}" class="text-xl font-semibold">
+                    {{ __($category) }}
+                </h2>
+
+                @isset($notes[$category])
+                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ __($notes[$category]) }}</p>
+                @endisset
+            </div>
 
             <div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
                 @foreach ($integrations as $name => $integration)
@@ -105,7 +122,7 @@
                                         <span class="shrink-0 rounded-md bg-white p-2">
                                             <img src="{{ asset('brand/' . $integration['icon']) }}" alt="" width="24" height="24">
                                         </span>
-                                    @else
+                                    @elseif (isset($integration['symbol']))
                                         <x-filament::icon :icon="$integration['symbol']" class="h-6 w-6 shrink-0" />
                                     @endif
 
@@ -116,6 +133,17 @@
                             <p class="hidden text-sm text-gray-600 md:line-clamp-2 dark:text-gray-400">
                                 {{ __($integration['description']) }}
                             </p>
+
+                            @if (isset($integration['sync']))
+                                <p class="text-sm text-gray-600 dark:text-gray-400">
+                                    {{ $integration['sync']['syncedAt'] === null ? __('Not synchronised yet') : __('Synchronised :when', ['when' => $integration['sync']['syncedAt']]) }}
+
+                                    @if ($integration['sync']['differences'] !== null)
+                                        ·
+                                        <x-filament::link :href="$integration['sync']['syncUrl']" color="warning">{{ $integration['sync']['differences'] }}</x-filament::link>
+                                    @endif
+                                </p>
+                            @endif
 
                             @if (isset($integration['settingsUrl']))
                                 @php($configured = $integration['configured'] ?? false)

@@ -13,8 +13,8 @@ use App\Models\Supplier;
 use App\Models\TaxObligationCompletion;
 use App\Models\User;
 use App\Support\CurrentAccount;
+use App\Support\EuServiceEvidence;
 use App\Support\FinanceSettings;
-use App\Support\InvoiceXpressEuService;
 use App\Support\SocialSecurity;
 use App\Support\TaxEstimator;
 use App\Support\TaxObligation;
@@ -186,7 +186,7 @@ function recordRecapService(string $operationOn, array $attributes = []): Fiscal
         'vat_amount' => 0,
         'total_amount' => 10000,
     ]);
-    InvoiceXpressEuService::record($document, InvoiceXpressEuService::terms($client, $operationOn));
+    EuServiceEvidence::record($document, EuServiceEvidence::terms($client, $operationOn));
 
     return $document;
 }

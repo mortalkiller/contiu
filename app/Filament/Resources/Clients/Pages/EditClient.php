@@ -3,12 +3,10 @@
 namespace App\Filament\Resources\Clients\Pages;
 
 use App\Enums\FiscalProfileViesStatus;
-use App\Exceptions\InvoiceXpressException;
 use App\Filament\Resources\Clients\ClientResource;
 use App\Filament\Resources\Concerns\HasSaveBar;
 use App\Models\Client;
 use App\Support\CurrentAccount;
-use App\Support\InvoiceXpressContactSync;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
@@ -39,43 +37,10 @@ class EditClient extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            $this->invoiceXpressSyncAction(),
             $this->viesVerificationAction(),
             ViewAction::make(),
             DeleteAction::make(),
         ];
-    }
-
-    private function invoiceXpressSyncAction(): Action
-    {
-        return Action::make('syncInvoiceXpressClient')
-            ->label(__('Sync with InvoiceXpress'))
-            ->visible(fn (): bool => InvoiceXpressContactSync::available() && filled($this->getRecord()->vat_number))
-            ->modalDescription(__('Fields filled in on the source record override the corresponding fields on the destination record with the same tax ID.'))
-            ->modalSubmitActionLabel(__('Sync client'))
-            ->schema([
-                Select::make('direction')->label(__('Sync direction'))->required()
-                    ->options(['pull' => __('InvoiceXpress → Contiu'), 'push' => __('Contiu → InvoiceXpress')])
-                    ->in(['pull', 'push']),
-            ])
-            ->action(function (array $data, InvoiceXpressContactSync $sync, Action $action): void {
-                $client = $this->getRecord();
-                ClientResource::authorizeEdit($client);
-
-                try {
-                    if ($data['direction'] === 'pull') {
-                        $sync->pull((string) $client->vat_number, expectedClientId: $client->id);
-                        $this->refreshFormData(['name', 'email', 'phone', 'address', 'language']);
-                    } else {
-                        $sync->push($client->id);
-                    }
-                } catch (InvoiceXpressException|ValidationException $exception) {
-                    Notification::make()->danger()->title($exception->getMessage())->send();
-                    $action->halt();
-                }
-
-                Notification::make()->success()->title(__('Client synced'))->send();
-            });
     }
 
     /** @param array<string, mixed> $data */

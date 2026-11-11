@@ -1,3 +1,26 @@
 {
-    "guidelines": true
+    "agents": [
+        "claude_code",
+        "codex",
+        "opencode",
+        "antigravity"
+    ],
+    "cloud": false,
+    "guidelines": true,
+    "mcp": true,
+    "nightwatch": false,
+    "packages": [
+        "filament/filament",
+        "fruitcake/laravel-debugbar"
+    ],
+    "sail": false,
+    "skills": [
+        "infer-conventions",
+        "cashier-stripe-development",
+        "laravel-best-practices",
+        "testing-best-practices",
+        "tailwindcss-development",
+        "filament-development",
+        "debug-using-debugbar"
+    ]
 }

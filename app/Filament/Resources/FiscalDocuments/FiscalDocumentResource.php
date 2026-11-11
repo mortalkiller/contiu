@@ -2,43 +2,25 @@
 
 namespace App\Filament\Resources\FiscalDocuments;
 
-use App\Enums\FiscalDocumentDirection;
-use App\Enums\FiscalDocumentStatus;
-use App\Enums\FiscalDocumentType;
-use App\Enums\Language;
-use App\Filament\Pages\InvoiceXpressNoteIssuePage;
-use App\Filament\Pages\InvoiceXpressReceiptPage;
-use App\Filament\Pages\InvoiceXpressSectionPage;
-use App\Filament\Resources\FiscalDocuments\Actions\CreditApplicationActions;
-use App\Filament\Resources\FiscalDocuments\Actions\CustomerRefundAction;
-use App\Filament\Resources\FiscalDocuments\Actions\DebitNoteChargeAction;
-use App\Filament\Resources\FiscalDocuments\Actions\FiscalDocumentPdfActions;
-use App\Filament\Resources\FiscalDocuments\Actions\InvoiceAdvanceAction;
-use App\Filament\Resources\FiscalDocuments\Actions\InvoiceXpressCancellationAction;
+use App\Filament\Pages\InvoicingSyncPage;
+use App\Filament\Resources\FiscalDocuments\Pages\ComposeFiscalDocument;
 use App\Filament\Resources\FiscalDocuments\Pages\CreateFiscalDocument;
 use App\Filament\Resources\FiscalDocuments\Pages\DownloadFiscalDocumentPdf;
 use App\Filament\Resources\FiscalDocuments\Pages\EditFiscalDocument;
 use App\Filament\Resources\FiscalDocuments\Pages\ListFiscalDocuments;
+use App\Filament\Resources\FiscalDocuments\Pages\ViewFiscalDocument;
 use App\Filament\Resources\FiscalDocuments\Schemas\FiscalDocumentForm;
+use App\Filament\Resources\FiscalDocuments\Schemas\FiscalDocumentInfolist;
+use App\Filament\Resources\FiscalDocuments\Tables\FiscalDocumentsTable;
 use App\Filament\Resources\FiscalDocuments\Widgets\FiscalDocumentsSummary;
 use App\Models\FiscalDocument;
-use App\Models\InvoiceXpressConfig;
 use App\Support\CurrentAccount;
-use App\Support\DocumentedTurnover;
-use App\Support\InvoiceXpressIssue;
 use BackedEnum;
-use Filament\Actions\Action;
-use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
 use Filament\Facades\Filament;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Enums\FontFamily;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Auth\Access\Response;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
@@ -76,11 +58,13 @@ class FiscalDocumentResource extends Resource
         return __('Revenue');
     }
 
+    /** The screens reached from the list keep "Fiscal documents" highlighted in the sidebar. */
     public static function getNavigationItemActiveRoutePattern(): array
     {
-        return [...(array) parent::getNavigationItemActiveRoutePattern(), ...InvoiceXpressSectionPage::fiscalDocumentRoutes()];
+        return [...(array) parent::getNavigationItemActiveRoutePattern(), InvoicingSyncPage::getRouteName()];
     }
 
+    /** Documents are never deleted from the screens: an issued one is cancelled, a draft is discarded by its own action. */
     public static function getAuthorizationResponse(string|UnitEnum $action, ?Model $record = null): Response
     {
         $account = CurrentAccount::get();
@@ -101,107 +85,14 @@ class FiscalDocumentResource extends Resource
         return FiscalDocumentForm::configure($schema);
     }
 
+    public static function infolist(Schema $schema): Schema
+    {
+        return FiscalDocumentInfolist::configure($schema);
+    }
+
     public static function table(Table $table): Table
     {
-        return $table
-            ->defaultDateDisplayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
-            ->defaultNumberLocale(fn (): string => app()->getLocale())
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with([
-                'currentPdf', 'invoiceXpressSnapshot',
-                'links.receivable.billable', 'links.payment', 'links.expense.supplier', 'links.relatedFiscalDocument',
-            ]))
-            ->defaultSort('document_date', 'desc')
-            ->columns([
-                TextColumn::make('number')->label(__('Document'))->searchable()->sortable()
-                    ->fontFamily(FontFamily::Mono)
-                    ->description(fn (FiscalDocument $record): string => self::documentDescription($record)),
-                TextColumn::make('document_date')->label(__('Date'))->date()->sortable(),
-                TextColumn::make('party_name')->label(__('Counterparty'))->searchable()->placeholder('—'),
-                TextColumn::make('linkedTo')->label(__('Linked to'))
-                    ->state(fn (FiscalDocument $record): ?string => self::linkedTo($record)['label'] ?? null)
-                    ->description(fn (FiscalDocument $record): ?string => self::linkedTo($record)['detail'] ?? null)
-                    ->placeholder(__('Not linked'))
-                    ->wrap(),
-                TextColumn::make('net_amount')->label(__('Excluding VAT'))->money(fn (FiscalDocument $record): string => $record->currency, divideBy: 100)->alignEnd()
-                    ->color(fn (FiscalDocument $record): ?string => $record->net_amount < 0 ? 'danger' : null),
-                TextColumn::make('total_amount')->label(__('Total'))->money(fn (FiscalDocument $record): string => $record->currency, divideBy: 100)->alignEnd()
-                    ->color(fn (FiscalDocument $record): ?string => $record->total_amount < 0 ? 'danger' : null),
-                TextColumn::make('status')->label(__('Status'))->badge(),
-            ])
-            ->filters([
-                SelectFilter::make('type')->label(__('Type'))->options(FiscalDocumentType::class),
-                SelectFilter::make('direction')->label(__('Direction'))->options(FiscalDocumentDirection::class),
-                SelectFilter::make('status')->label(__('Status'))->options(FiscalDocumentStatus::class),
-                SelectFilter::make('billed_year')->label(__('Documented turnover in EUR'))
-                    ->options(fn (): array => collect(DocumentedTurnover::issueYears())->mapWithKeys(fn (int $year): array => [$year => (string) $year])->all())
-                    ->query(fn (Builder $query, array $data): Builder => $query->when(
-                        $data['value'] ?? null,
-                        fn (Builder $query, int|string $year): Builder => DocumentedTurnover::billingDocuments($query)
-                            ->where('currency', 'EUR')->whereYear('document_date', (int) $year),
-                    )),
-            ])
-            ->recordActions([
-                ViewAction::make()->mutateRecordDataUsing(FiscalDocumentForm::withLinkData(...)),
-                EditAction::make(),
-                FiscalDocumentPdfActions::download(),
-                FiscalDocumentPdfActions::retrieve(),
-                Action::make('prepareNote')
-                    ->label(fn (FiscalDocument $record): string => $record->type === FiscalDocumentType::InvoiceReceipt
-                        ? __('Prepare credit note') : __('Prepare credit or debit note'))
-                    ->visible(fn (FiscalDocument $record): bool => $record->direction === FiscalDocumentDirection::Issued
-                        && $record->status === FiscalDocumentStatus::Active
-                        && $record->currency === 'EUR' && $record->invoiceXpressSnapshot !== null
-                        && $record->invoiceXpressSnapshot->subdomain === InvoiceXpressConfig::current()?->subdomain
-                        && in_array($record->invoiceXpressSnapshot->source['provider_type'] ?? null, ['Invoice', 'InvoiceReceipt'], true)
-                        && InvoiceXpressNoteIssuePage::canAccess() && InvoiceXpressIssue::options() !== null)
-                    ->url(fn (FiscalDocument $record): string => InvoiceXpressNoteIssuePage::getUrl(['originalId' => $record->id])),
-                Action::make('receipts')
-                    ->label(__('Receipts'))
-                    ->visible(fn (FiscalDocument $record): bool => InvoiceXpressReceiptPage::canAccess()
-                        && $record->direction === FiscalDocumentDirection::Issued && $record->status === FiscalDocumentStatus::Active
-                        && $record->currency === 'EUR' && $record->links?->receivable_id !== null
-                        && in_array($record->type, [FiscalDocumentType::Invoice, FiscalDocumentType::InvoiceReceipt], true))
-                    ->url(fn (FiscalDocument $record): string => InvoiceXpressReceiptPage::getUrl(['invoice' => $record->id])),
-                CreditApplicationActions::apply(),
-                CreditApplicationActions::reverse(),
-                CustomerRefundAction::make(),
-                DebitNoteChargeAction::make(),
-                InvoiceAdvanceAction::make(),
-                InvoiceXpressCancellationAction::make(),
-            ])
-            ->emptyStateHeading(__('No fiscal documents'));
-    }
-
-    /**
-     * What a document is attached to, for the "Ligado a" column: the charge, payment, expense or
-     * original document, with a short second line saying which of those it is.
-     *
-     * @return array{label: string, detail: string}|null
-     */
-    private static function linkedTo(FiscalDocument $record): ?array
-    {
-        $link = $record->links;
-
-        return match (true) {
-            $link?->receivable !== null => ['label' => $link->receivable->label, 'detail' => __('Receivable · due on :date', ['date' => $link->receivable->due_on->format(Language::resolve(app()->getLocale())->dateFormat())])],
-            $link?->payment !== null => ['label' => $link->payment->receivableLabels(), 'detail' => __('Payment on :date', ['date' => $link->payment->paid_on->format(Language::resolve(app()->getLocale())->dateFormat())])],
-            $link?->expense !== null => ['label' => $link->expense->supplier?->name ?? __('Expense'), 'detail' => __('Expense on :date', ['date' => $link->expense->spent_on->format(Language::resolve(app()->getLocale())->dateFormat())])],
-            $link?->relatedFiscalDocument !== null => ['label' => $link->relatedFiscalDocument->number, 'detail' => __('Original document')],
-            default => null,
-        };
-    }
-
-    private static function documentDescription(FiscalDocument $record): string
-    {
-        $issued = $record->direction === FiscalDocumentDirection::Issued;
-
-        if ($record->type === FiscalDocumentType::Receipt) {
-            return $issued ? __('Receipt · issued') : __('Receipt · received');
-        }
-
-        $type = $record->type->getLabel();
-
-        return $issued ? __(':type · issued', ['type' => $type]) : __(':type · received', ['type' => $type]);
+        return FiscalDocumentsTable::configure($table);
     }
 
     public static function getWidgets(): array
@@ -214,6 +105,9 @@ class FiscalDocumentResource extends Resource
         return [
             'index' => ListFiscalDocuments::route('/'),
             'create' => CreateFiscalDocument::route('/create'),
+            'compose' => ComposeFiscalDocument::route('/novo/{type}'),
+            'draft' => ComposeFiscalDocument::route('/{record}/rascunho'),
+            'view' => ViewFiscalDocument::route('/{record}'),
             'edit' => EditFiscalDocument::route('/{record}/edit'),
             'download-pdf' => DownloadFiscalDocumentPdf::route('/{record}/pdf/{version?}'),
         ];

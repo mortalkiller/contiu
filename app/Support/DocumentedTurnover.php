@@ -66,6 +66,6 @@ final readonly class DocumentedTurnover
         return ($query ?? FiscalDocument::query())
             ->where('direction', FiscalDocumentDirection::Issued)
             ->where('status', FiscalDocumentStatus::Active)
-            ->whereIn('type', [FiscalDocumentType::Invoice, FiscalDocumentType::InvoiceReceipt, FiscalDocumentType::CreditNote, FiscalDocumentType::DebitNote]);
+            ->whereIn('type', FiscalDocumentType::billing());
     }
 }

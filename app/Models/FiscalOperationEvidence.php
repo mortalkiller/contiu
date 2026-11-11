@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToAccount;
-use App\Support\InvoiceXpressEuService;
+use App\Support\EuServiceEvidence;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use LogicException;
@@ -48,13 +48,13 @@ class FiscalOperationEvidence extends Model
 
     public function matchesDocument(FiscalDocument $document): bool
     {
-        return InvoiceXpressEuService::isDocumentCandidate($document)
+        return EuServiceEvidence::isDocumentCandidate($document)
             && $document->type->value === $this->document_type
             && $document->number === $this->document_number
             && $document->net_amount === $this->net_amount
             && $document->document_date->toDateString() === $this->document_on?->toDateString()
             && $document->operation_date?->toDateString() === $this->document_operation_on?->toDateString()
-            && InvoiceXpressEuService::catalogVat([
+            && EuServiceEvidence::catalogVat([
                 'fiscal_id' => $document->party_tax_id,
                 'country' => $this->country_code,
             ]) === $this->vat_number;

@@ -3,12 +3,11 @@
 namespace App\Support;
 
 use App\Actions\SaveFiscalDocument;
-use App\Exceptions\InvoiceXpressException;
-use App\Models\Account;
+use App\Exceptions\InvoicingProviderException;
 use App\Models\FiscalDocument;
 use App\Models\FiscalDocumentPdf;
-use App\Models\InvoiceXpressConfig;
-use App\Models\InvoiceXpressSnapshot;
+use App\Support\Invoicing\Invoicing;
+use App\Support\Invoicing\InvoicingRecords;
 use Closure;
 use finfo;
 use Illuminate\Support\Arr;
@@ -63,8 +62,8 @@ final class FiscalDocumentPdfs
         try {
             return $this->store($bytes, function () use ($data, $document): FiscalDocument {
                 $record = app(SaveFiscalDocument::class)->handle($data, $document);
-                if ($record->invoiceXpressSnapshot()->exists()) {
-                    throw ValidationException::withMessages(['data.pdf_upload' => __('Get the PDF for this document through InvoiceXpress.')]);
+                if ($record->integrationRecord()->exists()) {
+                    throw ValidationException::withMessages(['data.pdf_upload' => __('Get the PDF for this document from the invoicing provider.')]);
                 }
 
                 return $record;
@@ -74,36 +73,36 @@ final class FiscalDocumentPdfs
         }
     }
 
-    public function retrieveOfficial(FiscalDocument $document): bool
+    /**
+     * Fetches the official PDF from the invoicing provider and keeps it. False while the provider
+     * is still producing it.
+     */
+    public function retrieveFromProvider(FiscalDocument $document): bool
     {
         $this->authorizeWrite($document);
 
-        $snapshot = $document->invoiceXpressSnapshot()->first();
-        $config = InvoiceXpressConfig::current();
-        if ($snapshot === null || $config === null || $snapshot->subdomain !== $config->subdomain) {
-            throw new InvoiceXpressException(__('This document is not linked to the current InvoiceXpress account.'));
+        $entry = InvoicingRecords::for($document);
+        $provider = Invoicing::provider();
+
+        if ($entry === null || $provider === null) {
+            throw new InvoicingProviderException(__('This document is not at the connected invoicing provider.'));
         }
 
-        $bytes = app(InvoiceXpressFiscalPdf::class)->retrieve($config, $snapshot->provider_id);
+        $bytes = $provider->pdf($entry->remote_type, $entry->remote_id);
+
         if ($bytes === null) {
             return false;
         }
 
         try {
-            $this->store($bytes, function () use ($document, $snapshot): FiscalDocument {
-                Account::query()->lockForUpdate()->findOrFail(CurrentAccount::id());
+            $this->store($bytes, function () use ($document): FiscalDocument {
                 $record = FiscalDocument::query()->lockForUpdate()->findOrFail($document->getKey());
                 $this->authorizeWrite($record);
 
-                if ($record->invoiceXpressSnapshot()->first()?->id !== $snapshot->id
-                    || InvoiceXpressConfig::current()?->subdomain !== $snapshot->subdomain) {
-                    throw new InvoiceXpressException(__('The document’s link to InvoiceXpress has changed. Try again.'));
-                }
-
                 return $record;
-            }, $snapshot);
+            }, source: 'provider');
         } catch (FilesystemException) {
-            throw new InvoiceXpressException(__('Could not save the official PDF.'));
+            throw new InvoicingProviderException(__('Could not save the official PDF.'));
         }
 
         return true;
@@ -125,18 +124,18 @@ final class FiscalDocumentPdfs
     }
 
     /** @param Closure(): FiscalDocument $resolveDocument */
-    private function store(string $bytes, Closure $resolveDocument, ?InvoiceXpressSnapshot $snapshot = null): FiscalDocument
+    private function store(string $bytes, Closure $resolveDocument, string $source = 'upload'): FiscalDocument
     {
         $path = null;
 
         try {
-            return DB::transaction(function () use ($bytes, $resolveDocument, $snapshot, &$path): FiscalDocument {
+            return DB::transaction(function () use ($bytes, $resolveDocument, $source, &$path): FiscalDocument {
                 $record = $resolveDocument();
                 $sha256 = hash('sha256', $bytes);
                 $current = $record->currentPdf()->first();
 
                 if ($current?->sha256 === $sha256
-                    && $current->invoice_xpress_snapshot_id === $snapshot?->id
+                    && $current->source === $source
                     && ($currentPath = $current->path()) !== null
                     && Storage::disk(self::DISK)->exists($currentPath)) {
                     return $record;
@@ -144,7 +143,7 @@ final class FiscalDocumentPdfs
 
                 /** @var FiscalDocumentPdf $version */
                 $version = $record->pdfVersions()->create([
-                    'invoice_xpress_snapshot_id' => $snapshot?->id,
+                    'source' => $source,
                     'user_id' => auth()->id(),
                     'storage_key' => (string) Str::uuid(),
                     'sha256' => $sha256,

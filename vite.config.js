@@ -11,6 +11,7 @@ export default defineConfig({
                 'resources/css/app.css',
                 'resources/js/app.js',
                 'resources/js/finance-preview.js',
+                'resources/js/filament/schemas/components/fiscal-document-totals.js',
                 'resources/css/filament/admin/theme.css',
             ],
             refresh: true,

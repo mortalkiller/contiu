@@ -56,6 +56,9 @@ final readonly class VatPeriodReview
         $from = $start->toDateString();
         $until = $start->addMonths($months)->toDateString();
         $documents = FiscalDocument::query()
+            // A draft is not a document yet, and a quote, a pro forma or a transport guide never carries VAT to declare.
+            ->where('status', '!=', FiscalDocumentStatus::Draft)
+            ->whereIn('type', [...FiscalDocumentType::billing(), FiscalDocumentType::Receipt])
             ->where(fn (Builder $query) => $query
                 ->where(fn (Builder $issued) => $issued->where('document_date', '>=', $from)->where('document_date', '<', $until))
                 ->orWhere(fn (Builder $operated) => $operated->where('operation_date', '>=', $from)->where('operation_date', '<', $until)))

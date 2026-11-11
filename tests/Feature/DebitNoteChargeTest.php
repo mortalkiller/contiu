@@ -3,14 +3,13 @@
 use App\Actions\RecordDebitNoteCharge;
 use App\Enums\FiscalDocumentStatus;
 use App\Enums\FiscalDocumentType;
-use App\Filament\Resources\FiscalDocuments\Pages\ListFiscalDocuments;
+use App\Filament\Resources\FiscalDocuments\Pages\ViewFiscalDocument;
 use App\Models\Client;
 use App\Models\FiscalDocument;
 use App\Models\Payment;
 use App\Models\Project;
 use App\Models\Receivable;
 use App\Support\MonthReview;
-use Filament\Actions\Testing\TestAction;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
@@ -38,8 +37,8 @@ it('opens a separate charge from a debit note without changing the original or r
     $this->travelTo(now()->setDate(2026, 11, 10));
     [$note, $invoice, $originalCharge] = debitNoteWithOriginal();
 
-    Livewire::test(ListFiscalDocuments::class)
-        ->callAction(TestAction::make('recordDebitNoteCharge')->table($note), ['due_on' => '2026-12-31'])
+    Livewire::test(ViewFiscalDocument::class, ['record' => $note->id])
+        ->callAction('recordDebitNoteCharge', ['due_on' => '2026-12-31'])
         ->assertHasNoActionErrors();
 
     $charge = $note->fresh()->links->receivable;

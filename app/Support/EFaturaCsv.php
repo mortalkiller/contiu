@@ -9,7 +9,9 @@ use Illuminate\Support\Str;
 /**
  * The received-invoices file exported from the Portal das Finanças (e-Fatura, "Consultar faturas
  * › Adquirente › Exportar"): one row per invoice, from every supplier, each with the issuer's
- * tax ID. Columns are found by their heading, so a reordered or slightly renamed export still
+ * tax ID. The export reads like "Nº Documento / ATCUD";"NIF Emitente";"Data Emissão";"Tipo do
+ * Documento";"Total";"IVA";"Base Tributável";"Situação", with amounts as "255,50 €"; the issuer
+ * may come as a bare tax ID or as "tax ID - name". Columns are found by their heading, so a reordered or slightly renamed export still
  * reads; the separator (";", "," or tab) and the encoding (UTF-8 or Windows-1252) are detected.
  *
  * Invoices, simplified invoices and invoice-receipts are read; other documents (credit notes,
@@ -120,6 +122,12 @@ final class EFaturaCsv
                     }
                 }
             }
+        }
+
+        // The issued-invoices export has the buyer's tax ID ("NIF Adquirente") instead of the issuer's:
+        // the right portal, the wrong side.
+        if (! isset($columns['issuer']) && in_array('nif adquirente', $normalized, true)) {
+            throw new DomainException(__('This is the export of the invoices you issued (it lists the buyer\'s tax ID). For expenses, export the invoices you received: in e-Fatura, the Purchaser view.'));
         }
 
         $required = ['issuer' => __('Issuer'), 'number' => __('Invoice number'), 'date' => __('Issue date'), 'total' => __('Total')];

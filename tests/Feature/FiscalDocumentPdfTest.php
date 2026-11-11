@@ -1,16 +1,20 @@
 <?php
 
+use App\Enums\IntegrationRecordState;
 use App\Filament\Resources\FiscalDocuments\FiscalDocumentResource;
 use App\Filament\Resources\FiscalDocuments\Pages\CreateFiscalDocument;
 use App\Filament\Resources\FiscalDocuments\Pages\EditFiscalDocument;
-use App\Filament\Resources\FiscalDocuments\Pages\ListFiscalDocuments;
+use App\Filament\Resources\FiscalDocuments\Pages\ViewFiscalDocument;
 use App\Models\Account;
 use App\Models\FiscalDocument;
-use App\Models\InvoiceXpressConfig;
-use App\Models\InvoiceXpressSnapshot;
+use App\Models\IntegrationConnection;
 use App\Models\User;
 use App\Support\CurrentAccount;
-use Filament\Actions\Testing\TestAction;
+use App\Support\Invoicing\Invoicing;
+use App\Support\Invoicing\InvoicingRecords;
+use App\Support\Invoicing\RemoteDocument;
+use App\Support\Invoicing\RemoteDocumentState;
+use Carbon\CarbonImmutable;
 use Filament\Facades\Filament;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\UploadedFile;
@@ -47,17 +51,15 @@ function fiscalPdfUrl(FiscalDocument $document, Account $account): string
     return FiscalDocumentResource::getUrl(tenant: $account).'/'.$document->getKey().'/pdf';
 }
 
-function fiscalPdfProviderLink(FiscalDocument $document, string $snapshotSubdomain = 'fiscal'): void
+/** Connects the account to the provider and ties the document to its counterpart there. */
+function fiscalPdfProviderLink(FiscalDocument $document): void
 {
-    InvoiceXpressConfig::store('fiscal', 'fiscal-test-secret');
-
-    InvoiceXpressSnapshot::create([
-        'subdomain' => $snapshotSubdomain,
-        'provider_id' => 1050,
-        'source_hash' => str_repeat('a', 64),
-        'source' => ['id' => 1050, 'type' => 'Invoice'],
-        'fiscal_document_id' => $document->id,
-    ]);
+    IntegrationConnection::factory()->create(['credentials' => ['subdomain' => 'fiscal', 'api_key' => 'fiscal-test-secret']]);
+    Invoicing::forget();
+    InvoicingRecords::store($document, new RemoteDocument(
+        'invoices', '1050', $document->type, RemoteDocumentState::Issued, CarbonImmutable::parse($document->document_date),
+        $document->net_amount, $document->vat_amount, $document->total_amount, $document->number,
+    ), IntegrationRecordState::InSync);
 }
 
 it('attaches a manual PDF on creation and retains each version when the PDF is replaced', function () {
@@ -188,13 +190,12 @@ it('requires authenticated tenant access and keeps the E2 accountant review boun
     $this->actingAs($accountant)->get(fiscalPdfUrl($document, $this->account))->assertForbidden();
 });
 
-it('obtains the official PDF only on request and keeps it linked to its provider snapshot', function () {
+it('obtains the official PDF only on request and keeps it marked as the provider\'s', function (string $downloadUrl) {
     actingAsAdmin();
     $disk = Storage::fake('local');
     $document = FiscalDocument::factory()->create(['origin' => 'InvoiceXpress']);
     fiscalPdfProviderLink($document);
 
-    $downloadUrl = 'https://invoicexpress-downloads.s3.amazonaws.com/invoice.pdf?X-Amz-Signature=test';
     Http::preventStrayRequests()->fake([
         'https://fiscal.app.invoicexpress.com/api/pdf/1050.json?*' => Http::sequence()
             ->push('', 202)
@@ -202,16 +203,15 @@ it('obtains the official PDF only on request and keeps it linked to its provider
         $downloadUrl => Http::response(fiscalPdfBytes(), 200, ['Content-Type' => 'application/pdf']),
     ]);
 
-    $list = Livewire::test(ListFiscalDocuments::class)->loadTable();
+    $page = Livewire::test(ViewFiscalDocument::class, ['record' => $document->id]);
     Http::assertNothingSent();
 
-    $action = TestAction::make('retrieveOfficialPdf')->table($document);
-    $list->callAction($action)->assertNotified('O InvoiceXpress ainda está a preparar o PDF.');
+    $page->callAction('retrieveOfficialPdf')->assertNotified('O PDF ainda está a ser preparado.');
     expect($document->pdfVersions()->count())->toBe(0);
 
-    $list->callAction($action)->assertNotified('PDF oficial guardado');
+    $page->callAction('retrieveOfficialPdf')->assertNotified('PDF oficial guardado');
     $version = $document->pdfVersions()->sole();
-    expect($version->invoice_xpress_snapshot_id)->toBe(InvoiceXpressSnapshot::sole()->id)
+    expect($version->source)->toBe('provider')
         ->and($disk->get($version->path()))->toBe(fiscalPdfBytes());
 
     Http::assertSentCount(3);
@@ -221,7 +221,10 @@ it('obtains the official PDF only on request and keeps it linked to its provider
         && str_contains($request->url(), 'api_key=fiscal-test-secret'));
     Http::assertSent(fn (Request $request): bool => $request->url() === $downloadUrl
         && ! $request->hasHeader('Authorization'));
-});
+})->with([
+    'documents bucket' => 'https://invoicexpress-documents-pdfs.s3.eu-west-1.amazonaws.com/a1/b2/c3/9f-1-false-sent-pt-1.pdf?response-content-disposition=attachment%3B%20filename%3D%22RC-6.pdf%22&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=600&X-Amz-Signature=test',
+    'downloads bucket' => 'https://invoicexpress-downloads.s3.amazonaws.com/invoice.pdf?X-Amz-Signature=test',
+]);
 
 it('fails closed when the official response cannot be used', function (string $failure) {
     actingAsAdmin();
@@ -232,6 +235,7 @@ it('fails closed when the official response cannot be used', function (string $f
     $allowedUrl = 'https://fiscal.app.invoicexpress.com/invoice.pdf';
     $url = match ($failure) {
         'untrusted-host' => 'https://fiscal.app.invoicexpress.com.example.com/invoice.pdf',
+        'untrusted-bucket' => 'https://invoicexpress-documents-pdfs.s3.eu-west-1.amazonaws.com.example.com/invoice.pdf',
         'reflected-key' => $allowedUrl.'?api_key=fiscal-test-secret',
         default => $allowedUrl,
     };
@@ -246,31 +250,28 @@ it('fails closed when the official response cannot be used', function (string $f
         },
     ]);
 
-    Livewire::test(ListFiscalDocuments::class)->loadTable()
-        ->callAction(TestAction::make('retrieveOfficialPdf')->table($document))
+    Livewire::test(ViewFiscalDocument::class, ['record' => $document->id])
+        ->callAction('retrieveOfficialPdf')
         ->assertNotified();
 
-    Http::assertSentCount(in_array($failure, ['untrusted-host', 'reflected-key'], true) ? 1 : 2);
+    Http::assertSentCount(in_array($failure, ['untrusted-host', 'untrusted-bucket', 'reflected-key'], true) ? 1 : 2);
     expect($document->pdfVersions()->count())->toBe(0)
         ->and($disk->allFiles())->toBe([]);
-})->with(['untrusted-host', 'reflected-key', 'redirect', 'mime', 'size']);
+})->with(['untrusted-host', 'untrusted-bucket', 'reflected-key', 'redirect', 'mime', 'size']);
 
-it('blocks official retrieval for read-only owners and a changed provider account', function () {
+it('does not offer the official PDF without a provider behind the document, nor to a read-only account', function () {
     actingAsAdmin();
     $document = FiscalDocument::factory()->create();
-    fiscalPdfProviderLink($document, 'old-provider');
     Http::preventStrayRequests();
 
-    $action = TestAction::make('retrieveOfficialPdf')->table($document);
-    Livewire::test(ListFiscalDocuments::class)->loadTable()
-        ->assertActionHidden($action);
+    Livewire::test(ViewFiscalDocument::class, ['record' => $document->id])->assertActionHidden('retrieveOfficialPdf');
 
-    InvoiceXpressSnapshot::sole()->update(['subdomain' => 'fiscal']);
+    fiscalPdfProviderLink($document);
     $owner = ownerOf($this->account);
     $this->account->update(['trial_ends_at' => today()->subDay()]);
     $this->actingAs($owner);
     Filament::setTenant($this->account);
 
-    Livewire::test(ListFiscalDocuments::class)->loadTable()->assertActionHidden($action);
+    Livewire::test(ViewFiscalDocument::class, ['record' => $document->id])->assertActionHidden('retrieveOfficialPdf');
     Http::assertNothingSent();
 });

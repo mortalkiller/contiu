@@ -1,4 +1,5 @@
-function scaledInteger(value, scale) {
+/** A typed decimal as an exact integer at the given scale (2 for cents), rounded half up. */
+export function scaledInteger(value, scale) {
     const input = String(value ?? '').replaceAll(' ', '').replace(',', '.');
     const parts = /^([+-]?)(\d*)(?:\.(\d*))?(?:e([+-]?\d+))?$/i.exec(input);
 
@@ -57,17 +58,22 @@ export function invoiceNetSubtotal(prices, lines) {
     return subtotal;
 }
 
-export default function financePreview({ read, locale, mode, messages, prices }) {
+/** Writes integer cents as euros in the user's locale, without going through a float. */
+export function moneyFormatter(locale) {
     const formatter = new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR' });
 
-    function format(cents) {
+    return (cents) => {
         const euros = cents / 100n;
         const fraction = (cents < 0n ? -cents : cents) % 100n;
 
         return formatter.formatToParts(euros === 0n && cents < 0n ? -0 : euros)
             .map(({ type, value }) => type === 'fraction' ? String(fraction).padStart(2, '0') : value)
             .join('');
-    }
+    };
+}
+
+export default function financePreview({ read, locale, mode, messages, prices }) {
+    const format = moneyFormatter(locale);
 
     return {
         get net() {

@@ -12,6 +12,7 @@ use App\Policies\AuditPolicy;
 use App\Support\AccountMemberAccess;
 use App\Support\CurrentAccount;
 use App\Support\FinanceSettings;
+use App\Support\Invoicing\Invoicing;
 use App\Support\ReadOnlyAccountAccess;
 use Filament\Forms\Components\FileUpload;
 use Filament\Notifications\Notification;
@@ -44,6 +45,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->scoped(CurrentAccount::class);
         $this->app->scoped(FinanceSettings::class);
         $this->app->scoped(AccountMemberAccess::class);
+        $this->app->scoped(Invoicing::class);
 
         // The profile package registers this middleware on the panel's authenticated routes.
         $this->app->bind(SetUserLocale::class, ApplyUserLanguage::class);

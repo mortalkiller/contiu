@@ -47,7 +47,7 @@ final class RecordCustomerRefund
 
             if ($note === null || $invoice === null || $charge === null
                 || $note->type !== FiscalDocumentType::CreditNote
-                || ! in_array($invoice->type, [FiscalDocumentType::Invoice, FiscalDocumentType::InvoiceReceipt], true)
+                || ! $invoice->type->isInvoice()
                 || ! $this->eligible($note) || ! $this->eligible($invoice) || $invoice->total_amount <= 0
                 || $note->links?->related_fiscal_document_id !== $invoice->id || $invoice->links?->receivable_id !== $charge->id
                 || ($note->links->receivable_id !== null && $note->links->receivable_id !== $charge->id)

@@ -8,7 +8,7 @@ use App\Enums\FiscalDocumentDirection;
 use App\Enums\FiscalDocumentStatus;
 use App\Enums\FiscalDocumentType;
 use App\Enums\PaymentMethod;
-use App\Filament\Resources\FiscalDocuments\Pages\ListFiscalDocuments;
+use App\Filament\Resources\FiscalDocuments\Pages\ViewFiscalDocument;
 use App\Models\Account;
 use App\Models\BankTransaction;
 use App\Models\CreditApplication;
@@ -24,7 +24,6 @@ use App\Support\DocumentedTurnover;
 use App\Support\MonthReview;
 use App\Support\Period;
 use App\Support\PeriodSummary;
-use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
@@ -77,8 +76,8 @@ it('records and reconciles a partial customer refund without changing the origin
     ]);
     $billing = DocumentedTurnover::forYear(2026);
 
-    Livewire::test(ListFiscalDocuments::class)
-        ->callAction(TestAction::make('recordCustomerRefund')->table($note), [
+    Livewire::test(ViewFiscalDocument::class, ['record' => $note->id])
+        ->callAction('recordCustomerRefund', [
             'paid_on' => '2026-11-05', 'amount' => '70.00', 'reference' => 'REF-1', 'bank_transaction_id' => $line->id,
         ])->assertHasNoActionErrors();
 
@@ -122,8 +121,8 @@ it('applies and reverses a credit from the document list without recording cash 
     [$receivable, $invoice, $credit] = linkedCreditApplicationDocuments();
     $turnover = DocumentedTurnover::forYear(2026);
 
-    Livewire::test(ListFiscalDocuments::class)
-        ->callAction(TestAction::make('applyCredit')->table($credit))
+    Livewire::test(ViewFiscalDocument::class, ['record' => $credit->id])
+        ->callAction('applyCredit')
         ->assertHasNoActionErrors();
 
     $application = CreditApplication::query()->sole();
@@ -143,8 +142,8 @@ it('applies and reverses a credit from the document list without recording cash 
     ]);
 
     $this->travel(1)->day();
-    Livewire::test(ListFiscalDocuments::class)
-        ->callAction(TestAction::make('reverseCredit')->table($credit), ['reason' => 'Aplicação registada por engano.'])
+    Livewire::test(ViewFiscalDocument::class, ['record' => $credit->id])
+        ->callAction('reverseCredit', ['reason' => 'Aplicação registada por engano.'])
         ->assertHasNoActionErrors();
 
     expect($receivable->fresh()->outstanding)->toBe(80000)
@@ -270,8 +269,8 @@ it('requires a new confirmation if the original invoice changes after the modal 
     signInForCreditApplication();
     [, , $credit] = linkedCreditApplicationDocuments();
     [$otherReceivable, $otherInvoice] = linkedCreditApplicationDocuments();
-    $page = Livewire::test(ListFiscalDocuments::class)
-        ->mountAction(TestAction::make('applyCredit')->table($credit));
+    $page = Livewire::test(ViewFiscalDocument::class, ['record' => $credit->id])
+        ->mountAction('applyCredit');
     $credit->links()->firstOrFail()->update(['related_fiscal_document_id' => $otherInvoice->id]);
 
     $page->call('callMountedAction');

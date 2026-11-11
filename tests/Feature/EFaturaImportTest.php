@@ -63,3 +63,41 @@ it('previews and imports invoices from two suppliers in one go', function () {
     expect(FiscalDocument::query()->pluck('party_tax_id')->sort()->values()->all())->toBe(['501234560', '509999990'])
         ->and(FiscalDocument::query()->firstWhere('number', 'FT A/2291')->links->expense_id)->toBe($expense->id);
 })->group('ui');
+
+/** As the portal exports it: UTF-8 with a BOM, every field quoted, the issuer as a bare tax ID. */
+function eFaturaPurchaserExport(): string
+{
+    return "\xEF\xBB\xBF".implode("\n", [
+        '"Nº Documento / ATCUD";"NIF Emitente";"Data Emissão";"Tipo do Documento";"Total";"IVA";"Base Tributável";"Situação"',
+        '"FT A/2291 / ABCD1234-2291";"509999990";"2026-11-10";"Fatura";"61,50 €";"11,50 €";"50,00 €";"Registado"',
+    ]);
+}
+
+it('reads the purchaser export as the portal writes it', function () {
+    ['rows' => $rows] = app(EFaturaCsv::class)->parse(eFaturaPurchaserExport());
+
+    expect($rows)->toHaveCount(1)
+        ->and($rows[0])->toMatchArray([
+            'number' => 'FT A/2291', 'atcud' => 'ABCD1234-2291', 'document_date' => '2026-11-10',
+            'party_tax_id' => '509999990', 'party_name' => null, 'total_amount' => 6150, 'vat_amount' => 1150,
+        ]);
+})->group('integration');
+
+it('says so when the file is the export of the invoices issued, not received', function () {
+    app(EFaturaCsv::class)->parse("\xEF\xBB\xBF".implode("\n", [
+        '"Nº Documento / ATCUD";"NIF Adquirente";"Data Emissão";"Tipo do Documento";"Total";"IVA";"Base Tributável";"Situação"',
+        '"FT ATSIRE01FT/1 / J6SHX6KD-1";"513973125";"2026-07-29";"Fatura";"255,50 €";"0,00 €";"255,50 €";"Registado"',
+    ]));
+})->throws(DomainException::class, 'faturas que emitiste')->group('integration');
+
+it('names the supplier from the records when the export gives only its tax ID', function () {
+    actingAsAdmin();
+    Supplier::factory()->create(['name' => 'Loja Demo', 'vat_number' => '509999990']);
+
+    $page = Livewire::test(ExpenseDocumentImport::class)
+        ->set('file', UploadedFile::fake()->createWithContent('efatura.csv', eFaturaPurchaserExport()))
+        ->call('preview')
+        ->assertHasNoErrors();
+
+    expect(importScreenText($page))->toMatch('/FT A\/2291 .* Loja Demo/u');
+})->group('ui');

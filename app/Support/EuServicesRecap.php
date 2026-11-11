@@ -84,7 +84,7 @@ final class EuServicesRecap
         $documents = FiscalDocument::query()
             ->where('status', FiscalDocumentStatus::Active)
             ->where('direction', FiscalDocumentDirection::Issued)
-            ->whereIn('type', [FiscalDocumentType::Invoice, FiscalDocumentType::InvoiceReceipt])
+            ->whereIn('type', FiscalDocumentType::invoices())
             ->where('currency', 'EUR')
             ->where('vat_amount', 0)
             ->where('net_amount', '>', 0)
@@ -93,7 +93,7 @@ final class EuServicesRecap
             ->where(function (Builder $query): void {
                 $query->whereHas('links.receivable', self::forEuBusiness(...));
 
-                foreach (InvoiceXpressEuService::vatPrefixes() as $prefix) {
+                foreach (EuServiceEvidence::vatPrefixes() as $prefix) {
                     $query->orWhereRaw('UPPER(TRIM(party_tax_id)) LIKE ?', [$prefix.'%']);
                 }
             })
@@ -119,7 +119,7 @@ final class EuServicesRecap
         return FiscalOperationEvidence::query()
             ->where('operation_on', '>=', $from->toDateString())
             ->where('operation_on', '<', $until->toDateString())
-            ->where('reason', InvoiceXpressEuService::REASON)
+            ->where('reason', EuServiceEvidence::REASON)
             ->withWhereHas('fiscalDocument', fn (Builder|BelongsTo $query) => $query->where('status', FiscalDocumentStatus::Active));
     }
 
@@ -128,7 +128,7 @@ final class EuServicesRecap
         $this->profiles ??= FiscalProfile::query()->inEffectiveOrder()->get();
         $profile = $this->profiles->first(fn (FiscalProfile $profile): bool => $profile->effective_from->lte($operation->operation_on));
 
-        return $profile === null ? null : InvoiceXpressEuService::recapMonths($profile);
+        return $profile === null ? null : EuServiceEvidence::recapMonths($profile);
     }
 
     /** @return Builder<FiscalDocumentLink> */
@@ -143,7 +143,7 @@ final class EuServicesRecap
         $receivable->whereHasMorph('billable', [Project::class, Retainer::class, OneOffIncome::class],
             fn (Builder $billable) => $billable->whereHas('client', fn (Builder $client) => $client
                 ->where(fn (Builder $legacy) => $legacy->where('seat', Seat::EuropeanUnion)->where('is_business', true))
-                ->orWhere(fn (Builder $fiscal) => $fiscal->whereIn('fiscal_country_code', InvoiceXpressEuService::countryCodes())
+                ->orWhere(fn (Builder $fiscal) => $fiscal->whereIn('fiscal_country_code', EuServiceEvidence::countryCodes())
                     ->where('fiscal_party_type', FiscalProfilePartyType::Business))));
     }
 }

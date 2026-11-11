@@ -10,7 +10,6 @@ use App\Exceptions\AccountIsReadOnly;
 use App\Models\Account;
 use App\Models\FiscalDocument;
 use App\Models\FiscalDocumentLink;
-use App\Models\InvoiceXpressReceiptAttempt;
 use App\Models\Payment;
 use App\Models\PaymentAllocation;
 use App\Models\Receivable;
@@ -196,7 +195,7 @@ final readonly class WithholdingReview
         $allocations = $payment->allocations()->lockForUpdate()->get();
         $allocation = $allocations->first();
         $charge = $allocation?->receivable()->excludingCancelled()->lockForUpdate()->first();
-        $nif = InvoiceXpressIssueTerms::nif($payment->advanceClient?->vat_number);
+        $nif = FiscalTerms::nif($payment->advanceClient?->vat_number);
 
         self::validateCash($document, $retained, $payment->amount);
         if ($invoice === null || $invoice->direction !== FiscalDocumentDirection::Issued
@@ -206,8 +205,8 @@ final readonly class WithholdingReview
             || $document->links?->expense_id !== null || ($invoice->is($document) && $document->links?->related_fiscal_document_id !== null)
             || ! $invoice->document_date->isSameDay($payment->paid_on) || $document->document_date->lt($invoice->document_date)
             || $invoice->total_amount !== $document->total_amount || $invoice->net_amount + $invoice->vat_amount !== $invoice->total_amount
-            || ($nif !== null && InvoiceXpressIssueTerms::nif($invoice->party_tax_id) !== $nif)
-            || ($document->party_tax_id !== null && InvoiceXpressIssueTerms::nif($document->party_tax_id) !== InvoiceXpressIssueTerms::nif($invoice->party_tax_id))
+            || ($nif !== null && FiscalTerms::nif($invoice->party_tax_id) !== $nif)
+            || ($document->party_tax_id !== null && FiscalTerms::nif($document->party_tax_id) !== FiscalTerms::nif($invoice->party_tax_id))
             || $allocations->count() > 1 || ($allocation !== null && ($charge === null || $allocation->amount !== $payment->amount
                 || (int) $charge->client?->id !== (int) $payment->advance_client_id))
             || ($document->links?->receivable_id !== null && $document->links->receivable_id !== $charge?->id)
@@ -492,9 +491,6 @@ final readonly class WithholdingReview
                         ->orWhere(fn (Builder $query) => $query->whereNull('receivable_id')->whereNull('related_fiscal_document_id'))))
                 ->whereHas('fiscalDocument', fn (Builder $query) => $query->where('status', FiscalDocumentStatus::Active)
                     ->whereIn('type', [FiscalDocumentType::Receipt, FiscalDocumentType::InvoiceReceipt]))
-                ->exists()
-            || InvoiceXpressReceiptAttempt::query()->where('payment_id', $payment->id)->where('receivable_id', $receivable->id)
-                ->where(fn (Builder $query) => $query->whereNull('fiscal_document_id')->orWhere('fiscal_document_id', '!=', $document->id))
                 ->exists()) {
             throw self::invalid('documentId', __('A receipt, withholding record, or issuance attempt already exists for this allocation.'));
         }

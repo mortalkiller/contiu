@@ -8,7 +8,7 @@ use App\Enums\FiscalProfileViesStatus;
 use App\Filament\Resources\FiscalDocuments\FiscalDocumentResource;
 use App\Models\Client;
 use App\Models\FiscalDocument;
-use App\Support\InvoiceXpressEuService;
+use App\Support\EuServiceEvidence;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DatePicker;
@@ -27,7 +27,7 @@ final class RecordEuServiceAction
             ->label(__('Classify EU service'))
             ->authorize(fn (FiscalDocument $record): bool => FiscalDocumentResource::canEdit($record))
             ->visible(fn (FiscalDocument $record): bool => $record->status === FiscalDocumentStatus::Active
-                && InvoiceXpressEuService::isDocumentCandidate($record)
+                && EuServiceEvidence::isDocumentCandidate($record)
                 && $record->fiscalOperationEvidence === null)
             ->modalDescription(__('Confirm the details on the issued invoice. If the client\'s recorded VIES check took place after the service, enter the date and reference of the original evidence.'))
             ->modalSubmitActionLabel(__('Record evidence'))
@@ -58,7 +58,7 @@ final class RecordEuServiceAction
                         'checkedOn' => $data['historicalViesOn'],
                         'reference' => trim($data['historicalViesReference']),
                     ] : null;
-                    InvoiceXpressEuService::recordDocumentary($record, $client, $data['operationOn'], $historical);
+                    EuServiceEvidence::recordDocumentary($record, $client, $data['operationOn'], $historical);
                 } catch (ValidationException $exception) {
                     throw ValidationException::withMessages(Arr::prependKeysWith($exception->errors(), $schema->getStatePath().'.'));
                 }
@@ -72,7 +72,7 @@ final class RecordEuServiceAction
     private static function clients(): Builder
     {
         return Client::query()
-            ->whereIn('fiscal_country_code', InvoiceXpressEuService::countryCodes())
+            ->whereIn('fiscal_country_code', EuServiceEvidence::countryCodes())
             ->where('fiscal_party_type', FiscalProfilePartyType::Business)
             ->where('vat_validation_status', FiscalProfileViesStatus::Valid)
             ->whereNotNull('vat_validated_at');

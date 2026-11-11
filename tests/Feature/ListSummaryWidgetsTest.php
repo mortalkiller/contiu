@@ -28,7 +28,6 @@ use App\Filament\Resources\Suppliers\Widgets\SuppliersBySpend;
 use App\Filament\Support\ProportionBar;
 use App\Models\Category;
 use App\Models\Client;
-use App\Models\CreditApplication;
 use App\Models\Expense;
 use App\Models\FiscalDocument;
 use App\Models\Payment;
@@ -155,9 +154,9 @@ it('sums up payments: this month, this year and by method', function () {
         ->assertSeeInOrder(['Como te pagam', 'Transferência', '400,00 €', 'MB Way', '180,00 €']);
 })->group('ui');
 
-it('sums up fiscal documents: billed this year, charges without a document and credit notes to apply', function () {
+it('sums up fiscal documents: billed this year, charges without a document, drafts to issue and the provider', function () {
     FiscalDocument::factory()->create(['net_amount' => 40000, 'document_date' => '2026-11-12']);
-    $creditNote = FiscalDocument::factory()->create(['net_amount' => 5000, 'type' => FiscalDocumentType::CreditNote, 'document_date' => '2026-10-20']);
+    FiscalDocument::factory()->create(['net_amount' => 5000, 'type' => FiscalDocumentType::CreditNote, 'document_date' => '2026-10-20']);
     FiscalDocument::factory()->create(['direction' => FiscalDocumentDirection::Received, 'document_date' => '2026-11-10']);
     FiscalDocument::factory()->create(['status' => FiscalDocumentStatus::Voided, 'document_date' => '2026-03-01']);
 
@@ -169,13 +168,13 @@ it('sums up fiscal documents: billed this year, charges without a document and c
     Livewire::test(FiscalDocumentsSummary::class)
         ->assertSeeInOrder(['Faturado em 2026, sem IVA', Money::format(35000)])
         ->assertSeeInOrder(['Cobranças sem documento', '1', 'emitir fatura'])
-        ->assertSeeInOrder(['Notas de crédito por aplicar', '1', 'Aplica-as na fatura original'])
-        ->assertSeeInOrder(['InvoiceXpress', 'Por ligar']);
+        ->assertSeeInOrder(['Rascunhos por emitir', '0', 'Nada à espera de ser emitido'])
+        ->assertSeeInOrder(['Fornecedor de faturação', 'Por ligar']);
 
-    CreditApplication::factory()->create(['credit_note_id' => $creditNote->id]);
+    FiscalDocument::factory()->draft()->create(['party_name' => 'Estúdio Atlântico', 'total_amount' => 29400]);
 
     Livewire::test(FiscalDocumentsSummary::class)
-        ->assertSeeInOrder(['Notas de crédito por aplicar', '0', 'Tudo aplicado']);
+        ->assertSeeInOrder(['Rascunhos por emitir', '1', 'Estúdio Atlântico']);
 })->group('ui');
 
 it('splits the fiscal documents list into tabs by direction, with the voided ones apart', function () {

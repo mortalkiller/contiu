@@ -4,7 +4,7 @@ use App\Actions\LinkInvoiceAdvance;
 use App\Actions\ManageCustomerAdvance;
 use App\Enums\FiscalDocumentType;
 use App\Enums\PaymentMethod;
-use App\Filament\Resources\FiscalDocuments\Pages\ListFiscalDocuments;
+use App\Filament\Resources\FiscalDocuments\Pages\ViewFiscalDocument;
 use App\Models\Account;
 use App\Models\Client;
 use App\Models\FiscalDocument;
@@ -14,9 +14,8 @@ use App\Models\Receivable;
 use App\Models\WithholdingRecord;
 use App\Support\CurrentAccount;
 use App\Support\DocumentedTurnover;
-use App\Support\InvoiceXpressIssueAdvance;
+use App\Support\InvoiceAdvance;
 use App\Support\WithholdingReview;
-use Filament\Actions\Testing\TestAction;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
@@ -48,8 +47,8 @@ function serviceInvoicesWithAdvance(int $finalAmount = 40000): array
 
 it('links a documented customer advance to the final invoice without creating cash or duplicating turnover', function () {
     [$advance, $final, $charge] = serviceInvoicesWithAdvance();
-    Livewire::test(ListFiscalDocuments::class)
-        ->callAction(TestAction::make('linkInvoiceAdvance')->table($final), ['advance' => $advance->id])
+    Livewire::test(ViewFiscalDocument::class, ['record' => $final->id])
+        ->callAction('linkInvoiceAdvance', ['advance' => $advance->id])
         ->assertHasNoActionErrors();
 
     app(LinkInvoiceAdvance::class)->handle($final->id, $advance->id);
@@ -125,8 +124,8 @@ function serviceInvoicesWithRetainedAdvance(bool $confirmRetention = true, bool 
 it('deducts the full documented advance in preview when cash and confirmed IRS cover its gross', function (bool $separateReceipt) {
     [$advance, , $charge, $payment] = serviceInvoicesWithRetainedAdvance(separateReceipt: $separateReceipt);
 
-    $source = InvoiceXpressIssueAdvance::source($charge, $payment, 2300, '2026-11-05');
-    $adjustment = InvoiceXpressIssueAdvance::amounts($source, ['net' => 60000, 'tax' => 13800, 'total' => 73800], 2300);
+    $source = InvoiceAdvance::source($charge, $payment, 2300, '2026-11-05');
+    $adjustment = InvoiceAdvance::amounts($source, ['net' => 60000, 'tax' => 13800, 'total' => 73800], 2300);
 
     expect($source->id)->toBe($advance->id);
     expect($adjustment['deduction'])->toBe(['net' => 20000, 'tax' => 4600, 'total' => 24600]);
@@ -136,8 +135,8 @@ it('deducts the full documented advance in preview when cash and confirmed IRS c
 it('links a manually issued final invoice for the balance without duplicating the retained IRS or cash', function (bool $separateReceipt) {
     [$advance, $final, $charge, $payment] = serviceInvoicesWithRetainedAdvance(separateReceipt: $separateReceipt);
 
-    Livewire::test(ListFiscalDocuments::class)
-        ->callAction(TestAction::make('linkInvoiceAdvance')->table($final), ['advance' => $advance->id])
+    Livewire::test(ViewFiscalDocument::class, ['record' => $final->id])
+        ->callAction('linkInvoiceAdvance', ['advance' => $advance->id])
         ->assertHasNoActionErrors();
     app(LinkInvoiceAdvance::class)->handle($final->id, $advance->id);
 
@@ -156,7 +155,7 @@ it('requires current proof of IRS for the difference between cash and the advanc
         $advance->update(['number' => 'FR REVISTO/1']);
     }
 
-    expect(fn () => InvoiceXpressIssueAdvance::source($charge, $payment, 2300, '2026-11-05'))->toThrow(ValidationException::class);
+    expect(fn () => InvoiceAdvance::source($charge, $payment, 2300, '2026-11-05'))->toThrow(ValidationException::class);
     expect(fn () => app(LinkInvoiceAdvance::class)->handle($final->id, $advance->id))->toThrow(ValidationException::class);
     expect($final->fresh()->links->related_fiscal_document_id)->toBeNull();
 })->with(['missing confirmation' => false, 'stale confirmation' => true])->group('integration');
@@ -181,10 +180,10 @@ it('keeps documentary balances of zero and one cent linkable', function (int $ba
 it('calculates a one-cent balance only when the remaining VAT reconciles exactly', function () {
     $advance = FiscalDocument::factory()->make(['net_amount' => 20000, 'vat_amount' => 4600, 'total_amount' => 24600]);
 
-    $adjustment = InvoiceXpressIssueAdvance::amounts($advance, ['net' => 20001, 'tax' => 4600, 'total' => 24601], 2300);
+    $adjustment = InvoiceAdvance::amounts($advance, ['net' => 20001, 'tax' => 4600, 'total' => 24601], 2300);
 
     expect($adjustment['balance'])->toBe(['net' => 1, 'tax' => 0, 'total' => 1]);
-    expect(fn () => InvoiceXpressIssueAdvance::amounts($advance, ['net' => 20001, 'tax' => 4601, 'total' => 24602], 2300))
+    expect(fn () => InvoiceAdvance::amounts($advance, ['net' => 20001, 'tax' => 4601, 'total' => 24602], 2300))
         ->toThrow(ValidationException::class);
 })->group('integration');
 

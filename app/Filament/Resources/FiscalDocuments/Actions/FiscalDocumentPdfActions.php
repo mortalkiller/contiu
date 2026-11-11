@@ -2,11 +2,11 @@
 
 namespace App\Filament\Resources\FiscalDocuments\Actions;
 
-use App\Exceptions\InvoiceXpressException;
+use App\Exceptions\InvoicingProviderException;
 use App\Filament\Resources\FiscalDocuments\FiscalDocumentResource;
 use App\Models\FiscalDocument;
-use App\Models\InvoiceXpressConfig;
 use App\Support\FiscalDocumentPdfs;
+use App\Support\Invoicing\Invoicing;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
@@ -22,26 +22,22 @@ final class FiscalDocumentPdfActions
             ->url(fn (FiscalDocument $record): string => FiscalDocumentResource::getUrl('download-pdf', ['record' => $record]));
     }
 
+    /** Fetches the official PDF from the connected invoicing provider and keeps it with the document. */
     public static function retrieve(): Action
     {
         return Action::make('retrieveOfficialPdf')
-            ->label(__('Get PDF from InvoiceXpress'))
+            ->label(fn (): string => __('Get PDF from :provider', ['provider' => Invoicing::providerLabel() ?? '']))
             ->icon(Phosphor::FilePdf)
             ->authorize(fn (FiscalDocument $record): bool => FiscalDocumentResource::canEdit($record))
-            ->visible(function (FiscalDocument $record): bool {
-                $snapshot = $record->invoiceXpressSnapshot;
-
-                return $snapshot !== null
-                    && once(fn (): ?string => InvoiceXpressConfig::current()?->subdomain) === $snapshot->subdomain;
-            })
+            ->visible(fn (FiscalDocument $record): bool => ! $record->isDraft() && $record->integrationRecord !== null && Invoicing::connected())
             ->requiresConfirmation()
             ->modalDescription(__('The official PDF will be saved to this fiscal document. Previous versions are kept.'))
             ->action(function (FiscalDocument $record): void {
                 FiscalDocumentResource::authorizeEdit($record);
 
                 try {
-                    $stored = app(FiscalDocumentPdfs::class)->retrieveOfficial($record);
-                } catch (InvoiceXpressException $exception) {
+                    $stored = app(FiscalDocumentPdfs::class)->retrieveFromProvider($record);
+                } catch (InvoicingProviderException $exception) {
                     Notification::make()->danger()->title($exception->getMessage())->send();
 
                     return;
@@ -52,7 +48,7 @@ final class FiscalDocumentPdfActions
                     Notification::make()->success()->title(__('Official PDF saved'))->send();
                 } else {
                     Notification::make()->info()
-                        ->title(__('InvoiceXpress is still preparing the PDF.'))
+                        ->title(__('The PDF is still being prepared.'))
                         ->body(__('Try requesting the PDF again in a moment.'))
                         ->send();
                 }

@@ -235,6 +235,8 @@ class ExpenseDocumentImport extends Page
 
         try {
             ['rows' => $rows, 'skipped' => $skipped] = $parser->parse($file->get());
+            // The export gives only the issuer's tax ID: the supplier's name comes from the suppliers on record.
+            $rows = array_map(fn (array $row): array => [...$row, 'party_name' => $row['party_name'] ?? $import->supplierFor($row['party_tax_id'])?->name], $rows);
             $candidates = $this->previewBySupplier($rows, $import);
         } catch (DomainException $exception) {
             throw ValidationException::withMessages(['file' => $exception->getMessage()]);

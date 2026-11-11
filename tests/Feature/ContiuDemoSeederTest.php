@@ -1,22 +1,23 @@
 <?php
 
 use App\Enums\FiscalDocumentDirection;
+use App\Enums\FiscalDocumentStatus;
 use App\Enums\FiscalDocumentType;
+use App\Enums\IntegrationRecordState;
 use App\Models\Account;
+use App\Models\Article;
 use App\Models\BankTransaction;
 use App\Models\Expense;
 use App\Models\FiscalDocument;
-use App\Models\FiscalDocumentDraft;
 use App\Models\FiscalProfile;
-use App\Models\InvoiceXpressConfig;
-use App\Models\InvoiceXpressIssueAttempt;
-use App\Models\InvoiceXpressSnapshot;
+use App\Models\IntegrationConnection;
+use App\Models\IntegrationRecord;
 use App\Models\Payment;
 use App\Models\Receivable;
 use App\Support\ClientStatement;
 use App\Support\CurrentAccount;
 use App\Support\DocumentedTurnover;
-use App\Support\InvoiceXpressIssue;
+use App\Support\Invoicing\Invoicing;
 use Database\Seeders\ContiuDemoSeeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
@@ -65,7 +66,7 @@ it('leaves an unrelated account using a demo slug intact', function (string $key
         ->and($account->fresh()->name)->toBe('Dados alheios');
 })->with(['oficina', 'eni-servicos']);
 
-it('seeds an isolated integration account with local drafts and one imported document', function () {
+it('seeds an isolated account connected to a provider, with documents in every state, without calling it', function () {
     Http::fake([]);
     Http::preventStrayRequests();
 
@@ -74,15 +75,17 @@ it('seeds an isolated integration account with local drafts and one imported doc
 
     $account = Account::query()->where('slug', 'contiu-demo-integracoes')->sole();
     CurrentAccount::run($account, function (): void {
-        expect(InvoiceXpressConfig::current()?->subdomain)->toBe('contiu-demo-fixture')
-            ->and(FiscalDocumentDraft::query()->whereNull('fiscal_document_id')->count())->toBe(2)
-            ->and(FiscalDocumentDraft::query()->whereNull('remote_id')->count())->toBe(1)
-            ->and(FiscalDocument::query()->count())->toBe(1)
-            ->and(InvoiceXpressSnapshot::query()->sole()->fiscal_document_id)->toBe(FiscalDocument::query()->sole()->id)
-            ->and(InvoiceXpressIssue::canWriteDocuments())->toBeFalse();
+        expect(Invoicing::connection()?->provider)->toBe('invoicexpress')
+            ->and(Invoicing::connection()->getRawOriginal('credentials'))->not->toContain('local-fixture-no-api-access')
+            ->and(FiscalDocument::query()->where('status', FiscalDocumentStatus::Draft)->count())->toBe(2)
+            ->and(FiscalDocument::query()->where('status', FiscalDocumentStatus::Active)->count())->toBe(3)
+            ->and(FiscalDocument::query()->where('number', 'FT DEMO/1')->sole()->lines)->toHaveCount(2)
+            ->and(IntegrationRecord::query()->where('state', IntegrationRecordState::Differs)->count())->toBe(1)
+            ->and(IntegrationRecord::query()->where('state', IntegrationRecordState::RemoteOnly)->count())->toBe(1)
+            ->and(Article::query()->count())->toBe(2);
     });
 
-    expect(FiscalDocumentDraft::query()->exists())->toBeFalse();
+    expect(IntegrationConnection::query()->exists())->toBeFalse();
     Http::assertNothingSent();
 });
 
@@ -177,9 +180,7 @@ it('seeds the ENI documents and balances without configuring issuance or contact
         expect($bank->map->difference()->all())->toBe([0, 0, 0, 0])
             ->and($bank->pluck('balance')->all())->toBe([195000, 230000, 260000, 280000]);
 
-        expect(InvoiceXpressConfig::current())->toBeNull()
-            ->and(InvoiceXpressIssueAttempt::query()->exists())->toBeFalse()
-            ->and(InvoiceXpressIssue::canWriteDocuments())->toBeFalse();
+        expect(Invoicing::connected())->toBeFalse();
     });
 
     $this->seed(ContiuDemoSeeder::class);

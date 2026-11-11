@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Actions\ApplyBankTransaction;
 use App\Actions\ConfirmFiscalProfile;
+use App\Actions\ConnectInvoicingProvider;
 use App\Actions\RecordTaxPayment;
 use App\Actions\SaveFiscalDocument;
 use App\Actions\SeedAccountDefaults;
@@ -12,20 +13,25 @@ use App\Enums\ExpenseKind;
 use App\Enums\FinanceReviewKind;
 use App\Enums\FinanceReviewTarget;
 use App\Enums\FiscalDocumentDirection;
+use App\Enums\FiscalDocumentStatus;
 use App\Enums\FiscalDocumentType;
 use App\Enums\Frequency;
+use App\Enums\IntegrationCategory;
+use App\Enums\IntegrationOperationStatus;
+use App\Enums\IntegrationRecordState;
 use App\Enums\PaymentMethod;
 use App\Enums\ProjectStatus;
 use App\Enums\Seat;
 use App\Models\Account;
+use App\Models\Article;
 use App\Models\BankTransaction;
 use App\Models\Client;
 use App\Models\CreditApplication;
 use App\Models\Expense;
 use App\Models\FinanceReviewItem;
 use App\Models\FiscalDocument;
-use App\Models\FiscalDocumentDraft;
-use App\Models\InvoiceXpressConfig;
+use App\Models\IntegrationConnection;
+use App\Models\IntegrationRecord;
 use App\Models\Payment;
 use App\Models\Project;
 use App\Models\Receivable;
@@ -38,7 +44,11 @@ use App\Models\User;
 use App\Support\CurrentAccount;
 use App\Support\ExpenseEvidence;
 use App\Support\FinanceSettings;
-use App\Support\InvoiceXpressImport;
+use App\Support\FiscalDocumentTotals;
+use App\Support\Invoicing\Invoicing;
+use App\Support\Invoicing\InvoicingRecords;
+use App\Support\Invoicing\RemoteDocument;
+use App\Support\Invoicing\RemoteDocumentState;
 use App\Support\SocialSecurity;
 use App\Support\TaxObligations;
 use App\Support\VatPeriodReview;
@@ -85,45 +95,106 @@ class ContiuDemoSeeder extends Seeder
         }
     }
 
+    /**
+     * An account connected to an invoicing provider, with what the fiscal documents screens show:
+     * an issued invoice, drafts, a quote, articles and, for the synchronisation, a document whose
+     * total differs and one that only exists at the provider. The connection is a fixture: its
+     * credentials open nothing.
+     */
     private function integrationDocuments(): void
     {
-        $providerAccount = 'contiu-demo-fixture';
-        InvoiceXpressConfig::store($providerAccount, 'local-fixture-no-api-access');
-        $client = Client::query()->create([
-            'name' => 'Atelier Horizonte',
-            'vat_number' => '508025338',
-            'fiscal_country_code' => 'PT',
+        IntegrationConnection::query()->create([
+            'category' => IntegrationCategory::Invoicing,
+            'provider' => 'invoicexpress',
+            'credentials' => ['subdomain' => 'contiu-demo-fixture', 'api_key' => 'local-fixture-no-api-access'],
+            'settings' => ConnectInvoicingProvider::DEFAULT_SETTINGS,
+            'last_synced_at' => now()->subMinutes(12),
         ]);
-        $date = today();
+        Invoicing::forget();
+
+        $client = Client::query()->create(['name' => 'Atelier Horizonte', 'vat_number' => '508025338', 'fiscal_country_code' => 'PT']);
+        // Immutable, so the dates worked out from it never move it.
+        $date = CarbonImmutable::today();
         $dueOn = $date->addDays(30);
-        $charge = $this->charge($client, 'IX-DEMO-01', 'Identidade visual', 10000, $date->toDateString(), $dueOn->toDateString());
+        $hour = Article::query()->create(['code' => 'DEV-H', 'name' => 'Hora de desenvolvimento', 'unit' => 'h', 'unit_price' => 4500]);
+        Article::query()->create(['code' => 'ALOJ-A', 'name' => 'Alojamento anual', 'unit' => 'un', 'unit_price' => 6000]);
+        $lines = [
+            ['description' => 'Identidade visual', 'quantity' => 1000, 'unit' => 'un', 'unit_price' => 15000],
+            ['description' => 'Hora de desenvolvimento · formulário de contacto', 'quantity' => 2000, 'unit' => 'h', 'unit_price' => 4500, 'article_id' => $hour->id],
+        ];
 
-        app(InvoiceXpressImport::class)->confirmInvoice([
-            'id' => 47001, 'type' => 'Invoice', 'status' => 'final',
-            'inverted_sequence_number' => 'FT DEMO/001',
-            'date' => $date->format('d/m/Y'), 'due_date' => $dueOn->format('d/m/Y'), 'currency' => 'EUR',
-            'before_taxes' => '100.00', 'taxes' => '0.00', 'total' => '100.00',
-            'client' => ['name' => $client->name, 'fiscal_id' => $client->vat_number, 'country' => 'Portugal'],
-        ], expectedSubdomain: $providerAccount, receivableId: $charge->id);
+        $issued = $this->invoicingDocument($client, FiscalDocumentType::Invoice, $lines, [
+            'status' => FiscalDocumentStatus::Active, 'number' => 'FT DEMO/1', 'series' => 'DEMO', 'atcud' => 'DEMOATCUD-1',
+            'document_date' => $date, 'due_date' => $dueOn, 'issued_at' => now()->subDay(), 'vat_exemption_reason' => 'M10',
+        ], $this->charge($client, 'IX-DEMO-01', 'Identidade visual', 24000, $date->toDateString(), $dueOn->toDateString()));
+        $this->atProvider($issued, '47001', RemoteDocumentState::Issued, IntegrationRecordState::InSync);
+        InvoicingRecords::log('issued', IntegrationOperationStatus::Done, 'FT DEMO/1 emitida', $issued);
 
-        foreach ([FiscalDocumentDraft::Local => null, FiscalDocumentDraft::Blocked => 47002] as $state => $remoteId) {
-            $draftCharge = $this->charge($client, 'IX-DEMO-'.($remoteId === null ? '02' : '03'),
-                $remoteId === null ? 'Revisão de identidade' : 'Materiais de campanha', 5000, $date->toDateString(), $dueOn->toDateString());
-            FiscalDocumentDraft::query()->create([
-                'provider' => 'invoicexpress', 'provider_account' => $providerAccount, 'document_type' => 'invoice',
-                'payload' => ['inputs' => [
-                    'receivableId' => $draftCharge->id, 'customerId' => 1, 'itemId' => 1, 'quantity' => 1,
-                    'additionalLines' => [], 'documentType' => 'invoice', 'exemptionReason' => 'M10',
-                    'discountBasisPoints' => 0, 'direct' => null, 'euOperationOn' => null, 'withholdingBasisPoints' => 0,
-                ]],
-                'preview' => [
-                    'customer' => ['id' => 1, 'name' => $client->name, 'nif' => $client->vat_number],
-                    'totals' => ['net' => 5000, 'tax' => 0, 'total' => 5000],
-                ],
-                'revision' => hash('sha256', $state.'|'.$draftCharge->id),
-                'state' => $state, 'remote_id' => $remoteId,
-            ]);
+        $different = $this->invoicingDocument($client, FiscalDocumentType::Invoice, [$lines[0]], [
+            'status' => FiscalDocumentStatus::Active, 'number' => 'FT DEMO/2', 'series' => 'DEMO', 'document_date' => $date->subDays(20), 'issued_at' => now()->subDays(20), 'vat_exemption_reason' => 'M10',
+        ]);
+        $this->atProvider($different, '47002', RemoteDocumentState::Issued, IntegrationRecordState::Differs, total: 12000);
+
+        $draft = $this->invoicingDocument($client, FiscalDocumentType::Invoice, $lines, [
+            'document_date' => $date, 'due_date' => $dueOn, 'vat_exemption_reason' => 'M10',
+        ], $this->charge($client, 'IX-DEMO-02', 'Revisão de identidade', 24000, $date->toDateString(), $dueOn->toDateString()));
+        $this->atProvider($draft, '47003', RemoteDocumentState::Draft, IntegrationRecordState::InSync);
+        InvoicingRecords::log('draft_saved', IntegrationOperationStatus::Done, 'Rascunho criado no fornecedor', $draft);
+
+        $refused = $this->invoicingDocument($client, FiscalDocumentType::Invoice, [$lines[1]], ['document_date' => $date, 'vat_exemption_reason' => 'M10']);
+        InvoicingRecords::log('draft_saved', IntegrationOperationStatus::Failed, 'Rascunho recusado', $refused, 'O cliente não tem morada.');
+
+        $quote = $this->invoicingDocument($client, FiscalDocumentType::Quote, $lines, [
+            'status' => FiscalDocumentStatus::Active, 'number' => 'OR DEMO/1', 'series' => 'DEMO', 'document_date' => $date->subDays(8),
+            'due_date' => $date->addDays(22), 'issued_at' => now()->subDays(8), 'accepted_at' => now()->subDays(3), 'vat_exemption_reason' => 'M10',
+        ]);
+        $this->atProvider($quote, '47004', RemoteDocumentState::Issued, IntegrationRecordState::InSync);
+
+        IntegrationRecord::query()->create([
+            'integration_connection_id' => Invoicing::connection()->getKey(),
+            'remote_type' => 'invoices', 'remote_id' => '47005', 'state' => IntegrationRecordState::RemoteOnly, 'synced_at' => now()->subMinutes(12),
+            'remote' => ['type' => 'invoice', 'state' => 'issued', 'number' => 'FT DEMO/3', 'date' => $date->subDays(5)->toDateString(),
+                'net' => 12000, 'vat' => 0, 'total' => 12000, 'party_name' => $client->name, 'party_tax_id' => $client->vat_number, 'url' => null],
+        ]);
+        InvoicingRecords::log('synced', IntegrationOperationStatus::Done, 'Sincronizado · 1 documento por importar');
+    }
+
+    /**
+     * A document written in the app, with its lines and the amounts they add up to.
+     *
+     * @param  list<array<string, mixed>>  $lines
+     * @param  array<string, mixed>  $attributes
+     */
+    private function invoicingDocument(Client $client, FiscalDocumentType $type, array $lines, array $attributes, ?Receivable $charge = null): FiscalDocument
+    {
+        $totals = FiscalDocumentTotals::of($lines);
+        $document = new FiscalDocument;
+        $document->forceFill([
+            'type' => $type, 'direction' => FiscalDocumentDirection::Issued, 'status' => FiscalDocumentStatus::Draft,
+            'origin' => 'InvoiceXpress', 'currency' => 'EUR', 'client_id' => $client->id,
+            'party_name' => $client->name, 'party_tax_id' => $client->vat_number,
+            'net_amount' => $totals->net, 'vat_amount' => $totals->vat, 'total_amount' => $totals->total, 'discount_amount' => $totals->discount,
+            ...$attributes,
+        ])->save();
+
+        foreach ($lines as $index => $line) {
+            $document->lines()->create([...$line, 'sort' => $index, 'net_amount' => $totals->lines[$index]['net'], 'vat_amount' => $totals->lines[$index]['vat'], 'total_amount' => $totals->lines[$index]['total']]);
         }
+
+        if ($charge !== null) {
+            $document->links()->create(['receivable_id' => $charge->id]);
+        }
+
+        return $document;
+    }
+
+    /** Records the document's counterpart at the provider, as a synchronisation would have left it. */
+    private function atProvider(FiscalDocument $document, string $remoteId, RemoteDocumentState $remoteState, IntegrationRecordState $state, ?int $total = null): void
+    {
+        InvoicingRecords::store($document, new RemoteDocument(
+            'invoices', $remoteId, $document->type, $remoteState, CarbonImmutable::parse($document->document_date),
+            $total ?? $document->net_amount, 0, $total ?? $document->total_amount, $document->number,
+        ), $state);
     }
 
     /** @param Closure(User): void $seed */
