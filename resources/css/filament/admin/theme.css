@@ -2,6 +2,7 @@
 @import '../../../../vendor/mortalkiller/filament-appearance/resources/css/index.css';
 @import '../../../../vendor/saade/filament-fullcalendar/resources/css/filament-fullcalendar.css';
 @import './partials/project-detail.css';
+@import './partials/signup.css';
 
 @source '../../../../app/Filament/**/*';
 @source '../../../../resources/views/filament/**/*';
@@ -169,14 +170,6 @@
  */
 .fi-wi-table .fi-ta-content-ctn {
     max-height: none;
-}
-
-/*
- * Sign-up wizard: tighter step buttons so all seven steps fit on one line on a laptop screen
- * (narrower screens keep Filament's horizontal scroll).
- */
-.contiu-signup-wizard .fi-sc-wizard-header-step-btn {
-    padding-inline: 0.5rem;
 }
 
 /* Calendário: what is still to be generated (dashed, no fill) and obligations already done. */

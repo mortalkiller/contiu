@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Enums\Language;
 use App\Filament\Pages\FinanceSettingsPage;
+use App\Filament\Pages\OpenActivity;
 use App\Filament\Pages\SocialSecurity as SocialSecurityPage;
 use App\Filament\Pages\TaxEstimate;
 use App\Filament\Pages\TerritorialTurnoverPage;
@@ -645,8 +646,8 @@ final class TaxObligations
                 null,
                 null,
                 null,
-                __('Taxes and the tax calendar start on the day you open it with the Tax Authority. Enter that date in your tax settings.'),
-                $settingsUrl,
+                __('Taxes and the tax calendar start on the day you open it with the Tax Authority. When you do, press “I have opened my activity”.'),
+                $this->url(fn (Account $account) => OpenActivity::getUrl(panel: 'admin', tenant: $account)),
                 'info',
             )];
         }

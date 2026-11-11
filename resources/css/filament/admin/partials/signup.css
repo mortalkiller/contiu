@@ -1,0 +1,642 @@
+/*
+ * Sign-up (RegisterAccount), as in the "Registo" mocks: the palette's navigation green on the
+ * left with the steps and what Contiu has worked out, one question per screen on the right. Each
+ * wizard step draws both halves; Filament's own wizard header and footer are not used. Everything
+ * here is scoped to .contiu-signup.
+ */
+.contiu-signup {
+    --contiu-signup-side-width: 400px;
+
+    min-height: 100dvh;
+    background: linear-gradient(to right, var(--fap-navigation) var(--contiu-signup-side-width), white var(--contiu-signup-side-width));
+
+    & .fi-sc-wizard-footer {
+        display: none;
+    }
+
+    & .contiu-signup-step.fi-active {
+        display: block;
+        min-height: 100dvh;
+
+        & > .fi-sc {
+            display: grid;
+            grid-template-columns: var(--contiu-signup-side-width) minmax(0, 1fr);
+            gap: 0;
+            min-height: 100dvh;
+        }
+
+        & > .fi-sc > .fi-grid-col > .fi-sc-component {
+            height: 100%;
+        }
+    }
+
+    /* Side panel. */
+    & .contiu-signup-side {
+        position: sticky;
+        top: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2.5rem;
+        min-height: 100dvh;
+        padding: 2.5rem;
+        background: var(--fap-navigation);
+        color: var(--fap-navigation-text);
+    }
+
+    & .contiu-signup-logo {
+        height: 1.5rem;
+        width: auto;
+        align-self: flex-start;
+    }
+
+    & .contiu-signup-steps {
+        display: flex;
+        flex-direction: column;
+        gap: 0.375rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+
+        & li {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding-block: 0.375rem;
+            font-size: 0.9375rem;
+            line-height: 1.375rem;
+            color: var(--fap-navigation-text-muted);
+        }
+
+        & b {
+            display: grid;
+            place-items: center;
+            flex: none;
+            width: 1.75rem;
+            height: 1.75rem;
+            border: 1px solid var(--fap-navigation-text-muted);
+            border-radius: 999px;
+            font-size: 0.8125rem;
+            font-weight: 600;
+        }
+
+        & li[data-state='done'] {
+            color: var(--fap-navigation-text);
+
+            & b {
+                border-color: var(--primary-400);
+                background: var(--primary-400);
+                color: var(--primary-950);
+            }
+        }
+
+        & li[data-state='current'] {
+            color: var(--fap-navigation-text);
+            font-weight: 600;
+
+            & b {
+                border-color: var(--fap-navigation-text);
+                background: var(--fap-navigation-text);
+                color: var(--fap-navigation);
+            }
+        }
+
+        & .contiu-signup-step-check {
+            width: 0.875rem;
+            height: 0.875rem;
+        }
+    }
+
+    & .contiu-signup-know {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        padding: 1.25rem;
+        border-radius: 0.875rem;
+        background: var(--fap-navigation-hover);
+
+        & dl {
+            display: flex;
+            flex-direction: column;
+            gap: 0.625rem;
+            margin: 0;
+        }
+
+        & dl > div {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 0.75rem;
+        }
+
+        & dt {
+            font-size: 0.875rem;
+            color: var(--fap-navigation-text-muted);
+        }
+
+        & dd {
+            margin: 0;
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        & dd[data-new='true'] {
+            color: var(--primary-300);
+        }
+    }
+
+    & .contiu-signup-know-title {
+        margin: 0;
+        font-size: 0.75rem;
+        line-height: 1rem;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--fap-navigation-text-muted);
+    }
+
+    & .contiu-signup-know-empty,
+    & .contiu-signup-side-foot {
+        margin: 0;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        color: var(--fap-navigation-text-muted);
+    }
+
+    /* The screen: one column of at most 640px, the buttons at the bottom. */
+    & .contiu-signup-main {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+        box-sizing: border-box;
+        width: 100%;
+        max-width: calc(40rem + 8rem);
+        min-height: 100%;
+        margin-inline: auto;
+        padding: 4.5rem 4rem 2.5rem;
+
+        & > .fi-sc {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            flex: 1;
+        }
+
+        /* The buttons. */
+        & > .fi-sc > .fi-grid-col:last-child {
+            margin-top: auto;
+        }
+    }
+
+}
+
+/* The questions and the tax profile, also on "Já abri atividade" (OpenActivity). */
+:is(.contiu-signup, .contiu-open-activity) {
+    & .contiu-signup-eyebrow {
+        margin: 0 0 0.5rem;
+        font-size: 0.8125rem;
+        line-height: 1.125rem;
+        font-weight: 600;
+        color: var(--primary-700);
+    }
+
+    & .contiu-signup-title {
+        margin: 0;
+        font-size: 2rem;
+        line-height: 2.5rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        color: var(--gray-950);
+        text-wrap: balance;
+    }
+
+    & .contiu-signup-lede {
+        margin: 0.625rem 0 0;
+        font-size: 1rem;
+        line-height: 1.5rem;
+        color: var(--gray-600);
+    }
+
+    & .contiu-signup-question {
+        font-size: 1.0625rem;
+        line-height: 1.5rem;
+        font-weight: 600;
+        color: var(--gray-950);
+    }
+
+    & .contiu-signup-hint {
+        margin-top: -0.625rem;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        color: var(--gray-500);
+    }
+
+    & .contiu-signup-block > .fi-sc {
+        display: flex;
+        flex-direction: column;
+        gap: 0.875rem;
+    }
+
+    /* Lines: the question on the left, the answer on the right, on a sunken card. */
+    & .contiu-signup-lines > .fi-sc {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        padding: 0.25rem 1.25rem;
+        border-radius: 0.875rem;
+        background: var(--gray-50);
+
+        & > * + * {
+            border-top: 1px solid var(--gray-200);
+        }
+
+        & > * {
+            padding-block: 0.875rem;
+        }
+
+        & > *:empty,
+        & > [style*='display: none'] {
+            padding: 0;
+            border: 0;
+        }
+    }
+
+    & .contiu-signup-lines .fi-fo-field.fi-fo-field-has-inline-label {
+        align-items: center;
+    }
+
+    /* Cards to choose several (the situation), like filament-appearance's radio cards. */
+    & .contiu-signup-cards.fi-fo-checkbox-list-options {
+        gap: 0.75rem;
+
+        & .fi-fo-checkbox-list-option-ctn {
+            align-self: stretch;
+        }
+
+        & .fi-fo-checkbox-list-option {
+            height: 100%;
+            padding: 1rem 1.125rem;
+            border: 1px solid var(--gray-300);
+            border-radius: 0.875rem;
+            background: white;
+            cursor: pointer;
+
+            &:has(.fi-checkbox-input:checked) {
+                border-color: var(--primary-600);
+                background: var(--primary-50);
+                box-shadow: inset 0 0 0 1px var(--primary-600);
+            }
+        }
+    }
+
+    & .fi-fo-radio.fap-radio-cards > .fi-fo-radio-label {
+        padding: 1rem 1.125rem;
+        border-radius: 0.875rem;
+    }
+
+    & .contiu-signup-foot {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-top: auto;
+        padding-top: 1.5rem;
+
+        & .contiu-signup-next {
+            min-width: 10rem;
+            margin-inline-start: auto;
+        }
+    }
+
+    & .contiu-signup-login {
+        font-size: 0.875rem;
+        color: var(--gray-600);
+    }
+
+    /* Account on hold, organised accounting: what works now and what comes later. */
+    & .contiu-signup-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+    }
+
+    & .contiu-signup-cols {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem;
+    }
+
+    & .contiu-signup-list-title {
+        margin: 0 0 0.125rem;
+        font-size: 0.8125rem;
+        line-height: 1.125rem;
+        font-weight: 600;
+        color: var(--gray-600);
+    }
+
+    & .contiu-signup-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.625rem;
+        margin: 0;
+        padding: 1.25rem;
+        list-style: none;
+        border-radius: 0.875rem;
+        background: var(--gray-50);
+        font-size: 0.9375rem;
+        line-height: 1.375rem;
+        color: var(--gray-950);
+
+        &[data-tone='later'] {
+            color: var(--gray-600);
+        }
+    }
+
+    /* Tax profile. */
+    & .contiu-signup-profile {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+    }
+
+    & .contiu-signup-id {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 1.25rem;
+
+        & > div:last-child {
+            flex: 1 1 18rem;
+            min-width: 0;
+        }
+    }
+
+    & .contiu-signup-avatar {
+        display: grid;
+        place-items: center;
+        flex: none;
+        width: 4.75rem;
+        height: 4.75rem;
+        border-radius: 50%;
+        background: var(--primary-50);
+        color: var(--primary-800);
+        font-size: 1.625rem;
+        font-weight: 600;
+    }
+
+    & .contiu-signup-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: -0.75rem;
+    }
+
+    & .contiu-signup-about {
+        margin: 0;
+        font-size: 1.25rem;
+        line-height: 1.875rem;
+        font-weight: 500;
+        color: var(--gray-950);
+        text-wrap: pretty;
+    }
+
+    & .contiu-signup-results {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem;
+    }
+
+    & .contiu-signup-result {
+        display: flex;
+        flex-direction: column;
+        gap: 0.375rem;
+        padding: 1.25rem;
+        border: 1px solid var(--gray-200);
+        border-radius: 0.875rem;
+        background: white;
+
+        &[data-wide='true'] {
+            grid-column: 1 / -1;
+        }
+
+        & .fi-callout {
+            margin-top: 0.5rem;
+        }
+    }
+
+    & .contiu-signup-result-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+    }
+
+    & .contiu-signup-result-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    & .contiu-signup-result-kicker {
+        font-size: 0.8125rem;
+        line-height: 1.125rem;
+        font-weight: 600;
+        color: var(--gray-600);
+    }
+
+    & .contiu-signup-result-value {
+        margin: 0;
+        font-size: 1.25rem;
+        line-height: 1.75rem;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        color: var(--gray-950);
+    }
+
+    & .contiu-signup-result-why {
+        margin: 0;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        color: var(--gray-600);
+    }
+
+    & .contiu-signup-dates {
+        display: flex;
+        flex-direction: column;
+        padding: 0.25rem 1.25rem;
+        border-radius: 0.875rem;
+        background: var(--gray-50);
+
+        & > div {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.625rem 1.5rem;
+            padding-block: 0.875rem;
+            font-size: 0.9375rem;
+            line-height: 1.375rem;
+        }
+
+        & > div + div {
+            border-top: 1px solid var(--gray-200);
+        }
+
+        & span:first-child {
+            flex: 0 0 11.25rem;
+            font-weight: 600;
+            color: var(--gray-950);
+        }
+
+        & span:last-child {
+            flex: 1 1 17.5rem;
+            color: var(--gray-600);
+        }
+    }
+
+    /* Payment. */
+    & .contiu-signup-pay {
+        padding: 1.25rem;
+        border: 1px solid var(--gray-300);
+        border-radius: 0.875rem;
+        background: white;
+    }
+
+    & .contiu-signup-pay-error {
+        margin: 0.75rem 0 0;
+        font-size: 0.875rem;
+        color: var(--danger-600);
+    }
+
+    & .contiu-signup-pay-secure {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        margin: 0;
+        font-size: 0.8125rem;
+        color: var(--gray-500);
+    }
+}
+
+.dark .contiu-signup {
+    background: linear-gradient(to right, var(--fap-navigation) var(--contiu-signup-side-width), var(--gray-950) var(--contiu-signup-side-width));
+}
+
+.dark :is(.contiu-signup, .contiu-open-activity) {
+    & .contiu-signup-title,
+    & .contiu-signup-question,
+    & .contiu-signup-about,
+    & .contiu-signup-result-value,
+    & .contiu-signup-list,
+    & .contiu-signup-dates span:first-child {
+        color: white;
+    }
+
+    & .contiu-signup-eyebrow {
+        color: var(--primary-400);
+    }
+
+    & .contiu-signup-lede,
+    & .contiu-signup-result-why,
+    & .contiu-signup-result-kicker,
+    & .contiu-signup-list-title,
+    & .contiu-signup-login,
+    & .contiu-signup-list[data-tone='later'],
+    & .contiu-signup-dates span:last-child {
+        color: var(--gray-400);
+    }
+
+    & .contiu-signup-lines > .fi-sc,
+    & .contiu-signup-list,
+    & .contiu-signup-dates {
+        background: rgb(255 255 255 / 0.05);
+    }
+
+    & .contiu-signup-lines > .fi-sc > * + *,
+    & .contiu-signup-dates > div + div {
+        border-color: rgb(255 255 255 / 0.1);
+    }
+
+    & .contiu-signup-result,
+    & .contiu-signup-pay,
+    & .contiu-signup-cards .fi-fo-checkbox-list-option {
+        border-color: rgb(255 255 255 / 0.1);
+        background: rgb(255 255 255 / 0.05);
+    }
+
+    & .contiu-signup-cards .fi-fo-checkbox-list-option:has(.fi-checkbox-input:checked) {
+        border-color: var(--primary-500);
+        background: color-mix(in oklab, var(--primary-500) 15%, transparent);
+        box-shadow: inset 0 0 0 1px var(--primary-500);
+    }
+
+    & .contiu-signup-avatar {
+        background: color-mix(in oklab, var(--primary-500) 20%, transparent);
+        color: var(--primary-200);
+    }
+}
+
+/* Phone and tablet: the side panel becomes a bar with the step numbers. */
+@media (max-width: 900px) {
+    .contiu-signup {
+        background: white;
+    }
+
+    .dark .contiu-signup {
+        background: var(--gray-950);
+    }
+
+    .contiu-signup {
+
+        & .contiu-signup-step.fi-active > .fi-sc {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        & .contiu-signup-side {
+            position: static;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            min-height: 0;
+            padding: 1rem 1.25rem;
+        }
+
+        & .contiu-signup-steps {
+            flex-direction: row;
+            gap: 0.375rem;
+
+            & li {
+                padding: 0;
+            }
+
+            & li span {
+                display: none;
+            }
+        }
+
+        & .contiu-signup-know,
+        & .contiu-signup-side-foot {
+            display: none;
+        }
+
+        & .contiu-signup-main {
+            padding: 2rem 1.25rem 1.5rem;
+        }
+
+        & .contiu-signup-title {
+            font-size: 1.625rem;
+            line-height: 2rem;
+        }
+
+        & .contiu-signup-cols,
+        & .contiu-signup-results {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        & .contiu-signup-foot .fi-btn {
+            flex: 1;
+        }
+    }
+}

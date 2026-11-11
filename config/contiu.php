@@ -10,6 +10,13 @@ return [
     // Days a new account can use everything before it has to subscribe.
     'trial_days' => 14,
 
+    /*
+     * The plan and card as the last sign-up step (Stripe Payment Element, the card mandatory to
+     * start the trial). Off for the beta, which takes no payments: the step does not exist and the
+     * trial starts at sign-up without a card. Needs STRIPE_KEY, STRIPE_SECRET and the prices.
+     */
+    'signup_payment' => (bool) env('CONTIU_SIGNUP_PAYMENT', false),
+
     // Version of the terms and privacy policy accepted at sign-up (stored with the account).
     'terms_version' => '2026-11-08',
 

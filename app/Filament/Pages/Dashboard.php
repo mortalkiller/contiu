@@ -2,6 +2,8 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Resources\Clients\ClientResource;
+use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Widgets\CashFlowChart;
 use App\Filament\Widgets\CompanyAccountCard;
 use App\Filament\Widgets\CompanyAccountStats;
@@ -24,12 +26,17 @@ use Filament\Actions\SelectAction;
 use Filament\Facades\Filament;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Filament\Pages\Dashboard\Concerns\HasFilters;
+use Filament\Schemas\Components\Actions;
+use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\Component;
+use Filament\Schemas\Components\Flex;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Schema;
 use Filament\Support\Components\Attributes\Unexposed;
+use Filament\Support\Enums\FontWeight;
 use Illuminate\Support\Str;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
@@ -152,9 +159,55 @@ class Dashboard extends BaseDashboard
     public function content(Schema $schema): Schema
     {
         return $schema->components([
+            ...$this->activityNotOpenedComponents(),
             Grid::make(1)->schema(fn (): array => $this->getWidgetsSchemaComponents($this->onlyWidgets([TaxObligationsCard::class]))),
             $this->getWidgetsContentComponent(),
         ]);
+    }
+
+    /**
+     * An account created before opening the activity (the sign-up's "Ainda não"): the notice with
+     * "Já abri atividade", which asks the fiscal questions left for then (OpenActivity), and the
+     * first steps that need no taxes. The bank question left the sign-up for here.
+     *
+     * @return array<int, Component>
+     */
+    private function activityNotOpenedComponents(): array
+    {
+        $waiting = fn (): bool => ! app(FinanceSettings::class)->activityOpened();
+
+        return [
+            Callout::make(__('You have not opened your activity yet'))
+                ->description(__('When you open it with the Tax Authority, tell us the date and answer a few questions.'))
+                ->icon(Phosphor::Info)
+                ->controlActions([
+                    Action::make('openActivity')
+                        ->label(__('I have opened my activity'))
+                        ->button()
+                        ->size('sm')
+                        ->url(fn (): string => OpenActivity::getUrl())
+                        ->visible(fn (): bool => OpenActivity::canAccess()),
+                ])
+                ->visible($waiting),
+            Section::make(__('First steps'))
+                ->visible($waiting)
+                ->schema([
+                    $this->firstStep(__('Add your clients'), __('They are ready for the first invoice.'), Action::make('firstClient')->label(__('New client'))->url(fn (): string => ClientResource::getUrl())),
+                    $this->firstStep(__('Add your start-up expenses'), __('Computer, software, training.'), Action::make('firstExpense')->label(__('New expense'))->url(fn (): string => ExpenseResource::getUrl('create'))),
+                    $this->firstStep(__('Say whether you have a bank account only for the activity'), __('Optional. It left the sign-up for here.'), Action::make('firstBank')->label(__('Set up'))->url(fn (): string => FinanceSettingsPage::getUrl())),
+                ]),
+        ];
+    }
+
+    private function firstStep(string $title, string $detail, Action $action): Flex
+    {
+        return Flex::make([
+            Group::make([
+                Text::make($title)->weight(FontWeight::SemiBold),
+                Text::make($detail)->color('gray'),
+            ])->dense(),
+            Actions::make([$action->color('gray')->size('sm')])->grow(false),
+        ])->verticallyAlignCenter();
     }
 
     /**
