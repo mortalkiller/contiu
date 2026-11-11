@@ -12,6 +12,8 @@ use App\Support\MarginReport;
 use App\Support\Period;
 use Illuminate\Support\Carbon;
 
+pest()->group('integration');
+
 beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-11-06'));
 

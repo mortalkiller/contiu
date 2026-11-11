@@ -38,13 +38,13 @@ final class FinanceSettings
         'obligations_tracked_from' => null,
     ];
 
-    /** @var array<string, mixed>|null */
-    private ?array $values = null;
+    /** @var array<int, array<string, mixed>> */
+    private array $valuesByAccount = [];
 
     /** @return array<string, mixed> */
     public function all(): array
     {
-        return $this->values ??= [
+        return $this->valuesByAccount[CurrentAccount::id()] ??= [
             ...self::DEFAULTS,
             ...Setting::query()->whereIn('key', array_keys(self::DEFAULTS))->pluck('value', 'key')->all(),
         ];
@@ -53,11 +53,11 @@ final class FinanceSettings
     /** @param array<string, mixed> $values */
     public function set(array $values): void
     {
+        unset($this->valuesByAccount[CurrentAccount::id()]);
+
         foreach (array_intersect_key($values, self::DEFAULTS) as $key => $value) {
             Setting::query()->updateOrCreate(['key' => $key], ['value' => $value === '' ? null : $value]);
         }
-
-        $this->values = null;
     }
 
     /** New payments and retainers start tax-exempt (a retainer marked not exempt still rules its payments). */

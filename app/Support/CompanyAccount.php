@@ -24,6 +24,8 @@ final class CompanyAccount
 {
     private ?int $opening = null;
 
+    private ?string $openingDate = null;
+
     private bool $openingResolved = false;
 
     /** @param  CarbonInterface|null  $until  look only at what happened up to this day (month close) */
@@ -74,6 +76,8 @@ final class CompanyAccount
         $balancesAfter = $firstDay->pluck('balance')->all();
         $first = $firstDay->first(fn (BankTransaction $line) => ! in_array($line->balance - $line->amount, $balancesAfter, true)) ?? $firstDay->first();
 
+        $this->openingDate = $start->toDateString();
+
         return $this->opening = $first->balance - $first->amount;
     }
 
@@ -97,9 +101,8 @@ final class CompanyAccount
     public function contiuBalanceAt(CarbonInterface $day): ?int
     {
         $opening = $this->openingBalance();
-        $start = $this->startsOn();
 
-        if ($opening === null || $start === null) {
+        if ($opening === null) {
             return null;
         }
 
@@ -107,7 +110,7 @@ final class CompanyAccount
         // is new: everything the business received or paid before then went through Pedro's
         // personal account and still counts. Otherwise what came before is already in the opening.
         // No lower bound in that case (not a far-past date: PostgreSQL has no year 0).
-        $from = $opening === 0 ? null : $start->toDateString();
+        $from = $opening === 0 ? null : $this->openingDate;
         $until = Carbon::parse($day)->endOfDay()->toDateTimeString();
         $within = fn (Builder $query, string $column) => $from === null
             ? $query->where($column, '<=', $until)

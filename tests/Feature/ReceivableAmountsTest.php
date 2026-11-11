@@ -4,6 +4,8 @@ use App\Enums\ReceivableStatus;
 use App\Models\Payment;
 use App\Models\Receivable;
 
+pest()->group('integration');
+
 it('is open with the full amount outstanding when nothing was paid', function () {
     $receivable = Receivable::factory()->create(['amount' => 50000, 'due_on' => today()->addDay()]);
 
@@ -16,6 +18,7 @@ it('is partial after a payment smaller than the amount', function () {
     Payment::factory()->for($receivable)->create(['amount' => 20000]);
 
     expect($receivable->fresh()->outstanding)->toBe(30000)
+        ->and(Receivable::query()->withOutstandingBalance()->findOrFail($receivable->id)->projectedOutstanding())->toBe(30000)
         ->and($receivable->fresh()->status)->toBe(ReceivableStatus::Partial);
 });
 

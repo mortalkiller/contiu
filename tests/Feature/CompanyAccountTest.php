@@ -6,6 +6,8 @@ use App\Models\Payment;
 use App\Support\CompanyAccount;
 use Illuminate\Support\Carbon;
 
+pest()->group('integration', 'banking');
+
 beforeEach(fn () => $this->travelTo(Carbon::parse('2026-11-20')));
 
 function line(string $date, int $amount, int $balance, string $status = 'pending', string $description = 'TRF'): BankTransaction
@@ -106,5 +108,6 @@ it('counts everything since the start when the statement begins with the account
 
     expect($account->openingBalance())->toBe(0)
         ->and($account->contiuBalance())->toBe(40000)
+        ->and($account->contiuBalanceAt(today()))->toBe(40000)
         ->and($account->difference())->toBe(-10000); // 100,00 € of the company still in the personal account
-});
+})->group('postgres');

@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\DB;
 
+pest()->group('migration');
+
 it('converts stored euros to cents without losing a cent, and back', function () {
     $migration = require database_path('migrations/2026_11_07_160000_store_money_in_cents.php');
     $migration->down(); // columns back to decimal euros, as before the change

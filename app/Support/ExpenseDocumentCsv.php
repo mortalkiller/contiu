@@ -19,11 +19,11 @@ final class ExpenseDocumentCsv
     public function parse(string $csv): array
     {
         if (strlen($csv) > self::MAX_KILOBYTES * 1024) {
-            throw new DomainException('O ficheiro CSV pode ter até 256 KB.');
+            throw new DomainException(__('The CSV file can be up to 256 KB.'));
         }
 
         if (! mb_check_encoding($csv, 'UTF-8') || str_contains($csv, "\0")) {
-            throw new DomainException('Guarda o ficheiro CSV com a codificação UTF-8.');
+            throw new DomainException(__('Save the CSV file with UTF-8 encoding.'));
         }
 
         $stream = fopen('php://memory', 'w+');
@@ -32,7 +32,7 @@ final class ExpenseDocumentCsv
 
         try {
             if (fgetcsv($stream, separator: ';', escape: '') !== explode(';', self::HEADER)) {
-                throw new DomainException('O cabeçalho deve ser '.self::HEADER.'.');
+                throw new DomainException(__('The header must be :header.', ['header' => self::HEADER]));
             }
 
             $rows = [];
@@ -47,21 +47,21 @@ final class ExpenseDocumentCsv
                 }
 
                 if (count($rows) >= self::MAX_ROWS) {
-                    throw new DomainException('Cada ficheiro CSV pode ter até 100 faturas.');
+                    throw new DomainException(__('Each CSV file can contain up to 100 invoices.'));
                 }
 
                 $row = $this->parseRow(array_map(trim(...), array_map(strval(...), $fields)), $line);
                 $reference = mb_strtolower($row['number']);
 
                 if (isset($references[$reference])) {
-                    throw new DomainException("Linha {$line}: a referência está repetida no ficheiro.");
+                    throw new DomainException(__('Line :line: the reference appears more than once in the file.', ['line' => $line]));
                 }
 
                 $references[$reference] = true;
                 $rows[] = $row;
             }
 
-            return $rows !== [] ? $rows : throw new DomainException('O ficheiro não tem faturas.');
+            return $rows !== [] ? $rows : throw new DomainException(__('The file contains no invoices.'));
         } finally {
             fclose($stream);
         }
@@ -74,7 +74,7 @@ final class ExpenseDocumentCsv
     private function parseRow(array $fields, int $line): array
     {
         if (count($fields) !== 5) {
-            throw new DomainException("Linha {$line}: são esperadas cinco colunas.");
+            throw new DomainException(__('Line :line: expected five columns.', ['line' => $line]));
         }
 
         [$date, $reference, $net, $vat, $total] = $fields;
@@ -84,11 +84,11 @@ final class ExpenseDocumentCsv
         $total = $this->cents($total);
 
         if ($date === null || $reference === '' || mb_strlen($reference) > 255 || preg_match('/\p{C}/u', $reference)) {
-            throw new DomainException("Linha {$line}: confirma a data e a referência da fatura.");
+            throw new DomainException(__('Line :line: check the invoice date and reference.', ['line' => $line]));
         }
 
         if ($net === null || $vat === null || $total === null || $total !== $net + $vat) {
-            throw new DomainException("Linha {$line}: confirma os valores em euros e verifica se o líquido mais o IVA corresponde ao total.");
+            throw new DomainException(__('Line :line: check the amounts in euros and verify that the net amount plus VAT equals the total.', ['line' => $line]));
         }
 
         return [

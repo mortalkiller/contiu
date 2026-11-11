@@ -51,11 +51,11 @@ class Payment extends Model implements AuditableContract
         static::updating(function (Payment $payment): void {
             if ($payment->isDirty('advance_client_id')
                 || ($payment->isAdvance() && $payment->isDirty(['amount', 'paid_on', 'receivable_id', 'is_split']))) {
-                throw ValidationException::withMessages(['amount' => 'A data, o cliente e o montante de um sinal não podem ser alterados.']);
+                throw ValidationException::withMessages(['amount' => __('The date, client, and amount of an advance cannot be changed.')]);
             }
 
             if ($payment->isDirty('is_split') || ($payment->is_split && $payment->isDirty(['amount', 'receivable_id']))) {
-                throw ValidationException::withMessages(['amount' => 'O montante de um recebimento repartido é definido pelas suas afetações.']);
+                throw ValidationException::withMessages(['amount' => __('The amount of a split payment is set by its allocations.')]);
             }
         });
 
@@ -81,7 +81,7 @@ class Payment extends Model implements AuditableContract
 
         static::creating(function (Payment $payment): void {
             if ($payment->isAdvance() === filled($payment->receivable_id) || ($payment->isAdvance() && $payment->is_split)) {
-                throw ValidationException::withMessages(['receivable_id' => 'O recebimento deve indicar uma cobrança ou o cliente do sinal.']);
+                throw ValidationException::withMessages(['receivable_id' => __('The payment must specify a receivable or the client for the advance.')]);
             }
 
             if ($payment->tax_exempt === null) {

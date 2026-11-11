@@ -2,7 +2,6 @@
 
 namespace App\Filament\Widgets;
 
-use App\Filament\Resources\Receivables\ReceivableResource;
 use App\Filament\Widgets\Concerns\UsesDashboardPeriod;
 use App\Support\Money;
 use App\Support\PeriodSummary;
@@ -12,7 +11,8 @@ use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 /**
- * Headline figures for the selected period, each compared with the previous period.
+ * The four headline figures of the selected period, each compared with the previous period.
+ * What is still to receive has its own section on the dashboard ("A receber").
  */
 class FinanceStatsOverview extends StatsOverviewWidget
 {
@@ -21,38 +21,29 @@ class FinanceStatsOverview extends StatsOverviewWidget
 
     protected static ?int $sort = 1;
 
+    protected ?string $pollingInterval = null;
+
     protected int|string|array $columnSpan = 'full';
 
     protected function getColumns(): int|array
     {
-        return ['md' => 3];
+        return ['md' => 2, 'xl' => 4];
     }
 
     protected function getStats(): array
     {
         $summary = $this->summary();
         $label = $summary->period->label();
-        $overdue = $summary->overdue();
 
         return [
-            $this->compared(Stat::make('Contratado em '.$label, Money::format($summary->contracted())), $summary, 'contracted')
+            $this->compared(Stat::make(__('Contracted in :period', ['period' => $label]), Money::format($summary->contracted(), locale: app()->getLocale())), $summary, 'contracted')
                 ->icon(Phosphor::Handshake),
-            $this->compared(Stat::make('Recebido em '.$label, Money::format($summary->received())), $summary, 'received')
+            $this->compared(Stat::make(__('Received in :period', ['period' => $label]), Money::format($summary->received(), locale: app()->getLocale())), $summary, 'received')
                 ->icon(Phosphor::HandCoins),
-            $this->compared(Stat::make('Despesas pagas', Money::format($summary->paidExpenses())), $summary, 'paidExpenses', higherIsBetter: false)
+            $this->compared(Stat::make(__('Expenses paid'), Money::format($summary->paidExpenses(), locale: app()->getLocale())), $summary, 'paidExpenses', higherIsBetter: false)
                 ->icon(Phosphor::Receipt),
-            $this->compared(Stat::make('Resultado de caixa', Money::format($summary->cashResult())), $summary, 'cashResult')
+            $this->compared(Stat::make(__('Cash result'), Money::format($summary->cashResult(), locale: app()->getLocale())), $summary, 'cashResult')
                 ->icon(Phosphor::Scales),
-            Stat::make('Por receber', Money::format($summary->outstanding()))
-                ->description($overdue > 0 ? 'Vencido: '.Money::format($overdue) : 'Nada vencido')
-                ->descriptionIcon($overdue > 0 ? Phosphor::WarningCircle : Phosphor::CheckCircle)
-                ->color($overdue > 0 ? 'danger' : 'success')
-                ->icon(Phosphor::HourglassMedium)
-                ->url(ReceivableResource::getUrl()),
-            Stat::make('Próximos 30 dias', Money::format(PeriodSummary::dueNext30Days()))
-                ->description('A vencer até '.today()->addDays(30)->format('d/m').' (a partir de hoje)')
-                ->icon(Phosphor::CalendarBlank)
-                ->url(ReceivableResource::getUrl(parameters: ['tab' => 'next30'])),
         ];
     }
 
@@ -63,7 +54,7 @@ class FinanceStatsOverview extends StatsOverviewWidget
 
         return $stat
             ->description($change->percent === null
-                ? 'sem valor em '.$summary->period->previous()->label()
+                ? __('no value in :period', ['period' => $summary->period->previous()->label()])
                 : $change->label().' vs '.$summary->period->previous()->label())
             ->descriptionIcon(match (true) {
                 $change->percent === null, $change->isFlat() => Phosphor::Minus,

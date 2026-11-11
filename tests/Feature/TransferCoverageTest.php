@@ -8,6 +8,8 @@ use App\Models\Receivable;
 use App\Support\TransferCoverage;
 use Illuminate\Support\Carbon;
 
+pest()->group('integration', 'banking');
+
 beforeEach(fn () => $this->travelTo(Carbon::parse('2026-11-20')));
 
 function coverLine(string $date, int $amount, int $balance, string $status = 'own_transfer'): BankTransaction

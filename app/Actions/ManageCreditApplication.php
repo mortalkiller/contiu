@@ -30,13 +30,13 @@ final class ManageCreditApplication
             $receivableId = $invoice?->links?->receivable_id;
 
             if ($invoice === null || $receivableId === null || $invoice->is($note)) {
-                throw ValidationException::withMessages(['credit' => 'Liga a nota à fatura original e a fatura ao valor a receber.']);
+                throw ValidationException::withMessages(['credit' => __('Link the note to the original invoice and the invoice to the receivable.')]);
             }
 
             // Payments, split allocations and bank matches serialize on this same row.
             $receivable = Receivable::query()->excludingCancelled()->lockForUpdate()->find($receivableId);
             if ($receivable === null) {
-                throw ValidationException::withMessages(['credit' => 'O valor a receber da fatura já não está disponível.']);
+                throw ValidationException::withMessages(['credit' => __('The invoice receivable is no longer available.')]);
             }
 
             $documents = FiscalDocument::query()->whereKey([$note->id, $invoice->id])->orderBy('id')->lockForUpdate()->get()->keyBy('id');
@@ -50,7 +50,7 @@ final class ManageCreditApplication
                 || (int) $invoice->links?->receivable_id !== $receivable->id
                 || ($note->links->receivable_id !== null && (int) $note->links->receivable_id !== $receivable->id)
                 || $note->document_date->isBefore($invoice->document_date)) {
-                throw ValidationException::withMessages(['credit' => 'Confirma uma nota de crédito e uma fatura emitidas, ativas, em EUR e ligadas ao mesmo valor a receber.']);
+                throw ValidationException::withMessages(['credit' => __('Confirm that the credit note and invoice are issued, active, in EUR and linked to the same receivable.')]);
             }
 
             if ($confirmation !== null && (
@@ -58,16 +58,16 @@ final class ManageCreditApplication
                 || $confirmation['invoice_id'] !== $invoice->id
                 || $confirmation['receivable_id'] !== $receivable->id
             )) {
-                throw ValidationException::withMessages(['credit' => 'O valor ou a ligação mudou. Fecha esta janela e confirma novamente a aplicação.']);
+                throw ValidationException::withMessages(['credit' => __('The amount or link has changed. Close this window and confirm the application again.')]);
             }
 
             $active = CreditApplication::query()->whereNull('reversed_on');
             if ((clone $active)->where('credit_note_id', $note->id)->exists()) {
-                throw ValidationException::withMessages(['credit' => 'Esta nota de crédito já está aplicada.']);
+                throw ValidationException::withMessages(['credit' => __('This credit note has already been applied.')]);
             }
 
             if (CustomerRefund::query()->where('credit_note_id', $note->id)->exists()) {
-                throw ValidationException::withMessages(['credit' => 'Esta nota de crédito já tem reembolsos registados.']);
+                throw ValidationException::withMessages(['credit' => __('This credit note already has refunds on record.')]);
             }
 
             $availableOnInvoice = $invoice->total_amount - (int) $active->where('invoice_id', $invoice->id)->sum('amount')
@@ -75,7 +75,7 @@ final class ManageCreditApplication
             $amount = abs($note->total_amount);
 
             if ($amount <= 0 || $amount > $availableOnInvoice || $amount > $receivable->outstanding) {
-                throw ValidationException::withMessages(['credit' => 'O total da nota de crédito deve caber no saldo da fatura e no valor em aberto.']);
+                throw ValidationException::withMessages(['credit' => __('The credit note total must fit within both the invoice balance and the outstanding amount.')]);
             }
 
             return CreditApplication::create([
@@ -102,7 +102,7 @@ final class ManageCreditApplication
             $application = $applicationQuery->lockForUpdate()->firstOrFail();
 
             if ($application->reversed_on !== null) {
-                throw ValidationException::withMessages(['credit' => 'Esta aplicação já foi revertida.']);
+                throw ValidationException::withMessages(['credit' => __('This credit application has already been reversed.')]);
             }
 
             $reason = trim($reason);

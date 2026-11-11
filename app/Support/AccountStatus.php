@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\Language;
 use App\Filament\Pages\AccountSubscription;
 use App\Models\Account;
 use App\Models\User;
@@ -25,7 +26,7 @@ final class AccountStatus
         if (! $account->hasAccess()) {
             return [
                 'kind' => 'read_only',
-                'message' => 'Esta conta está só de leitura: a experiência terminou e não há uma assinatura ativa. Podes ver e exportar tudo; para voltar a registar, subscreve.',
+                'message' => __('This account is read-only: the trial has ended and there is no active subscription. You can view and export everything. Subscribe to record new entries.'),
                 'subscribeUrl' => self::subscribeUrl(),
             ];
         }
@@ -46,11 +47,7 @@ final class AccountStatus
     {
         $days = (int) today()->diffInDays($account->trial_ends_at->copy()->startOfDay());
 
-        return match ($days) {
-            0 => 'Experiência: último dia',
-            1 => 'Experiência: falta 1 dia',
-            default => "Experiência: faltam {$days} dias",
-        };
+        return trans_choice('{0} Trial: last day|{1} Trial: 1 day left|[2,*] Trial: :count days left', $days);
     }
 
     /** Where "Subscrever" leads: the "Assinatura" page, when the user may open it. */
@@ -66,7 +63,7 @@ final class AccountStatus
     public static function label(Account $account): string
     {
         if ($account->billing_exempt) {
-            return 'Isenta';
+            return __('Exempt');
         }
 
         $subscription = $account->subscription('default');
@@ -74,13 +71,17 @@ final class AccountStatus
         if ($subscription?->valid()) {
             $plan = AccountSubscription::planFor($subscription->stripe_price);
 
-            return $plan === null ? 'Assinatura' : AccountSubscription::PLANS[$plan]['label'];
+            return match ($plan) {
+                'monthly' => __('Monthly'),
+                'yearly' => __('Yearly'),
+                default => __('Subscription'),
+            };
         }
 
         if ($account->onGenericTrial()) {
-            return 'Experiência até '.$account->trial_ends_at->format('d/m/Y');
+            return __('Trial until :date', ['date' => $account->trial_ends_at->format(Language::resolve(app()->getLocale())->dateFormat())]);
         }
 
-        return 'Só leitura';
+        return __('Read-only');
     }
 }

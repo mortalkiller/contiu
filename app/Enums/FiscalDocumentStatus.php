@@ -13,8 +13,8 @@ enum FiscalDocumentStatus: string implements HasColor, HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::Active => 'Ativo',
-            self::Voided => 'Anulado',
+            self::Active => __('Active'),
+            self::Voided => __('Voided'),
         };
     }
 

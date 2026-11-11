@@ -20,6 +20,8 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
+pest()->group('integration');
+
 beforeEach(fn () => Storage::fake('local'));
 
 it('seeds a reproducible December and January journey and a separate starting point', function () {

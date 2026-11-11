@@ -34,22 +34,22 @@ class ManagePayments extends ManageRecords
         return [
             OneOffIncomeAction::make()->color('gray')->after(fn () => $this->resetTable()),
             Action::make('recordCustomerAdvance')
-                ->label('Registar sinal')
+                ->label(__('Record advance payment'))
                 ->color('gray')
                 ->authorize(fn (): bool => auth()->user()?->can('create', Payment::class) ?? false)
                 ->disabled(fn (): bool => CurrentAccount::readOnly())
-                ->modalDescription('Regista a entrada de dinheiro. Podes afetar o sinal a uma cobrança mais tarde.')
+                ->modalDescription(__('Record the payment you received. You can allocate the advance to a charge later.'))
                 ->schema([
-                    Select::make('client_id')->label('Cliente')->options(fn (): array => Client::query()->orderBy('name')->pluck('name', 'id')->all())->searchable()->required(),
-                    TextInput::make('amount')->label('Montante recebido')->suffix('€')->inputMode('decimal')
+                    Select::make('client_id')->label(__('Client'))->options(fn (): array => Client::query()->orderBy('name')->pluck('name', 'id')->all())->searchable()->required(),
+                    TextInput::make('amount')->label(__('Amount received'))->suffix('€')->inputMode('decimal')
                         ->regex('/\A[0-9]{1,9}(?:[,.][0-9]{1,2})?\z/')->required(),
-                    DatePicker::make('paid_on')->label('Data')->default(today())->maxDate(today())->required(),
-                    Select::make('method')->label('Método')->options(PaymentMethod::class)->default(PaymentMethod::Transfer->value)->required(),
+                    DatePicker::make('paid_on')->label(__('Date'))->default(today())->maxDate(today())->required(),
+                    Select::make('method')->label(__('Method'))->options(PaymentMethod::class)->default(PaymentMethod::Transfer->value)->required(),
                 ])
                 ->action(function (array $data, ManageCustomerAdvance $service): void {
                     $method = $data['method'] instanceof PaymentMethod ? $data['method'] : PaymentMethod::from($data['method']);
                     $service->record((int) $data['client_id'], Money::toCents($data['amount']), $data['paid_on'], $method);
-                    Notification::make()->title('Sinal registado')->success()->send();
+                    Notification::make()->title(__('Advance payment recorded'))->success()->send();
                     $this->resetTable();
                 }),
             RecordSplitPaymentAction::make()->after(fn () => $this->resetTable()),

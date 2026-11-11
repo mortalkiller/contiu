@@ -14,16 +14,16 @@ enum ExpenseKind: string implements HasColor, HasDescription, HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::Direct => 'Direta',
-            self::Overhead => 'Estrutura',
+            self::Direct => __('Direct'),
+            self::Overhead => __('Overhead'),
         };
     }
 
     public function getDescription(): string
     {
         return match ($this) {
-            self::Direct => 'Custo de um trabalho ou avença específica; conta para a margem dele.',
-            self::Overhead => 'Ferramentas, taxas e custos gerais; contam só para o resultado da empresa.',
+            self::Direct => __('A cost linked to a specific project or retainer. It counts toward its margin.'),
+            self::Overhead => __('Tools, fees, and general costs. They count toward the business result.'),
         };
     }
 

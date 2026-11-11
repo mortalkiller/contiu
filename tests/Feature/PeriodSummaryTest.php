@@ -10,6 +10,9 @@ use App\Support\Change;
 use App\Support\Period;
 use App\Support\PeriodSummary;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+
+pest()->group('integration');
 
 beforeEach(fn () => $this->travelTo(Carbon::parse('2026-11-06')));
 
@@ -119,3 +122,28 @@ it('compares against the previous period', function () {
     expect($summary->previous()->received())->toBe(20000)
         ->and($summary->change('received')->percent)->toBe(110.0);
 });
+
+it('keeps the balance query count independent of the number of receivables', function () {
+    $project = Project::factory()->create(['quoted_on' => '2026-03-04']);
+    $charges = Receivable::factory()->count(8)->for($project, 'billable')
+        ->create(['amount' => 10000, 'due_on' => '2026-04-01']);
+    foreach ($charges as $charge) {
+        Payment::factory()->for($charge)->create(['paid_on' => '2026-03-31', 'amount' => 2500]);
+    }
+
+    $summary = new PeriodSummary(Period::of(2026));
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+
+    try {
+        $outstanding = $summary->outstanding();
+        $overdue = $summary->overdue();
+        $queries = DB::getQueryLog();
+    } finally {
+        DB::disableQueryLog();
+    }
+
+    expect($outstanding)->toBe(60000)
+        ->and($overdue)->toBe(60000)
+        ->and($queries)->toHaveCount(1);
+})->group('performance');

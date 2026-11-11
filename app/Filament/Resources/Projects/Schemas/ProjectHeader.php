@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Projects\Schemas;
 
+use App\Enums\Language;
 use App\Models\Project;
 use App\Models\Receivable;
 use App\Support\Money;
@@ -26,41 +27,41 @@ class ProjectHeader
                 ->icon(Phosphor::Briefcase)
                 ->iconBgColor('primary')
                 ->badges([
-                    TextEntry::make('status')->label('Estado')->badge(),
-                    TextEntry::make('payment_status')->label('Pagamento')->badge(),
+                    TextEntry::make('status')->label(__('Status'))->badge(),
+                    TextEntry::make('payment_status')->label(__('Payment'))->badge(),
                 ])
                 ->metadata([
                     MetadataEntry::make('client.name')
-                        ->label('Cliente')
+                        ->label(__('Client'))
                         ->fieldIcon(Phosphor::User),
                     MetadataEntry::make('business_line')
-                        ->label('Linha de negócio')
+                        ->label(__('Business line'))
                         ->placeholder('—')
                         ->fieldIcon(Phosphor::Tag),
                     MetadataEntry::make('quoted_on')
-                        ->label('Orçamento')
+                        ->label(__('Quote'))
                         ->date()
                         ->fieldIcon(Phosphor::CalendarBlank),
                 ])
                 ->summary([
                     TextEntry::make('total')
-                        ->label('Total')
+                        ->label(__('Total'))
                         ->money('EUR', divideBy: 100)
                         ->belowContent(fn (Project $record): string => $record->vat_amount > 0
-                            ? 'Inclui '.Money::format($record->vat_amount).' de IVA'
-                            : 'Sem IVA'),
+                            ? __('Includes :amount VAT', ['amount' => Money::format($record->vat_amount)])
+                            : __('Excluding VAT')),
                     TextEntry::make('received_amount')
-                        ->label('Recebido')
+                        ->label(__('Received'))
                         ->money('EUR', divideBy: 100)
                         ->color('success')
-                        ->belowContent(fn (Project $record): string => self::receivedPercent($record).'% do faturado'),
+                        ->belowContent(fn (Project $record): string => __(':percent% of invoiced amount', ['percent' => self::receivedPercent($record)])),
                     TextEntry::make('outstanding_amount')
-                        ->label('Em aberto')
+                        ->label(__('Outstanding'))
                         ->money('EUR', divideBy: 100)
                         ->color(fn (float $state) => $state > 0 ? 'warning' : 'gray')
                         ->belowContent(fn (Project $record): string => self::nextDueNote($record)),
                     TextEntry::make('margin')
-                        ->label('Margem')
+                        ->label(__('Margin'))
                         ->money('EUR', divideBy: 100)
                         ->belowContent(fn (Project $record): string => self::marginNote($record)),
                 ]),
@@ -76,24 +77,24 @@ class ProjectHeader
     private static function nextDueNote(Project $record): string
     {
         $next = $record->receivables
-            ->filter(fn (Receivable $receivable): bool => $receivable->outstanding > 0)
+            ->filter(fn (Receivable $receivable): bool => $receivable->projectedOutstanding() > 0)
             ->sortBy('due_on')
             ->first();
 
         return match (true) {
-            $next === null => 'Nada por receber',
-            $next->due_on->isBefore(today()) => 'Venceu a '.$next->due_on->format('d/m/Y'),
-            default => 'Vence a '.$next->due_on->format('d/m/Y'),
+            $next === null => __('Nothing to receive'),
+            $next->due_on->isBefore(today()) => __('Was due on :date', ['date' => $next->due_on->format(Language::resolve(app()->getLocale())->dateFormat())]),
+            default => __('Due on :date', ['date' => $next->due_on->format(Language::resolve(app()->getLocale())->dateFormat())]),
         };
     }
 
     /** The margin as a share of what was billed, and the direct costs behind it. */
     private static function marginNote(Project $record): string
     {
-        $costs = Money::format($record->direct_costs).' de custos diretos';
+        $costs = __(':amount in direct costs', ['amount' => Money::format($record->direct_costs)]);
 
         return $record->billed_amount > 0
-            ? Number::format($record->margin / $record->billed_amount * 100, maxPrecision: 1, locale: 'pt_PT').'% · '.$costs
+            ? Number::format($record->margin / $record->billed_amount * 100, maxPrecision: 1, locale: app()->getLocale()).'% · '.$costs
             : $costs;
     }
 }

@@ -38,15 +38,15 @@ final class FinanceFields
     }
 
     /** Where a supplier (or client) is seated: decides the VAT on what is bought from or sold to it. */
-    public static function seat(string $label = 'Onde fica a sede da empresa?'): Select
+    public static function seat(?string $label = null): Select
     {
         return TaxSettingsFields::whereToFind(
             Select::make('seat')
-                ->label($label)
+                ->label($label ?? __('Where is the company registered?'))
                 ->options(Seat::class)
                 ->default(Seat::Portugal)
                 ->required(),
-            'Na fatura: a morada e o número de IVA da empresa. Um número de IVA começado por IE, FR, DE, ES… é de outro país da UE; uma empresa dos EUA ou do Reino Unido é de fora da UE.',
+            __('Check the company address and VAT number on the invoice. VAT numbers starting with IE, FR, DE or ES are from another EU country. Companies in the US or UK are outside the EU.'),
         );
     }
 
@@ -54,52 +54,52 @@ final class FinanceFields
     {
         return TaxSettingsFields::whereToFind(
             Toggle::make('is_business')
-                ->label('É uma empresa?')
-                ->helperText('Os serviços a empresas de outro país da UE entram na declaração recapitulativa.'),
-            'Uma empresa tem número de IVA (VAT) e pede-o na fatura; um particular não.',
+                ->label(__('Is it a business?'))
+                ->helperText(__('Services to businesses in another EU country go on the recapitulative statement.')),
+            __('A business has a VAT number and asks for it on the invoice. An individual does not.'),
         );
     }
 
     public static function clientSelect(): Select
     {
         return Select::make('client_id')
-            ->label('Cliente')
+            ->label(__('Client'))
             ->relationship('client', 'name')
             ->searchable()
             ->preload()
             ->required()
             ->createOptionForm([
-                TextInput::make('name')->label('Nome')->required(),
-                TextInput::make('vat_number')->label('NIF'),
-                TextInput::make('email')->label('Email')->email(),
-                self::seat('Onde fica o cliente?'),
+                TextInput::make('name')->label(__('Name'))->required(),
+                TextInput::make('vat_number')->label(__('Tax ID')),
+                TextInput::make('email')->label(__('Email'))->email(),
+                self::seat(__('Where is the client based?')),
                 self::isBusiness(),
             ])
-            ->createOptionModalHeading('Novo cliente');
+            ->createOptionModalHeading(__('New client'));
     }
 
     public static function supplierSelect(): Select
     {
         return Select::make('supplier_id')
-            ->label('Fornecedor')
+            ->label(__('Supplier'))
             ->relationship('supplier', 'name')
             ->searchable()
             ->preload()
             ->required()
             ->createOptionForm([
-                TextInput::make('name')->label('Nome')->required(),
-                TextInput::make('vat_number')->label('NIF'),
-                TextInput::make('website')->label('Site')->url(),
+                TextInput::make('name')->label(__('Name'))->required(),
+                TextInput::make('vat_number')->label(__('Tax ID')),
+                TextInput::make('website')->label(__('Website'))->url(),
                 self::seat(),
-                Textarea::make('notes')->label('Notas')->rows(2),
+                Textarea::make('notes')->label(__('Notes'))->rows(2),
             ])
-            ->createOptionModalHeading('Novo fornecedor');
+            ->createOptionModalHeading(__('New supplier'));
     }
 
-    public static function netAmount(string $label = 'Valor sem IVA'): TextInput
+    public static function netAmount(?string $label = null): TextInput
     {
         return MoneyInput::make('net_amount')
-            ->label($label)
+            ->label($label ?? __('Amount excluding VAT'))
             ->minValue(0)
             ->live(onBlur: true)
             ->required();
@@ -108,7 +108,7 @@ final class FinanceFields
     public static function vatRate(): ToggleButtons
     {
         return ToggleButtons::make('vat_rate')
-            ->label('IVA')
+            ->label(__('VAT'))
             ->options(Money::vatOptions())
             ->default('0.0000')
             ->inline()
@@ -120,11 +120,11 @@ final class FinanceFields
     public static function totalPreview(): TextEntry
     {
         return TextEntry::make('total_preview')
-            ->label('Total com IVA')
+            ->label(__('Total including VAT'))
             ->state(function (Get $get): string {
                 $net = Money::toCents($get('net_amount')) ?? 0;
 
-                return Money::format($net + Money::vat($net, (string) ($get('vat_rate') ?? 0)));
+                return Money::format($net + Money::vat($net, (string) ($get('vat_rate') ?? 0)), locale: app()->getLocale());
             })
             ->size(TextSize::Large)
             ->weight(FontWeight::Bold);

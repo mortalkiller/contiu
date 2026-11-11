@@ -6,6 +6,7 @@ use App\Filament\Analysis\Concerns\ForecastsMonths;
 use App\Support\Money;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
+use Illuminate\Support\Js;
 use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 
 /**
@@ -18,13 +19,15 @@ class CashForecastChart extends ChartWidget
     use ForecastsMonths;
     use HasSkeletonPlaceholder;
 
+    protected ?string $pollingInterval = null;
+
     protected int|string|array $columnSpan = 'full';
 
     protected ?string $maxHeight = '300px';
 
     public function getHeading(): string
     {
-        return $this->forecast()->showsBalance() ? 'Entradas, saídas e saldo acumulado' : 'Entradas e saídas';
+        return $this->forecast()->showsBalance() ? __('Inflows, outflows and running balance') : __('Inflows and outflows');
     }
 
     protected function getType(): string
@@ -39,10 +42,10 @@ class CashForecastChart extends ChartWidget
         return [
             'labels' => array_column($rows, 'label'),
             'datasets' => [
-                ['label' => 'Entradas', 'data' => Money::toEurosList(array_column($rows, 'inflows')), 'order' => 2],
-                ['label' => 'Saídas', 'data' => Money::toEurosList(array_column($rows, 'outflows')), 'order' => 2],
+                ['label' => __('Inflows'), 'data' => Money::toEurosList(array_column($rows, 'inflows')), 'order' => 2],
+                ['label' => __('Outflows'), 'data' => Money::toEurosList(array_column($rows, 'outflows')), 'order' => 2],
                 ...($this->forecast()->showsBalance()
-                    ? [['label' => 'Saldo acumulado', 'data' => Money::toEurosList(array_column($rows, 'balance')), 'type' => 'line', 'order' => 1]]
+                    ? [['label' => __('Running balance'), 'data' => Money::toEurosList(array_column($rows, 'balance')), 'type' => 'line', 'order' => 1]]
                     : []),
             ],
         ];
@@ -50,7 +53,7 @@ class CashForecastChart extends ChartWidget
 
     protected function getOptions(): RawJs
     {
-        return RawJs::make(<<<'JS'
+        return RawJs::make(str_replace('__CONTIU_LOCALE__', Js::from(str_replace('_', '-', app()->getLocale()))->toHtml(), <<<'JS'
         {
             interaction: { mode: 'index', intersect: false },
             datasets: {
@@ -81,7 +84,7 @@ class CashForecastChart extends ChartWidget
                     grace: '5%',
                     ticks: {
                         maxTicksLimit: 5,
-                        callback: (value) => new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value),
+                        callback: (value) => new Intl.NumberFormat(__CONTIU_LOCALE__, { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value),
                     },
                 },
             },
@@ -89,11 +92,11 @@ class CashForecastChart extends ChartWidget
                 legend: { display: true, position: 'top', align: 'end', labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8 } },
                 tooltip: {
                     callbacks: {
-                        label: (ctx) => ' ' + ctx.dataset.label + ': ' + new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(ctx.parsed.y),
+                        label: (ctx) => ' ' + ctx.dataset.label + ': ' + new Intl.NumberFormat(__CONTIU_LOCALE__, { style: 'currency', currency: 'EUR' }).format(ctx.parsed.y),
                     },
                 },
             },
         }
-        JS);
+        JS));
     }
 }

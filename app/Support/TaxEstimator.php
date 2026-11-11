@@ -27,7 +27,7 @@ use Illuminate\Support\Collection;
  */
 final class TaxEstimator
 {
-    public const QUARTER_LABELS = ['Jan – Mar', 'Abr – Jun', 'Jul – Set', 'Out – Dez'];
+    public const QUARTER_LABELS = ['Jan – Mar', 'Apr – Jun', 'Jul – Sep', 'Oct – Dec'];
 
     /** IRS Jovem exempts at most this many times the year's IAS. */
     public const IRS_JOVEM_IAS_CAP = 55;
@@ -122,15 +122,15 @@ final class TaxEstimator
             $lastPayment = $contributionMonths->last()->addMonth();
 
             $quarters[] = [
-                'label' => self::QUARTER_LABELS[$index],
+                'label' => __(self::QUARTER_LABELS[$index]),
                 'income' => $income,
                 'base' => $base,
                 'monthly' => $monthly,
                 'chargedMonths' => $charged,
                 'total' => $monthly * $charged,
-                'paidIn' => Period::SHORT_MONTHS[$firstPayment->month - 1]
+                'paidIn' => Period::monthName($firstPayment->month, short: true)
                     .($firstPayment->year === $lastPayment->year ? '' : ' '.$firstPayment->year)
-                    .' – '.Period::SHORT_MONTHS[$lastPayment->month - 1].' '.$lastPayment->year,
+                    .' – '.Period::monthName($lastPayment->month, short: true).' '.$lastPayment->year,
                 'status' => $this->ssMonthStatus($contributionMonths->first()),
             ];
         }

@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\Language;
 use App\Enums\ReconciliationStatus;
 use App\Models\Expense;
 use App\Models\Payment;
@@ -101,8 +102,8 @@ final class Reconciliation
             $result = match (true) {
                 $end === null => $this->noStatement($total),
                 $record->bankLink?->bankTransaction !== null => new ReconciliationResult(ReconciliationStatus::Reconciled, $total, lines: [['line' => $record->bankLink->bankTransaction, 'amount' => $total, 'direct' => true]]),
-                $day === null || $day->gt($end) => new ReconciliationResult(ReconciliationStatus::NotReconciled, $total, $total, 'Depois do último extrato ('.$end->format('d/m/Y').')'),
-                $countsFromStart && $start !== null && $day->lt($start) => new ReconciliationResult(ReconciliationStatus::Reconciled, $total, note: 'Antes do primeiro extrato'),
+                $day === null || $day->gt($end) => new ReconciliationResult(ReconciliationStatus::NotReconciled, $total, $total, __('After the last statement (:date)', ['date' => $end->format(Language::resolve(app()->getLocale())->dateFormat())])),
+                $countsFromStart && $start !== null && $day->lt($start) => new ReconciliationResult(ReconciliationStatus::Reconciled, $total, note: __('Before the first statement')),
                 default => (function () use ($record, $total, $covered): ReconciliationResult {
                     $missing = $this->coverage->remaining($record) ?? $total;
 
@@ -116,6 +117,6 @@ final class Reconciliation
 
     private function noStatement(int $amount): ReconciliationResult
     {
-        return new ReconciliationResult(ReconciliationStatus::NotReconciled, $amount, $amount, 'Sem extrato importado');
+        return new ReconciliationResult(ReconciliationStatus::NotReconciled, $amount, $amount, __('No statement imported'));
     }
 }

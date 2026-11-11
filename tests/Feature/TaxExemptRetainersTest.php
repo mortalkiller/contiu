@@ -8,23 +8,25 @@ use App\Models\Retainer;
 use App\Support\FinanceSettings;
 use Livewire\Livewire;
 
+pest()->group('fiscal');
+
 it('marks payments of a tax-exempt retainer as exempt automatically', function () {
     $retainer = Retainer::factory()->create(['tax_exempt' => true]);
     $period = Receivable::factory()->for($retainer, 'billable')->create();
 
     expect(Payment::factory()->for($period)->state(['tax_exempt' => null])->create()->fresh()->tax_exempt)->toBeTrue();
-});
+})->group('integration');
 
 it('keeps payments of a retainer marked not exempt out of the default', function () {
     $period = Receivable::factory()->for(Retainer::factory()->state(['tax_exempt' => false]), 'billable')->create();
 
     expect(Payment::factory()->for($period)->state(['tax_exempt' => null])->create()->fresh()->tax_exempt)->toBeFalse();
-});
+})->group('integration');
 
 it('creates retainers tax-exempt by default while the setting is on', function () {
     app(FinanceSettings::class)->set(['payments_exempt_by_default' => true]);
     expect(Retainer::factory()->state(['tax_exempt' => null])->create()->fresh()->tax_exempt)->toBeTrue();
-});
+})->group('integration');
 
 it('comes ticked when recording a payment for a tax-exempt retainer', function () {
     actingAsAdmin();
@@ -34,7 +36,7 @@ it('comes ticked when recording a payment for a tax-exempt retainer', function (
     Livewire::test(ViewRetainer::class, ['record' => $retainer->getRouteKey()])
         ->mountAction('recordPayment')
         ->assertActionDataSet(['tax_exempt' => true]);
-});
+})->group('ui');
 
 it('updates the retainer\'s existing payments when its exemption changes', function () {
     actingAsAdmin();
@@ -53,4 +55,4 @@ it('updates the retainer\'s existing payments when its exemption changes', funct
         ->call('save');
 
     expect($paid->fresh()->tax_exempt)->toBeFalse();
-});
+})->group('ui');

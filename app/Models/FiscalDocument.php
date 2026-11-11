@@ -42,6 +42,12 @@ class FiscalDocument extends Model
         ];
     }
 
+    /** @return HasOne<FiscalOperationEvidence, $this> */
+    public function fiscalOperationEvidence(): HasOne
+    {
+        return $this->hasOne(FiscalOperationEvidence::class);
+    }
+
     /** @return HasOne<FiscalDocumentLink, $this> */
     public function links(): HasOne
     {

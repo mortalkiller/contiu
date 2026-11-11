@@ -6,6 +6,7 @@ use App\Filament\Widgets\Concerns\UsesDashboardPeriod;
 use App\Support\Money;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
+use Illuminate\Support\Js;
 use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 
 /**
@@ -20,13 +21,15 @@ class MonthComparisonChart extends ChartWidget
 
     protected static ?int $sort = 2;
 
+    protected ?string $pollingInterval = null;
+
     protected int|string|array $columnSpan = 'full';
 
     protected ?string $maxHeight = '300px';
 
     public function getHeading(): string
     {
-        return 'Comparação com o mês anterior';
+        return __('Comparison with previous month');
     }
 
     public function getDescription(): string
@@ -46,7 +49,7 @@ class MonthComparisonChart extends ChartWidget
         $figures = fn ($summary) => Money::toEurosList([$summary->received(), $summary->paidExpenses(), $summary->cashResult()]);
 
         return [
-            'labels' => ['Recebido', 'Despesas pagas', 'Resultado'],
+            'labels' => [__('Received'), __('Expenses paid'), __('Result')],
             'datasets' => [
                 ['label' => $previous->period->label(), 'data' => $figures($previous)],
                 ['label' => $current->period->label(), 'data' => $figures($current)],
@@ -56,7 +59,7 @@ class MonthComparisonChart extends ChartWidget
 
     protected function getOptions(): RawJs
     {
-        return RawJs::make(<<<'JS'
+        return RawJs::make(str_replace('__CONTIU_LOCALE__', Js::from(str_replace('_', '-', app()->getLocale()))->toHtml(), <<<'JS'
         {
             interaction: { mode: 'index', intersect: false },
             datasets: {
@@ -79,7 +82,7 @@ class MonthComparisonChart extends ChartWidget
                     grace: '5%',
                     ticks: {
                         maxTicksLimit: 5,
-                        callback: (value) => new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value),
+                        callback: (value) => new Intl.NumberFormat(__CONTIU_LOCALE__, { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value),
                     },
                 },
             },
@@ -87,11 +90,11 @@ class MonthComparisonChart extends ChartWidget
                 legend: { display: true, position: 'top', align: 'end', labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8 } },
                 tooltip: {
                     callbacks: {
-                        label: (ctx) => ' ' + ctx.dataset.label + ': ' + new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(ctx.parsed.y),
+                        label: (ctx) => ' ' + ctx.dataset.label + ': ' + new Intl.NumberFormat(__CONTIU_LOCALE__, { style: 'currency', currency: 'EUR' }).format(ctx.parsed.y),
                     },
                 },
             },
         }
-        JS);
+        JS));
     }
 }

@@ -28,17 +28,26 @@ class ProjectResource extends Resource
 {
     protected static ?string $model = Project::class;
 
-    protected static ?string $modelLabel = 'trabalho';
-
-    protected static ?string $pluralModelLabel = 'trabalhos';
-
     protected static ?string $recordTitleAttribute = 'code';
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::Briefcase;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Receitas';
-
     protected static ?int $navigationSort = 1;
+
+    public static function getModelLabel(): string
+    {
+        return __('project');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('projects');
+    }
+
+    public static function getNavigationGroup(): string|UnitEnum|null
+    {
+        return __('Revenue');
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -57,7 +66,7 @@ class ProjectResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['client', 'category', 'receivables.payments', 'expenses']);
+        return parent::getEloquentQuery()->with(['client', 'category', 'receivables' => fn ($query) => $query->withOutstandingBalance(), 'receivables.payments', 'expenses']);
     }
 
     public static function getGloballySearchableAttributes(): array

@@ -4,33 +4,33 @@
     <form wire:submit="compare" class="space-y-4">
         {{ $this->form }}
 
-        <x-filament::button type="submit">Comparar</x-filament::button>
+        <x-filament::button type="submit">{{ __('Compare') }}</x-filament::button>
     </form>
 
     <div aria-live="polite">
         @if ($result !== null)
             <div wire:dirty.remove>
-                <x-filament::section :heading="'Comparação para '.$result['year']">
+                <x-filament::section :heading="__('Comparison for :year', ['year' => $result['year']])">
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm">
                             <thead>
                                 <tr class="text-gray-600 dark:text-gray-400">
-                                    <th scope="col" class="p-2 text-left">Rubrica</th>
-                                    <th scope="col" class="p-2 text-end">Base documentada</th>
-                                    <th scope="col" class="p-2 text-end">Nova avença</th>
-                                    <th scope="col" class="p-2 text-end">Base + avença</th>
+                                    <th scope="col" class="p-2 text-left">{{ __('Item') }}</th>
+                                    <th scope="col" class="p-2 text-end">{{ __('Documented base') }}</th>
+                                    <th scope="col" class="p-2 text-end">{{ __('New retainer') }}</th>
+                                    <th scope="col" class="p-2 text-end">{{ __('Base + retainer') }}</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200 tabular-nums dark:divide-gray-700">
                                 @foreach ([
-                                    ['Faturação sem IVA', 'baselineBilling', 'retainerBilling', 'scenarioBilling'],
-                                    ['Retenção na fonte', 'baselineRetention', 'scenarioRetention', 'combinedRetention'],
+                                    [__('Revenue excluding VAT'), 'baselineBilling', 'retainerBilling', 'scenarioBilling'],
+                                    [__('Tax withheld'), 'baselineRetention', 'scenarioRetention', 'combinedRetention'],
                                 ] as [$label, $baseline, $retainer, $total])
                                     <tr>
                                         <th scope="row" class="p-2 text-left font-medium">{{ $label }}</th>
-                                        <td class="p-2 text-end">{{ $result[$baseline] === null ? 'Sem dados documentados' : \App\Support\Money::format($result[$baseline]) }}</td>
-                                        <td class="p-2 text-end">{{ $result[$retainer] === null ? 'Por indicar' : \App\Support\Money::format($result[$retainer]) }}</td>
-                                        <td class="p-2 text-end font-semibold">{{ $result[$total] === null ? 'Dados em falta' : \App\Support\Money::format($result[$total]) }}</td>
+                                        <td class="p-2 text-end">{{ $result[$baseline] === null ? __('No documented data') : \App\Support\Money::format($result[$baseline], app()->getLocale()) }}</td>
+                                        <td class="p-2 text-end">{{ $result[$retainer] === null ? __('Not specified') : \App\Support\Money::format($result[$retainer], app()->getLocale()) }}</td>
+                                        <td class="p-2 text-end font-semibold">{{ $result[$total] === null ? __('Missing data') : \App\Support\Money::format($result[$total], app()->getLocale()) }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -38,41 +38,41 @@
                     </div>
 
                     <div class="mt-4 space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                        <p>Avença adicional de {{ \App\Support\Money::format($result['monthlyNet']) }} por mês × {{ $result['months'] }} {{ $result['months'] === 1 ? 'mês' : 'meses' }} no ano.</p>
-                        <p>A faturação documentada usa faturas e faturas-recibo emitidas e ativas em EUR, deduzidas das notas de crédito, pela data do documento.</p>
-                        <p>A retenção documentada soma os registos confirmados que continuam válidos, pelo ano do recebimento. A retenção da avença vem do valor que indicaste.</p>
+                        <p>{{ trans_choice('{1} Additional retainer of :amount per month × 1 month in the year.|[2,*] Additional retainer of :amount per month × :count months in the year.', $result['months'], ['amount' => \App\Support\Money::format($result['monthlyNet'], app()->getLocale())]) }}</p>
+                        <p>{{ __('Documented revenue uses active invoices and invoice-receipts issued in EUR, less credit notes, by document date.') }}</p>
+                        <p>{{ __('Documented withholding tax totals confirmed records that are still valid, by year of receipt. Retainer withholding tax comes from the amount you entered.') }}</p>
                         @if ($result['foreignDocuments'] > 0)
-                            <p>{{ $result['foreignDocuments'] }} {{ $result['foreignDocuments'] === 1 ? 'documento noutra moeda ficou fora da base' : 'documentos noutras moedas ficaram fora da base' }}.</p>
+                            <p>{{ trans_choice('{1} 1 document in another currency was excluded from the base.|[2,*] :count documents in other currencies were excluded from the base.', $result['foreignDocuments']) }}</p>
                         @endif
                         @if ($result['staleRetentionRecords'] > 0)
-                            <p>{{ $result['staleRetentionRecords'] }} {{ $result['staleRetentionRecords'] === 1 ? 'registo de retenção a reconfirmar ficou fora da soma' : 'registos de retenção a reconfirmar ficaram fora da soma' }}.</p>
+                            <p>{{ trans_choice('{1} 1 withholding record needing confirmation again was excluded from the total.|[2,*] :count withholding records needing confirmation again were excluded from the total.', $result['staleRetentionRecords']) }}</p>
                         @endif
                     </div>
                 </x-filament::section>
                 @if ($result['settlement'] !== null)
-                    <x-filament::section heading="Estimativa de IRS de 2026">
+                    <x-filament::section :heading="__('2026 personal income tax estimate')">
                         <div class="overflow-x-auto">
                             <table class="w-full text-sm">
                                 <thead>
                                     <tr>
-                                        <th scope="col" class="p-2 text-start">Rubrica</th>
-                                        <th scope="col" class="p-2 text-end">Cenário atual</th>
-                                        <th scope="col" class="p-2 text-end">Com a avença</th>
+                                        <th scope="col" class="p-2 text-start">{{ __('Item') }}</th>
+                                        <th scope="col" class="p-2 text-end">{{ __('Current scenario') }}</th>
+                                        <th scope="col" class="p-2 text-end">{{ __('With the retainer') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-200 tabular-nums dark:divide-gray-700">
-                                    @foreach (['grossTax' => 'Coleta pelas taxas gerais', 'solidarity' => 'Adicional de solidariedade', 'taxAfterDeductions' => 'Imposto após deduções', 'payable' => 'IRS estimado a pagar', 'refund' => 'Reembolso estimado'] as $key => $label)
+                                    @foreach (['grossTax' => __('Tax at the general rates'), 'solidarity' => __('Solidarity surcharge'), 'taxAfterDeductions' => __('Tax after deductions'), 'payable' => __('Estimated income tax payable'), 'refund' => __('Estimated refund')] as $key => $label)
                                         <tr>
                                             <th scope="row" class="p-2 text-start font-medium">{{ $label }}</th>
-                                            <td class="p-2 text-end">{{ \App\Support\Money::format($result['settlement']['baseline'][$key]) }}</td>
-                                            <td class="p-2 text-end">{{ \App\Support\Money::format($result['settlement']['combined'][$key]) }}</td>
+                                            <td class="p-2 text-end">{{ \App\Support\Money::format($result['settlement']['baseline'][$key], app()->getLocale()) }}</td>
+                                            <td class="p-2 text-end">{{ \App\Support\Money::format($result['settlement']['combined'][$key], app()->getLocale()) }}</td>
                                         </tr>
                                     @endforeach
                                 </tbody>
                             </table>
                         </div>
                         <p class="mt-3 text-sm text-gray-600 dark:text-gray-400">
-                            Usa os valores que introduziste para cada cenário e aplica os limites mínimos de cobrança e reembolso.
+                            {{ __('Uses the values entered for each scenario and applies the minimum payment and refund thresholds.') }}
                         </p>
                     </x-filament::section>
                 @endif

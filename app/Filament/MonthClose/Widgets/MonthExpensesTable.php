@@ -29,61 +29,61 @@ class MonthExpensesTable extends TableWidget
     public function table(Table $table): Table
     {
         return $table
-            ->heading('Despesas')
-            ->description('Despesas deste mês e as que ficaram por pagar.')
+            ->heading(__('Expenses'))
+            ->description(__('Expenses from this month and any still unpaid.'))
             ->query(fn () => $this->review()->expensesQuery(withFiscalReference: true))
             ->paginated(false)
             ->columns([
                 TextColumn::make('spent_on')
-                    ->label('Data')
+                    ->label(__('Date'))
                     ->date()
-                    ->description(fn (Expense $record) => $this->review()->isCarriedOver($record) ? 'de meses anteriores' : null),
+                    ->description(fn (Expense $record) => $this->review()->isCarriedOver($record) ? __('from previous months') : null),
                 TextColumn::make('supplier.name')
-                    ->label('Fornecedor')
+                    ->label(__('Supplier'))
                     ->description(fn (Expense $record) => $record->description),
-                TextColumn::make('kind')->label('Tipo')->badge()->toggleable(),
-                TextColumn::make('total')->label('Total')->money('EUR', divideBy: 100)->alignEnd(),
-                IconColumn::make('is_paid')->label('Paga')->boolean(),
+                TextColumn::make('kind')->label(__('Type'))->badge()->toggleable(),
+                TextColumn::make('total')->label(__('Total'))->money('EUR', divideBy: 100)->alignEnd(),
+                IconColumn::make('is_paid')->label(__('Paid expense'))->boolean(),
                 ReconciliationColumns::expenseColumn(),
                 FiscalDocumentColumn::make(),
                 TextColumn::make('proof')
-                    ->label('Comprovativo')
-                    ->state(fn (Expense $record): string => $record->hasProof() ? 'Com comprovativo' : 'Sem comprovativo')
+                    ->label(__('Proof'))
+                    ->state(fn (Expense $record): string => $record->hasProof() ? __('Proof attached') : __('No proof attached'))
                     ->badge()
                     ->color(fn (Expense $record): string => $record->hasProof() ? 'success' : 'warning'),
                 TextInputColumn::make('invoice_number')
-                    ->label('Referência anterior por confirmar')
+                    ->label(__('Previous reference awaiting confirmation'))
                     ->state(fn (Expense $record): ?string => MonthReview::unconfirmedLegacyReference($record))
-                    ->placeholder('Ex.: FT 2026/12')
+                    ->placeholder(__('E.g. FT 2026/12'))
                     ->disabled(fn (): bool => CurrentAccount::readOnly())
                     ->rules(['nullable', 'max:100'])
                     ->afterStateUpdated(fn () => $this->monthChanged()),
             ])
             ->recordActions([
                 Action::make('markPaid')
-                    ->label('Marcar paga')
+                    ->label(__('Mark paid'))
                     ->icon(Phosphor::CheckCircle)
                     ->color('success')
                     ->button()
                     // Not behind a policy: the read-only gate cannot hide it.
                     ->disabled(fn () => CurrentAccount::readOnly())
-                    ->tooltip(fn () => CurrentAccount::readOnly() ? 'A conta está só de leitura' : null)
+                    ->tooltip(fn () => CurrentAccount::readOnly() ? __('The account is read-only') : null)
                     ->visible(fn (Expense $record) => ! $record->is_paid)
                     ->action(function (Expense $record): void {
                         $record->update(['is_paid' => true, 'paid_on' => today()]);
 
-                        Notification::make()->title('Despesa marcada como paga')->success()->send();
+                        Notification::make()->title(__('Expense marked as paid'))->success()->send();
                         $this->monthChanged();
                     }),
                 Action::make('edit')
-                    ->label('Editar')
+                    ->label(__('Edit'))
                     ->icon(Phosphor::PencilSimple)
                     ->iconButton()
                     ->color('gray')
                     ->visible(fn (Expense $record): bool => ! CurrentAccount::readOnly() && ExpenseResource::canEdit($record))
                     ->url(fn (Expense $record) => ExpenseResource::getUrl('edit', ['record' => $record])),
             ])
-            ->emptyStateHeading('Sem despesas neste mês')
+            ->emptyStateHeading(__('No expenses this month'))
             ->emptyStateIcon(Phosphor::CheckCircle);
     }
 }

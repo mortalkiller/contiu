@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Clients\Pages;
 
+use App\Enums\Language;
 use App\Exports\ClientStatementExport;
 use App\Filament\Actions\RecordPaymentAction;
 use App\Filament\Actions\SendPaymentReminderAction;
@@ -41,11 +42,20 @@ class ClientStatementPage extends Page implements HasTable
 
     protected static string $resource = ClientResource::class;
 
-    protected static ?string $title = 'Extrato';
-
-    protected static ?string $navigationLabel = 'Extrato';
-
     protected static string|BackedEnum|null $navigationIcon = Phosphor::Scroll;
+
+    /** @var array<string, ClientStatement> */
+    private array $statements = [];
+
+    public function getTitle(): string
+    {
+        return __('Statement');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return __('Statement');
+    }
 
     public function mount(int|string $record): void
     {
@@ -56,24 +66,27 @@ class ClientStatementPage extends Page implements HasTable
 
     public function getBreadcrumb(): string
     {
-        return 'Extrato';
+        return __('Statement');
     }
 
     protected function getHeaderActions(): array
     {
         return [
-            RecordPaymentAction::make()->after(fn () => $this->resetTable()),
+            RecordPaymentAction::make()->after(function (): void {
+                $this->statements = [];
+                $this->resetTable();
+            }),
             SendPaymentReminderAction::make(),
             ViewClient::addClientEmailAction(),
             ActionGroup::make([
                 Action::make('exportExcel')
-                    ->label('Exportar Excel')
+                    ->label(__('Export to Excel'))
                     ->icon(Phosphor::DownloadSimple)
                     ->action(fn () => Excel::download(new ClientStatementExport($this->statement()), ClientStatementExport::filename($this->statement()))),
                 SendStatementEmailAction::make()
                     ->statement(fn () => $this->statement()),
             ])
-                ->label('Extrato')
+                ->label(__('Statement'))
                 ->icon(Phosphor::Scroll)
                 ->button()
                 ->color('gray'),
@@ -90,32 +103,32 @@ class ClientStatementPage extends Page implements HasTable
     public function table(Table $table): Table
     {
         return $table
-            ->heading('Movimentos')
+            ->heading(__('Transactions'))
             ->description(fn (): string => $this->summary())
             ->records(fn (?array $filters): array => $this->statement($filters)->entries()->keyBy('key')->all())
             ->paginated(false)
             ->columns([
                 TextColumn::make('date')
-                    ->label('Data')
+                    ->label(__('Date'))
                     ->date()
                     ->color(fn (array $record) => $record['is_future'] ? 'gray' : null),
                 TextColumn::make('description')
-                    ->label('Descrição')
+                    ->label(__('Description'))
                     ->weight(fn (array $record) => $record['kind'] === 'opening' ? FontWeight::SemiBold : null)
                     ->color(fn (array $record) => $record['is_future'] ? 'gray' : null)
-                    ->description(fn (array $record) => $record['is_future'] ? 'a vencer' : null),
+                    ->description(fn (array $record) => $record['is_future'] ? __('not yet due') : null),
                 TextColumn::make('debit')
-                    ->label('Débito')
+                    ->label(__('Debit'))
                     ->alignEnd()
                     ->formatStateUsing(fn (int $state) => $state > 0 ? Money::format($state) : '')
                     ->color(fn (array $record) => $record['is_future'] ? 'gray' : null),
                 TextColumn::make('credit')
-                    ->label('Crédito')
+                    ->label(__('Credit'))
                     ->alignEnd()
                     ->formatStateUsing(fn (int $state) => $state > 0 ? Money::format($state) : '')
                     ->color('success'),
                 TextColumn::make('balance')
-                    ->label('Saldo')
+                    ->label(__('Balance'))
                     ->alignEnd()
                     ->weight(FontWeight::Medium)
                     ->formatStateUsing(fn (int $state) => Money::format($state))
@@ -125,42 +138,44 @@ class ClientStatementPage extends Page implements HasTable
                 Filter::make('period')
                     ->schema([
                         DatePicker::make('from')
-                            ->label('De')
+                            ->label(__('From'))
                             ->native(false)
-                            ->displayFormat('d/m/Y')
+                            ->displayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
                             ->default(today()->startOfYear()),
                         DatePicker::make('until')
-                            ->label('Até')
+                            ->label(__('Until'))
                             ->native(false)
-                            ->displayFormat('d/m/Y'),
+                            ->displayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat()),
                     ])
                     ->columns(2)
                     ->indicateUsing(fn (array $data): array => array_values(array_filter([
-                        filled($data['from'] ?? null) ? 'De '.Carbon::parse($data['from'])->format('d/m/Y') : null,
-                        filled($data['until'] ?? null) ? 'Até '.Carbon::parse($data['until'])->format('d/m/Y') : null,
+                        filled($data['from'] ?? null) ? __('From :date', ['date' => Carbon::parse($data['from'])->format(Language::resolve(app()->getLocale())->dateFormat())]) : null,
+                        filled($data['until'] ?? null) ? __('Until :date', ['date' => Carbon::parse($data['until'])->format(Language::resolve(app()->getLocale())->dateFormat())]) : null,
                     ]))),
             ], layout: FiltersLayout::AboveContent)
-            ->emptyStateHeading('Sem movimentos neste período');
+            ->emptyStateHeading(__('No transactions in this period'));
     }
 
     private function statement(?array $filters = null): ClientStatement
     {
         $period = ($filters ?? $this->tableFilters ?? [])['period'] ?? [];
 
-        return new ClientStatement(
-            $this->getRecord(),
-            from: filled($period['from'] ?? null) ? Carbon::parse($period['from']) : null,
-            to: filled($period['until'] ?? null) ? Carbon::parse($period['until']) : null,
-        );
+        $from = filled($period['from'] ?? null) ? Carbon::parse($period['from']) : null;
+        $to = filled($period['until'] ?? null) ? Carbon::parse($period['until']) : null;
+        $key = $from?->toIso8601String().'|'.$to?->toIso8601String();
+
+        return $this->statements[$key] ??= new ClientStatement($this->getRecord(), from: $from, to: $to);
     }
 
     private function summary(): string
     {
         $statement = $this->statement();
 
-        return 'Cobrado '.Money::format($statement->charged())
-            .' · Recebido '.Money::format($statement->received())
-            .' · Saldo '.Money::format($statement->balance())
-            .' · Vencido '.Money::format($statement->overdueBalance());
+        return __('Charged :charged · Received :received · Balance :balance · Past due :overdue', [
+            'charged' => Money::format($statement->charged()),
+            'received' => Money::format($statement->received()),
+            'balance' => Money::format($statement->balance()),
+            'overdue' => Money::format($statement->overdueBalance()),
+        ]);
     }
 }

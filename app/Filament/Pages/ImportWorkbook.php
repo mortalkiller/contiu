@@ -16,10 +16,10 @@ use Filament\Pages\Page;
 use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Components\Attributes\Unexposed;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Locked;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
-use UnitEnum;
 
 /**
  * Upload the "controlo financeiro" workbook, preview what it would create (dry run), then import.
@@ -28,13 +28,9 @@ class ImportWorkbook extends Page
 {
     protected string $view = 'filament.pages.import-workbook';
 
-    protected static ?string $title = 'Importar Excel';
-
     protected static ?string $slug = 'importar-excel';
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::FileArrowUp;
-
-    protected static string|UnitEnum|null $navigationGroup = 'Definições';
 
     protected static ?int $navigationSort = 2;
 
@@ -61,7 +57,7 @@ class ImportWorkbook extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Carrega o ficheiro de controlo financeiro (folhas Receitas, Pagamentos, Despesas e Listas). Primeiro vês o que vai ser criado; só depois é gravado.';
+        return __('Upload the financial tracking workbook (Receitas, Pagamentos, Despesas and Listas sheets). You can review what will be created before saving it.');
     }
 
     public function form(Schema $schema): Schema
@@ -72,7 +68,7 @@ class ImportWorkbook extends Page
                 Section::make()
                     ->schema([
                         FileUpload::make('file')
-                            ->label('Ficheiro Excel')
+                            ->label(__('Excel file'))
                             ->disk('local')
                             ->directory('imports')
                             // A path in the field's state comes from the browser: never one it names itself.
@@ -86,23 +82,23 @@ class ImportWorkbook extends Page
                             ->required()
                             ->afterStateUpdated(fn () => $this->preview = null),
                         Checkbox::make('replace')
-                            ->label('Substituir os dados atuais')
-                            ->helperText('Apaga todos os clientes, trabalhos, avenças, recebimentos, despesas e fornecedores antes de importar. Não pode ser desfeito.')
+                            ->label(__('Replace current data'))
+                            ->helperText(__('Deletes all clients, jobs, retainers, payments received, expenses and suppliers before importing. This cannot be undone.'))
                             ->live()
                             ->afterStateUpdated(fn () => $this->preview = null),
                         Actions::make([
                             Action::make('preview')
-                                ->label('Pré-visualizar')
+                                ->label(__('Preview'))
                                 ->icon(Phosphor::Eye)
                                 ->color('gray')
                                 ->action(fn () => $this->preview()),
                             Action::make('import')
-                                ->label('Importar')
+                                ->label(__('Import'))
                                 ->icon(Phosphor::FileArrowUp)
                                 ->visible(fn () => $this->preview !== null)
                                 ->requiresConfirmation(fn () => (bool) ($this->data['replace'] ?? false))
-                                ->modalHeading('Substituir os dados atuais?')
-                                ->modalDescription('Os dados financeiros atuais vão ser apagados e substituídos pelos do ficheiro.')
+                                ->modalHeading(__('Replace current data?'))
+                                ->modalDescription(__('The current financial data will be deleted and replaced with the file contents.'))
                                 ->color(fn () => ($this->data['replace'] ?? false) ? 'danger' : 'primary')
                                 ->action(fn () => $this->import()),
                         ]),
@@ -129,16 +125,15 @@ class ImportWorkbook extends Page
         $this->storedFile = null;
 
         Notification::make()
-            ->title('Importação concluída')
-            ->body(sprintf(
-                '%d trabalhos, %d avenças, %d recebimentos e %d despesas. Contratado %s, recebido %s.',
-                $result->counts['projects'],
-                $result->counts['retainers'],
-                $result->counts['payments'],
-                $result->counts['expenses'],
-                Money::format($result->contracted),
-                Money::format($result->received),
-            ))
+            ->title(__('Import complete'))
+            ->body(__(':projects jobs, :retainers retainers, :payments payments received and :expenses expenses. Contracted :contracted, received :received.', [
+                'projects' => $result->counts['projects'],
+                'retainers' => $result->counts['retainers'],
+                'payments' => $result->counts['payments'],
+                'expenses' => $result->counts['expenses'],
+                'contracted' => Money::format($result->contracted, locale: app()->getLocale()),
+                'received' => Money::format($result->received, locale: app()->getLocale()),
+            ]))
             ->success()
             ->send();
 
@@ -150,7 +145,7 @@ class ImportWorkbook extends Page
     public function previewRows(): array
     {
         return collect(ImportResult::LABELS)
-            ->map(fn (string $label, string $key) => ['label' => $label, 'value' => $this->preview['counts'][$key] ?? 0])
+            ->map(fn (string $label, string $key) => ['label' => __($label), 'value' => $this->preview['counts'][$key] ?? 0])
             ->values()
             ->all();
     }
@@ -170,7 +165,7 @@ class ImportWorkbook extends Page
             $this->preview = null;
 
             Notification::make()
-                ->title('Não foi possível importar')
+                ->title(__('Unable to import'))
                 ->body($exception->getMessage())
                 ->danger()
                 ->send();
@@ -184,5 +179,23 @@ class ImportWorkbook extends Page
         $file = $this->data['file'] ?? null;
 
         return is_array($file) ? (string) collect($file)->first() : (string) $file;
+    }
+
+    #[Unexposed]
+    public function getTitle(): string
+    {
+        return __('Import Excel');
+    }
+
+    #[Unexposed]
+    public static function getNavigationGroup(): string
+    {
+        return __('Settings');
+    }
+
+    #[Unexposed]
+    public static function getNavigationLabel(): string
+    {
+        return __('Import Excel');
     }
 }

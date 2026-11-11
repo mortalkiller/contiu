@@ -18,7 +18,7 @@ class ListProjects extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make()->label('Novo trabalho'),
+            CreateAction::make()->label(__('New project')),
         ];
     }
 
@@ -38,20 +38,20 @@ class ListProjects extends ListRecords
             ->count() ?: null;
 
         return [
-            'all' => Tab::make('Todos')->badge($count()),
-            'active' => Tab::make('Em curso')
+            'all' => Tab::make(__('All'))->badge($count()),
+            'active' => Tab::make(__('Active projects'))
                 ->badge($count([ProjectStatus::Approved, ProjectStatus::InProgress]))
                 ->modifyQueryUsing(fn (Builder $query) => $query->whereIn('status', [ProjectStatus::Approved, ProjectStatus::InProgress])),
-            'outstanding' => Tab::make('Por receber')
+            'outstanding' => Tab::make(__('Awaiting payment'))
                 ->modifyQueryUsing($withOpenReceivables)
                 ->badge(fn () => $withOpenReceivables(ProjectResource::getModel()::query())->count() ?: null)
                 ->badgeColor('warning'),
-            'proposals' => Tab::make('Propostas')
+            'proposals' => Tab::make(__('Proposals'))
                 ->badge($count([ProjectStatus::Proposal]))
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('status', ProjectStatus::Proposal)),
-            'completed' => Tab::make('Concluídos')
+            'completed' => Tab::make(__('Completed projects'))
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('status', ProjectStatus::Completed)),
-            'cancelled' => Tab::make('Cancelados')
+            'cancelled' => Tab::make(__('Cancelled projects'))
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('status', ProjectStatus::Cancelled)),
         ];
     }

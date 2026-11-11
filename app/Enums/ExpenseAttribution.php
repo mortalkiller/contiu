@@ -12,8 +12,8 @@ enum ExpenseAttribution: string implements HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::Professional => 'Profissional',
-            self::Mixed => 'Mista',
+            self::Professional => __('Business use'),
+            self::Mixed => __('Mixed use'),
         };
     }
 }

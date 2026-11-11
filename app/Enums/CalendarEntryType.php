@@ -19,12 +19,12 @@ enum CalendarEntryType: string implements HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::Obligation => 'Obrigações fiscais',
-            self::Payment => 'Recebimentos',
-            self::Receivable => 'A receber',
-            self::Expense => 'Despesas',
-            self::ProjectedRetainer => 'Avenças previstas',
-            self::ProjectedRecurringExpense => 'Recorrentes previstas',
+            self::Obligation => __('Tax obligations'),
+            self::Payment => __('Payments received'),
+            self::Receivable => __('To receive'),
+            self::Expense => __('Expenses'),
+            self::ProjectedRetainer => __('Projected retainers'),
+            self::ProjectedRecurringExpense => __('Projected recurring expenses'),
         };
     }
 

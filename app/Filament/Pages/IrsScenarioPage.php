@@ -21,20 +21,17 @@ use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Filament\Support\Components\Attributes\Unexposed;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Number;
 use Livewire\Attributes\Locked;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
-use UnitEnum;
 
 class IrsScenarioPage extends Page
 {
     use HasTaxSubNavigation;
 
-    protected static ?string $title = 'Cenário de IRS';
-
     protected static ?string $slug = 'cenario-irs';
-
-    protected static string|UnitEnum|null $navigationGroup = 'Impostos';
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::Calculator;
 
@@ -75,43 +72,43 @@ class IrsScenarioPage extends Page
     public function form(Schema $schema): Schema
     {
         return $schema->statePath('data')->components([
-            Section::make('Ano e nova avença')
+            Section::make(__('Year and new retainer'))
                 ->columns(['md' => 2])
                 ->schema([
-                    TextInput::make('year')->label('Ano da comparação')
+                    TextInput::make('year')->label(__('Comparison year'))
                         ->integer()->minValue(1900)->maxValue(9998)->required()
                         ->live(onBlur: true)
                         ->validationMessages([
-                            'integer' => 'Introduz um ano inteiro.',
-                            'min' => 'Indica um ano a partir de 1900.',
-                            'max' => 'Indica um ano até 9998.',
+                            'integer' => __('Enter a whole year.'),
+                            'min' => __('Enter a year from 1900 onward.'),
+                            'max' => __('Enter a year no later than 9998.'),
                         ]),
-                    TextInput::make('months')->label('Meses faturados no ano')
+                    TextInput::make('months')->label(__('Months invoiced in the year'))
                         ->integer()->minValue(1)->maxValue(12)->required()
                         ->validationMessages([
-                            'integer' => 'Introduz um número inteiro de meses.',
-                            'min' => 'Indica pelo menos um mês.',
-                            'max' => 'Indica no máximo 12 meses.',
+                            'integer' => __('Enter a whole number of months.'),
+                            'min' => __('Enter at least one month.'),
+                            'max' => __('Enter no more than 12 months.'),
                         ]),
-                    $this->moneyInput('monthlyNet')->label('Valor mensal sem IVA')
-                        ->helperText('Valor a faturar por mês, antes de retenção.')
+                    $this->moneyInput('monthlyNet')->label(__('Monthly amount excluding VAT'))
+                        ->helperText(__('Monthly amount to invoice before withholding.'))
                         ->required()
                         ->rule('not_regex:/\A0+(?:[,.]0+)?\z/')
                         ->validationMessages([
-                            'regex' => 'Introduz um valor em euros com até duas casas decimais.',
-                            'not_regex' => 'Indica um valor mensal superior a zero.',
+                            'regex' => __('Enter an amount in euros with up to two decimal places.'),
+                            'not_regex' => __('Enter a monthly amount greater than zero.'),
                         ]),
-                    $this->moneyInput('scenarioRetention')->label('Retenção da nova avença no ano')
-                        ->helperText('Opcional. Indica o total para os meses escolhidos. Usa 0 € se for esse o valor do cenário.'),
+                    $this->moneyInput('scenarioRetention')->label(__('Withholding on the new retainer for the year'))
+                        ->helperText(__('Optional. Enter the total for the selected months. Use €0 if that is the amount for this scenario.')),
                 ]),
-            Section::make('Estimativa de liquidação de IRS')
-                ->description('Disponível para rendimentos de 2026, em tributação individual pelas taxas gerais do continente.')
+            Section::make(__('Personal income tax assessment estimate'))
+                ->description(__('Available for 2026 income, with individual taxation at mainland general rates.'))
                 ->visible(fn (Get $get): bool => (int) $get('year') === IrsSettlementEstimate::YEAR)
                 ->schema([
-                    Toggle::make('estimateSettlement')->label('Calcular com dados fiscais conferidos')->live(),
-                    Section::make('Cenário atual')->columns(['md' => 2])->schema($this->settlementInputs('baseline'))
+                    Toggle::make('estimateSettlement')->label(__('Calculate with verified tax details'))->live(),
+                    Section::make(__('Current scenario'))->columns(['md' => 2])->schema($this->settlementInputs('baseline'))
                         ->visible(fn (Get $get): bool => (bool) $get('estimateSettlement')),
-                    Section::make('Cenário com a nova avença')->columns(['md' => 2])->schema($this->settlementInputs('combined'))
+                    Section::make(__('Scenario with the new retainer'))->columns(['md' => 2])->schema($this->settlementInputs('combined'))
                         ->visible(fn (Get $get): bool => (bool) $get('estimateSettlement')),
                 ]),
         ]);
@@ -134,25 +131,25 @@ class IrsScenarioPage extends Page
 
         return [
             'summaryNotice' => [
-                'title' => 'Simulação: não é um cálculo oficial',
-                'body' => 'Confirma com o teu contabilista antes de decidires.',
+                'title' => __('Simulation only'),
+                'body' => __('Check with your accountant before making a decision.'),
             ],
             'summary' => [
                 [
-                    'label' => 'Faturado documentado em '.$year,
-                    'value' => $turnover->billedNet === null ? '—' : Money::format($turnover->billedNet),
+                    'label' => __('Documented invoicing in :year', ['year' => $year]),
+                    'value' => $turnover->billedNet === null ? '—' : Money::format($turnover->billedNet, locale: app()->getLocale()),
                     'note' => $this->result !== null && $this->result['year'] === $year && $this->result['scenarioBilling'] !== null
-                        ? '+'.Money::format($this->result['retainerBilling']).' com a avença'
-                        : 'Sem IVA, pela data do documento',
+                        ? __('+:amount with the retainer', ['amount' => Money::format($this->result['retainerBilling'], locale: app()->getLocale())])
+                        : __('Excluding VAT, by document date'),
                 ],
                 [
-                    'label' => 'Retido na fonte em '.$year,
-                    'value' => $withholding->retainedTotal === null ? '—' : Money::format($withholding->retainedTotal),
-                    'note' => 'Registos com fonte conferida',
+                    'label' => __('Withheld at source in :year', ['year' => $year]),
+                    'value' => $withholding->retainedTotal === null ? '—' : Money::format($withholding->retainedTotal, locale: app()->getLocale()),
+                    'note' => __('Records with verified source'),
                 ],
                 ...($threshold === null ? [] : [[
-                    'label' => 'Limite de isenção de IVA',
-                    'value' => number_format($threshold['percent'], 1, ',', ' ').'%',
+                    'label' => __('VAT exemption threshold'),
+                    'value' => Number::format($threshold['percent'], precision: 1, locale: app()->getLocale()).'%',
                     'percent' => $threshold['percent'],
                     'note' => $threshold['detail'],
                     'tone' => $threshold['status'] === 'ok' ? null : $threshold['status'],
@@ -191,14 +188,14 @@ class IrsScenarioPage extends Page
     private function settlementInputs(string $prefix): array
     {
         return [
-            $this->moneyInput($prefix.'Taxable')->label('Rendimento coletável')->required()
-                ->helperText('Valor anual depois dos coeficientes, deduções específicas e abatimentos aplicáveis, incluindo mínimo de existência quando devido.'),
-            $this->moneyInput($prefix.'Deductions')->label('Deduções à coleta aplicáveis')->required()
-                ->helperText('Indica o total já sujeito aos limites legais.'),
-            $this->moneyInput($prefix.'TaxWithholding')->label('Total de retenções por conta do IRS')->required()
-                ->helperText('Total do ano para este cenário, incluindo outras fontes se aplicável. Indica 0 se não houver retenção.'),
-            $this->moneyInput($prefix.'AdvancePayments')->label('Pagamentos por conta')->required()
-                ->helperText('Indica o total anual ou 0.'),
+            $this->moneyInput($prefix.'Taxable')->label(__('Taxable income'))->required()
+                ->helperText(__('Annual amount after applicable coefficients, specific deductions and allowances, including the minimum subsistence allowance where applicable.')),
+            $this->moneyInput($prefix.'Deductions')->label(__('Applicable tax credits'))->required()
+                ->helperText(__('Enter the total after applying the statutory limits.')),
+            $this->moneyInput($prefix.'TaxWithholding')->label(__('Total personal income tax withheld'))->required()
+                ->helperText(__('Annual total for this scenario, including other sources where applicable. Enter 0 if there is no withholding.')),
+            $this->moneyInput($prefix.'AdvancePayments')->label(__('Advance tax payments'))->required()
+                ->helperText(__('Enter the annual total or 0.')),
         ];
     }
 
@@ -220,7 +217,25 @@ class IrsScenarioPage extends Page
             ->inputMode('decimal')->suffix('€')
             ->stripCharacters([' ', "\u{00A0}", "\u{202F}"])
             ->regex('/\A[0-9]{1,9}(?:[,.][0-9]{1,2})?\z/')
-            ->validationMessages(['regex' => 'Introduz um valor em euros com até duas casas decimais.'])
+            ->validationMessages(['regex' => __('Enter an amount in euros with up to two decimal places.')])
             ->dehydrateStateUsing(fn (?string $state): ?int => Money::toCents($state));
+    }
+
+    #[Unexposed]
+    public function getTitle(): string
+    {
+        return __('Personal income tax scenario');
+    }
+
+    #[Unexposed]
+    public static function getNavigationGroup(): string
+    {
+        return __('Taxes');
+    }
+
+    #[Unexposed]
+    public static function getNavigationLabel(): string
+    {
+        return __('Personal income tax scenario');
     }
 }

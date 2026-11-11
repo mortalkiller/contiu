@@ -4,9 +4,10 @@ namespace App\Models;
 
 use App\Enums\FiscalProfilePartyType;
 use App\Enums\FiscalProfileViesStatus;
-use App\Enums\ReceivableStatus;
+use App\Enums\Language;
 use App\Enums\Seat;
 use App\Models\Concerns\BelongsToAccount;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -22,7 +23,12 @@ class Client extends Model implements AuditableContract
 
     protected $guarded = ['id', 'vat_validation_status', 'vat_validated_at'];
 
-    protected $attributes = ['vat_validation_status' => 'pending'];
+    protected $attributes = ['vat_validation_status' => 'pending', 'language' => 'pt-PT'];
+
+    public function preferredLanguage(): Language
+    {
+        return Language::resolve($this->language);
+    }
 
     protected function casts(): array
     {
@@ -109,15 +115,77 @@ class Client extends Model implements AuditableContract
     }
 
     /**
+     * Every amount charged to the client (projects, retainers and direct sales), cancelled
+     * projects excluded. A query, not a relation: it feeds the "A receber" tab of the client page.
+     *
+     * @return Builder<Receivable>
+     */
+    public function receivablesQuery(): Builder
+    {
+        return Receivable::query()->forClient($this->getKey())->excludingCancelled();
+    }
+
+    /**
+     * What the client paid: payments settling its amounts, and advances not allocated yet.
+     *
+     * @return Builder<Payment>
+     */
+    public function paymentsQuery(): Builder
+    {
+        return Payment::query()->where(fn (Builder $query) => $query
+            ->where('advance_client_id', $this->getKey())
+            ->orWhereHas('allocations.receivable', fn (Builder $query) => $query->forClient($this->getKey())));
+    }
+
+    /**
+     * What was spent on the client's projects and retainers.
+     *
+     * @return Builder<Expense>
+     */
+    public function expensesQuery(): Builder
+    {
+        return Expense::query()->where(fn (Builder $query) => $query
+            ->whereHas('project', fn (Builder $query) => $query->where('client_id', $this->getKey()))
+            ->orWhereHas('retainer', fn (Builder $query) => $query->where('client_id', $this->getKey())));
+    }
+
+    /**
      * Every receivable of the client's projects and retainers, cancelled projects excluded.
      *
      * @return Collection<int, Receivable>
      */
     public function allReceivables(): Collection
     {
-        return $this->receivablesCache ??= Receivable::query()
-            ->forClient($this->getKey())
+        return $this->receivablesCache ??= self::receivablesForClients([$this->getKey()]);
+    }
+
+    /** @param Builder<Client> $query */
+    public function scopeWithReceivableTotals(Builder $query): void
+    {
+        $query->afterQuery(function (mixed $clients): void {
+            if (! $clients instanceof Collection || $clients->isEmpty()) {
+                return;
+            }
+
+            $byClient = self::receivablesForClients($clients->modelKeys())
+                ->groupBy(fn (Receivable $receivable): int => (int) $receivable->billable?->client_id);
+
+            foreach ($clients as $client) {
+                $client->receivablesCache = $byClient->get($client->getKey()) ?? new Collection;
+            }
+        });
+    }
+
+    /**
+     * @param  list<int>  $clientIds
+     * @return Collection<int, Receivable>
+     */
+    private static function receivablesForClients(array $clientIds): Collection
+    {
+        return Receivable::query()
+            ->forClients($clientIds)
             ->excludingCancelled()
+            ->withOutstandingBalance()
             ->with(['payments', 'billable'])
             ->orderBy('due_on')
             ->get();
@@ -135,13 +203,13 @@ class Client extends Model implements AuditableContract
 
     protected function outstandingAmount(): Attribute
     {
-        return Attribute::get(fn (): int => (int) $this->allReceivables()->sum(fn (Receivable $receivable) => $receivable->outstanding));
+        return Attribute::get(fn (): int => (int) $this->allReceivables()->sum(fn (Receivable $receivable) => $receivable->projectedOutstanding()));
     }
 
     protected function overdueAmount(): Attribute
     {
         return Attribute::get(fn (): int => (int) $this->allReceivables()
-            ->filter(fn (Receivable $receivable) => $receivable->status === ReceivableStatus::Overdue)
-            ->sum(fn (Receivable $receivable) => $receivable->outstanding));
+            ->filter(fn (Receivable $receivable) => $receivable->due_on?->isBefore(today()))
+            ->sum(fn (Receivable $receivable) => $receivable->projectedOutstanding()));
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\Language;
 use App\Filament\Analysis\Widgets\TaxQuartersTable;
 use App\Filament\Pages\Concerns\HasTaxSubNavigation;
 use App\Filament\Resources\FiscalDocuments\FiscalDocumentResource;
@@ -9,7 +10,6 @@ use App\Filament\Widgets\TaxObligationsCard;
 use App\Support\DocumentedTurnover;
 use App\Support\FinanceSettings;
 use App\Support\Money;
-use App\Support\Period;
 use App\Support\PeriodSummary;
 use App\Support\TaxEstimator;
 use App\Support\TerritorialTurnover;
@@ -24,9 +24,9 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\TextSize;
+use Illuminate\Support\Number;
 use Livewire\Attributes\Url;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
-use UnitEnum;
 
 /**
  * "Estimativa de impostos" for an ENI in the simplified regime. Estimates only.
@@ -35,13 +35,9 @@ class TaxEstimate extends Page
 {
     use HasTaxSubNavigation;
 
-    protected static ?string $title = 'Estimativa de impostos';
-
     protected static ?string $slug = 'estimativa-de-impostos';
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::Calculator;
-
-    protected static string|UnitEnum|null $navigationGroup = 'Impostos';
 
     protected static ?int $navigationSort = 3;
 
@@ -55,22 +51,22 @@ class TaxEstimate extends Page
 
     public function getSubheading(): string
     {
-        return 'ENI em regime simplificado. A estimativa usa o rendimento recebido no ano.';
+        return __('Sole trader under the simplified regime. The estimate uses income received during the year.');
     }
 
     protected function getHeaderActions(): array
     {
         return [
             Action::make('socialSecurity')
-                ->label('Segurança Social')
+                ->label(__('Social Security'))
                 ->color('gray')
                 ->url(SocialSecurity::getUrl()),
             Action::make('vatReview')
-                ->label('Revisão de IVA')
+                ->label(__('VAT review'))
                 ->color('gray')
                 ->url(fn (): string => VatReviewPage::getUrl(['year' => $this->year])),
             Action::make('settings')
-                ->label('Definições fiscais')
+                ->label(__('Tax settings'))
                 ->icon(Phosphor::Sliders)
                 ->color('gray')
                 ->url(FinanceSettingsPage::getUrl()),
@@ -88,15 +84,15 @@ class TaxEstimate extends Page
 
         return $schema->components([
             ...($estimator->settings()->isIncomplete() ? [self::incompleteSettingsCallout()] : []),
-            Callout::make('Estimativa — confirma os valores com o teu contabilista.')
-                ->description('Consulta a base de cálculo de cada valor e a cobertura do volume de negócios nacional.')
+            Callout::make(__('Estimate — check the amounts with your accountant.'))
+                ->description(__('See the basis for each amount and the domestic turnover coverage.'))
                 ->icon(Phosphor::WarningCircle)
                 ->status('warning'),
             Section::make()
                 ->columns(['md' => 4])
                 ->schema([
                     Select::make('year')
-                        ->label('Ano')
+                        ->label(__('Year'))
                         ->options(fn (): array => collect(array_keys(PeriodSummary::availableYears()))
                             ->merge(DocumentedTurnover::issueYears())
                             ->merge(TerritorialTurnover::reviewYears())
@@ -107,40 +103,42 @@ class TaxEstimate extends Page
                 ]),
             $this->turnoverSection(DocumentedTurnover::forYear($estimator->year), $territorial),
             Grid::make(['md' => 2, 'xl' => 4])->schema([
-                Section::make('Rendimento')
+                Section::make(__('Earnings'))
                     ->icon(Phosphor::HandCoins)
                     ->schema([
-                        TextEntry::make('income')->hiddenLabel()->state(Money::format($estimator->income()))->size(TextSize::Large)->weight('bold'),
-                        TextEntry::make('income_note')->hiddenLabel()->state('Recebido em '.$estimator->year.' (proxy do rendimento relevante).')->color('gray'),
+                        TextEntry::make('income')->hiddenLabel()->state(Money::format($estimator->income(), locale: app()->getLocale()))->size(TextSize::Large)->weight('bold'),
+                        TextEntry::make('income_note')->hiddenLabel()
+                            ->state(__('Received in :year (used as a proxy for relevant income).', ['year' => $estimator->year]))
+                            ->color('gray'),
                         TextEntry::make('exempt_note')
                             ->hiddenLabel()
                             ->state($estimator->exemptIncome() > 0
-                                ? 'Excluídos '.Money::format($estimator->exemptIncome()).' de recebimentos isentos.'
-                                : 'Nenhum recebimento isento de impostos — marca-os em Recebimentos ou na avença.')
+                                ? __('Excluded :amount in tax-exempt payments received.', ['amount' => Money::format($estimator->exemptIncome(), locale: app()->getLocale())])
+                                : __('There are no tax-exempt payments received. Mark them in Payments received or on the retainer.'))
                             ->icon(Phosphor::ShieldCheck)
                             ->color($estimator->exemptIncome() > 0 ? 'info' : 'gray'),
                     ]),
-                Section::make('Segurança Social')
+                Section::make(__('Social Security'))
                     ->icon(Phosphor::Bank)
                     ->schema([
-                        TextEntry::make('ss')->hiddenLabel()->state(Money::format($estimator->ssYearTotal()))->size(TextSize::Large)->weight('bold'),
+                        TextEntry::make('ss')->hiddenLabel()->state(Money::format($estimator->ssYearTotal(), locale: app()->getLocale()))->size(TextSize::Large)->weight('bold'),
                         TextEntry::make('ss_note')->hiddenLabel()->color('gray')->state(fn (): string => $this->socialSecurityNote($estimator)),
                     ]),
-                Section::make('IRS')
+                Section::make(__('Personal income tax'))
                     ->icon(Phosphor::Receipt)
                     ->schema($this->irsEntries($estimator)),
-                Section::make('IVA')
+                Section::make(__('VAT'))
                     ->icon(Phosphor::Percent)
                     ->schema($this->vatEntries($estimator, $vatThreshold, $territorial->subtotal() !== null)),
             ]),
             ...(($vatThreshold['notice'] ?? null) !== null ? [
-                Callout::make('Limiar de IVA ultrapassado')->description($vatThreshold['notice'])->icon(Phosphor::WarningCircle)->status('danger'),
+                Callout::make(__('VAT threshold exceeded'))->description($vatThreshold['notice'])->icon(Phosphor::WarningCircle)->status('danger'),
             ] : []),
             ...(($vatThreshold['advisory'] ?? null) !== null ? [
-                Callout::make('Alerta indicativo de IVA')->description($vatThreshold['advisory'])->icon(Phosphor::WarningCircle)->status('warning'),
+                Callout::make(__('Indicative VAT warning'))->description($vatThreshold['advisory'])->icon(Phosphor::WarningCircle)->status('warning'),
             ] : []),
             ...($previousYearNotice === null ? [] : [
-                Callout::make('Limiar de IVA ultrapassado no ano anterior')->description($previousYearNotice)->icon(Phosphor::WarningCircle)->status('warning'),
+                Callout::make(__('VAT threshold exceeded in the previous year'))->description($previousYearNotice)->icon(Phosphor::WarningCircle)->status('warning'),
             ]),
             ...$this->getWidgetsSchemaComponents([TaxQuartersTable::class], ['year' => $this->year]),
             // The month's obligations and what comes next only make sense for the running year.
@@ -152,36 +150,39 @@ class TaxEstimate extends Page
     {
         $year = $territorial->year;
         $subtotal = $territorial->subtotal();
-        $billingNote = 'Indicador operacional pela data de emissão. As notas de crédito reduzem o total.';
+        $billingNote = __('Operational indicator based on issue date. Credit notes reduce the total.');
 
         if ($turnover->nonEuroDocumentCount > 0) {
-            $billingNote .= ' Documentos noutras moedas excluídos do total em EUR ('.$turnover->nonEuroDocumentCount.').';
+            $billingNote .= ' '.trans_choice(
+                'Excluded :count document in another currency from the EUR total.|Excluded :count documents in other currencies from the EUR total.',
+                $turnover->nonEuroDocumentCount,
+            );
         }
 
-        return Section::make('Faturação e recebimentos')
+        return Section::make(__('Invoicing and payments received'))
             ->columns(['md' => 3])
             ->headerActions([
-                Action::make('billedDocuments')->label('Ver documentos incluídos')->link()
+                Action::make('billedDocuments')->label(__('View included documents'))->link()
                     ->visible(fn (): bool => $turnover->billedNet !== null && FiscalDocumentResource::canViewAny())
                     ->url(fn (): string => FiscalDocumentResource::getUrl('index', ['tableFilters' => ['billed_year' => ['value' => $year]]])),
-                Action::make('territorialTurnover')->label('Rever volume nacional')->link()
+                Action::make('territorialTurnover')->label(__('Review domestic turnover'))->link()
                     ->visible(fn (): bool => TerritorialTurnoverPage::canAccess())
                     ->url(fn (): string => TerritorialTurnoverPage::getUrl(['year' => $year])),
             ])
             ->schema([
                 TextEntry::make('billed_net')
-                    ->label('Faturado líquido documentado')
-                    ->state($turnover->billedNet === null ? 'Sem documentos em EUR' : Money::format($turnover->billedNet))
+                    ->label(__('Documented net invoicing'))
+                    ->state($turnover->billedNet === null ? __('No documents in EUR') : Money::format($turnover->billedNet, locale: app()->getLocale()))
                     ->size(TextSize::Large)->weight('bold')
                     ->helperText($billingNote),
                 TextEntry::make('registered_receipts')
-                    ->label('Recebimentos registados')
-                    ->state(Money::format($turnover->received))
+                    ->label(__('Recorded payments received'))
+                    ->state(Money::format($turnover->received, locale: app()->getLocale()))
                     ->size(TextSize::Large)->weight('bold')
-                    ->helperText('Total pela data de pagamento, incluindo recebimentos marcados como isentos.'),
+                    ->helperText(__('Total by payment date, including payments marked as exempt.')),
                 TextEntry::make('territorial_turnover')
-                    ->label('Volume de negócios em território nacional')
-                    ->state($subtotal === null ? 'Cobertura indisponível' : Money::format($subtotal))
+                    ->label(__('Domestic turnover'))
+                    ->state($subtotal === null ? __('Coverage unavailable') : Money::format($subtotal, locale: app()->getLocale()))
                     ->size(TextSize::Large)->weight('bold')
                     ->helperText(($subtotal !== null ? $territorial->subtotalLabel().'. ' : '').$territorial->summary()),
             ]);
@@ -198,19 +199,20 @@ class TaxEstimate extends Page
 
         if ($threshold !== null) {
             $entries[] = TextEntry::make('vat')->hiddenLabel()
-                ->state(number_format($threshold['percent'], 1, ',', ' ').'%')
+                ->state(self::thresholdPercent($threshold['percent']))
                 ->size(TextSize::Large)->weight('bold')
                 ->color($threshold['status'] === 'ok' ? 'gray' : $threshold['status']);
-            $label = $threshold['usesReceipts'] ? 'Limite de isenção de IVA · aproximação por recebimentos' : $threshold['label'];
+            $label = $threshold['usesReceipts'] ? __('VAT exemption threshold · approximate based on payments received') : $threshold['label'];
             $entries[] = TextEntry::make('vat_note')->hiddenLabel()->color('gray')
                 ->state($label.'. '.$threshold['detail']);
         }
 
         $mixed = count($periods) > 1;
         $showPeriodProxy = $mixed && ! $hasTerritorialSubtotal;
+        $dateFormat = __('m/d');
 
         foreach ($periods as $index => $period) {
-            $range = CarbonImmutable::parse($period['from'])->format('d/m').' – '.CarbonImmutable::parse($period['to'])->format('d/m');
+            $range = CarbonImmutable::parse($period['from'])->format($dateFormat).' – '.CarbonImmutable::parse($period['to'])->format($dateFormat);
             $basis = $this->vatBasisLabel(
                 $mixed ? $period['basis'] : $estimator->fiscalBasisOn(),
                 includeThreshold: $period['exempt'] && ($showPeriodProxy || ($threshold['usesReceipts'] ?? false)),
@@ -219,19 +221,27 @@ class TaxEstimate extends Page
 
             if ($period['exempt']) {
                 $detail = match (true) {
-                    $showPeriodProxy => 'Isenção de IVA · aproximação por recebimentos até ao fim do período. '
-                        .number_format($period['thresholdPercent'], 1, ',', ' ').'% de '.Money::format($period['threshold']).'.',
-                    $mixed => 'Isenção de IVA.',
+                    $showPeriodProxy => __('VAT exemption · approximate based on payments received through the end of the period. :percent of :threshold.', [
+                        'percent' => self::thresholdPercent($period['thresholdPercent']),
+                        'threshold' => Money::format($period['threshold'], locale: app()->getLocale()),
+                    ]),
+                    $mixed => __('VAT exemption.'),
                     default => '',
                 };
             } else {
-                $detail = 'IVA liquidado '.Money::format($period['collected']).' − IVA dedutível '.Money::format($period['paid']).'.';
+                $detail = __('Output VAT :collected − deductible VAT :paid.', [
+                    'collected' => Money::format($period['collected'], locale: app()->getLocale()),
+                    'paid' => Money::format($period['paid'], locale: app()->getLocale()),
+                ]);
 
                 if ($mixed) {
-                    $detail = 'Regime normal · saldo estimado '.Money::format($period['balance']).' · '.$detail;
+                    $detail = __('Standard VAT regime · estimated balance :balance · :detail', [
+                        'balance' => Money::format($period['balance'], locale: app()->getLocale()),
+                        'detail' => $detail,
+                    ]);
                 } else {
                     $entries[] = TextEntry::make('vat_balance')->hiddenLabel()
-                        ->state(Money::format($period['balance']))->size(TextSize::Large)->weight('bold');
+                        ->state(Money::format($period['balance'], locale: app()->getLocale()))->size(TextSize::Large)->weight('bold');
                 }
             }
 
@@ -250,23 +260,25 @@ class TaxEstimate extends Page
         $confirmed = count(array_intersect($relevant, $basis['confirmed_fields']));
 
         if ($confirmed === 0) {
-            return $explainSettings ? 'Base do enquadramento: definições fiscais atuais.' : '';
+            return $explainSettings ? __('Basis for the tax status: current tax settings.') : '';
         }
 
-        return 'Perfil fiscal em vigor desde '.CarbonImmutable::parse($basis['effective_from'])->format('d/m/Y').'.'
-            .($confirmed < count($relevant) ? ' Campos em falta: definições fiscais atuais.' : '');
+        return __('Tax profile in effect since :date.', [
+            'date' => CarbonImmutable::parse($basis['effective_from'])->format(Language::resolve(app()->getLocale())->dateFormat()),
+        ])
+            .($confirmed < count($relevant) ? __(' Missing fields use current tax settings.') : '');
     }
 
     /** Shown on the Estimativa and the Previsão de tesouraria until the start of activity is filled in. */
     public static function incompleteSettingsCallout(): Callout
     {
-        return Callout::make('Definições fiscais incompletas: valores aproximados')
-            ->description('Falta dizer quando começaste a atividade e se foi o primeiro início ou um reinício. Sem isso, a Segurança Social e o IRS são aproximados.')
+        return Callout::make(__('Incomplete tax settings: approximate amounts'))
+            ->description(__('Enter when you started trading and whether this was your first registration or a restart. Without this, Social Security and personal income tax figures are approximate.'))
             ->icon(Phosphor::WarningCircle)
             ->status('warning')
             ->actions([
                 Action::make('completeSettings')
-                    ->label('Abrir Definições fiscais')
+                    ->label(__('Open tax settings'))
                     ->link()
                     ->url(FinanceSettingsPage::getUrl()),
             ]);
@@ -285,38 +297,55 @@ class TaxEstimate extends Page
         $reduction = $estimator->irsCoefficientReduction();
 
         return array_values(array_filter([
-            TextEntry::make('irs')->hiddenLabel()->state(Money::format($estimator->irsTaxableIncome()))->size(TextSize::Large)->weight('bold'),
-            $line('irs_note', 'Rendimento tributável. O imposto depende das tabelas de IRS e não é calculado.'),
-            $line('irs_gross', 'Rendimento bruto: '.Money::format($estimator->income())),
+            TextEntry::make('irs')->hiddenLabel()->state(Money::format($estimator->irsTaxableIncome(), locale: app()->getLocale()))->size(TextSize::Large)->weight('bold'),
+            $line('irs_note', __('Taxable income. The tax depends on the personal income tax tables and is not calculated here.')),
+            $line('irs_gross', __('Gross income: :amount', ['amount' => Money::format($estimator->income(), locale: app()->getLocale())])),
             $estimator->settings()->irsJovem() ? $line('irs_jovem', $jovemPercent > 0
-                ? 'Isento pelo IRS Jovem ('.self::percent($jovemPercent).', ano n.º '.$estimator->settings()->irsJovemYearNumber($estimator->year).'): −'.Money::format($jovemExempt)
+                ? __('Exempt under IRS Jovem (:percent, year :year): −:amount', [
+                    'percent' => self::percent($jovemPercent),
+                    'year' => $estimator->settings()->irsJovemYearNumber($estimator->year),
+                    'amount' => Money::format($jovemExempt, locale: app()->getLocale()),
+                ])
                     .($jovemExempt === TaxEstimator::IRS_JOVEM_IAS_CAP * $estimator->ias()
-                        ? ' (limite de '.TaxEstimator::IRS_JOVEM_IAS_CAP.' × IAS'.($estimator->iasIsProvisional() ? ', provisório' : '').')'
+                        ? __(' (cap of :cap × IAS:provisional)', [
+                            'cap' => TaxEstimator::IRS_JOVEM_IAS_CAP,
+                            'provisional' => $estimator->iasIsProvisional() ? __(', provisional') : '',
+                        ])
                         : '')
-                : 'IRS Jovem: não se aplica em '.$estimator->year.' (idade ou ano n.º).') : null,
-            $line('irs_coefficient', 'Coeficiente '.self::decimal($estimator->effectiveIrsCoefficient())
+                : __('IRS Jovem does not apply in :year (age or year of eligibility).', ['year' => $estimator->year])) : null,
+            $line('irs_coefficient', __('Coefficient :coefficient', ['coefficient' => self::decimal($estimator->effectiveIrsCoefficient())])
                 .match (true) {
-                    $reduction > 0 => ' ('.self::decimal($estimator->settings()->irsCoefficient()).' com redução de '.self::percent($reduction).' — '.($reduction === 0.5 ? '1.º' : '2.º').' ano)',
-                    $estimator->irsCoefficientReductionBlocker() === 'dependent_income' => ' (sem redução: ano com salário ou pensão)',
-                    $estimator->irsCoefficientReductionBlocker() === 'recent_restart' => ' (sem redução: reinício a menos de 5 anos da cessação)',
+                    $reduction > 0 => __(' (:base reduced by :percent — :year)', [
+                        'base' => self::decimal($estimator->settings()->irsCoefficient()),
+                        'percent' => self::percent($reduction),
+                        'year' => $reduction === 0.5 ? __('1st year') : __('2nd year'),
+                    ]),
+                    $estimator->irsCoefficientReductionBlocker() === 'dependent_income' => __(' (no reduction: year with a salary or pension)'),
+                    $estimator->irsCoefficientReductionBlocker() === 'recent_restart' => __(' (no reduction: restarted less than five years after ceasing activity)'),
                     default => '',
                 }),
             $jovemPercent > 0 && $reduction > 0
-                ? $line('irs_interpretation', 'Somar o IRS Jovem à redução dos primeiros anos é uma interpretação dos art. 12.º-B e 31.º do CIRS, sem informação vinculativa da AT.')
+                ? $line('irs_interpretation', __('Combining IRS Jovem with the reduction for the first years is an interpretation of Articles 12-B and 31 of the Portuguese Income Tax Code, without a binding ruling from the Tax Authority.'))
                 : null,
         ]));
     }
 
-    /** "0,5625", "0,75". */
+    private static function thresholdPercent(float $value): string
+    {
+        $formatted = Number::format(round($value, 1), precision: 1, locale: app()->getLocale());
+
+        return str_replace(["\u{00a0}", "\u{202f}"], ' ', $formatted).'%';
+    }
+
     private static function decimal(float $value): string
     {
-        return rtrim(rtrim(number_format($value, 4, ',', ''), '0'), ',');
+        return Number::format(round($value, 4), maxPrecision: 4, locale: app()->getLocale());
     }
 
     /** "25 %". */
     private static function percent(float $share): string
     {
-        return self::decimal($share * 100).' %';
+        return __(':percent%', ['percent' => self::decimal($share * 100)]);
     }
 
     /**
@@ -325,18 +354,35 @@ class TaxEstimate extends Page
      */
     private function socialSecurityNote(TaxEstimator $estimator): string
     {
-        $startsOn = $estimator->ssObligationStartsOn();
+        $startsOn = $estimator->ssObligationStartsOn()?->locale(app()->getLocale());
 
         return match (true) {
             // An exemption covers every month alike.
-            $estimator->ssMonthStatus(CarbonImmutable::create($estimator->year, 1, 1)) === 'exempt' => 'Isento (art. 157.º).',
+            $estimator->ssMonthStatus(CarbonImmutable::create($estimator->year, 1, 1)) === 'exempt' => __('Exempt (Article 157).'),
             // The year's income sets the contributions from April on; an earlier start leaves none of them exempt.
-            $startsOn !== null && $startsOn->gt(CarbonImmutable::create($estimator->year, 4, 1)) => 'Isento (1.º enquadramento) até '
-                .mb_strtolower(Period::MONTHS[$startsOn->subMonth()->month - 1]).' de '.$startsOn->subMonth()->year
-                .($estimator->ssObligationIsEstimated() ? ' (estimativa).' : '.')
-                .' A primeira contribuição, de '.mb_strtolower(Period::MONTHS[$startsOn->month - 1])
-                .', paga-se em '.mb_strtolower(Period::MONTHS[$startsOn->addMonth()->month - 1]).'.',
-            default => 'Estimativa do ano, pelos trimestres abaixo.',
+            $startsOn !== null && $startsOn->gt(CarbonImmutable::create($estimator->year, 4, 1)) => __('Exempt (first enrollment) until :month :year:estimate. The first contribution, for :first, is due in :due.', [
+                'month' => $startsOn->subMonth()->translatedFormat('F'),
+                'year' => $startsOn->subMonth()->year,
+                'estimate' => $estimator->ssObligationIsEstimated() ? __(' (estimate)') : '',
+                'first' => $startsOn->translatedFormat('F'),
+                'due' => $startsOn->addMonth()->translatedFormat('F'),
+            ]),
+            default => __('Annual estimate based on the quarters below.'),
         };
+    }
+
+    public function getTitle(): string
+    {
+        return __('Tax estimate');
+    }
+
+    public static function getNavigationGroup(): string
+    {
+        return __('Taxes');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return __('Tax estimate');
     }
 }

@@ -12,6 +12,7 @@ use App\Support\InvoiceXpressImport as Importer;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
+use Filament\Support\Components\Attributes\Unexposed;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
@@ -21,8 +22,6 @@ class InvoiceXpressImport extends InvoiceXpressSectionPage
     protected string $view = 'filament.pages.invoice-xpress-import';
 
     protected static ?string $slug = 'importar-invoicexpress';
-
-    protected static ?string $title = 'Importar do InvoiceXpress';
 
     public string $from;
 
@@ -55,14 +54,14 @@ class InvoiceXpressImport extends InvoiceXpressSectionPage
 
     public function getSubheading(): ?string
     {
-        return 'Traz os documentos emitidos e liga-os às cobranças do Contiu.';
+        return __('Import issued documents and link them to charges in Contiu.');
     }
 
     protected function getHeaderActions(): array
     {
         return [
             Action::make('fiscalDocuments')
-                ->label('Documentos fiscais')
+                ->label(__('Tax documents'))
                 ->link()
                 ->color('gray')
                 ->url(fn (): string => FiscalDocumentResource::getUrl())
@@ -87,14 +86,14 @@ class InvoiceXpressImport extends InvoiceXpressSectionPage
         $conflicts = $states['conflict'] ?? 0;
 
         return [
-            ['label' => 'Documentos encontrados', 'value' => (string) count($this->rows), 'note' => $this->omitted > 0
-                ? trans_choice('{1} 1 omitido nesta página|[2,*] :count omitidos nesta página', $this->omitted)
-                : 'Página '.$this->previewScope['page'].' de '.$this->previewScope['totalPages']],
-            ['label' => 'Já registados', 'value' => (string) ($states['same'] ?? 0), 'note' => 'Sem diferenças'],
-            ['label' => 'Por importar', 'value' => (string) (($states['new'] ?? 0) + $changed), 'note' => $changed > 0
-                ? trans_choice('{1} 1 com correção por aplicar|[2,*] :count com correção por aplicar', $changed)
+            ['label' => __('Documents found'), 'value' => (string) count($this->rows), 'note' => $this->omitted > 0
+                ? trans_choice('{1} 1 omitted on this page|[2,*] :count omitted on this page', $this->omitted)
+                : __('Page :page of :total', ['page' => $this->previewScope['page'], 'total' => $this->previewScope['totalPages']])],
+            ['label' => __('Already recorded'), 'value' => (string) ($states['same'] ?? 0), 'note' => __('No differences')],
+            ['label' => __('Awaiting import'), 'value' => (string) (($states['new'] ?? 0) + $changed), 'note' => $changed > 0
+                ? trans_choice('{1} 1 correction to apply|[2,*] :count corrections to apply', $changed)
                 : null, 'tone' => 'warning'],
-            ['label' => 'Com conflito', 'value' => (string) $conflicts, 'note' => $conflicts > 0 ? 'Diferem do registo local' : 'Nenhum', 'tone' => $conflicts > 0 ? 'warning' : 'success'],
+            ['label' => __('Conflicting'), 'value' => (string) $conflicts, 'note' => $conflicts > 0 ? __('Differ from the local record') : __('None'), 'tone' => $conflicts > 0 ? 'warning' : 'success'],
         ];
     }
 
@@ -154,20 +153,20 @@ class InvoiceXpressImport extends InvoiceXpressSectionPage
     public function importDocumentAction(): Action
     {
         return Action::make('importDocument')
-            ->label(fn (array $arguments): string => ($this->selectedRow($arguments)['state'] ?? null) === 'changed' ? 'Aplicar correção' : 'Importar')
+            ->label(fn (array $arguments): string => ($this->selectedRow($arguments)['state'] ?? null) === 'changed' ? __('Apply correction') : __('Import'))
             ->visible(fn (array $arguments): bool => $this->canWrite() && in_array($this->selectedRow($arguments)['state'] ?? null, ['new', 'changed'], true))
             ->requiresConfirmation()
             ->modalHeading(fn (array $arguments): string => ($this->selectedRow($arguments)['state'] ?? null) === 'changed'
-                ? 'Aplicar a correção ao documento fiscal'
-                : 'Importar documento fiscal')
-            ->modalDescription('Confirma a versão apresentada. A operação guarda o documento no Contiu.')
-            ->modalSubmitActionLabel('Confirmar registo')
+                ? __('Apply correction to the tax document')
+                : __('Import tax document'))
+            ->modalDescription(__('Confirm the version shown to save the document in Contiu.'))
+            ->modalSubmitActionLabel(__('Confirm record'))
             ->schema(fn (array $arguments): array => empty($suggestions = $this->selectedRow($arguments)['suggestions'] ?? []) ? [] : [
                 Select::make('receivable_id')
-                    ->label('Ligar à cobrança')
-                    ->placeholder('Importar sem ligação')
+                    ->label(__('Link to charge'))
+                    ->placeholder(__('Import without linking'))
                     ->options($suggestions)
-                    ->helperText('Confirma a cobrança pela identificação fiscal, valor e data.'),
+                    ->helperText(__('Verify the charge using its tax ID, amount and date.')),
             ])
             ->action(function (array $arguments, array $data, Importer $import, Action $action): void {
                 abort_unless($this->canWrite(), 403);
@@ -184,7 +183,7 @@ class InvoiceXpressImport extends InvoiceXpressSectionPage
                 }
 
                 $this->rows[$arguments['index']]['state'] = 'same';
-                Notification::make()->success()->title('Documento fiscal registado')->send();
+                Notification::make()->success()->title(__('Tax document recorded'))->send();
             });
     }
 
@@ -199,7 +198,7 @@ class InvoiceXpressImport extends InvoiceXpressSectionPage
         try {
             $result = $client->listInvoices($this->from, $this->to, $page, $this->archived);
             if ($result['subdomain'] !== $client->configuration()->subdomain) {
-                throw new InvoiceXpressException('A conta InvoiceXpress mudou. Volta a consultar os documentos.');
+                throw new InvoiceXpressException(__('The InvoiceXpress account changed. Fetch the documents again.'));
             }
 
             foreach ($result['invoices'] as $invoice) {
@@ -261,5 +260,17 @@ class InvoiceXpressImport extends InvoiceXpressSectionPage
     private function canWrite(): bool
     {
         return static::canAccess() && ! CurrentAccount::readOnly();
+    }
+
+    #[Unexposed]
+    public function getTitle(): string
+    {
+        return __('Import from InvoiceXpress');
+    }
+
+    #[Unexposed]
+    public static function getNavigationLabel(): string
+    {
+        return __('Import from InvoiceXpress');
     }
 }

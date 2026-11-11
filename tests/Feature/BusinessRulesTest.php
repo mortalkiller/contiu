@@ -45,7 +45,7 @@ it('saves a project whose instalments add up to the total', function () {
         ->assertHasNoFormErrors();
 
     expect(Project::firstWhere('code', 'OC-1')->receivables()->sum('amount'))->toEqual(100000);
-});
+})->group('ui');
 
 it('refuses instalments that do not add up to the project total', function () {
     Livewire::test(CreateProject::class)
@@ -57,7 +57,7 @@ it('refuses instalments that do not add up to the project total', function () {
         ->assertHasFormErrors(['receivables']);
 
     expect(Project::count())->toBe(0);
-});
+})->group('ui');
 
 it('refuses an instalment due before the quote date', function () {
     Livewire::test(CreateProject::class)
@@ -67,7 +67,7 @@ it('refuses an instalment due before the quote date', function () {
         ])
         ->call('create')
         ->assertHasFormErrors(['receivables']);
-});
+})->group('ui');
 
 // Recebimentos ------------------------------------------------------------------------------
 
@@ -85,7 +85,7 @@ it('refuses a payment larger than what is still open', function () {
         ->assertHasActionErrors(['amount']);
 
     expect($receivable->payments()->count())->toBe(1);
-});
+})->group('ui');
 
 it('records a payment that settles what is open', function () {
     $receivable = Receivable::factory()->create(['amount' => 30000]);
@@ -102,7 +102,7 @@ it('records a payment that settles what is open', function () {
 
     expect($receivable->fresh()->outstanding)->toBe(0)
         ->and($receivable->payments()->first()->invoice_number)->toBe('FR 2026/1');
-});
+})->group('ui');
 
 // Apagar ------------------------------------------------------------------------------------
 
@@ -113,7 +113,7 @@ it('deletes a project together with its unpaid instalments', function () {
     $project->delete();
 
     expect(Receivable::count())->toBe(0);
-});
+})->group('integration');
 
 it('refuses to delete a project, retainer or receivable that already has payments', function (string $what) {
     $owner = $what === 'retainer' ? Retainer::factory()->create() : Project::factory()->create();
@@ -124,7 +124,7 @@ it('refuses to delete a project, retainer or receivable that already has payment
 
     expect(fn () => $target->delete())->toThrow(HasPaymentsException::class);
     expect($target->fresh())->not->toBeNull();
-})->with(['project', 'retainer', 'receivable']);
+})->with(['project', 'retainer', 'receivable'])->group('integration');
 
 // Despesas ----------------------------------------------------------------------------------
 
@@ -143,7 +143,7 @@ it('requires a project or retainer for a direct expense', function () {
         ])
         ->call('create')
         ->assertHasFormErrors(['project_id']);
-});
+})->group('ui');
 
 it('hides delete on a project that already has payments', function () {
     $project = Project::factory()->create();
@@ -151,7 +151,7 @@ it('hides delete on a project that already has payments', function () {
 
     Livewire::test(EditProject::class, ['record' => $project->getRouteKey()])
         ->assertActionHidden('delete');
-});
+})->group('ui');
 
 it('hides delete on a retainer that already has payments', function () {
     $retainer = Retainer::factory()->create();
@@ -159,4 +159,4 @@ it('hides delete on a retainer that already has payments', function () {
 
     Livewire::test(EditRetainer::class, ['record' => $retainer->getRouteKey()])
         ->assertActionHidden('delete');
-});
+})->group('ui');

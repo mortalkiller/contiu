@@ -22,17 +22,17 @@ final class ImportResult
         public bool $dryRun = false,
     ) {}
 
-    /** Portuguese labels for the counts, in display order. */
+    /** Translation keys for the counts, in display order. */
     public const LABELS = [
-        'clients' => 'Clientes',
-        'projects' => 'Trabalhos',
-        'retainers' => 'Avenças',
-        'receivables' => 'Valores a receber',
-        'payments' => 'Recebimentos',
-        'suppliers' => 'Fornecedores',
-        'expenses' => 'Despesas',
-        'recurring_expenses' => 'Despesas recorrentes',
-        'categories' => 'Categorias',
+        'clients' => 'Clients',
+        'projects' => 'Projects',
+        'retainers' => 'Retainers',
+        'receivables' => 'Amounts receivable',
+        'payments' => 'Payments received',
+        'suppliers' => 'Suppliers',
+        'expenses' => 'Expenses',
+        'recurring_expenses' => 'Recurring expenses',
+        'categories' => 'Categories',
     ];
 
     /** Livewire-friendly shape (the import page keeps the preview between requests). */

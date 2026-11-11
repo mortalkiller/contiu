@@ -3,7 +3,7 @@
 @endphp
 
 <x-filament-widgets::widget>
-    <x-filament::section heading="Próximos 6 meses" description="O que as avenças ativas vão gerar" :icon="Phosphor::CalendarDots" compact>
+    <x-filament::section :heading="__('Next 6 months')" :description="__('Expected revenue from active retainers')" :icon="Phosphor::CalendarDots" compact>
         <dl class="grid grid-cols-3 gap-x-4 gap-y-3 md:grid-cols-6">
             @foreach ($months as $month)
                 <div>

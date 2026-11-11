@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\RecurringExpenses\Schemas;
 
 use App\Enums\Frequency;
+use App\Enums\Language;
 use App\Filament\Resources\Expenses\Schemas\ExpenseForm;
 use App\Filament\Support\FinanceFields;
 use Filament\Forms\Components\DatePicker;
@@ -19,24 +20,26 @@ class RecurringExpenseForm
     public static function configure(Schema $schema): Schema
     {
         return $schema
+            ->defaultDateDisplayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
+            ->defaultNumberLocale(fn (): string => app()->getLocale())
             ->columns(3)
             ->components([
-                Section::make('Despesa')
+                Section::make(__('Expense'))
                     ->columnSpan(2)
                     ->columns(2)
                     ->schema([
                         FinanceFields::supplierSelect(),
                         Select::make('category_id')
-                            ->label('Categoria')
+                            ->label(__('Category'))
                             ->relationship('category', 'name', fn (Builder $query) => $query->expense())
                             ->native(false),
                         TextInput::make('description')
-                            ->label('Descrição')
+                            ->label(__('Description'))
                             ->required()
                             ->columnSpanFull(),
                     ]),
 
-                Section::make('Valor')
+                Section::make(__('Amount'))
                     ->columnSpan(1)
                     ->schema([
                         FinanceFields::netAmount(),
@@ -44,40 +47,40 @@ class RecurringExpenseForm
                         FinanceFields::totalPreview(),
                     ]),
 
-                Section::make('Repetição')
+                Section::make(__('Repeat'))
                     ->columnSpanFull()
                     ->columns(4)
                     ->schema([
                         ToggleButtons::make('frequency')
-                            ->label('Periodicidade')
+                            ->label(__('Schedule'))
                             ->options(Frequency::class)
                             ->default(Frequency::Monthly)
                             ->inline()
                             ->required()
                             ->columnSpan(2),
                         TextInput::make('day')
-                            ->label('Dia do mês')
+                            ->label(__('Day of the month'))
                             ->numeric()
                             ->minValue(1)
                             ->maxValue(31)
                             ->default(1)
                             ->required(),
                         Toggle::make('is_active')
-                            ->label('Ativa')
+                            ->label(__('Active recurring expense'))
                             ->default(true)
                             ->inline(false),
                         DatePicker::make('starts_on')
-                            ->label('Começa em')
+                            ->label(__('Starts on'))
                             ->native(false)
-                            ->displayFormat('d/m/Y')
+                            ->displayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
                             ->default(today())
                             ->required()
                             ->columnSpan(2),
                         DatePicker::make('ends_on')
-                            ->label('Termina em')
+                            ->label(__('Ends on'))
                             ->native(false)
-                            ->displayFormat('d/m/Y')
-                            ->placeholder('Sem fim')
+                            ->displayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
+                            ->placeholder(__('No end date'))
                             ->columnSpan(2),
                     ]),
 

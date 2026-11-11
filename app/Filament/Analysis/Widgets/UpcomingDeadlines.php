@@ -42,15 +42,14 @@ class UpcomingDeadlines extends Widget
         return [
             'key' => $obligation->key,
             'title' => implode(' · ', array_filter([$obligation->title, $obligation->period()])),
-            'amount' => $obligation->amount === null ? null : Money::format($obligation->amount),
+            'amount' => $obligation->amount === null ? null : Money::format($obligation->amount, locale: app()->getLocale()),
             'when' => $obligation->opensOn !== null && $obligation->opensOn->month === $obligation->dueOn->month
-                ? $obligation->opensOn->day.' a '.self::shortDate($obligation->dueOn)
-                : 'até '.self::shortDate($obligation->dueOn),
+                ? __(':from to :through', ['from' => $obligation->opensOn->day, 'through' => self::shortDate($obligation->dueOn)])
+                : __('by :date', ['date' => self::shortDate($obligation->dueOn)]),
             'badge' => match (true) {
-                $obligation->status === 'overdue' => 'em atraso',
-                $days === 0 => 'hoje',
-                $days === 1 => '1 dia',
-                default => $days.' dias',
+                $obligation->status === 'overdue' => __('overdue'),
+                $days === 0 => __('today'),
+                default => trans_choice('{1} 1 day|[2,*] :count days', $days),
             },
             'tone' => match (true) {
                 $obligation->status === 'overdue' => 'danger',
@@ -65,6 +64,6 @@ class UpcomingDeadlines extends Widget
     /** "20 nov.". */
     private static function shortDate(CarbonImmutable $date): string
     {
-        return $date->day.' '.mb_strtolower(Period::SHORT_MONTHS[$date->month - 1]).'.';
+        return __(':month :day.', ['month' => Period::monthName($date->month, short: true, inSentence: true), 'day' => $date->day]);
     }
 }

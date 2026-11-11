@@ -3,10 +3,9 @@
 use App\Support\Money;
 
 it('formats cents as euros in Portuguese', function () {
-    expect(Money::format(196550))->toBe(Money::format(196550))
-        ->and(str_replace(["\u{00A0}", "\u{202F}"], ' ', Money::format(196550)))->toBe('1 965,50 €')
-        ->and(str_replace(["\u{00A0}", "\u{202F}"], ' ', Money::format(-15100)))->toBe('-151,00 €')
-        ->and(str_replace(["\u{00A0}", "\u{202F}"], ' ', Money::format(null)))->toBe('0,00 €');
+    expect(str_replace(["\u{00A0}", "\u{202F}"], ' ', Money::format(196550, locale: 'pt_PT')))->toBe('1 965,50 €')
+        ->and(str_replace(["\u{00A0}", "\u{202F}"], ' ', Money::format(-15100, locale: 'pt_PT')))->toBe('-151,00 €')
+        ->and(str_replace(["\u{00A0}", "\u{202F}"], ' ', Money::format(null, locale: 'pt_PT')))->toBe('0,00 €');
 });
 
 it('converts typed euros to cents without float noise', function (mixed $euros, ?int $cents) {

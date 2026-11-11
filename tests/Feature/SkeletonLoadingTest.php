@@ -17,6 +17,8 @@ use Filament\Widgets\Widget;
 use Livewire\Livewire;
 use MortalKiller\FilamentSkeletonLoading\SkeletonLoadingPlugin;
 
+pest()->group('ui');
+
 beforeEach(fn () => actingAsAdmin());
 
 function placeholderOf(string $widget): string
@@ -49,8 +51,12 @@ it('draws a bar chart skeleton with the real heading', function () {
         ->toContain(e(app(CashFlowChart::class)->getHeading()));
 });
 
-it('draws a ring for doughnut charts', function () {
-    expect(placeholderOf(IncomeByCategoryChart::class))->toContain('fsl-chart-ring');
+it('draws a ring and legend lines under the heading for the category charts', function () {
+    expect(placeholderOf(IncomeByCategoryChart::class))
+        ->toContain('Receitas por categoria')
+        ->toContain('fap-breakdown-skeleton-ring')
+        ->toContain('fap-breakdown-skeleton-bone')
+        ->not->toContain('<svg');
 });
 
 it('draws table rows for table widgets', function () {

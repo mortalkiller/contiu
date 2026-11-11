@@ -57,13 +57,13 @@ it('splits what is still to receive by how soon it is due', function () {
         ->assertSeeInOrder(['Vencido', '180,00 €', 'Até 7 dias', '400,00 €', '8 a 30 dias', '180,00 €', 'Mais tarde', '150,00 €'])
         ->assertSee('1 valor · 1 cliente')
         ->assertSeeInOrder(['Quem deve', '4 clientes']);
-});
+})->group('ui');
 
 it('says nothing is late when every open amount is still to come', function () {
     Receivable::factory()->create(['amount' => 5000, 'due_on' => '2026-11-20']);
 
     Livewire::test(ReceivablesSummary::class)->assertSee('Nada vencido');
-});
+})->group('ui');
 
 it('leaves paid amounts out of what is still to receive', function () {
     $paid = Receivable::factory()->create(['amount' => 5000, 'due_on' => '2026-10-01']);
@@ -72,7 +72,7 @@ it('leaves paid amounts out of what is still to receive', function () {
     Livewire::test(ReceivablesSummary::class)
         ->assertSee('0,00 €')
         ->assertSee('Nada vencido');
-});
+})->group('ui');
 
 it('sums up expenses: to pay, paid this month, without proof and by kind', function () {
     Expense::factory()->unpaid()->create(['net_amount' => 5000, 'vat_rate' => 0.23, 'spent_on' => '2026-11-10']);
@@ -84,28 +84,28 @@ it('sums up expenses: to pay, paid this month, without proof and by kind', funct
         ->assertSeeInOrder(['Pagas em', '20,00 €'])
         ->assertSeeInOrder(['Sem comprovativo', '3'])
         ->assertSeeInOrder(['Em 2026', '381,50 €', 'Estrutura', '81,50 €', 'Diretas', '300,00 €']);
-});
+})->group('ui');
 
 it('says everything is paid when no expense is waiting', function () {
     Expense::factory()->create();
 
     Livewire::test(ExpensesSummary::class)->assertSee('Tudo pago');
-});
+})->group('ui');
 
 it('shows the summaries above the lists', function () {
     $this->get(ReceivableResource::getUrl())->assertOk()->assertSeeLivewire(ReceivablesSummary::class);
     $this->get(ExpenseResource::getUrl())->assertOk()->assertSeeLivewire(ExpensesSummary::class);
-});
+})->group('ui');
 
 it('draws no proportion bar when there is nothing to split', function () {
     expect((string) ProportionBar::render([['label' => 'Vencido', 'cents' => 0, 'tone' => 'danger']]))->toBe('');
-});
+})->group('integration');
 
 it('escapes labels in the proportion bar', function () {
     expect((string) ProportionBar::render([['label' => '<b>x</b>', 'cents' => 100, 'tone' => 'strong']]))
         ->not->toContain('<b>x</b>')
         ->toContain('&lt;b&gt;x&lt;/b&gt;');
-});
+})->group('integration');
 
 it('sums up projects: in progress, still to receive, proposals and completed', function () {
     $running = Project::factory()->create(['net_amount' => 80000, 'status' => ProjectStatus::InProgress, 'quoted_on' => '2026-09-01']);
@@ -122,14 +122,14 @@ it('sums up projects: in progress, still to receive, proposals and completed', f
         ->assertSeeInOrder(['Por receber', '400,00 €', '1 trabalho · nada vencido'])
         ->assertSeeInOrder(['Propostas à espera', '900,00 €', '1 proposta · a mais antiga há 12 dias'])
         ->assertSeeInOrder(['Propostas aprovadas', '2 de 4']);
-});
+})->group('ui');
 
 it('flags overdue money on projects', function () {
     $project = Project::factory()->create(['net_amount' => 30000, 'status' => ProjectStatus::InProgress]);
     Receivable::factory()->for($project, 'billable')->create(['amount' => 30000, 'due_on' => '2026-10-01']);
 
     Livewire::test(ProjectsSummary::class)->assertSee('300,00 € vencidos');
-});
+})->group('ui');
 
 it('sums up retainers: per month, per year, next due date and what is open', function () {
     $retainer = Retainer::factory()->create(['net_amount' => 18000, 'frequency' => Frequency::Monthly]);
@@ -142,7 +142,7 @@ it('sums up retainers: per month, per year, next due date and what is open', fun
         ->assertSeeInOrder(['Por ano', Money::format(216000)])
         ->assertSeeInOrder(['Próximo vencimento', '28/10/2026', $retainer->client->name])
         ->assertSeeInOrder(['Em aberto', '360,00 €', '180,00 € vencidos']);
-});
+})->group('ui');
 
 it('sums up payments: this month, this year and by method', function () {
     Payment::factory()->create(['amount' => 40000, 'paid_on' => '2026-11-05', 'method' => PaymentMethod::Transfer]);
@@ -153,7 +153,7 @@ it('sums up payments: this month, this year and by method', function () {
         ->assertSeeInOrder(['Recebido em', '400,00 €'])
         ->assertSeeInOrder(['Recebido em 2026', '580,00 €', '2 recebimentos'])
         ->assertSeeInOrder(['Como te pagam', 'Transferência', '400,00 €', 'MB Way', '180,00 €']);
-});
+})->group('ui');
 
 it('sums up fiscal documents: billed this year, charges without a document and credit notes to apply', function () {
     FiscalDocument::factory()->create(['net_amount' => 40000, 'document_date' => '2026-11-12']);
@@ -176,7 +176,7 @@ it('sums up fiscal documents: billed this year, charges without a document and c
 
     Livewire::test(FiscalDocumentsSummary::class)
         ->assertSeeInOrder(['Notas de crédito por aplicar', '0', 'Tudo aplicado']);
-});
+})->group('ui');
 
 it('splits the fiscal documents list into tabs by direction, with the voided ones apart', function () {
     $issued = FiscalDocument::factory()->create(['number' => 'FT 2026/1']);
@@ -194,7 +194,7 @@ it('splits the fiscal documents list into tabs by direction, with the voided one
         ->set('activeTab', 'voided')
         ->assertCanSeeTableRecords([$voided])
         ->assertCanNotSeeTableRecords([$issued, $received]);
-});
+})->group('ui');
 
 it('shows who this year\'s expenses went to', function () {
     $cloud = Supplier::factory()->create(['name' => 'Cloud Demo']);
@@ -207,7 +207,7 @@ it('shows who this year\'s expenses went to', function () {
         ->assertSeeInOrder(['Gasto em 2026', '400,00 €', '2 fornecedores com despesas'])
         ->assertSeeInOrder(['Maior fornecedor', 'Cloud Demo', '300,00 € · 75% do total'])
         ->assertSeeInOrder(['Onde gastas mais', 'Cloud Demo', '300,00 €', 'Loja Demo', '100,00 €']);
-});
+})->group('ui');
 
 it('shows a summary above each of the other lists', function (string $resource, string $widget) {
     $this->get($resource::getUrl())->assertOk()->assertSeeLivewire($widget);
@@ -217,7 +217,7 @@ it('shows a summary above each of the other lists', function (string $resource, 
     'recebimentos' => [PaymentResource::class, PaymentsSummary::class],
     'documentos fiscais' => [FiscalDocumentResource::class, FiscalDocumentsSummary::class],
     'fornecedores' => [SupplierResource::class, SuppliersSummary::class],
-]);
+])->group('ui');
 
 it('shows how long clients take to pay and who owes the most', function () {
     $brisa = Client::factory()->create(['name' => 'Estúdio Brisa']);
@@ -230,7 +230,7 @@ it('shows how long clients take to pay and who owes the most', function () {
     Livewire::test(ReceivablesSummary::class)
         ->assertSeeInOrder(['Demoram a pagar, em média', '10 dias', 'Depois do vencimento'])
         ->assertSeeInOrder(['Quem deve', '2 clientes', 'Estúdio Brisa', Money::format(40000), 'Oficina Norte', Money::format(18000), 'vencidos']);
-});
+})->group('ui');
 
 it('shows how many of this year\'s proposals went ahead', function () {
     Project::factory()->create(['status' => ProjectStatus::Completed, 'quoted_on' => '2026-03-01']);
@@ -241,7 +241,7 @@ it('shows how many of this year\'s proposals went ahead', function () {
     Livewire::test(ProjectsSummary::class)
         ->assertSeeInOrder(['Propostas aprovadas', '2 de 3'])
         ->assertSeeHtml('67% das propostas aprovadas');
-});
+})->group('ui');
 
 it('shows what the active retainers will generate in the next six months', function () {
     Retainer::factory()->create(['starts_on' => '2026-06-01', 'frequency' => Frequency::Monthly, 'net_amount' => 18000, 'vat_rate' => 0, 'is_active' => true]);
@@ -250,7 +250,7 @@ it('shows what the active retainers will generate in the next six months', funct
 
     Livewire::test(RetainersAhead::class)
         ->assertSeeInOrder(['Próximos 6 meses', 'Nov', Money::format(18000), 'Dez', Money::format(48000), 'Jan', Money::format(18000), 'Mar', Money::format(48000)]);
-});
+})->group('ui');
 
 it('shows what each supplier is still owed and when the last expense was', function () {
     $shop = Supplier::factory()->create(['name' => 'Loja Demo']);
@@ -263,4 +263,4 @@ it('shows what each supplier is still owed and when the last expense was', funct
         ->assertTableColumnStateSet('usual_category', 'Comunicações', $shop)
         ->assertTableColumnStateSet('unpaid', 6150, $shop)
         ->assertTableColumnFormattedStateSet('last_expense_on', '10/11/2026', $shop);
-});
+})->group('ui');

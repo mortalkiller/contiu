@@ -52,14 +52,14 @@ it('records a donation with the platform commission', function () {
         ->and($commission->category->name)->toBe('Comissões')
         ->and($commission->supplier->name)->toBe('Stripe')
         ->and($income->commission_expense_id)->toBe($commission->id);
-});
+})->group('integration');
 
 it('records an income without commission', function () {
     donation(['commission' => null, 'commission_supplier_id' => null]);
 
     expect(Expense::count())->toBe(0)
         ->and(Payment::sole()->amount)->toBe(500);
-});
+})->group('integration');
 
 it('counts in received, contracted, income by category, margins and tax estimate', function () {
     donation();
@@ -74,14 +74,14 @@ it('counts in received, contracted, income by category, margins and tax estimate
         ->and($lines)->toHaveKey('Receitas avulsas')
         ->and($lines['Receitas avulsas']['received'])->toBe(500)
         ->and((new TaxEstimator(app(FinanceSettings::class), 2026))->income())->toBe(500);
-});
+})->group('integration');
 
 it('is never open or overdue', function () {
     donation();
 
     expect(Receivable::query()->open()->count())->toBe(0)
         ->and(Receivable::sole()->billableUrl())->toBeNull();
-});
+})->group('integration');
 
 it('creates the income from a bank line and links payment and commission', function () {
     $line = BankTransaction::create(['hash' => 'd1', 'booked_on' => '2026-10-14', 'description' => 'STRIPE TECHNOLOGY EUROPE, LIMITED', 'amount' => 432, 'import_batch' => 'x']);
@@ -100,7 +100,7 @@ it('creates the income from a bank line and links payment and commission', funct
         ->and($line->links()->count())->toBe(2)
         ->and($line->links()->where('created_from_line', true)->count())->toBe(2)
         ->and(OneOffIncome::sole()->received_on->toDateString())->toBe('2026-10-14');
-});
+})->group('integration');
 
 it('undoing the line removes income, receivable, payment and commission', function () {
     $line = BankTransaction::create(['hash' => 'd2', 'booked_on' => '2026-10-14', 'description' => 'STRIPE', 'amount' => 432, 'import_batch' => 'x']);
@@ -112,7 +112,7 @@ it('undoing the line removes income, receivable, payment and commission', functi
         ->and(Receivable::count())->toBe(0)
         ->and(Payment::count())->toBe(0)
         ->and(Expense::count())->toBe(0);
-});
+})->group('integration');
 
 it('deleting the income removes its receivable, payment and commission', function () {
     donation()->delete();
@@ -120,7 +120,7 @@ it('deleting the income removes its receivable, payment and commission', functio
     expect(Receivable::count())->toBe(0)
         ->and(Payment::count())->toBe(0)
         ->and(Expense::count())->toBe(0);
-});
+})->group('integration');
 
 it('records a one-off income from the quick create menu', function () {
     actingAsAdmin();
@@ -138,7 +138,7 @@ it('records a one-off income from the quick create menu', function () {
 
     expect(OneOffIncome::sole()->title)->toBe('Donativo')
         ->and(Payment::sole()->amount)->toBe(1000);
-});
+})->group('ui');
 
 it('deleting the payment of a one-off income removes the whole income', function () {
     donation();
@@ -148,7 +148,7 @@ it('deleting the payment of a one-off income removes the whole income', function
     expect(OneOffIncome::count())->toBe(0)
         ->and(Receivable::count())->toBe(0)
         ->and(Expense::count())->toBe(0);
-});
+})->group('integration');
 
 it('editing the amount of a one-off income payment keeps the receivable in step', function () {
     $income = donation();
@@ -158,7 +158,7 @@ it('editing the amount of a one-off income payment keeps the receivable in step'
     expect(Receivable::sole()->amount)->toBe(700)
         ->and(Receivable::sole()->outstanding)->toBe(0)
         ->and($income->fresh()->net_amount)->toBe(700);
-});
+})->group('integration');
 
 it('gives a new code after an income of the same day was deleted', function () {
     $first = donation();
@@ -166,7 +166,7 @@ it('gives a new code after an income of the same day was deleted', function () {
     $first->delete();
 
     expect(donation(['category_id' => null])->code)->toBe('RA-20261014-3');
-});
+})->group('integration');
 
 it('shows one-off incomes as such in the receivables list', function () {
     actingAsAdmin();
@@ -176,4 +176,4 @@ it('shows one-off incomes as such in the receivables list', function () {
         ->set('activeTab', 'paid')
         ->assertSee('Receita avulsa')
         ->assertDontSee(RetainerResource::getUrl('view', ['record' => OneOffIncome::sole()->id]), escape: false);
-});
+})->group('ui');

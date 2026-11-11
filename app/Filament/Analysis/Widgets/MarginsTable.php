@@ -4,9 +4,9 @@ namespace App\Filament\Analysis\Widgets;
 
 use App\Filament\Analysis\Concerns\UsesMarginPeriod;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
+use MortalKiller\FilamentAppearance\Tables\Columns\ProgressColumn;
 
 /**
  * Shared table for the margin breakdowns (business line / client), with a total row.
@@ -35,21 +35,25 @@ abstract class MarginsTable extends TableWidget
                 TextColumn::make('label')
                     ->label($this->groupLabel())
                     ->weight(fn (array $record) => $record['is_total'] ? 'bold' : 'medium'),
-                TextColumn::make('invoiced')->label('Faturado')->money('EUR', divideBy: 100)->alignEnd(),
-                TextColumn::make('received')->label('Recebido')->money('EUR', divideBy: 100)->alignEnd(),
-                TextColumn::make('directCosts')->label('Custos diretos')->money('EUR', divideBy: 100)->alignEnd(),
+                TextColumn::make('invoiced')->label(__('Invoiced'))->money('EUR', divideBy: 100)->alignEnd(),
+                TextColumn::make('received')->label(__('Received'))->money('EUR', divideBy: 100)->alignEnd(),
+                TextColumn::make('directCosts')->label(__('Direct costs'))->money('EUR', divideBy: 100)->alignEnd(),
                 TextColumn::make('margin')
-                    ->label('Margem')
+                    ->label(__('Margin'))
                     ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->weight('semibold')
                     ->color(fn (float $state) => $state < 0 ? 'danger' : null),
                 // A bar with the number beside it: red below zero, amber below 30%.
-                ViewColumn::make('marginPercent')
-                    ->label('Margem %')
-                    ->view('filament.tables.columns.percent-bar'),
+                ProgressColumn::make('marginPercent')
+                    ->label(__('Margin %'))
+                    ->color(fn (?float $state): string => match (true) {
+                        $state < 0 => 'danger',
+                        $state < 30 => 'warning',
+                        default => 'primary',
+                    }),
             ])
-            ->emptyStateHeading('Sem movimentos neste período');
+            ->emptyStateHeading(__('No transactions in this period'));
     }
 
     /** @return array<string, array<string, mixed>> */
@@ -64,7 +68,7 @@ abstract class MarginsTable extends TableWidget
         $totals = $this->report()->totals();
 
         $rows['__total'] = [
-            'label' => 'Total',
+            'label' => __('Total'),
             'invoiced' => $totals['invoiced'],
             'received' => $totals['received'],
             'directCosts' => $totals['directCosts'],

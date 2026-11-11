@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\FiscalDocuments\Pages;
 
 use App\Filament\Resources\FiscalDocuments\Actions\FiscalDocumentPdfActions;
+use App\Filament\Resources\FiscalDocuments\Actions\RecordEuServiceAction;
 use App\Filament\Resources\FiscalDocuments\FiscalDocumentResource;
 use App\Filament\Resources\FiscalDocuments\Schemas\FiscalDocumentForm;
 use App\Models\FiscalDocument;
@@ -19,6 +20,7 @@ class EditFiscalDocument extends EditRecord
         return [
             FiscalDocumentPdfActions::download(),
             FiscalDocumentPdfActions::retrieve(),
+            RecordEuServiceAction::make(),
         ];
     }
 

@@ -31,7 +31,7 @@ it('sums what came in per income category, largest first', function () {
 
     expect((new PeriodSummary(Period::of(2026)))->receivedByCategory())
         ->toBe(['Desenvolvimento' => 90000, 'Sem categoria' => 5000, 'Manutenção' => 2000]);
-});
+})->group('integration');
 
 it('keeps at most six slices, folding the smallest into "Outras"', function () {
     $values = ['A' => 7000, 'B' => 6000, 'C' => 5000, 'D' => 4000, 'E' => 3000, 'F' => 2000, 'G' => 1000, 'H' => 500];
@@ -39,20 +39,26 @@ it('keeps at most six slices, folding the smallest into "Outras"', function () {
     expect(SliceFolder::fold($values))
         ->toBe(['A' => 7000, 'B' => 6000, 'C' => 5000, 'D' => 4000, 'E' => 3000, 'Outras' => 3500])
         ->and(SliceFolder::fold(['A' => 100, 'B' => 200]))->toBe(['A' => 100, 'B' => 200]);
-});
+})->group('integration');
 
-it('draws both category charts as doughnuts with value and share in the legend', function () {
+it('draws both category charts as a ring with the total in the middle and value and share in the legend', function () {
     actingAsAdmin();
     Expense::factory()->create(['spent_on' => '2026-03-01', 'net_amount' => 3000, 'category_id' => Category::factory()->create(['type' => CategoryType::Expense, 'name' => 'Software'])->id]);
     Payment::factory()->create(['paid_on' => '2026-03-02', 'amount' => 10000]);
 
-    $income = Livewire::test(IncomeByCategoryChart::class, ['pageFilters' => ['year' => 2026]]);
-    $expenses = Livewire::test(ExpensesByCategoryChart::class, ['pageFilters' => ['year' => 2026]]);
+    Livewire::test(IncomeByCategoryChart::class, ['pageFilters' => ['year' => 2026]])
+        ->assertSeeInOrder(['Receitas por categoria', 'Recebido em 2026.', Money::format(10000), 'total', 'Sem categoria', Money::format(10000), '100%'])
+        ->assertSeeHtml('stroke="var(--primary-600)"');
 
-    $income->assertSee('doughnut', escape: false)
-        ->assertSee('Receitas por categoria')
-        ->assertSee('Sem categoria · '.Money::format(10000).' (100%)', escape: false);
-    $expenses->assertSee('doughnut', escape: false)
-        ->assertSee('Despesas por categoria')
-        ->assertSee('Software · '.Money::format(3000).' (100%)', escape: false);
-});
+    Livewire::test(ExpensesByCategoryChart::class, ['pageFilters' => ['year' => 2026]])
+        ->assertSeeInOrder(['Despesas por categoria', 'Despesas pagas em 2026.', Money::format(3000), 'total', 'Software', Money::format(3000), '100%'])
+        ->assertSeeHtml('stroke="var(--clay-600)"');
+})->group('ui');
+
+it('says so when a category chart has nothing to show', function () {
+    actingAsAdmin();
+
+    Livewire::test(IncomeByCategoryChart::class, ['pageFilters' => ['year' => 2026]])
+        ->assertSee('Sem valores neste período.')
+        ->assertDontSeeHtml('<svg viewBox="0 0 42 42"');
+})->group('ui');

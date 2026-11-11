@@ -10,7 +10,7 @@ class ProjectReceivablesRelationManager extends ReceivablesRelationManager
 {
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
-        return 'Valores a receber';
+        return __('Receivables');
     }
 
     public static function getBadge(Model $ownerRecord, string $pageClass): ?string

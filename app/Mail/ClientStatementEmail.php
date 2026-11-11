@@ -25,7 +25,9 @@ class ClientStatementEmail extends Mailable
         public ClientStatement $statement,
         public string $subjectLine,
         public string $body,
-    ) {}
+    ) {
+        $this->locale($statement->client->preferredLanguage()->locale());
+    }
 
     public function envelope(): Envelope
     {

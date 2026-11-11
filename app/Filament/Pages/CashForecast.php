@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\Language;
 use App\Filament\Analysis\Widgets\CashForecastChart;
 use App\Filament\Analysis\Widgets\CashForecastStats;
 use App\Filament\Analysis\Widgets\CashForecastTable;
@@ -25,29 +26,28 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Livewire;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Components\Attributes\Unexposed;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Url;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
-use UnitEnum;
 
 /**
  * "Previsão de tesouraria": what should come in and go out over the next 3 or 6 months.
  */
 class CashForecast extends Page
 {
-    protected static ?string $title = 'Previsão de tesouraria';
-
     protected static ?string $slug = 'previsao-de-tesouraria';
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::ChartLineUp;
-
-    protected static string|UnitEnum|null $navigationGroup = 'Análise';
 
     protected static ?int $navigationSort = 1;
 
     #[Url]
     public int $months = 3;
+
+    /** @var array<int, array{forecast: Forecast, reserve: array, evidence: array}> */
+    private array $forecastOverview = [];
 
     public function mount(): void
     {
@@ -56,7 +56,7 @@ class CashForecast extends Page
 
     public function getSubheading(): string
     {
-        return 'Valores em aberto, avenças, despesas recorrentes, Segurança Social e IVA confirmado, mês a mês.';
+        return __('Outstanding amounts, retainers, recurring expenses, Social Security and confirmed VAT, month by month.');
     }
 
     protected function getHeaderActions(): array
@@ -66,7 +66,7 @@ class CashForecast extends Page
 
         return [
             Action::make('setTaxReserve')
-                ->label('Definir reserva fiscal')
+                ->label(__('Set tax reserve'))
                 ->icon(Phosphor::Wallet)
                 ->visible(fn (): bool => ! CurrentAccount::readOnly())
                 ->fillForm(fn (): array => [
@@ -75,17 +75,17 @@ class CashForecast extends Page
                 ])
                 ->schema([
                     TextInput::make('amount')
-                        ->label('Montante atualmente reservado')
+                        ->label(__('Amount currently reserved'))
                         ->suffix('€')
                         ->inputMode('decimal')
                         ->regex('/\A[0-9]{1,9}(?:[,.][0-9]{1,2})?\z/')
                         ->required(),
                     Select::make('transfer_id')
-                        ->label('Transferência para comprovar a reserva')
-                        ->helperText('Opcional. Escolhe uma saída do extrato já classificada como «Transferência minha».')
+                        ->label(__('Transfer used as proof of the reserve'))
+                        ->helperText(__('Optional. Choose a statement outflow already classified as “Transfer between my accounts”.'))
                         ->searchable()
                         ->preload()
-                        ->validationMessages(['in' => FiscalReserve::INVALID_TRANSFER])
+                        ->validationMessages(['in' => __(FiscalReserve::INVALID_TRANSFER)])
                         ->options(fn (): array => self::reserveTransferOptions($reserve))
                         ->getSearchResultsUsing(fn (string $search): array => self::reserveTransferOptions($reserve, $search))
                         ->getOptionLabelUsing(function (mixed $value) use ($reserve): ?string {
@@ -109,14 +109,15 @@ class CashForecast extends Page
                         );
                     }
 
+                    $this->forecastOverview = [];
                     $this->cacheSchema('content', null);
                 }),
             Action::make('threeMonths')
-                ->label('3 meses')
+                ->label(__('3 months'))
                 ->color(fn () => $this->months === 3 ? 'primary' : 'gray')
                 ->action(fn () => $this->months = 3),
             Action::make('sixMonths')
-                ->label('6 meses')
+                ->label(__('6 months'))
                 ->color(fn () => $this->months === 6 ? 'primary' : 'gray')
                 ->action(fn () => $this->months = 6),
         ];
@@ -136,72 +137,75 @@ class CashForecast extends Page
 
     private static function reserveTransferLabel(BankTransaction $transfer): string
     {
-        return $transfer->booked_on->format('d/m/Y').' · '.$transfer->description.' · '.Money::format($transfer->absolute_amount);
+        return $transfer->booked_on->format(Language::resolve(app()->getLocale())->dateFormat()).' · '.$transfer->description.' · '.Money::format($transfer->absolute_amount, locale: app()->getLocale());
     }
 
     public function content(Schema $schema): Schema
     {
         $settings = app(FinanceSettings::class);
-        $forecast = new Forecast($settings, $this->months);
-        $reserve = $forecast->reserve();
-        $evidence = (new FiscalReserve($settings))->evidence();
+        ['forecast' => $forecast, 'reserve' => $reserve, 'evidence' => $evidence] = $this->forecastOverview[$this->months] ??= [
+            'forecast' => $forecast = Forecast::forRequest($this->months),
+            'reserve' => $forecast->reserve(),
+            'evidence' => (new FiscalReserve($settings))->evidence(),
+        ];
         $transfer = $evidence['transfer'];
+        $statementEnd = once(fn (): ?string => $forecast->startsFromBankBalance() ? $forecast->account()->endsOn()?->format(Language::resolve(app()->getLocale())->dateFormat()) : null);
 
         return $schema->components([
             ...($settings->isIncomplete() ? [TaxEstimate::incompleteSettingsCallout()] : []),
-            Section::make('Reserva fiscal')
+            Section::make(__('Tax reserve'))
                 ->columns(3)
                 ->schema([
                     TextEntry::make('reserved')
-                        ->label('Montante reservado')
-                        ->state(Money::format($reserve['reserved']))
-                        ->helperText('Valor separado por ti. Atualiza-o quando reforçares ou usares a reserva.'),
+                        ->label(__('Amount reserved'))
+                        ->state(Money::format($reserve['reserved'], locale: app()->getLocale()))
+                        ->helperText(__('Amount you set aside. Update it when you add to or use the reserve.')),
                     TextEntry::make('available')
-                        ->label('Saldo disponível após reserva')
-                        ->state($reserve['available'] === null ? 'Sem saldo bancário de referência' : Money::format($reserve['available'])),
+                        ->label(__('Available balance after reserve'))
+                        ->state($reserve['available'] === null ? __('No reference bank balance') : Money::format($reserve['available'], locale: app()->getLocale())),
                     TextEntry::make('tax_paid')
-                        ->label('Impostos e contribuições pagos este ano')
-                        ->state(Money::format($reserve['paidThisYear']))
-                        ->helperText('Despesas pagas na categoria Impostos e contribuições.'),
+                        ->label(__('Taxes and contributions paid this year'))
+                        ->state(Money::format($reserve['paidThisYear'], locale: app()->getLocale()))
+                        ->helperText(__('Paid expenses in the Taxes and contributions category.')),
                     TextEntry::make('reserve_evidence')
-                        ->label('Comprovativo da reserva')
+                        ->label(__('Proof of reserve'))
                         ->state(match (true) {
-                            ! $evidence['linked'] => 'Valor declarado manualmente',
-                            $transfer === null => 'Comprovativo inválido',
-                            $evidence['unverified'] > 0 => 'Parcialmente comprovada',
-                            default => 'Comprovada pela transferência',
+                            ! $evidence['linked'] => __('Manually declared amount'),
+                            $transfer === null => __('Invalid proof'),
+                            $evidence['unverified'] > 0 => __('Partially verified'),
+                            default => __('Verified by the transfer'),
                         })
                         ->helperText(match (true) {
                             ! $evidence['linked'] => null,
-                            $transfer === null => 'A transferência foi removida ou alterada. O montante continua a ser o valor declarado.',
+                            $transfer === null => __('The transfer was removed or changed. The declared amount still applies.'),
                             default => self::reserveTransferLabel($transfer),
                         }),
                     ...($transfer === null ? [] : [
                         TextEntry::make('reserve_covered')
-                            ->label('Montante comprovado')
-                            ->state(Money::format($evidence['covered'])),
+                            ->label(__('Verified amount'))
+                            ->state(Money::format($evidence['covered'], locale: app()->getLocale())),
                         TextEntry::make('reserve_unverified')
-                            ->label('Montante por comprovar')
-                            ->state(Money::format($evidence['unverified'])),
+                            ->label(__('Unverified amount'))
+                            ->state(Money::format($evidence['unverified'], locale: app()->getLocale())),
                     ]),
                 ]),
             ! $forecast->showsBalance()
-                ? Callout::make('Sem saldo')
-                    ->description('Sem conta bancária só para a atividade, a previsão mostra o que entra e sai em cada mês, não o dinheiro que vais ter.')
+                ? Callout::make(__('No balance'))
+                    ->description(__('Without a dedicated business account, the forecast shows monthly inflows and outflows only.'))
                     ->icon(Phosphor::Wallet)
                     ->status('info')
                 : ($forecast->startsFromBankBalance()
-                ? Callout::make('Começa em '.Money::format($forecast->startingBalance()))
-                    ->description('Saldo do extrato até '.$forecast->account()->endsOn()?->format('d/m/Y').', mais o que registaste desde então. Importa o extrato do banco para o manter certo.')
+                ? Callout::make(__('Starts at :amount', ['amount' => Money::format($forecast->startingBalance(), locale: app()->getLocale())]))
+                    ->description(__('Statement balance as of :date, plus what you recorded since then. Import your bank statement to keep it accurate.', ['date' => $statementEnd]))
                     ->icon(Phosphor::Wallet)
                     ->status('info')
-                : Callout::make('O saldo acumulado começa em 0 €')
-                    ->description('Para uma previsão real, importa o extrato do banco: o saldo da conta vem de lá.')
+                : Callout::make(__('The running balance starts at €0'))
+                    ->description(__('Import your bank statement to use the actual account balance in the forecast.'))
                     ->icon(Phosphor::Wallet)
                     ->status('warning')
                     ->actions([
                         Action::make('statement')
-                            ->label('Abrir Extrato bancário')
+                            ->label(__('Open bank statement'))
                             ->link()
                             ->url(BankStatementImport::getUrl()),
                     ])),
@@ -239,5 +243,23 @@ class CashForecast extends Page
     public function getWidgetData(): array
     {
         return ['months' => $this->months];
+    }
+
+    #[Unexposed]
+    public function getTitle(): string
+    {
+        return __('Cash forecast');
+    }
+
+    #[Unexposed]
+    public static function getNavigationGroup(): string
+    {
+        return __('Analysis');
+    }
+
+    #[Unexposed]
+    public static function getNavigationLabel(): string
+    {
+        return __('Cash forecast');
     }
 }

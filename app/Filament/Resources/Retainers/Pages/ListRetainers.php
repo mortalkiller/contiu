@@ -17,7 +17,7 @@ class ListRetainers extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make()->label('Nova avença'),
+            CreateAction::make()->label(__('New retainer')),
         ];
     }
 
@@ -36,9 +36,9 @@ class ListRetainers extends ListRecords
         $count = fn (bool $active): ?int => RetainerResource::getModel()::query()->where('is_active', $active)->count() ?: null;
 
         return [
-            'active' => Tab::make('Ativas')->badge($count(true))->modifyQueryUsing(fn (Builder $query) => $query->where('is_active', true)),
-            'ended' => Tab::make('Terminadas')->badge($count(false))->modifyQueryUsing(fn (Builder $query) => $query->where('is_active', false)),
-            'all' => Tab::make('Todas'),
+            'active' => Tab::make(__('Active retainers'))->badge($count(true))->modifyQueryUsing(fn (Builder $query) => $query->where('is_active', true)),
+            'ended' => Tab::make(__('Ended retainers'))->badge($count(false))->modifyQueryUsing(fn (Builder $query) => $query->where('is_active', false)),
+            'all' => Tab::make(__('All retainers')),
         ];
     }
 }

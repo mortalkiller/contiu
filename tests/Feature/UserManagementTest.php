@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 
+pest()->group('ui', 'tenancy');
+
 beforeEach(function () {
     $this->admin = actingAsAdmin();
     $this->editor = Role::firstOrCreate(['name' => 'editor', 'guard_name' => 'web']);

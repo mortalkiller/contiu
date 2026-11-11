@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 
+pest()->group('ui');
+
 function expenseEvidencePdf(string $body = 'Comprovativo'): UploadedFile
 {
     return UploadedFile::fake()->createWithContent('fatura.pdf', "%PDF-1.4\n{$body}\n%%EOF");

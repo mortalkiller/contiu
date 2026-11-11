@@ -27,15 +27,15 @@ class MonthCloseStats extends StatsOverviewWidget
         $refunded = $review->refunded();
 
         return [
-            Stat::make('Previsto receber', Money::format($review->expected()))
-                ->description('Vencimentos deste mês')
+            Stat::make(__('Expected receipts'), Money::format($review->expected(), locale: app()->getLocale()))
+                ->description(__('Due this month'))
                 ->icon(Phosphor::CalendarCheck),
-            Stat::make('Recebido', Money::format($review->received()))
+            Stat::make(__('Received'), Money::format($review->received(), locale: app()->getLocale()))
                 ->icon(Phosphor::HandCoins),
-            Stat::make('Despesas pagas', Money::format($review->paidExpenses()))
+            Stat::make(__('Expenses paid'), Money::format($review->paidExpenses(), locale: app()->getLocale()))
                 ->icon(Phosphor::Receipt),
-            ...($refunded > 0 ? [Stat::make('Reembolsos a clientes', Money::format($refunded))] : []),
-            Stat::make('Resultado do mês', Money::format($review->result()))
+            ...($refunded > 0 ? [Stat::make(__('Customer refunds'), Money::format($refunded, locale: app()->getLocale()))] : []),
+            Stat::make(__('Monthly result'), Money::format($review->result(), locale: app()->getLocale()))
                 ->color($review->result() < 0 ? 'danger' : null)
                 ->icon(Phosphor::Scales),
         ];

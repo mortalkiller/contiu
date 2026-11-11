@@ -10,12 +10,12 @@ class MarginsByLineTable extends MarginsTable
 
     protected function heading(): string
     {
-        return 'Por linha de negócio';
+        return __('By business line');
     }
 
     protected function groupLabel(): string
     {
-        return 'Linha';
+        return __('Line');
     }
 
     protected function groups(): array

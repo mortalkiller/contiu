@@ -15,7 +15,7 @@ class ManageUsers extends ManageRecords
     {
         return [
             CreateAction::make()
-                ->label('Novo utilizador')
+                ->label(__('New user'))
                 // The panel stays shut until the address is confirmed, so the new user gets the link
                 // (only Filament's sign-up page sends it on its own).
                 ->after(fn (User $record) => $record->sendEmailVerificationNotification()),

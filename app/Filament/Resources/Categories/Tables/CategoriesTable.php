@@ -22,14 +22,14 @@ class CategoriesTable
             ->paginated(false)
             ->columns([
                 TextColumn::make('name')
-                    ->label('Nome')
+                    ->label(__('Name'))
                     ->weight('medium')
                     ->searchable(),
                 TextColumn::make('type')
-                    ->label('Tipo')
+                    ->label(__('Type'))
                     ->badge(),
                 TextColumn::make('usage')
-                    ->label('Utilizações')
+                    ->label(__('Uses'))
                     ->state(fn (Category $record) => static::usage($record))
                     ->numeric()
                     ->alignCenter(),
@@ -41,7 +41,7 @@ class CategoriesTable
                         ->visible(fn (Category $record) => static::usage($record) === 0),
                 ]),
             ])
-            ->emptyStateHeading('Sem categorias');
+            ->emptyStateHeading(__('No categories'));
     }
 
     protected static function usage(Category $category): int

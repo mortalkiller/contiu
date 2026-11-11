@@ -30,7 +30,7 @@ final class InvoiceXpressIssueRepository
 
             if ($attempt !== null) {
                 if ($attempt->provider_target !== $target || $attempt->snapshot !== $snapshot) {
-                    throw ValidationException::withMessages(['confirmation' => 'Já existe uma tentativa para esta operação com outros dados. Consulta a tentativa registada.']);
+                    throw ValidationException::withMessages(['confirmation' => __('An attempt with different details already exists for this operation. Review the recorded attempt.')]);
                 }
 
                 return $attempt;

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Filament\Pages\Dashboard;
 use App\Mail\TaxObligationsDigest;
 use App\Models\Account;
+use App\Models\User;
 use App\Support\CurrentAccount;
 use App\Support\FinanceSettings;
 use App\Support\TaxObligations;
@@ -14,13 +15,17 @@ use Filament\Notifications\Notification;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Traits\Localizable;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 #[Signature('finance:send-tax-obligations')]
-#[Description('Envia por email as obrigações fiscais do mês (dia 1) e avisa no sino 3 dias antes de cada prazo')]
+#[Description('Email the monthly tax obligations on the first and notify users three days before each deadline')]
 class SendTaxObligations extends Command
 {
+    use Localizable;
+
     public const DAYS_BEFORE = 3;
 
     public function handle(): int
@@ -36,19 +41,26 @@ class SendTaxObligations extends Command
             $sent += CurrentAccount::run($account, fn () => $this->alertAccount($today));
         });
 
-        $this->info('Alertas enviados: '.$sent);
+        $this->info(__('Alerts sent: :count', ['count' => $sent]));
 
         return self::SUCCESS;
     }
 
     private function alertAccount(CarbonImmutable $today): int
     {
-        $recipients = CurrentAccount::get()->users;
+        $recipientGroups = CurrentAccount::get()->users->groupBy(fn (User $user): string => $user->preferredLocale());
+        $sent = 0;
 
-        if ($recipients->isEmpty()) {
-            return 0;
+        foreach ($recipientGroups as $locale => $recipients) {
+            $sent = max($sent, $this->withLocale($locale, fn (): int => $this->alertRecipients($today, $recipients)));
         }
 
+        return $sent;
+    }
+
+    /** @param  Collection<int, User>  $recipients */
+    private function alertRecipients(CarbonImmutable $today, Collection $recipients): int
+    {
         $pending = (new TaxObligations(new FinanceSettings, $today))->pending();
         $url = Dashboard::getUrl(panel: 'admin', tenant: CurrentAccount::get());
         $sent = 0;
@@ -66,12 +78,12 @@ class SendTaxObligations extends Command
             }
 
             Notification::make()
-                ->title($obligation->title.': faltam '.self::DAYS_BEFORE.' dias')
+                ->title(__(':title: :count days left', ['title' => $obligation->title, 'count' => self::DAYS_BEFORE]))
                 // A user can be in several accounts: say which one.
                 ->body(CurrentAccount::get()->name.' · '.$obligation->detail)
                 ->warning()
                 ->icon(Phosphor::HourglassMedium)
-                ->actions([Action::make('open')->label('Abrir painel')->url($url)])
+                ->actions([Action::make('open')->label(__('Open dashboard'))->url($url)])
                 ->sendToDatabase($recipients);
             $sent++;
         }

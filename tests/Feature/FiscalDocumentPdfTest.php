@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
+pest()->group('ui', 'fiscal');
+
 function fiscalPdfBytes(string $text = 'Prova fiscal'): string
 {
     $pdf = "%PDF-1.4\n% {$text}\n";

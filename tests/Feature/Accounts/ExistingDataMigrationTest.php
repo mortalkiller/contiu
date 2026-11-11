@@ -3,6 +3,8 @@
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+pest()->group('migration', 'tenancy');
+
 /** The database as it was before accounts: the migration rolled back and no account left. */
 function beforeAccounts(): object
 {

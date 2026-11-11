@@ -16,7 +16,7 @@ class ViewAccount extends ViewRecord
     {
         return [
             Action::make('enter')
-                ->label('Entrar na conta')
+                ->label(__('Enter account'))
                 ->icon(Phosphor::SignIn)
                 ->url(fn (): string => Dashboard::getUrl(tenant: $this->getRecord())),
         ];

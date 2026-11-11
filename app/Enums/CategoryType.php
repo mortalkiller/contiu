@@ -13,8 +13,8 @@ enum CategoryType: string implements HasColor, HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::Income => 'Receita',
-            self::Expense => 'Despesa',
+            self::Income => __('Income'),
+            self::Expense => __('Expense'),
         };
     }
 

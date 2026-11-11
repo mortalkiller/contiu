@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Retainers\Schemas;
 
 use App\Enums\Frequency;
+use App\Enums\Language;
 use App\Filament\Support\FinanceFields;
 use App\Support\CurrentAccount;
 use App\Support\FinanceSettings;
@@ -22,42 +23,44 @@ class RetainerForm
     public static function configure(Schema $schema): Schema
     {
         return $schema
+            ->defaultDateDisplayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
+            ->defaultNumberLocale(fn (): string => app()->getLocale())
             ->columns(3)
             ->components([
-                Section::make('Avença')
+                Section::make(__('Retainer'))
                     ->columnSpan(2)
                     ->columns(2)
                     ->schema([
                         TextInput::make('code')
-                            ->label('Código')
+                            ->label(__('Code'))
                             ->placeholder('MINFRA')
                             ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule) => $rule->where('account_id', CurrentAccount::id())) // codes repeat across accounts
                             ->required(),
                         Toggle::make('is_active')
-                            ->label('Ativa')
+                            ->label(__('Active retainer'))
                             ->default(true)
                             ->inline(false),
                         Toggle::make('tax_exempt')
-                            ->label('Isenta de impostos')
-                            ->helperText('Os recebimentos desta avença não contam para a estimativa de impostos.')
+                            ->label(__('Tax-exempt retainer'))
+                            ->helperText(__('Payments for this retainer are excluded from tax estimates.'))
                             ->default(fn () => app(FinanceSettings::class)->paymentsExemptByDefault())
                             ->inline(false),
                         FinanceFields::clientSelect(),
                         TextInput::make('business_line')
-                            ->label('Linha de negócio')
+                            ->label(__('Business line'))
                             ->datalist(fn () => FinanceFields::businessLines()),
                         TextInput::make('title')
-                            ->label('Título')
-                            ->placeholder('Infraestrutura do site')
+                            ->label(__('Title'))
+                            ->placeholder(__('Website infrastructure'))
                             ->columnSpanFull()
                             ->required(),
                         Select::make('category_id')
-                            ->label('Categoria')
+                            ->label(__('Category'))
                             ->relationship('category', 'name', fn (Builder $query) => $query->income())
                             ->native(false),
                     ]),
 
-                Section::make('Valor por período')
+                Section::make(__('Amount per period'))
                     ->columnSpan(1)
                     ->schema([
                         FinanceFields::netAmount(),
@@ -65,39 +68,39 @@ class RetainerForm
                         FinanceFields::totalPreview(),
                     ]),
 
-                Section::make('Periodicidade')
-                    ->description('A app vai criar um valor a receber por período. (Mock: a geração automática fica para a implementação.)')
+                Section::make(__('Schedule'))
+                    ->description(__('The app will create one receivable per period. (Mock: automatic generation will be implemented later.)'))
                     ->columnSpanFull()
                     ->columns(4)
                     ->schema([
                         ToggleButtons::make('frequency')
-                            ->label('Frequência')
+                            ->label(__('Billing frequency'))
                             ->options(Frequency::class)
                             ->default(Frequency::Monthly)
                             ->inline()
                             ->grouped()
                             ->required(),
                         TextInput::make('due_day')
-                            ->label('Dia de vencimento')
+                            ->label(__('Due day'))
                             ->numeric()
                             ->minValue(1)
                             ->maxValue(28)
                             ->default(1)
                             ->required(),
                         DatePicker::make('starts_on')
-                            ->label('Início')
+                            ->label(__('Start'))
                             ->native(false)
-                            ->displayFormat('d/m/Y')
+                            ->displayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
                             ->default(today()->startOfMonth())
                             ->required(),
                         DatePicker::make('ends_on')
-                            ->label('Fim')
+                            ->label(__('End'))
                             ->native(false)
-                            ->displayFormat('d/m/Y')
-                            ->placeholder('Sem fim'),
+                            ->displayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
+                            ->placeholder(__('No end date')),
                     ]),
 
-                Section::make('Notas')
+                Section::make(__('Notes'))
                     ->columnSpanFull()
                     ->collapsed()
                     ->schema([

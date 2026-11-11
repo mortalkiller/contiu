@@ -30,7 +30,7 @@ class ReceivablesSummary extends StatsOverviewWidget
 
     protected function getStats(): array
     {
-        $open = Receivable::query()->open()->excludingCancelled()->with(['payments', 'billable.client'])->get();
+        $open = Receivable::query()->open()->excludingCancelled()->withOutstandingBalance()->with('billable.client')->get();
 
         $buckets = ['overdue' => 0, 'week' => 0, 'month' => 0, 'later' => 0];
         $lateClients = [];
@@ -44,16 +44,16 @@ class ReceivablesSummary extends StatsOverviewWidget
                 default => 'later',
             };
 
-            $buckets[$bucket] += $receivable->outstanding;
+            $buckets[$bucket] += $receivable->projectedOutstanding();
 
             if ($bucket === 'overdue') {
                 $lateClients[] = $receivable->billable?->client_id;
             }
 
-            $name = $receivable->client?->name ?? 'Sem cliente';
+            $name = $receivable->client?->name ?? __('No client');
             $byClient[$name] ??= ['open' => 0, 'overdue' => 0];
-            $byClient[$name]['open'] += $receivable->outstanding;
-            $byClient[$name]['overdue'] += $bucket === 'overdue' ? $receivable->outstanding : 0;
+            $byClient[$name]['open'] += $receivable->projectedOutstanding();
+            $byClient[$name]['overdue'] += $bucket === 'overdue' ? $receivable->projectedOutstanding() : 0;
         }
 
         uasort($byClient, fn (array $a, array $b): int => $b['open'] <=> $a['open']);
@@ -62,23 +62,26 @@ class ReceivablesSummary extends StatsOverviewWidget
         $lateClientCount = count(array_unique(array_filter($lateClients)));
 
         return [
-            Stat::make('Em aberto', Money::format(array_sum($buckets)))
+            Stat::make(__('Outstanding'), Money::format(array_sum($buckets), locale: app()->getLocale()))
                 ->description(ProportionBar::render([
-                    ['label' => 'Vencido', 'cents' => $buckets['overdue'], 'tone' => 'danger'],
-                    ['label' => 'Até 7 dias', 'cents' => $buckets['week'], 'tone' => 'strong'],
-                    ['label' => '8 a 30 dias', 'cents' => $buckets['month'], 'tone' => 'medium'],
-                    ['label' => 'Mais tarde', 'cents' => $buckets['later'], 'tone' => 'soft'],
+                    ['label' => __('Past due'), 'cents' => $buckets['overdue'], 'tone' => 'danger'],
+                    ['label' => __('Within 7 days'), 'cents' => $buckets['week'], 'tone' => 'strong'],
+                    ['label' => __('8 to 30 days'), 'cents' => $buckets['month'], 'tone' => 'medium'],
+                    ['label' => __('Later'), 'cents' => $buckets['later'], 'tone' => 'soft'],
                 ]))
                 ->icon(Phosphor::HourglassMedium),
-            Stat::make('Vencido', Money::format($buckets['overdue']))
+            Stat::make(__('Past due'), Money::format($buckets['overdue'], locale: app()->getLocale()))
                 ->description($lateCount === 0
-                    ? 'Nada vencido'
-                    : trans_choice('{1} 1 valor|[2,*] :count valores', $lateCount).' · '.trans_choice('{1} 1 cliente|[2,*] :count clientes', $lateClientCount))
+                    ? __('No overdue amounts')
+                    : __(':amounts · :clients', [
+                        'amounts' => trans_choice('{1} 1 amount|[2,*] :count amounts', $lateCount),
+                        'clients' => trans_choice('{1} 1 client|[2,*] :count clients', $lateClientCount),
+                    ]))
                 ->color($lateCount === 0 ? 'success' : 'danger')
                 ->icon(Phosphor::Warning),
             $this->delayStat(),
-            Stat::make('Quem deve', trans_choice('{0} Ninguém|{1} 1 cliente|[2,*] :count clientes', count($byClient)))
-                ->description($byClient === [] ? 'Nada em aberto' : $this->debtors($byClient))
+            Stat::make(__('Who owes money'), trans_choice('{0} Nobody|{1} 1 client|[2,*] :count clients', count($byClient)))
+                ->description($byClient === [] ? __('Nothing outstanding') : $this->debtors($byClient))
                 ->icon(Phosphor::UsersThree),
         ];
     }
@@ -107,8 +110,8 @@ class ReceivablesSummary extends StatsOverviewWidget
 
         $average = $delays->isEmpty() ? null : (int) round($delays->avg('days'));
 
-        return Stat::make('Demoram a pagar, em média', $average === null ? '—' : trans_choice('{0} No próprio dia|{1} 1 dia|[2,*] :count dias', $average))
-            ->description($average === null ? 'Sem recebimentos nos últimos 6 meses' : 'Depois do vencimento · últimos 6 meses')
+        return Stat::make(__('Average time to pay'), $average === null ? '—' : trans_choice('{0} On the due date|{1} 1 day|[2,*] :count days', $average))
+            ->description($average === null ? __('No payments in the last 6 months') : __('After the due date · last 6 months'))
             ->chart($average === null ? null : $byMonth)
             ->color('primary')
             ->icon(Phosphor::Timer);
@@ -125,9 +128,9 @@ class ReceivablesSummary extends StatsOverviewWidget
         $rows = '';
 
         foreach (array_slice($byClient, 0, 3, true) as $name => $debt) {
-            $rows .= '<span class="contiu-debtor"><span class="contiu-debtor-head"><span>'.e($name).'</span><strong>'.e(Money::format($debt['open'])).'</strong></span>'
-                .'<span class="contiu-progress"><i style="width: '.round($debt['open'] / $largest * 100, 1).'%"></i></span>'
-                .($debt['overdue'] > 0 ? '<span class="contiu-debtor-late">'.e(Money::format($debt['overdue'])).' vencidos</span>' : '')
+            $rows .= '<span class="contiu-debtor"><span class="contiu-debtor-head"><span>'.e($name).'</span><strong>'.e(Money::format($debt['open'], locale: app()->getLocale())).'</strong></span>'
+                .'<span class="fap-progress"><i style="width: '.round($debt['open'] / $largest * 100, 1).'%"></i></span>'
+                .($debt['overdue'] > 0 ? '<span class="contiu-debtor-late">'.e(__(':amount overdue', ['amount' => Money::format($debt['overdue'], locale: app()->getLocale())])).'</span>' : '')
                 .'</span>';
         }
 

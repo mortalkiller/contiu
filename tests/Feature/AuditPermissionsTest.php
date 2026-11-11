@@ -16,6 +16,8 @@ use Spatie\Permission\Models\Permission;
 use Tapp\FilamentAuditing\Models\Audit;
 use Tapp\FilamentAuditing\RelationManagers\AuditsRelationManager;
 
+pest()->group('tenancy');
+
 function userWithPermissions(array $permissions): User
 {
     $user = User::factory()->create();
@@ -32,7 +34,7 @@ function userWithPermissions(array $permissions): User
 
 it('registers the audit policy', function () {
     expect(Gate::getPolicyFor(Audit::class))->toBeInstanceOf(AuditPolicy::class);
-});
+})->group('integration');
 
 it('shows the history to a user with the audit permission', function (string $model, string $permission) {
     $record = $model::factory()->create();
@@ -45,14 +47,14 @@ it('shows the history to a user with the audit permission', function (string $mo
     'despesa' => [Expense::class, 'Audit:Expense'],
     'recebimento' => [Payment::class, 'Audit:Payment'],
     'cliente' => [Client::class, 'Audit:Client'],
-]);
+])->group('integration');
 
 it('hides the history from a user without the audit permission', function () {
     $project = Project::factory()->create();
     userWithPermissions(['View:Project']);
 
     expect(AuditsRelationManager::canViewForRecord($project, ViewProject::class))->toBeFalse();
-});
+})->group('integration');
 
 it('shows the history of a payment from the payments list', function () {
     config(['audit.console' => true]); // auditing is off for console runs, tests included
@@ -65,4 +67,4 @@ it('shows the history of a payment from the payments list', function () {
         ->mountTableAction('history', $payment)
         ->assertMountedActionModalSee(['Alterado', 'Criado'])
         ->assertMountedActionModalSeeHtml(e('Montante: '.Money::format(12000).' → '.Money::format(15000)));
-});
+})->group('ui');

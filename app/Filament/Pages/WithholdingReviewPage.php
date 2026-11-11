@@ -12,21 +12,18 @@ use App\Support\WithholdingReview;
 use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Support\Components\Attributes\Unexposed;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
-use UnitEnum;
 
 class WithholdingReviewPage extends Page
 {
     use HasTaxSubNavigation;
 
-    protected static ?string $title = 'Retenções na fonte';
-
     protected static ?string $slug = 'retencoes-na-fonte';
-
-    protected static string|UnitEnum|null $navigationGroup = 'Impostos';
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::Receipt;
 
@@ -40,6 +37,10 @@ class WithholdingReviewPage extends Page
     #[Locked]
     #[Url(as: 'allocation')]
     public ?int $allocationId = null;
+
+    #[Locked]
+    #[Url]
+    public bool $ordinary = false;
 
     #[Locked]
     public int $accountId;
@@ -89,18 +90,23 @@ class WithholdingReviewPage extends Page
 
         $data = $this->validate([
             'documentId' => ['required', 'integer', 'min:1'],
-            'retained' => ['required', 'regex:/\A[0-9]{1,9}(?:[,.][0-9]{1,2})?\z/'],
+            ...($this->allocationId !== null && $this->ordinary ? [] : ['retained' => ['required', 'regex:/\A[0-9]{1,9}(?:[,.][0-9]{1,2})?\z/']]),
             ...($this->allocationId === null ? [] : ['accepted' => ['accepted']]),
         ], [
-            'documentId.*' => 'Escolhe o documento de origem.',
-            'retained.*' => 'Introduz o montante retido em euros com até duas casas decimais.',
-            'accepted.accepted' => 'Confirma que o recibo corresponde a esta afetação.',
+            'documentId.*' => __('Choose the source document.'),
+            'retained.*' => __('Enter the withheld amount in euros with up to two decimal places.'),
+            'accepted.accepted' => __('Confirm that the receipt matches this allocation.'),
         ]);
 
-        WithholdingReview::record((int) $data['documentId'], Money::toCents($data['retained']), $this->year, $this->allocationId);
+        $ordinary = $this->allocationId !== null && $this->ordinary;
+        if ($ordinary) {
+            WithholdingReview::reconcileReceipt((int) $data['documentId'], $this->allocationId);
+        } else {
+            WithholdingReview::record((int) $data['documentId'], Money::toCents($data['retained']), $this->year, $this->allocationId);
+        }
         $this->reset('documentId', 'retained', 'accepted');
 
-        Notification::make()->title('Retenção documentada registada')->success()->send();
+        Notification::make()->title($ordinary ? __('Receipt reconciled') : __('Documented withholding recorded'))->success()->send();
     }
 
     protected function getViewData(): array
@@ -108,9 +114,20 @@ class WithholdingReviewPage extends Page
         abort_unless(static::canAccess() && $this->accountId === CurrentAccount::id(), 403);
 
         $allocation = $this->allocation();
+        $ordinary = $allocation !== null && $this->ordinary;
+        $preview = null;
+        $previewError = null;
+        if ($allocation !== null && static::canRecord()) {
+            try {
+                $preview = WithholdingReview::previewAllocation($allocation);
+            } catch (ValidationException $exception) {
+                $previewError = $exception->getMessage();
+            }
+        }
+
         $sources = match (true) {
             ! static::canRecord() => collect(),
-            $allocation !== null => WithholdingReview::sourcesForAllocation($allocation),
+            $allocation !== null => $preview === null ? collect() : WithholdingReview::sourcesForAllocation($allocation, $ordinary),
             default => WithholdingReview::sourcesForYear($this->year),
         };
 
@@ -120,24 +137,27 @@ class WithholdingReviewPage extends Page
         return [
             'summary' => [
                 [
-                    'label' => 'Total retido com fonte conferida',
-                    'value' => $review->retainedTotal === null ? '—' : Money::format($review->retainedTotal),
-                    'note' => trans_choice('{0} Sem retenções em :year|{1} 1 retenção em :year|[2,*] :count retenções em :year', $review->rows->count(), ['year' => $this->year]),
+                    'label' => __('Total withholding with verified source'),
+                    'value' => $review->retainedTotal === null ? '—' : Money::format($review->retainedTotal, locale: app()->getLocale()),
+                    'note' => trans_choice('{0} No withholding in :year|{1} 1 withholding record in :year|[2,*] :count withholding records in :year', $review->rows->count(), ['year' => $this->year]),
                 ],
                 [
-                    'label' => 'Por conferir',
+                    'label' => __('Pending verification'),
                     'value' => (string) $stale,
-                    'note' => $stale === 0 ? 'Todas as fontes conferem' : 'A fonte mudou depois do registo',
+                    'note' => $stale === 0 ? __('All sources match') : __('The source changed after recording'),
                     'tone' => $stale === 0 ? 'success' : 'warning',
                 ],
                 ...($allocation !== null || ! static::canRecord() ? [] : [[
-                    'label' => 'Recibos sem retenção registada',
+                    'label' => __('Receipts with no withholding recorded'),
                     'value' => (string) $sources->count(),
-                    'note' => 'Só precisas de registar os que tiveram retenção',
+                    'note' => __('Record only the receipts where tax was withheld'),
                 ]]),
             ],
             'review' => $review,
             'allocation' => $allocation,
+            'ordinary' => $ordinary,
+            'preview' => $preview,
+            'previewError' => $previewError,
             'sources' => $sources,
             'selected' => $sources->firstWhere('id', $this->documentId),
         ];
@@ -148,5 +168,23 @@ class WithholdingReviewPage extends Page
         return $this->allocationId === null ? null : PaymentAllocation::query()
             ->with(['receivable.billable', 'payment.bankLink.bankTransaction'])
             ->findOrFail($this->allocationId);
+    }
+
+    #[Unexposed]
+    public function getTitle(): string
+    {
+        return __('Withholding taxes');
+    }
+
+    #[Unexposed]
+    public static function getNavigationGroup(): string
+    {
+        return __('Taxes');
+    }
+
+    #[Unexposed]
+    public static function getNavigationLabel(): string
+    {
+        return __('Withholding taxes');
     }
 }

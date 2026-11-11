@@ -14,8 +14,8 @@ enum FinanceReviewTarget: string
     public function label(): string
     {
         return match ($this) {
-            self::Expense => 'Despesa',
-            self::FiscalDocument => 'Documento fiscal',
+            self::Expense => __('Expense'),
+            self::FiscalDocument => __('Fiscal document'),
         };
     }
 

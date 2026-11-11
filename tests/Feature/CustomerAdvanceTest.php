@@ -42,7 +42,7 @@ it('records an advance once as cash and applies it to a later charge on a separa
         ->and((new MonthReview(CarbonImmutable::parse('2027-02-19')))->received())->toBe(0)
         ->and((new ClientStatement($client))->balance())->toBe(39997)
         ->and(fn () => app(ManageCustomerAdvance::class)->apply($payment->id, $charge->id, '2027-02-08'))->toThrow(ValidationException::class);
-});
+})->group('ui');
 
 it('refuses a different client or account and a date before the advance', function () {
     $this->travelTo(CarbonImmutable::parse('2027-02-19'));
@@ -58,4 +58,4 @@ it('refuses a different client or account and a date before the advance', functi
         ->and(fn () => $service->apply($payment->id, $unrelated->id, '2027-02-08'))->toThrow(ValidationException::class)
         ->and(fn () => $service->apply($payment->id, $same->id, '2027-02-01'))->toThrow(ValidationException::class)
         ->and($payment->allocations()->count())->toBe(0);
-});
+})->group('integration');

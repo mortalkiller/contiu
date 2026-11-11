@@ -20,10 +20,10 @@ enum ReceivableStatus: string implements HasColor, HasIcon, HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::Paid => 'Pago',
-            self::Partial => 'Parcial',
-            self::Open => 'Em aberto',
-            self::Overdue => 'Vencido',
+            self::Paid => __('Paid'),
+            self::Partial => __('Partial'),
+            self::Open => __('Open'),
+            self::Overdue => __('Past due'),
         };
     }
 

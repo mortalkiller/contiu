@@ -10,6 +10,8 @@ use App\Models\User;
 use App\Support\CurrentAccount;
 use Illuminate\Support\Carbon;
 
+pest()->group('integration', 'tenancy');
+
 beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-03-10'));
     $this->mine = $this->account;

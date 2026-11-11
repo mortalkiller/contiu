@@ -24,6 +24,8 @@ return [
 
     'invoicexpress' => [
         'catalog_safe_accounts' => [],
+        'withholding_validated_accounts' => [],
+        'sandbox_draft_account' => env('INVOICEXPRESS_SANDBOX_DRAFT_ACCOUNT'),
     ],
 
     'ses' => [

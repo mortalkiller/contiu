@@ -12,19 +12,19 @@ it('shows the branded page for a missing page', function () {
         ->assertSee('brand/contiu/contiu-logo-white.svg', escape: false)
         ->assertSee('Voltar ao painel')
         ->assertDontSee('Not Found');
-});
+})->group('ui');
 
 it('shows the branded page when access is denied', function () {
     Route::get('/teste-403', fn () => abort(403))->middleware('web');
 
-    $this->get('/teste-403')->assertForbidden()->assertSee('Sem acesso');
-});
+    $this->get('/teste-403')->assertForbidden()->assertSee('Sem acesso')->assertSee('Contiu');
+})->group('ui');
 
 it('shows the branded page when the session expired', function () {
     Route::get('/teste-419', fn () => abort(419))->middleware('web');
 
-    $this->get('/teste-419')->assertStatus(419)->assertSee('A sessão expirou');
-});
+    $this->get('/teste-419')->assertStatus(419)->assertSee('A sessão expirou')->assertSee('Contiu');
+})->group('ui');
 
 it('shows the branded page for a server error without debug details', function () {
     config(['app.debug' => false]);
@@ -33,17 +33,14 @@ it('shows the branded page for a server error without debug details', function (
     $this->get('/teste-500')
         ->assertStatus(500)
         ->assertSee('Algo correu mal')
+        ->assertSee('Contiu')
         ->assertDontSee('segredo interno');
-});
+})->group('ui');
 
-it('has a branded page for every common error', function (int $code, string $title) {
+it('renders branded views for unauthorized, rate limited and maintenance responses', function (int $code, string $title) {
     expect(view("errors.$code")->render())->toContain($title)->toContain('Contiu');
 })->with([
     [401, 'Sessão necessária'],
-    [403, 'Sem acesso'],
-    [404, 'Página não encontrada'],
-    [419, 'A sessão expirou'],
     [429, 'Demasiados pedidos'],
-    [500, 'Algo correu mal'],
     [503, 'Em manutenção'],
-]);
+])->group('integration');

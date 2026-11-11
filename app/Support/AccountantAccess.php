@@ -12,7 +12,21 @@ final class AccountantAccess
 
     public static function role(User $user, Account $account): ?string
     {
-        return $user->accounts()->whereKey($account->getKey())->value('account_user.role');
+        $accountId = $account->getKey();
+        $request = request();
+        $lookup = fn (): ?string => $user->accounts()->whereKey($accountId)->value('account_user.role');
+
+        if ($request->route() === null || ! $request->isMethod('GET')) {
+            return $lookup();
+        }
+
+        $key = self::class.":{$user->getKey()}:{$accountId}";
+
+        if (! $request->attributes->has($key)) {
+            $request->attributes->set($key, $lookup());
+        }
+
+        return $request->attributes->get($key);
     }
 
     public static function isReviewOnly(?Account $account = null): bool
@@ -60,7 +74,7 @@ final class AccountantAccess
             $user = User::query()->where('email', trim($email))->whereNotNull('email_verified_at')->first();
 
             if ($user === null || $user->isSuperAdmin()) {
-                throw ValidationException::withMessages(['email' => 'Indica o endereço de um utilizador com email confirmado.']);
+                throw ValidationException::withMessages(['email' => __('Enter the address of a user with a verified email.')]);
             }
 
             // A grant never overwrites a different account role, even if another process adds it.
@@ -73,7 +87,7 @@ final class AccountantAccess
             ]);
 
             if (self::role($user, $account) !== self::ROLE) {
-                throw ValidationException::withMessages(['email' => 'Este utilizador já tem acesso à conta com outro papel.']);
+                throw ValidationException::withMessages(['email' => __('This user already has access to the account under a different role.')]);
             }
         });
     }

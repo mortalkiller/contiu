@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Enums\FiscalDocumentDirection;
 use App\Enums\FiscalDocumentStatus;
 use App\Enums\FiscalDocumentType;
+use App\Enums\Language;
 use App\Exceptions\InvoiceXpressException;
 use App\Models\FiscalDocumentLink;
 use App\Models\InvoiceXpressReceiptAttempt;
@@ -17,6 +18,7 @@ use App\Support\InvoiceXpressReceipt;
 use App\Support\Money;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
+use Filament\Support\Components\Attributes\Unexposed;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
@@ -28,8 +30,6 @@ use Livewire\Attributes\Locked;
 class InvoiceXpressReceiptPage extends InvoiceXpressSectionPage implements HasTable
 {
     use InteractsWithTable;
-
-    protected static ?string $title = 'Recibos InvoiceXpress';
 
     protected static ?string $slug = 'recibos-invoicexpress';
 
@@ -61,17 +61,24 @@ class InvoiceXpressReceiptPage extends InvoiceXpressSectionPage implements HasTa
     {
         $this->authorizeAccount();
 
-        $invoiceLinks = FiscalDocumentLink::query()
+        $invoiceLinks = FiscalDocumentLink::query()->whereNotNull('receivable_id')
             ->whereHas('fiscalDocument', fn (Builder $documents): Builder => $documents
-                ->where('type', FiscalDocumentType::Invoice)
+                ->whereIn('type', [FiscalDocumentType::Invoice, FiscalDocumentType::InvoiceReceipt])
                 ->where('direction', FiscalDocumentDirection::Issued)
                 ->where('status', FiscalDocumentStatus::Active)
+                ->where('currency', 'EUR'));
+        $providerInvoiceLinks = (clone $invoiceLinks)->whereNull('related_fiscal_document_id')
+            ->whereHas('fiscalDocument', fn (Builder $documents) => $documents->where('type', FiscalDocumentType::Invoice)
                 ->whereIn('id', InvoiceXpressSnapshot::query()->whereNotNull('fiscal_document_id')->select('fiscal_document_id')));
 
         return $table
             ->query(PaymentAllocation::query()
-                ->whereIn('receivable_id', $invoiceLinks->whereNotNull('receivable_id')->select('receivable_id'))
+                ->whereIn('receivable_id', $invoiceLinks->select('receivable_id'))
+                ->whereHas('payment', fn (Builder $query) => $query->whereNull('advance_client_id'))
                 ->with('receivable.billable')
+                ->withExists(['receivable as can_preview_provider' => fn (Builder $query) => $query
+                    ->whereIn('receivables.id', $providerInvoiceLinks->select('receivable_id'))
+                    ->whereDoesntHave('payments', fn (Builder $payments) => $payments->whereNotNull('payments.advance_client_id'))])
                 ->addSelect(['receipt_attempt_id' => InvoiceXpressReceiptAttempt::query()->select('id')
                     ->where(fn (Builder $query) => $query->whereColumn('payment_allocation_id', 'payment_allocations.id')
                         ->orWhere(fn (Builder $query) => $query->whereColumn('payment_id', 'payment_allocations.payment_id')
@@ -79,25 +86,29 @@ class InvoiceXpressReceiptPage extends InvoiceXpressSectionPage implements HasTa
                     ->limit(1)]))
             ->defaultSort('allocated_on', 'desc')
             ->columns([
-                TextColumn::make('receivable.description')->label('Cobrança')->searchable()->wrap()
+                TextColumn::make('receivable.description')->label(__('Charge'))->searchable()->wrap()
                     ->state(fn (PaymentAllocation $record): ?string => $record->receivable?->label),
-                TextColumn::make('payment_id')->label('Recebimento')->formatStateUsing(fn (int $state): string => '#'.$state),
-                TextColumn::make('allocated_on')->label('Data')->date('d/m/Y')->sortable(),
-                TextColumn::make('amount')->label('Montante afeto')->formatStateUsing(fn (int $state): string => Money::format($state)),
-                TextColumn::make('receipt_attempt_id')->label('Tentativa')
+                TextColumn::make('payment_id')->label(__('Payment received'))->formatStateUsing(fn (int $state): string => '#'.$state),
+                TextColumn::make('allocated_on')->label(__('Date'))->date(fn (): string => Language::resolve(app()->getLocale())->dateFormat())->sortable(),
+                TextColumn::make('amount')->label(__('Allocated amount'))->formatStateUsing(fn (int $state): string => Money::format($state, locale: app()->getLocale())),
+                TextColumn::make('receipt_attempt_id')->label(__('Attempt'))
                     ->formatStateUsing(fn (int $state): string => '#'.$state)->placeholder('—'),
             ])
             ->recordActions([
                 Action::make('reconcileWithholding')
-                    ->label('Conciliar retenção')
+                    ->label(__('Reconcile withholding'))
                     ->visible(fn (): bool => WithholdingReviewPage::canRecord())
                     ->url(fn (PaymentAllocation $record): string => WithholdingReviewPage::getUrl(['allocation' => $record->id])),
+                Action::make('reconcileReceipt')
+                    ->label(__('Reconcile receipt'))
+                    ->visible(fn (): bool => WithholdingReviewPage::canRecord())
+                    ->url(fn (PaymentAllocation $record): string => WithholdingReviewPage::getUrl(['allocation' => $record->id, 'ordinary' => true])),
                 Action::make('preview')
-                    ->label('Pré-visualizar recibo')
-                    ->visible(fn (PaymentAllocation $record): bool => $record->receipt_attempt_id === null && $this->canWrite())
+                    ->label(__('Preview receipt'))
+                    ->visible(fn (PaymentAllocation $record): bool => $record->receipt_attempt_id === null && $record->can_preview_provider && $this->canWrite())
                     ->action(fn (PaymentAllocation $record) => $this->preview($record->id, app(InvoiceXpressReceipt::class))),
             ])
-            ->emptyStateHeading('Sem afetações a faturas InvoiceXpress');
+            ->emptyStateHeading(__('No payments allocated to invoices'));
     }
 
     public function preview(int $allocationId, InvoiceXpressReceipt $receipts): void
@@ -119,7 +130,7 @@ class InvoiceXpressReceiptPage extends InvoiceXpressSectionPage implements HasTa
         $this->resetValidation();
 
         if ($this->previewData === null || ! $this->accepted) {
-            throw ValidationException::withMessages(['accepted' => 'Pré-visualiza o recibo e confirma os dados antes de emitir.']);
+            throw ValidationException::withMessages(['accepted' => __('Preview the receipt and confirm the details before issuing it.')]);
         }
 
         try {
@@ -170,13 +181,25 @@ class InvoiceXpressReceiptPage extends InvoiceXpressSectionPage implements HasTa
     private function notifyResult(InvoiceXpressReceiptAttempt $attempt): void
     {
         if ($attempt->provider_receipt_id !== null) {
-            Notification::make()->title('Recibo verificado no InvoiceXpress')->success()->send();
+            Notification::make()->title(__('Receipt verified in InvoiceXpress'))->success()->send();
 
             return;
         }
 
-        Notification::make()->title('Recibo por verificar')
-            ->body('Consulta o histórico. A verificação procura o recibo na fatura original.')
+        Notification::make()->title(__('Receipt awaiting verification'))
+            ->body(__('Check the history. Verification looks for the receipt on the original invoice.'))
             ->warning()->send();
+    }
+
+    #[Unexposed]
+    public function getTitle(): string
+    {
+        return __('InvoiceXpress receipts');
+    }
+
+    #[Unexposed]
+    public static function getNavigationLabel(): string
+    {
+        return __('InvoiceXpress receipts');
     }
 }

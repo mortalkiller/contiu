@@ -20,6 +20,8 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
+pest()->group('fiscal');
+
 function fiscalDocumentFormData(array $overrides = []): array
 {
     return array_replace([
@@ -94,7 +96,7 @@ it('registers an invoice and two partial receipts against the same invoice', fun
     expect($receipt->refresh()->party_name)->toBe('Cliente Exemplo, Lda.');
     expect($receipt->links->relatedFiscalDocument->is($invoice))->toBeTrue();
     Livewire::test(ListFiscalDocuments::class)->assertCanSeeTableRecords(FiscalDocument::all());
-});
+})->group('ui');
 
 it('registers an invoice-receipt as one document with an explicit expense link', function () {
     actAsFiscalDocumentsOwner();
@@ -122,7 +124,7 @@ it('registers an invoice-receipt as one document with an explicit expense link',
 
     Livewire::test(EditFiscalDocument::class, ['record' => $document->id])
         ->assertSee('LEGADO FORNECEDOR');
-});
+})->group('ui');
 
 it('keeps a signed credit note and lets an owner remove its last link', function () {
     actAsFiscalDocumentsOwner();
@@ -152,7 +154,7 @@ it('keeps a signed credit note and lets an owner remove its last link', function
         ->assertHasNoFormErrors();
 
     expect($creditNote->fresh()->links)->toBeNull();
-});
+})->group('ui');
 
 it('filters voided documents and retains their links and financial values', function () {
     actAsFiscalDocumentsOwner();
@@ -180,7 +182,7 @@ it('filters voided documents and retains their links and financial values', func
         ->assertCanSeeTableRecords([$document])
         ->assertCanNotSeeTableRecords([$invoice])
         ->assertSee('Anulado');
-});
+})->group('ui');
 
 it('rejects an inconsistent total before writing a document or its links', function () {
     actAsFiscalDocumentsOwner();
@@ -194,7 +196,7 @@ it('rejects an inconsistent total before writing a document or its links', funct
 
     $this->assertDatabaseEmpty('fiscal_documents');
     $this->assertDatabaseEmpty('fiscal_document_links');
-});
+})->group('ui');
 
 it('rejects forged form links to another account', function () {
     actAsFiscalDocumentsOwner();
@@ -217,7 +219,7 @@ it('rejects forged form links to another account', function () {
 
     expect(FiscalDocument::count())->toBe(0);
     $this->assertDatabaseEmpty('fiscal_document_links');
-});
+})->group('ui');
 
 it('rejects a non-integer target ID even when the database can coerce it', function () {
     actAsFiscalDocumentsOwner();
@@ -229,7 +231,7 @@ it('rejects a non-integer target ID even when the database can coerce it', funct
         ->assertHasFormErrors(['payment_id']);
 
     $this->assertDatabaseEmpty('fiscal_documents');
-});
+})->group('ui');
 
 it('keeps records from another account out of the list and edit routes', function () {
     actAsFiscalDocumentsOwner();
@@ -243,7 +245,7 @@ it('keeps records from another account out of the list and edit routes', functio
     asAWebRequest();
     $this->get(FiscalDocumentResource::getUrl('edit', ['record' => $foreign], tenant: $this->account))
         ->assertNotFound();
-});
+})->group('ui');
 
 it('refuses document creation when the account is read only', function () {
     $account = Account::factory()->create(['billing_exempt' => false, 'trial_ends_at' => now()->subDay()]);
@@ -254,7 +256,7 @@ it('refuses document creation when the account is read only', function () {
 
     $this->get(FiscalDocumentResource::getUrl(tenant: $account))->assertOk();
     $this->get(FiscalDocumentResource::getUrl('create', tenant: $account))->assertForbidden();
-});
+})->group('ui');
 
 it('enforces the account of every link target in the database', function (string $column, string $targetModel) {
     $document = FiscalDocument::factory()->create();
@@ -274,7 +276,7 @@ it('enforces the account of every link target in the database', function (string
     'expense' => ['expense_id', Expense::class],
     'related document' => ['related_fiscal_document_id', FiscalDocument::class],
     'source document' => ['fiscal_document_id', FiscalDocument::class],
-]);
+])->group('integration');
 
 it('blocks deleting linked targets even when model events are bypassed', function (string $column, string $targetModel) {
     $document = FiscalDocument::factory()->create();
@@ -294,7 +296,7 @@ it('blocks deleting linked targets even when model events are bypassed', functio
     'payment' => ['payment_id', Payment::class],
     'expense' => ['expense_id', Expense::class],
     'related document' => ['related_fiscal_document_id', FiscalDocument::class],
-]);
+])->group('integration');
 
 it('keeps the existing account deletion cascade when linked rows belong to that account', function () {
     $document = FiscalDocument::factory()->create();
@@ -314,7 +316,7 @@ it('keeps the existing account deletion cascade when linked rows belong to that 
 
     $this->assertDatabaseEmpty('fiscal_documents');
     $this->assertDatabaseEmpty('fiscal_document_links');
-});
+})->group('integration');
 
 it('lists each document with its type, direction and what it is linked to', function () {
     actingAsAdmin();
@@ -333,4 +335,4 @@ it('lists each document with its type, direction and what it is linked to', func
         ->assertSee('Fatura · recebida')
         ->assertSee('Documento original')
         ->assertSee('Sem ligação');
-});
+})->group('ui');

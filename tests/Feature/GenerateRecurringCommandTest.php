@@ -5,6 +5,8 @@ use App\Models\Retainer;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Carbon;
 
+pest()->group('integration');
+
 it('generates retainer periods and recurring expenses in one run', function () {
     $this->travelTo(Carbon::parse('2026-03-10'));
     Retainer::factory()->create(['starts_on' => '2026-03-01', 'due_day' => 1]);

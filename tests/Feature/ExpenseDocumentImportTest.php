@@ -19,8 +19,11 @@ use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
 use Filament\Facades\Filament;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
+
+pest()->group('fiscal');
 
 function expenseDocumentCsv(string $lines = '2026-11-10;FT DEMO V2/2;20,00;4,60;24,60'): string
 {
@@ -70,7 +73,7 @@ it('previews an invoice by QR and deduplicates a legacy CSV recorded under the s
         ->assertSee('Já importada');
 
     expect(FiscalDocument::count())->toBe(1);
-});
+})->group('ui');
 
 it('reads a QR image and confirms the received invoice using the existing reconciliation flow', function () {
     actingAsAdmin();
@@ -102,7 +105,7 @@ it('reads a QR image and confirms the received invoice using the existing reconc
         ->and($document->links->expense_id)->toBe($expense->id)
         ->and($bank->fresh()->status)->toBe(BankTransactionStatus::Matched)
         ->and(app(ImportExpenseDocuments::class)->preview('PT508025338', app(ExpenseDocumentCsv::class)->parse(expenseDocumentCsv()))[0]['state'])->toBe('imported');
-});
+})->group('ui');
 
 it('rejects unsupported or inconsistent fiscal QR codes', function (string $before, string $after) {
     expect(fn () => app(ExpenseDocumentQr::class)->parse(str_replace($before, $after, expenseDocumentQrPayload())))
@@ -113,7 +116,7 @@ it('rejects unsupported or inconsistent fiscal QR codes', function (string $befo
     'unbalanced' => ['O:24.60', 'O:24.61'],
     'stamp duty' => ['*N:', '*M:1.00*N:'],
     'repeated total' => ['*O:', '*O:0.00*O:'],
-]);
+])->group('integration');
 
 it('parses UTF-8 CSV with a BOM and preserves Portuguese values in integer cents', function () {
     expect(app(ExpenseDocumentCsv::class)->parse("\xEF\xBB\xBF".expenseDocumentCsv('10/11/2026;"FT A;2";1 000,05;230,01;1 230,06')))
@@ -124,7 +127,7 @@ it('parses UTF-8 CSV with a BOM and preserves Portuguese values in integer cents
             'vat_amount' => 23001,
             'total_amount' => 123006,
         ]]);
-});
+})->group('integration');
 
 it('rejects invalid CSV before producing any preview rows', function (string $csv) {
     expect(fn () => app(ExpenseDocumentCsv::class)->parse($csv))->toThrow(DomainException::class);
@@ -136,7 +139,7 @@ it('rejects invalid CSV before producing any preview rows', function (string $cs
     'duplicate reference' => expenseDocumentCsv("2026-11-10;FT 1;20,00;4,60;24,60\n2026-11-10;FT 1;20,00;4,60;24,60"),
     'empty data' => expenseDocumentCsv(''),
     'invalid UTF-8' => expenseDocumentCsv("2026-11-10;FT \xFF;20,00;4,60;24,60"),
-]);
+])->group('integration');
 
 it('accepts zero-value invoice metadata without suggesting a bank debit', function () {
     expenseDocumentBankLine(['amount' => 0]);
@@ -144,7 +147,7 @@ it('accepts zero-value invoice metadata without suggesting a bank debit', functi
 
     expect($rows[0]['total_amount'])->toBe(0)
         ->and(app(ImportExpenseDocuments::class)->preview('123456789', $rows)[0]['banks'])->toBe([]);
-});
+})->group('integration');
 
 it('previews scoped candidates and leaves an ambiguous match for the user to choose', function () {
     $first = expenseDocumentCandidate();
@@ -166,7 +169,7 @@ it('previews scoped candidates and leaves an ambiguous match for the user to cho
         ->and(array_keys($row['banks']))->toBe([$debit->id])
         ->and(FiscalDocument::count())->toBe(0)
         ->and($debit->fresh()->status)->toBe(BankTransactionStatus::Pending);
-});
+})->group('integration');
 
 it('uploads a CSV, waits for explicit choices, and records the fiscal and bank links together', function () {
     actingAsAdmin();
@@ -202,7 +205,7 @@ it('uploads a CSV, waits for explicit choices, and records the fiscal and bank l
         ->and($expense->fresh()->bankLink->bank_transaction_id)->toBe($bank->id)
         ->and($expense->fresh()->is_paid)->toBeTrue()
         ->and(Expense::count())->toBe(1);
-});
+})->group('ui');
 
 it('rolls back a whole confirmation when a bank candidate is no longer available', function () {
     $firstExpense = expenseDocumentCandidate();
@@ -222,7 +225,7 @@ it('rolls back a whole confirmation when a bank candidate is no longer available
         ->and($firstBank->fresh()->status)->toBe(BankTransactionStatus::Pending)
         ->and($firstExpense->fresh()->is_paid)->toBeFalse()
         ->and($firstExpense->bankLink()->exists())->toBeFalse();
-});
+})->group('integration');
 
 it('deduplicates normalized source and reference per account and preserves an imported record', function () {
     $import = app(ImportExpenseDocuments::class);
@@ -244,7 +247,7 @@ it('deduplicates normalized source and reference per account and preserves an im
     });
 
     expect(FiscalDocument::count())->toBe(2)->and(Expense::count())->toBe(0);
-});
+})->group('integration');
 
 it('preserves a fiscal link already attached to an expense', function () {
     $expense = expenseDocumentCandidate();
@@ -258,7 +261,7 @@ it('preserves a fiscal link already attached to an expense', function () {
 
     expect(FiscalDocumentLink::query()->sole()->id)->toBe($link->id)
         ->and(FiscalDocument::count())->toBe(1);
-});
+})->group('integration');
 
 it('rejects a selected expense or bank line from another account', function (string $target) {
     $expense = expenseDocumentCandidate();
@@ -277,7 +280,7 @@ it('rejects a selected expense or bank line from another account', function (str
     expect(FiscalDocument::count())->toBe(0)
         ->and($expense->fresh()->is_paid)->toBeFalse()
         ->and($bank->fresh()->status)->toBe(BankTransactionStatus::Pending);
-})->with(['expense', 'bank']);
+})->with(['expense', 'bank'])->group('integration');
 
 it('permits read-only previews and refuses confirmation at the action boundary', function () {
     $this->account->update(['billing_exempt' => false, 'trial_ends_at' => now()->subDay()]);
@@ -291,7 +294,7 @@ it('permits read-only previews and refuses confirmation at the action boundary',
             ['expense' => 'unlinked'],
         ]))->toThrow(AccountIsReadOnly::class)
         ->and(FiscalDocument::count())->toBe(0);
-});
+})->group('integration');
 
 it('registers the expenses import route only for users who can access that tenant', function () {
     $owner = ownerOf($this->account);
@@ -304,7 +307,7 @@ it('registers the expenses import route only for users who can access that tenan
     $this->get($url)->assertOk()->assertSee('Ficheiro de faturas recebidas');
     asAWebRequest();
     $this->get($otherUrl)->assertNotFound();
-});
+})->group('ui');
 
 it('requires a fresh preview after the user changes the source', function () {
     actingAsAdmin();
@@ -320,7 +323,7 @@ it('requires a fresh preview after the user changes the source', function () {
         ->assertHasErrors('file');
 
     expect(FiscalDocument::count())->toBe(0);
-});
+})->group('ui');
 
 it('never replaces a bank link that the expense already has', function () {
     $expense = expenseDocumentCandidate();
@@ -337,4 +340,34 @@ it('never replaces a bank link that the expense already has', function () {
         ->and($oldBank->fresh()->status)->toBe(BankTransactionStatus::Matched)
         ->and($newBank->fresh()->status)->toBe(BankTransactionStatus::Pending)
         ->and(FiscalDocument::count())->toBe(0);
+})->group('integration');
+
+describe('Import preview summary', function () {
+    beforeEach(function () {
+        Http::preventStrayRequests();
+        $this->travelTo(now()->setDate(2026, 11, 10));
+    });
+
+    it('counts the received invoices in the preview by how well they match an expense', function () {
+        actingAsAdmin();
+        Expense::factory()->unpaid()->create([
+            'description' => 'Subscrição Demo', 'spent_on' => '2026-11-10', 'invoice_number' => 'FT DEMO/2',
+            'net_amount' => 2000, 'vat_rate' => 0.23,
+        ]);
+        $csv = "data;referencia;liquido;iva;total\n2026-11-10;FT DEMO/2;20,00;4,60;24,60\n2026-11-09;FT DEMO/3;50,00;11,50;61,50";
+
+        $page = Livewire::test(ExpenseDocumentImport::class)
+            ->assertSee('Junta as faturas que recebeste às despesas, sem escrever os dados à mão.')
+            ->assertDontSee('Faturas lidas')
+            ->set('source', '123456789')
+            ->set('file', UploadedFile::fake()->createWithContent('faturas.csv', $csv))
+            ->call('preview')
+            ->assertHasNoErrors();
+
+        expect(importScreenText($page))->toContain(
+            'Faturas lidas 2 Origem 123456789 Correspondência exata 1 Mesma data, valores e número Por confirmar 0 Nenhuma Sem candidatos 1 Cria a despesa a partir da fatura',
+        );
+
+        expect(FiscalDocument::query()->count())->toBe(0);
+    })->group('ui');
 });

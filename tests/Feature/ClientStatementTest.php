@@ -13,6 +13,8 @@ use App\Models\Retainer;
 use App\Support\ClientStatement;
 use Illuminate\Support\Carbon;
 
+pest()->group('integration');
+
 beforeEach(fn () => $this->travelTo(Carbon::parse('2026-03-10')));
 
 function statementClient(): Client

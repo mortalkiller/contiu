@@ -81,7 +81,7 @@ class Retainer extends Model implements AuditableContract
     protected function nextDueOn(): Attribute
     {
         return Attribute::get(fn () => $this->receivables
-            ->filter(fn (Receivable $receivable) => $receivable->outstanding > 0)
+            ->filter(fn (Receivable $receivable) => $receivable->projectedOutstanding() > 0)
             ->sortBy('due_on')
             ->first()?->due_on);
     }

@@ -11,6 +11,8 @@ use App\Support\FinanceSettings;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Route;
 
+pest()->group('integration', 'tenancy');
+
 beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-11-08 10:00'));
 });

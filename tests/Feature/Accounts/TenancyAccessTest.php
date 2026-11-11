@@ -34,6 +34,8 @@ use Livewire\Livewire;
 use ShuvroRoy\FilamentSpatieLaravelBackup\Pages\Backups;
 use Spatie\Permission\Models\Role;
 
+pest()->group('tenancy');
+
 beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-11-06'));
     Filament::setCurrentPanel('admin');
@@ -53,7 +55,7 @@ it('shows a user only their own accounts', function () {
         ->and($owner->canAccessTenant($this->other))->toBeFalse()
         ->and($both->getTenants($panel)->modelKeys())->toEqualCanonicalizing([$this->mine->id, $this->other->id])
         ->and($owner->isSuperAdmin())->toBeFalse();
-});
+})->group('integration');
 
 it('returns 404 for a record of another account', function () {
     $theirs = CurrentAccount::run($this->other, fn () => Expense::factory()->create());
@@ -67,7 +69,7 @@ it('returns 404 for a record of another account', function () {
     $this->get(ExpenseResource::getUrl(tenant: $this->other))->assertNotFound();
 
     $this->get(ExpenseResource::getUrl(tenant: $this->mine))->assertOk();
-});
+})->group('ui');
 
 it('sends a logged-in user from the root to their account', function () {
     $this->actingAs(ownerOf($this->mine));
@@ -75,7 +77,7 @@ it('sends a logged-in user from the root to their account', function () {
 
     $this->get('/')->assertRedirect(Dashboard::getUrl(tenant: $this->mine));
     $this->get(Dashboard::getUrl(tenant: $this->mine))->assertOk();
-});
+})->group('ui');
 
 it('lets a super admin open any account and see only that account', function () {
     CurrentAccount::run($this->mine, function () {
@@ -113,7 +115,7 @@ it('lets a super admin open any account and see only that account', function () 
     Livewire::test(FinanceStatsOverview::class, ['pageFilters' => ['year' => 2026]])
         ->assertSee(Money::format(22222))
         ->assertDontSee(Money::format(11111));
-});
+})->group('ui');
 
 it('keeps the tenant on Livewire updates', function () {
     $own = CurrentAccount::run($this->mine, fn () => Receivable::factory()
@@ -135,7 +137,7 @@ it('keeps the tenant on Livewire updates', function () {
 
             return true;
         });
-});
+})->group('ui');
 
 it('re-identifies the tenant from the URL on a real Livewire update request', function () {
     CurrentAccount::run($this->mine, fn () => Payment::factory()->create(['paid_on' => '2026-10-01', 'invoice_number' => 'FT MINHA/1']));
@@ -168,7 +170,7 @@ it('re-identifies the tenant from the URL on a real Livewire update request', fu
 
     expect($html)->toContain('FT MINHA/1')->not->toContain('FT ALHEIA/1')
         ->and(Filament::getTenant()?->is($this->mine))->toBeTrue();
-});
+})->group('ui');
 
 it('hides system pages from normal users', function (string $page) {
     $url = fn (): string => match ($page) {
@@ -186,7 +188,7 @@ it('hides system pages from normal users', function (string $page) {
     $this->actingAs(superAdminOf($this->mine));
     asAWebRequest();
     $this->get($url())->assertOk();
-})->with(['users', 'roles', 'backups', 'import', 'audits']);
+})->with(['users', 'roles', 'backups', 'import', 'audits'])->group('ui');
 
 it('keeps system pages out of a normal user\'s menu', function () {
     $this->actingAs(ownerOf($this->mine));
@@ -202,19 +204,19 @@ it('keeps system pages out of a normal user\'s menu', function () {
         ->not->toContain('Audits')
         ->not->toContain('Cópias de Segurança')
         ->not->toContain('Importar Excel');
-});
+})->group('integration');
 
 it('does not scope the global system resources to the account', function () {
     expect(UserResource::isScopedToTenant())->toBeFalse()
         ->and(RoleResource::isScopedToTenant())->toBeFalse()
         ->and(AuditResource::isScopedToTenant())->toBeFalse()
         ->and(PaymentResource::isScopedToTenant())->toBeTrue();
-});
+})->group('integration');
 
 it('keeps the account audit trail stamped (filament-auditing tenancy stays off)', function () {
     expect(config('filament-auditing.tenancy.enabled'))->toBeFalse()
         ->and(config('audit.implementation'))->toBe(Audit::class);
-});
+})->group('integration');
 
 it('never offers super_admin in the Users screen', function () {
     $admin = superAdminOf($this->mine);
@@ -243,7 +245,7 @@ it('never offers super_admin in the Users screen', function () {
         ->assertHasActionErrors(['roles']);
 
     expect(User::firstWhere('email', 'intrusa@example.test'))->toBeNull();
-});
+})->group('ui');
 
 it('lets the owner edit the account name and NIF', function () {
     $this->actingAs(ownerOf($this->mine));
@@ -266,7 +268,7 @@ it('lets the owner edit the account name and NIF', function () {
         ->assertHasNoFormErrors();
 
     expect($this->mine->fresh())->name->toBe('Estúdio Novo')->nif->toBe('123456789');
-});
+})->group('ui');
 
 it('lets a super admin change the account address and opens it at the new one', function () {
     $this->actingAs(superAdminOf($this->mine));
@@ -280,7 +282,7 @@ it('lets a super admin change the account address and opens it at the new one', 
         ->assertRedirect(url('/estudio-rita/perfil-da-conta'));
 
     expect($this->mine->fresh()->slug)->toBe('estudio-rita');
-});
+})->group('ui');
 
 it('refuses an account address that is taken, reserved or not a plain lowercase slug', function (string $slug) {
     $this->other->update(['slug' => 'ja-existe']);
@@ -302,7 +304,7 @@ it('refuses an account address that is taken, reserved or not a plain lowercase 
     'uppercase' => 'Estudio',
     'spaces' => 'estudio rita',
     'empty' => '',
-]);
+])->group('ui');
 
 it('keeps the account address out of an owner\'s reach', function () {
     $this->actingAs(ownerOf($this->mine));
@@ -317,7 +319,7 @@ it('keeps the account address out of an owner\'s reach', function () {
         ->assertNoRedirect();
 
     expect($this->mine->fresh())->slug->toBe($before)->name->toBe('Estúdio Novo');
-});
+})->group('ui');
 
 it('opens the account profile only to its owners and super admins', function () {
     $owner = ownerOf($this->mine);
@@ -332,7 +334,7 @@ it('opens the account profile only to its owners and super admins', function () 
 
     $this->actingAs(superAdminOf($this->other));
     expect(EditAccountProfile::canView($this->mine))->toBeTrue();
-});
+})->group('integration');
 
 it('opens the user profile, which lives outside any account, with the menu of their own account', function () {
     $this->actingAs(superAdminOf($this->mine));
@@ -345,7 +347,7 @@ it('opens the user profile, which lives outside any account, with the menu of th
     asAWebRequest();
 
     $this->get('/profile')->assertOk();
-});
+})->group('ui');
 
 it('links the help centre, the "Novo" menu and the account profile into the account being viewed', function () {
     $this->actingAs(superAdminOf($this->mine));
@@ -363,7 +365,7 @@ it('links the help centre, the "Novo" menu and the account profile into the acco
     }
 
     $page->assertDontSee(ProjectResource::getUrl('create', tenant: $this->mine), escape: false);
-});
+})->group('ui');
 
 it('keeps the system resources out of a normal user\'s global search', function () {
     $this->actingAs(ownerOf($this->mine));
@@ -376,7 +378,7 @@ it('keeps the system resources out of a normal user\'s global search', function 
     $this->actingAs(superAdminOf($this->mine));
 
     expect(UserResource::canGloballySearch())->toBeTrue();
-});
+})->group('integration');
 
 it('shows the account switcher only to who can open more than one account', function () {
     $panel = Filament::getPanel('admin');
@@ -398,7 +400,7 @@ it('shows the account switcher only to who can open more than one account', func
 
     Filament::setTenant(null, isQuiet: true); // e.g. /profile: Filament's menu needs an account
     expect($panel->hasTenantMenu())->toBeFalse();
-});
+})->group('integration');
 
 it('highlights the active account before the signed-in user in the user menu', function () {
     $user = ownerOf($this->mine);
@@ -409,7 +411,7 @@ it('highlights the active account before the signed-in user in the user menu', f
     $this->get(Dashboard::getUrl(tenant: $this->other))
         ->assertSeeInOrder(['Conta ativa', $this->other->name, 'Membro', $user->name, $user->email, 'A minha conta'])
         ->assertDontSee('Perfil da conta');
-});
+})->group('ui');
 
 it('places the account profile link with the active account in the user menu', function () {
     $user = ownerOf($this->mine);
@@ -419,4 +421,4 @@ it('places the account profile link with the active account in the user menu', f
     $this->get(Dashboard::getUrl(tenant: $this->mine))
         ->assertSeeInOrder(['Conta ativa', $this->mine->name, 'Proprietário', 'Perfil da conta', $user->email, 'A minha conta'])
         ->assertSee(EditAccountProfile::getUrl(tenant: $this->mine), escape: false);
-});
+})->group('ui');

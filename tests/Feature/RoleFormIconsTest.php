@@ -2,6 +2,8 @@
 
 use App\Filament\Resources\Roles\RoleResource;
 
+pest()->group('ui');
+
 it('uses no Heroicons on the role form', function () {
     actingAsAdmin();
 

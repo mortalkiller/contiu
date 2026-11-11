@@ -17,6 +17,8 @@ use App\Models\User;
 use App\Support\CurrentAccount;
 use App\Support\FinanceSettings;
 
+pest()->group('tenancy');
+
 it('creates the base categories once', function () {
     $account = Account::factory()->create();
 
@@ -28,7 +30,7 @@ it('creates the base categories once', function () {
             ->and(Category::where('type', CategoryType::Income)->pluck('name')->sort()->values()->all())->toBe(['Avenças', 'Outras receitas', 'Serviços'])
             ->and(Category::where('type', CategoryType::Expense)->where('name', RecordOneOffIncome::COMMISSION_CATEGORY)->count())->toBe(1);
     });
-});
+})->group('integration');
 
 it('starts new accounts without tax exemptions', function () {
     $settings = FinanceSettings::DEFAULTS;
@@ -38,7 +40,7 @@ it('starts new accounts without tax exemptions', function () {
         ->and($settings['payments_exempt_by_default'])->toBeFalse()
         ->and($settings)->not->toHaveKey('ss_first_year_exempt')
         ->and($settings)->not->toHaveKey('irs_exempt');
-});
+})->group('integration');
 
 it('suggests the business lines already used in the account', function () {
     expect(FinanceFields::businessLines())->toBe([]);
@@ -53,7 +55,7 @@ it('suggests the business lines already used in the account', function () {
     CurrentAccount::run($other, fn () => Project::factory()->create(['business_line' => 'Secreta']));
 
     expect(FinanceFields::businessLines())->toBe(['Consultoria', 'Design']);
-});
+})->group('integration');
 
 it('signs client emails with the account name and replies to the owner', function () {
     $this->account->update(['name' => 'Estúdio Ana']);
@@ -65,7 +67,7 @@ it('signs client emails with the account name and replies to the owner', functio
 
     expect($mail->hasReplyTo('ana@example.pt'))->toBeTrue();
     $mail->assertSeeInHtml('Estúdio Ana');
-});
+})->group('integration');
 
 it('skips the reply-to when the account has no owner', function () {
     $client = Client::factory()->create();
@@ -73,7 +75,7 @@ it('skips the reply-to when the account has no owner', function () {
     $mail = new PaymentReminder($client, subjectLine: 'Lembrete', body: 'Olá');
 
     expect($mail->envelope()->replyTo)->toBe([]);
-});
+})->group('integration');
 
 it('does not show Pedro data in settings or help', function () {
     actingAsAdmin();
@@ -81,10 +83,10 @@ it('does not show Pedro data in settings or help', function () {
     $this->get(FinanceSettingsPage::getUrl())->assertOk()->assertDontSee('PEDRO')->assertDontSee('Ordenado');
     $this->get(HelpCentre::getUrl())->assertOk()->assertDontSee('PEDRO')->assertDontSee('Ordenado');
     $this->get(ProjectResource::getUrl('create'))->assertOk()->assertDontSee('PRINTEE')->assertSee('ORC-2026-001');
-});
+})->group('ui');
 
 it('refuses to import without a known account', function () {
     $this->artisan('finance:import-excel', ['path' => financeWorkbook(), '--account' => 'nao-existe'])
         ->expectsOutputToContain('nao-existe')
         ->assertFailed();
-});
+})->group('integration');

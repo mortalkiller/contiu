@@ -14,22 +14,19 @@ use App\Support\VatPeriodReview;
 use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Support\Components\Attributes\Unexposed;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Number;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
-use UnitEnum;
 
 class VatReviewPage extends Page
 {
     use HasTaxSubNavigation;
 
-    protected static ?string $title = 'Revisão de IVA';
-
     protected static ?string $slug = 'revisao-iva';
-
-    protected static string|UnitEnum|null $navigationGroup = 'Impostos';
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::Percent;
 
@@ -114,7 +111,7 @@ class VatReviewPage extends Page
         $review = $this->review();
 
         if ($review->revision() !== $this->revision) {
-            throw ValidationException::withMessages(['reference' => 'O período mudou. Atualiza os dados antes de confirmar.']);
+            throw ValidationException::withMessages(['reference' => __('The period changed. Refresh the details before confirming.')]);
         }
 
         $data = $this->validate([
@@ -123,9 +120,9 @@ class VatReviewPage extends Page
             'adjustments' => ['required', 'regex:/\A-?[0-9]{1,9}(?:[,.][0-9]{1,2})?\z/'],
             'reference' => ['required', 'string', 'max:500'],
         ], [
-            '*.required' => 'Preenche este campo.',
-            '*.regex' => 'Introduz um montante em euros com até duas casas decimais.',
-            'reference.max' => 'A referência pode ter até 500 caracteres.',
+            '*.required' => __('Fill in this field.'),
+            '*.regex' => __('Enter a euro amount with up to two decimal places.'),
+            'reference.max' => __('The reference can have up to 500 characters.'),
         ]);
 
         $review->confirm(
@@ -138,7 +135,7 @@ class VatReviewPage extends Page
         );
 
         $this->reloadReview();
-        Notification::make()->title('Apuramento de IVA confirmado')->success()->send();
+        Notification::make()->title(__('VAT assessment confirmed'))->success()->send();
     }
 
     protected function getViewData(): array
@@ -160,23 +157,23 @@ class VatReviewPage extends Page
         $threshold = $estimator->vatExempt() ? TerritorialTurnover::forYear($this->year)->threshold($estimator) : null;
         $count = fn (FiscalDocumentDirection $direction): int => $review->documents
             ->filter(fn (array $row): bool => $row['document']->direction === $direction)->count();
-        $documents = fn (int $number): string => trans_choice('{0} Sem documentos no período|{1} 1 documento no período|[2,*] :count documentos no período', $number);
+        $documents = fn (int $number): string => trans_choice('{0} No documents in this period|{1} 1 document in this period|[2,*] :count documents in this period', $number);
 
         return [
             'summary' => [
-                ['label' => 'IVA nos documentos emitidos', 'value' => Money::format($review->issuedVat), 'note' => $documents($count(FiscalDocumentDirection::Issued))],
-                ['label' => 'IVA nos documentos recebidos', 'value' => Money::format($review->receivedVat), 'note' => $documents($count(FiscalDocumentDirection::Received))],
+                ['label' => __('VAT on issued documents'), 'value' => Money::format($review->issuedVat, locale: app()->getLocale()), 'note' => $documents($count(FiscalDocumentDirection::Issued))],
+                ['label' => __('VAT on received documents'), 'value' => Money::format($review->receivedVat, locale: app()->getLocale()), 'note' => $documents($count(FiscalDocumentDirection::Received))],
                 ...($threshold === null ? [] : [[
-                    'label' => 'Limite de isenção',
-                    'value' => number_format($threshold['percent'], 1, ',', ' ').'%',
+                    'label' => __('Exemption threshold'),
+                    'value' => Number::format($threshold['percent'], precision: 1, locale: app()->getLocale()).'%',
                     'percent' => $threshold['percent'],
                     'note' => $threshold['detail'],
                     'tone' => $threshold['status'] === 'ok' ? null : $threshold['status'],
                 ]]),
             ],
             'summaryNotice' => $threshold === null ? null : [
-                'title' => 'Tens isenção de IVA (art. 53.º)',
-                'body' => 'Não entregas declaração periódica. Esta página serve para vigiares o limite e conferires o IVA dos documentos recebidos.',
+                'title' => __('You are VAT exempt (Article 53)'),
+                'body' => __('You do not file a periodic VAT return. Use this page to track the threshold and check VAT on received documents.'),
             ],
         ];
     }
@@ -186,5 +183,23 @@ class VatReviewPage extends Page
         abort_unless(static::canAccess(), 403);
 
         return VatPeriodReview::forPeriod($this->year, $this->month, $this->months);
+    }
+
+    #[Unexposed]
+    public function getTitle(): string
+    {
+        return __('VAT review');
+    }
+
+    #[Unexposed]
+    public static function getNavigationGroup(): string
+    {
+        return __('Taxes');
+    }
+
+    #[Unexposed]
+    public static function getNavigationLabel(): string
+    {
+        return __('VAT review');
     }
 }

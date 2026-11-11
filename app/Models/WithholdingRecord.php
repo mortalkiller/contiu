@@ -19,6 +19,7 @@ class WithholdingRecord extends Model
     protected function casts(): array
     {
         return [
+            'original_document_id' => 'integer',
             'payment_id' => 'integer',
             'payment_allocation_id' => 'integer',
             'receivable_id' => 'integer',
@@ -27,6 +28,11 @@ class WithholdingRecord extends Model
             'gross_amount' => 'integer',
             'retained_amount' => 'integer',
         ];
+    }
+
+    public function isAdvanceEvidence(): bool
+    {
+        return $this->payment_allocation_id === null && $this->original_document_id !== null;
     }
 
     /** @return BelongsTo<FiscalDocument, $this> */

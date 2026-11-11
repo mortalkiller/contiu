@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\RecurringExpenses\Tables;
 
+use App\Enums\Language;
 use App\Filament\Resources\Expenses\Schemas\ExpenseForm;
 use App\Models\RecurringExpense;
 use Filament\Actions\ActionGroup;
@@ -17,44 +18,46 @@ class RecurringExpensesTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->defaultDateDisplayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
+            ->defaultNumberLocale(fn (): string => app()->getLocale())
             ->defaultSort('description')
             ->columns([
                 TextColumn::make('supplier.name')
-                    ->label('Fornecedor')
+                    ->label(__('Supplier'))
                     ->searchable(),
                 TextColumn::make('description')
-                    ->label('Descrição')
+                    ->label(__('Description'))
                     ->description(fn (RecurringExpense $record) => $record->category?->name)
                     ->searchable(),
                 TextColumn::make('kind')
-                    ->label('Tipo')
+                    ->label(__('Type'))
                     ->badge(),
                 TextColumn::make('frequency')
-                    ->label('Periodicidade'),
+                    ->label(__('Schedule')),
                 TextColumn::make('day')
-                    ->label('Dia')
-                    ->formatStateUsing(fn ($state) => 'Dia '.$state),
+                    ->label(__('Day'))
+                    ->formatStateUsing(fn ($state) => __('Day :day', ['day' => $state])),
                 TextColumn::make('total')
-                    ->label('Valor')
+                    ->label(__('Amount'))
                     ->money('EUR', divideBy: 100)
                     ->alignEnd(),
                 TextColumn::make('yearly_cost')
-                    ->label('Por ano')
+                    ->label(__('Per year'))
                     ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->summarize(Summarizer::make()
-                        ->label('Total anual')
+                        ->label(__('Annual total'))
                         ->money('EUR', divideBy: 100)
                         ->using(fn ($query) => RecurringExpense::query()->whereIn('id', $query->pluck('id'))->where('is_active', true)->get()->sum(fn (RecurringExpense $row) => $row->yearly_cost))),
                 TextColumn::make('next_on')
-                    ->label('Próxima')
+                    ->label(__('Next expense'))
                     ->date(),
                 TextColumn::make('expenses_count')
-                    ->label('Lançadas')
+                    ->label(__('Created expenses'))
                     ->numeric()
                     ->alignCenter(),
                 ToggleColumn::make('is_active')
-                    ->label('Ativa'),
+                    ->label(__('Active recurring expense')),
             ])
             ->recordActions([
                 ActionGroup::make([
@@ -64,7 +67,7 @@ class RecurringExpensesTable
                     DeleteAction::make(),
                 ]),
             ])
-            ->emptyStateHeading('Sem despesas recorrentes')
-            ->emptyStateDescription('Cria uma para custos que se repetem, como subscrições ou servidores.');
+            ->emptyStateHeading(__('No recurring expenses'))
+            ->emptyStateDescription(__('Create one for recurring costs such as subscriptions or servers.'));
     }
 }

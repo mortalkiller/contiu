@@ -6,6 +6,7 @@ use App\Filament\Analysis\Concerns\UsesMarginPeriod;
 use App\Support\Money;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
+use Illuminate\Support\Js;
 use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 
 /**
@@ -17,18 +18,20 @@ class MarginsChart extends ChartWidget
     use HasSkeletonPlaceholder;
     use UsesMarginPeriod;
 
+    protected ?string $pollingInterval = null;
+
     protected int|string|array $columnSpan = 'full';
 
     protected ?string $maxHeight = '300px';
 
     public function getHeading(): string
     {
-        return 'Margem por linha de negócio';
+        return __('Margin by business line');
     }
 
     public function getDescription(): string
     {
-        return 'Faturado, custos diretos e margem em '.$this->period()->label().'.';
+        return __('Invoiced revenue, direct costs and margin in :period.', ['period' => $this->period()->label()]);
     }
 
     protected function getType(): string
@@ -43,16 +46,16 @@ class MarginsChart extends ChartWidget
         return [
             'labels' => array_column($rows, 'label'),
             'datasets' => [
-                ['label' => 'Faturado', 'data' => Money::toEurosList(array_column($rows, 'invoiced')), 'order' => 2],
-                ['label' => 'Custos diretos', 'data' => Money::toEurosList(array_column($rows, 'directCosts')), 'order' => 2],
-                ['label' => 'Margem', 'data' => Money::toEurosList(array_column($rows, 'margin')), 'type' => 'line', 'order' => 1],
+                ['label' => __('Invoiced'), 'data' => Money::toEurosList(array_column($rows, 'invoiced')), 'order' => 2],
+                ['label' => __('Direct costs'), 'data' => Money::toEurosList(array_column($rows, 'directCosts')), 'order' => 2],
+                ['label' => __('Margin'), 'data' => Money::toEurosList(array_column($rows, 'margin')), 'type' => 'line', 'order' => 1],
             ],
         ];
     }
 
     protected function getOptions(): RawJs
     {
-        return RawJs::make(<<<'JS'
+        return RawJs::make(str_replace('__CONTIU_LOCALE__', Js::from(str_replace('_', '-', app()->getLocale()))->toHtml(), <<<'JS'
         {
             interaction: { mode: 'index', intersect: false },
             datasets: {
@@ -83,7 +86,7 @@ class MarginsChart extends ChartWidget
                     grace: '5%',
                     ticks: {
                         maxTicksLimit: 5,
-                        callback: (value) => new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value),
+                        callback: (value) => new Intl.NumberFormat(__CONTIU_LOCALE__, { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value),
                     },
                 },
             },
@@ -91,11 +94,11 @@ class MarginsChart extends ChartWidget
                 legend: { display: true, position: 'top', align: 'end', labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8 } },
                 tooltip: {
                     callbacks: {
-                        label: (ctx) => ' ' + ctx.dataset.label + ': ' + new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(ctx.parsed.y),
+                        label: (ctx) => ' ' + ctx.dataset.label + ': ' + new Intl.NumberFormat(__CONTIU_LOCALE__, { style: 'currency', currency: 'EUR' }).format(ctx.parsed.y),
                     },
                 },
             },
         }
-        JS);
+        JS));
     }
 }

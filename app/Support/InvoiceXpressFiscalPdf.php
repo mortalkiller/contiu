@@ -17,7 +17,7 @@ final class InvoiceXpressFiscalPdf
     public function retrieve(#[SensitiveParameter] InvoiceXpressConfig $config, int $providerId): ?string
     {
         if ($providerId < 1 || ! preg_match(InvoiceXpressConfig::SUBDOMAIN_PATTERN, $config->subdomain)) {
-            throw new InvoiceXpressException('A ligação ao documento InvoiceXpress é inválida.');
+            throw new InvoiceXpressException(__('The link to the InvoiceXpress document is invalid.'));
         }
 
         $host = strtolower($config->subdomain).'.app.invoicexpress.com';
@@ -37,21 +37,21 @@ final class InvoiceXpressFiscalPdf
             $body = $this->read($response, 'application/json', 32768);
             $url = json_decode($body, true, 16, JSON_THROW_ON_ERROR)['output']['pdfUrl'] ?? null;
         } catch (Throwable) {
-            throw new InvoiceXpressException('Não foi possível obter a ligação ao PDF oficial.');
+            throw new InvoiceXpressException(__('Could not get the link to the official PDF.'));
         }
 
         if (! is_string($url) || ! $this->isTrustedUrl($url, $host, $apiKey)) {
-            throw new InvoiceXpressException('O InvoiceXpress devolveu uma ligação ao PDF inválida.');
+            throw new InvoiceXpressException(__('InvoiceXpress returned an invalid PDF link.'));
         }
 
         try {
             $bytes = $this->read($this->get($url, 'application/pdf'), 'application/pdf', FiscalDocumentPdfs::MAX_BYTES);
         } catch (Throwable) {
-            throw new InvoiceXpressException('Não foi possível descarregar um PDF válido do InvoiceXpress.');
+            throw new InvoiceXpressException(__('Could not download a valid PDF from InvoiceXpress.'));
         }
 
         if (! FiscalDocumentPdfs::isPdf($bytes)) {
-            throw new InvoiceXpressException('O InvoiceXpress devolveu um PDF inválido.');
+            throw new InvoiceXpressException(__('InvoiceXpress returned an invalid PDF.'));
         }
 
         return $bytes;
@@ -86,12 +86,12 @@ final class InvoiceXpressFiscalPdf
 
             if (! $response->ok() || $type !== $mime
                 || ($length !== '' && (! ctype_digit($length) || (int) $length > $maxBytes))) {
-                throw new InvoiceXpressException('A resposta do InvoiceXpress é inválida.');
+                throw new InvoiceXpressException(__('The InvoiceXpress response is invalid.'));
             }
 
             $bytes = Utils::copyToString($stream, $maxBytes + 1);
             if (! $stream->eof() || strlen($bytes) > $maxBytes || ($length !== '' && strlen($bytes) !== (int) $length)) {
-                throw new InvoiceXpressException('A resposta do InvoiceXpress está incompleta ou excede o tamanho permitido.');
+                throw new InvoiceXpressException(__('The InvoiceXpress response is incomplete or exceeds the allowed size.'));
             }
 
             return $bytes;

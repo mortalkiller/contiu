@@ -19,7 +19,7 @@ class EditExpense extends EditRecord
     {
         return [
             Action::make('downloadProof')
-                ->label('Descarregar comprovativo')
+                ->label(__('Download supporting document'))
                 ->extraAttributes(['download' => true])
                 ->visible(fn (Expense $record): bool => $record->hasProof() && ExpenseResource::canView($record))
                 ->url(fn (Expense $record): string => ExpenseResource::getUrl('download-proof', ['record' => $record])),

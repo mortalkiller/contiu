@@ -7,6 +7,8 @@ use App\Models\FiscalDocument;
 use App\Models\Payment;
 use App\Models\Receivable;
 
+pest()->group('migration', 'fiscal');
+
 it('preserves dated payments, legacy references and reconciliation when adding fiscal documents', function () {
     $migration = require database_path('migrations/2026_11_10_100001_create_fiscal_documents.php');
 

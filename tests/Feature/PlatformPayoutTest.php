@@ -19,6 +19,8 @@ use App\Support\Money;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Livewire\Livewire;
 
+pest()->group('banking');
+
 function platformBankLine(int $amount = 90000): BankTransaction
 {
     return BankTransaction::create([
@@ -85,7 +87,7 @@ it('reconciles a platform deposit from the bank page and retains its evidence an
 
     $page->set('activeTab', 'pending')->mountTableAction('details', $line)
         ->assertMountedActionModalSee(['DEP-42', 'Reconciliação desfeita']);
-});
+})->group('ui');
 
 it('reconciles grouped deposits using a confirmed conversion and independent original values', function () {
     $line = platformBankLine();
@@ -115,7 +117,7 @@ it('reconciles grouped deposits using a confirmed conversion and independent ori
     expect(OneOffIncome::count())->toBe(0)
         ->and(Expense::count())->toBe(0)
         ->and(PlatformPayout::whereNotNull('undone_at')->count())->toBe(2);
-});
+})->group('integration');
 
 it('rejects an invalid payout without creating any records', function (array $overrides, string $message) {
     $line = platformBankLine();
@@ -136,7 +138,7 @@ it('rejects an invalid payout without creating any records', function (array $ov
     'zero FX rate' => [['currency' => 'USD', 'fx_rate' => '0.0'], 'taxa'],
     'unverified FX' => [['currency' => 'USD', 'fx_rate' => '1', 'fx_reference' => 'FX-1'], 'conversão'],
     'missing FX evidence' => [['currency' => 'USD', 'fx_rate' => '1', 'fx_confirmed' => true], 'conversão'],
-]);
+])->group('integration');
 
 it('rolls back all deposits if the last deposit in the group cannot be reconciled', function () {
     $line = platformBankLine();
@@ -154,7 +156,7 @@ it('rolls back all deposits if the last deposit in the group cannot be reconcile
         ->and(Payment::count())->toBe(0)
         ->and(Expense::count())->toBe(0)
         ->and(PlatformPayout::count())->toBe(0);
-});
+})->group('integration');
 
 it('preserves the payout when an expense acquires a fiscal document link after reconciliation', function () {
     $line = platformBankLine();
@@ -169,7 +171,7 @@ it('preserves the payout when an expense acquires a fiscal document link after r
     expect($line->fresh()->status)->toBe(BankTransactionStatus::Matched)
         ->and($line->difference())->toBe(0)
         ->and($payout->fresh()->undone_at)->toBeNull();
-});
+})->group('integration');
 
 it('rejects payout sources and documents from other accounts and leaves the bank line pending', function () {
     $line = platformBankLine();
@@ -189,7 +191,7 @@ it('rejects payout sources and documents from other accounts and leaves the bank
         ->toThrow(ModelNotFoundException::class);
     expect($line->fresh()->status)->toBe(BankTransactionStatus::Pending)
         ->and(PlatformPayout::count())->toBe(0);
-});
+})->group('integration');
 
 it('blocks creating or undoing a platform payout when the account is read-only', function () {
     $line = platformBankLine();
@@ -204,4 +206,4 @@ it('blocks creating or undoing a platform payout when the account is read-only',
 
     expect(fn () => $action->createPlatformPayouts($line, [platformPayoutData($platform)]))
         ->toThrow(AccountIsReadOnly::class);
-});
+})->group('integration');

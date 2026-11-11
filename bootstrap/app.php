@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\ApplyUserLanguage;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -15,7 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         then: fn () => Route::group([], base_path('routes/stripe.php')),
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->web(append: [ApplyUserLanguage::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

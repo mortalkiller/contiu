@@ -22,10 +22,47 @@ final class InvoiceXpressClient
         return in_array($subdomain, config('services.invoicexpress.catalog_safe_accounts', []), true);
     }
 
+    public static function sandboxDraftsAllowed(?string $subdomain): bool
+    {
+        return $subdomain !== null && app()->environment('local', 'testing')
+            && $subdomain === config('services.invoicexpress.sandbox_draft_account');
+    }
+
+    public function createSandboxDraft(string $type, #[SensitiveParameter] array $payload, string $expectedSubdomain): array
+    {
+        $config = $this->configuration();
+        if (! self::sandboxDraftsAllowed($config->subdomain) || $config->subdomain !== $expectedSubdomain
+            || ! isset(InvoiceXpressSandboxDrafts::DocumentTypes[$type])) {
+            throw new InvoiceXpressException(__('Drafts can only be created in the configured sandbox.'));
+        }
+
+        return $this->send($config, 'POST', "/{$type}s.json", [], $payload, [], requiresCatalogValidation: false);
+    }
+
+    public function saveContact(string $subdomain, ?int $contactId, #[SensitiveParameter] array $contact): array
+    {
+        abort_unless(InvoiceXpressIssueRepository::ownerCanIssue(), 403);
+        $config = $this->configuration();
+        if ($subdomain !== $config->subdomain || ($contactId !== null && $contactId < 1)) {
+            throw new InvoiceXpressException(__('The InvoiceXpress account or customer has changed.'));
+        }
+
+        return $this->send(
+            $config,
+            $contactId === null ? 'POST' : 'PUT',
+            $contactId === null ? '/clients.json' : "/clients/{$contactId}.json",
+            [],
+            ['client' => $contact],
+            [],
+            requiresCatalogValidation: false,
+            acceptsEmptyBody: $contactId !== null,
+        );
+    }
+
     public function configuration(): InvoiceXpressConfig
     {
         return InvoiceXpressConfig::current()
-            ?? throw new InvoiceXpressException('Configura a ligação ao InvoiceXpress primeiro.');
+            ?? throw new InvoiceXpressException(__('Set up the connection to InvoiceXpress first.'));
     }
 
     /**
@@ -43,7 +80,7 @@ final class InvoiceXpressClient
         $config = $this->configuration();
 
         if ($expectedSubdomain !== null && $config->subdomain !== $expectedSubdomain) {
-            throw new InvoiceXpressException('A conta InvoiceXpress mudou.');
+            throw new InvoiceXpressException(__('The InvoiceXpress account has changed.'));
         }
 
         return $this->send($config, $method, $relativePath, $query, $payload, $headers);
@@ -56,11 +93,11 @@ final class InvoiceXpressClient
         $end = $this->date($to);
 
         if ($start === null || $end === null || $end < $start || $start->diff($end)->days > 365) {
-            throw ValidationException::withMessages(['to' => 'Escolhe um intervalo válido de até 366 dias.']);
+            throw ValidationException::withMessages(['to' => __('Choose a valid date range of up to 366 days.')]);
         }
 
         if ($page < 1 || $page > self::MAX_PAGES) {
-            throw ValidationException::withMessages(['page' => 'Reduz o intervalo de datas para consultar mais documentos.']);
+            throw ValidationException::withMessages(['page' => __('Narrow the date range to view more documents.')]);
         }
 
         $config = $this->configuration();
@@ -82,7 +119,7 @@ final class InvoiceXpressClient
         if (! is_array($invoices) || ! array_is_list($invoices) || count($invoices) > self::PER_PAGE
             || ! is_int($totalPages) || $totalPages < 0
             || ($currentPage !== $page && ! ($page === 1 && $currentPage === 0 && $totalPages === 0 && $invoices === []))) {
-            throw new InvoiceXpressException('O InvoiceXpress devolveu uma lista de documentos inválida.');
+            throw new InvoiceXpressException(__('InvoiceXpress returned an invalid document list.'));
         }
 
         return ['subdomain' => $config->subdomain, 'invoices' => $invoices, 'page' => $page, 'totalPages' => $totalPages];
@@ -95,6 +132,8 @@ final class InvoiceXpressClient
         #[SensitiveParameter] array $query,
         #[SensitiveParameter] array $payload,
         #[SensitiveParameter] array $headers,
+        bool $requiresCatalogValidation = true,
+        bool $acceptsEmptyBody = false,
     ): array {
         $method = strtoupper($method);
 
@@ -102,21 +141,21 @@ final class InvoiceXpressClient
             || ! preg_match('/\A\/?(?:[a-z0-9_-]+\/)*[a-z0-9_-]+\.json\z/i', $relativePath)
             || ! preg_match(InvoiceXpressConfig::SUBDOMAIN_PATTERN, $config->subdomain)
             || ($method === 'GET' && $payload !== [])) {
-            throw new InvoiceXpressException('O pedido ao InvoiceXpress é inválido.');
+            throw new InvoiceXpressException(__('The InvoiceXpress request is invalid.'));
         }
 
         if ($method !== 'GET' && (CurrentAccount::readOnly() || AccountantAccess::isReviewOnly())) {
             throw new AccountIsReadOnly;
         }
 
-        if ($method !== 'GET' && ! self::catalogValidatedFor($config->subdomain)) {
-            throw new InvoiceXpressException('A emissão aguarda a validação de que a API preserva o catálogo do InvoiceXpress.');
+        if ($method !== 'GET' && $requiresCatalogValidation && ! self::catalogValidatedFor($config->subdomain)) {
+            throw new InvoiceXpressException(__('Issuance is pending confirmation that the API preserves the InvoiceXpress catalog.'));
         }
 
         foreach ($headers as $name => $value) {
             if (! in_array(strtolower((string) $name), ['accept-language', 'idempotency-key', 'if-match', 'if-none-match'], true)
                 || ! is_string($value) || preg_match('/[\x00-\x1f\x7f]/', $value)) {
-                throw new InvoiceXpressException('O pedido ao InvoiceXpress é inválido.');
+                throw new InvoiceXpressException(__('The InvoiceXpress request is invalid.'));
             }
         }
 
@@ -136,27 +175,27 @@ final class InvoiceXpressClient
                     ...($payload === [] ? [] : ['json' => $payload]),
                 ]);
         } catch (Throwable) {
-            throw new InvoiceXpressException('Não foi possível comunicar com o InvoiceXpress.');
+            throw new InvoiceXpressException(__('Could not communicate with InvoiceXpress.'));
         }
 
         if (! $response->successful()) {
             $status = $response->status();
 
             throw new InvoiceXpressException(match ($status) {
-                401, 403 => 'O InvoiceXpress recusou a ligação. Confirma a conta e a chave de API.',
-                429 => 'O InvoiceXpress atingiu o limite de pedidos. Tenta novamente mais tarde.',
-                default => 'O InvoiceXpress recusou ou não conseguiu concluir o pedido.',
+                401, 403 => __('InvoiceXpress refused the connection. Check the account and API key.'),
+                429 => __('InvoiceXpress reached its request limit. Try again later.'),
+                default => __('InvoiceXpress refused the request or could not complete it.'),
             }, $status);
         }
 
-        if ($response->noContent()) {
+        if ($response->noContent() || ($acceptsEmptyBody && trim($response->body()) === '')) {
             return [];
         }
 
         $decoded = $response->json();
 
         if (! is_array($decoded) || array_is_list($decoded) || ! empty($decoded['errors'])) {
-            throw new InvoiceXpressException('O InvoiceXpress devolveu uma resposta inválida.');
+            throw new InvoiceXpressException(__('InvoiceXpress returned an invalid response.'));
         }
 
         return $decoded;
@@ -171,12 +210,12 @@ final class InvoiceXpressClient
             if (! is_string($key) || ! preg_match('/\A[a-z0-9_]+(?:\[[a-z0-9_]*\])?\z/i', $key)
                 || preg_match('/\Aapi_key(?:\[|\z)/i', $key)
                 || (is_array($values) && (! str_ends_with($key, '[]') || ! array_is_list($values)))) {
-                throw new InvoiceXpressException('O pedido ao InvoiceXpress é inválido.');
+                throw new InvoiceXpressException(__('The InvoiceXpress request is invalid.'));
             }
 
             foreach ((array) $values as $value) {
                 if (! is_scalar($value)) {
-                    throw new InvoiceXpressException('O pedido ao InvoiceXpress é inválido.');
+                    throw new InvoiceXpressException(__('The InvoiceXpress request is invalid.'));
                 }
 
                 $pairs[] = rawurlencode($key).'='.rawurlencode(is_bool($value) ? ($value ? 'true' : 'false') : (string) $value);

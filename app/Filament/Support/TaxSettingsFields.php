@@ -2,6 +2,7 @@
 
 namespace App\Filament\Support;
 
+use App\Enums\Language;
 use App\Support\FinanceSettings;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Field;
@@ -22,23 +23,23 @@ use ToneGabes\Filament\Icons\Enums\Phosphor;
  */
 final class TaxSettingsFields
 {
-    public const START_KINDS = ['first' => 'Primeiro início', 'restart' => 'Reinício'];
+    public const START_KINDS = ['first' => 'First registration', 'restart' => 'Restart'];
 
     public const IRS_COEFFICIENTS = [
-        '0.75' => 'Serviços da tabela do art. 151.º (coeficiente 0,75)',
-        '0.35' => 'Outras prestações de serviços (coeficiente 0,35)',
+        '0.75' => 'Services listed in Article 151 (0.75 coefficient)',
+        '0.35' => 'Other services (0.35 coefficient)',
     ];
 
     /** IRS Jovem lasts this many years (art. 12.º-B do CIRS). */
     public const IRS_JOVEM_YEARS = 10;
 
     public const SS_RATES = [
-        '0.214' => 'Trabalhador independente (21,4 %)',
-        '0.252' => 'Empresário em nome individual ou EIRL (25,2 %)',
+        '0.214' => 'Self-employed worker (21.4%)',
+        '0.252' => 'Sole trader or EIRL (25.2%)',
     ];
 
     /** Where the Segurança Social shows the activity data (rate, enrolment, exemption). */
-    public const SS_DIRECTA_ACTIVITY = 'Segurança Social Direta → Trabalho → Remunerações e contribuições → Trabalhadores independentes → Consultar e alterar os dados de atividade';
+    public const SS_DIRECTA_ACTIVITY = 'Social Security Direct → Trabalho → Remunerações e contribuições → Trabalhadores independentes → Consultar e alterar os dados de atividade';
 
     /**
      * "Onde ver?" next to the label, with where the freelancer finds the answer in a tooltip: the
@@ -51,18 +52,18 @@ final class TaxSettingsFields
      */
     public static function whereToFind(Field $field, string $where): Field
     {
-        return $field->hint('Onde ver?')->hintIcon(Phosphor::Question, tooltip: $where);
+        return $field->hint(__('Where can I find this?'))->hintIcon(Phosphor::Question, tooltip: $where);
     }
 
     public static function activityStartedOn(): DatePicker
     {
         return self::whereToFind(
             DatePicker::make('activity_started_on')
-                ->label('Início de atividade')
-                ->helperText('A data em que abriste (ou reabriste) atividade nas Finanças.')
+                ->label(__('Start of activity'))
+                ->helperText(__('The date you registered or restarted your activity with the Tax Authority.'))
                 ->native(false)
-                ->displayFormat('d/m/Y'),
-            'No Portal das Finanças, em Declarações de Atividade: a data da declaração de início (ou de reinício). Também está no comprovativo que recebeste.',
+                ->displayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat()),
+            __('In the Portuguese Tax Portal, under “Declarações de Atividade”, look for the date of your start or restart declaration. It is also on the receipt you received.'),
         );
     }
 
@@ -80,56 +81,56 @@ final class TaxSettingsFields
         return array_values(array_filter([
             self::whereToFind(
                 Radio::make('activity_start_kind')
-                    ->label('É o primeiro início ou um reinício?')
-                    ->options(self::START_KINDS)
+                    ->label(__('Is this your first registration or a restart?'))
+                    ->options(array_map(fn (string $label): string => __($label), self::START_KINDS))
                     ->default('first')
                     ->required($requireKind)
                     ->descriptions([
-                        'first' => 'Nunca tiveste atividade aberta nas Finanças.',
-                        'restart' => 'Já tiveste atividade aberta, cessaste-a e voltaste a abrir.',
+                        'first' => __('You have never registered an activity with the Tax Authority.'),
+                        'restart' => __('You previously registered an activity, ended it and registered again.'),
                     ])
                     ->live()
                     ->columnSpanFull(),
-                'No comprovativo da declaração, o título diz «Início» ou «Reinício de Atividade». Se já tiveste atividade aberta e a fechaste, é um reinício (o Portal pode chamar-lhe «Início de atividade» na lista).',
+                __('The declaration receipt says “Início” or “Reinício de Atividade”. If you previously registered and ended an activity, this is a restart, even if the portal lists it as “Início de atividade”.'),
             ),
             self::whereToFind(
                 DatePicker::make('previous_activity_ended_on')
-                    ->label('Cessação da atividade anterior')
-                    ->helperText('Opcional. Sem esta data não aplicamos a redução do IRS dos primeiros anos (só existe se o reinício foi 5 ou mais anos depois da cessação).')
+                    ->label(__('End date of previous activity'))
+                    ->helperText(__('Optional. Without this date, the income tax reduction for the first years is skipped. It only applies if you restarted at least five years after ending the previous activity.'))
                     ->native(false)
-                    ->displayFormat('d/m/Y')
+                    ->displayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
                     ->visible(fn (Get $get): bool => $get('activity_start_kind') === 'restart')
                     ->columnSpanFull(),
-                'No comprovativo da declaração de cessação da atividade anterior. O Portal das Finanças pode não a mostrar em Declarações de Atividade; nesse caso pede o histórico no e-balcão, ou deixa em branco.',
+                __('Check the receipt for the declaration ending your previous activity. If the Portuguese Tax Portal does not show it under “Declarações de Atividade”, request the history through e-balcão or leave it blank.'),
             ),
             self::whereToFind(
                 DatePicker::make('ss_enrolled_from')
-                    ->label('Enquadrado na Segurança Social a partir de')
-                    ->helperText('Opcional. Em branco, a app calcula: 12 meses depois de um primeiro início, logo no mês de um reinício.')
+                    ->label(__('Social Security coverage starts on'))
+                    ->helperText(__('Optional. Leave blank to calculate it as 12 months after your first registration or the month of a restart.'))
                     ->native(false)
-                    ->displayFormat('d/m/Y')
+                    ->displayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
                     ->columnSpanFull(),
-                self::SS_DIRECTA_ACTIVITY.': «Enquadrado a partir de».',
+                __(':path: “Enquadrado a partir de”.', ['path' => __(self::SS_DIRECTA_ACTIVITY)]),
             ),
             self::whereToFind(
                 Toggle::make('dependent_income_current_year')
-                    ->label("Tive salário ou pensão em {$year}")
-                    ->helperText('Trabalho por conta de outrem ou pensão. Num ano com salário ou pensão não há redução do IRS dos primeiros anos de atividade.')
+                    ->label(__('I had salary or pension income in :year', ['year' => $year]))
+                    ->helperText(__('Employment or pension. The income tax reduction for the first years of activity does not apply in a year with salary or pension income.'))
                     ->columnSpanFull(),
-                'Basta um mês desse ano com salário (trabalho por conta de outrem) ou pensão. Vês nos recibos de vencimento ou no anexo A da tua declaração de IRS.',
+                __('One month of salary or pension in that year is enough. Check your payslips or Schedule A of your personal income tax return.'),
             ),
             $withPreviousYear ? Toggle::make('dependent_income_previous_year')
-                ->label('Tive salário ou pensão em '.($year - 1))
+                ->label(__('I had salary or pension income in :year', ['year' => $year - 1]))
                 ->columnSpanFull() : null,
             $withPreviousYear ? self::whereToFind(
                 DatePicker::make('obligations_tracked_from')
-                    ->label('Acompanhar obrigações desde')
-                    ->helperText('Opcional. As obrigações por cumprir desde esta data aparecem no painel como em atraso (até 12 meses para trás). Em branco: desde que criaste a conta na Contiu.')
+                    ->label(__('Track obligations from'))
+                    ->helperText(__('Optional. Outstanding obligations since this date appear as overdue on the dashboard, going back up to 12 months. Leave blank to start from when you created your Contiu account.'))
                     ->native(false)
-                    ->displayFormat('d/m/Y')
+                    ->displayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
                     ->maxDate(now())
                     ->columnSpanFull(),
-                'Põe a data em que começaste (ou reiniciaste) a atividade se havia obrigações antes de usares a Contiu, por exemplo IVA das compras ao estrangeiro por entregar.',
+                __('Use the date you started or restarted trading if you had obligations before using Contiu, such as VAT filings for purchases from abroad.'),
             ) : null,
         ]));
     }
@@ -148,44 +149,44 @@ final class TaxSettingsFields
         return [
             self::whereToFind(
                 Radio::make('irs_coefficient')
-                    ->label('Que serviços prestas?')
-                    ->options(self::IRS_COEFFICIENTS)
+                    ->label(__('What services do you provide?'))
+                    ->options(array_map(fn (string $label): string => __($label), self::IRS_COEFFICIENTS))
                     ->default('0.75')
                     ->descriptions([
-                        '0.75' => 'As profissões da tabela do art. 151.º do CIRS, por exemplo programadores, designers, consultores.',
-                        '0.35' => 'Serviços que não estão na tabela.',
+                        '0.75' => __('Occupations listed in Article 151 of the Portuguese Income Tax Code, such as programmers, designers and consultants.'),
+                        '0.35' => __('Services not listed in the table.'),
                     ])
-                    ->helperText('Conta a natureza do serviço que prestas, não o código CAE ou CIRS da atividade (Circular AT 2/2016). O coeficiente diz que parte do rendimento é tributada.')
+                    ->helperText(__('Classification depends on the service you provide, regardless of the registered CAE or CIRS code (Tax Authority Circular 2/2016). The coefficient determines the taxable share of income.'))
                     ->required()
                     ->columnSpanFull(),
-                'A tabela do art. 151.º do CIRS (Portaria 1011/2001) lista as profissões, por exemplo 1332 Programadores informáticos. Na dúvida, pergunta ao contabilista: a escolha muda muito o IRS.',
+                __('The table in Article 151 of the Portuguese Income Tax Code (Ordinance 1011/2001) lists occupations, such as 1332 for computer programmers. Ask your accountant if unsure, since this choice significantly affects income tax.'),
             ),
             self::whereToFind(
                 Toggle::make('irs_jovem')
-                    ->label('Aderiste ao IRS Jovem?')
-                    ->helperText('Isenção de parte do rendimento nos primeiros 10 anos, até aos 35 anos (art. 12.º-B do CIRS). Não muda a Segurança Social.')
+                    ->label(__('Have you opted into IRS Jovem?'))
+                    ->helperText(__('Partial income exemption for the first 10 years, up to age 35 (Article 12-B of the Portuguese Income Tax Code). Social Security contributions are unaffected.'))
                     ->live()
                     ->columnSpanFull(),
-                'Escolhe-se na declaração anual de IRS (modelo 3, anexo B). Se o pediste na última declaração, estás aderido.',
+                __('You opt in on your annual personal income tax return (Form 3, Schedule B). You are opted in if you requested it on your last return.'),
             ),
             DatePicker::make('birth_date')
-                ->label('Data de nascimento')
-                ->helperText('Para o limite dos 35 anos.')
+                ->label(__('Date of birth'))
+                ->helperText(__('Used to check the age limit of 35.'))
                 ->native(false)
-                ->displayFormat('d/m/Y')
+                ->displayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
                 ->visible(fn (Get $get): bool => (bool) $get('irs_jovem'))
                 ->required(fn (Get $get): bool => (bool) $get('irs_jovem')),
             self::whereToFind(TextInput::make('irs_jovem_year_number')
-                ->label("Em {$year}, és no ano n.º")
+                ->label(__('In :year, your year number is', ['year' => $year]))
                 ->helperText($irsJovemEnded
-                    ? 'O IRS Jovem dura 10 anos: já terminou. Desliga a opção acima.'
-                    : 'Do IRS Jovem, de 1 a 10. Nos anos seguintes a app soma 1.')
+                    ? __('IRS Jovem lasts 10 years and your eligibility has ended. Turn off the option above.')
+                    : __('The IRS Jovem year, from 1 to 10. The app adds one each following year.'))
                 ->integer()
                 ->minValue(1)
                 ->maxValue(self::IRS_JOVEM_YEARS)
                 ->visible(fn (Get $get): bool => (bool) $get('irs_jovem'))
                 ->required(fn (Get $get): bool => (bool) $get('irs_jovem')),
-                'Conta os anos com rendimentos de trabalho ou de atividade (categorias A ou B), desde o primeiro. Não contam os anos sem rendimentos nem os anos em que eras dependente dos teus pais.',
+                __('Count the years with employment or business income (categories A or B), starting from the first. Skip years with no income and years when you were your parents’ dependent.'),
             ),
         ];
     }
@@ -196,17 +197,17 @@ final class TaxSettingsFields
         return [
             self::whereToFind(
                 Select::make('ss_rate')
-                    ->label('Taxa contributiva')
-                    ->options(self::SS_RATES)
+                    ->label(__('Contribution rate'))
+                    ->options(array_map(fn (string $label): string => __($label), self::SS_RATES))
                     ->default('0.214')
                     ->required(),
-                self::SS_DIRECTA_ACTIVITY.': «Forma de atividade (taxa)».',
+                __(':path: “Forma de atividade (taxa)”.', ['path' => __(self::SS_DIRECTA_ACTIVITY)]),
             ),
             // Stored as a fraction (0.70); typed as a percentage.
             self::whereToFind(
                 TextInput::make('ss_relevant_income_share_percent')
-                    ->label('Rendimento relevante')
-                    ->helperText('70% para prestação de serviços.')
+                    ->label(__('Relevant income'))
+                    ->helperText(__('70% for services.'))
                     ->numeric()
                     ->step(1)
                     ->minValue(0)
@@ -214,14 +215,14 @@ final class TaxSettingsFields
                     ->suffix('%')
                     ->default(70)
                     ->required(),
-                '70% para prestação de serviços e 20% para venda de bens (art. 162.º do Código Contributivo). Na dúvida, deixa 70%.',
+                __('70% for services and 20% for sales of goods (Article 162 of the Social Security Contributions Code). Leave it at 70% if unsure.'),
             ),
             self::whereToFind(
                 Toggle::make('ss_contribution_exempt')
-                    ->label('A Segurança Social reconheceu-te isenção de contribuições?')
-                    ->helperText('Isenção do art. 157.º do Código Contributivo, por exemplo se acumulas com trabalho por conta de outrem, se és pensionista, ou se no ano anterior só pagaste o mínimo.')
+                    ->label(__('Has Social Security granted you a contribution exemption?'))
+                    ->helperText(__('Article 157 exemption under the Social Security Contributions Code, for example if you also have a job, receive a pension, or paid only the minimum in the previous year.'))
                     ->columnSpanFull(),
-                self::SS_DIRECTA_ACTIVITY.': em «Situação atual», se disser «Não tem obrigação de contribuir», liga esta opção.',
+                __(':path: under “Situação atual”, enable this option if it says “Não tem obrigação de contribuir”.', ['path' => __(self::SS_DIRECTA_ACTIVITY)]),
             ),
         ];
     }

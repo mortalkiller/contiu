@@ -26,12 +26,16 @@ final class ClientStatement
     /** @var Collection<int, Entry>|null */
     private ?Collection $entries = null;
 
+    /** @var Collection<int, Receivable>|null */
+    private ?Collection $receivableRows = null;
+
     private int $opening = 0; // cents
 
     public function __construct(
         public readonly Client $client,
         public readonly ?CarbonInterface $from = null,
         public readonly ?CarbonInterface $to = null,
+        private readonly ?string $locale = null,
     ) {}
 
     /** @return Collection<int, Entry> */
@@ -60,15 +64,16 @@ final class ClientStatement
         return (int) $this->receivables()
             ->filter(fn (Receivable $receivable) => $receivable->due_on->isBefore(today()))
             ->filter(fn (Receivable $receivable) => $this->to === null || $receivable->due_on->lte($this->to))
-            ->sum(fn (Receivable $receivable) => $receivable->outstanding);
+            ->sum(fn (Receivable $receivable) => $receivable->projectedOutstanding());
     }
 
     /** @return Collection<int, Receivable> */
     private function receivables(): Collection
     {
-        return Receivable::query()
+        return $this->receivableRows ??= Receivable::query()
             ->forClient($this->client->getKey())
             ->excludingCancelled()
+            ->withOutstandingBalance()
             ->with(['billable', 'payments', 'creditApplications'])
             ->get();
     }
@@ -92,7 +97,7 @@ final class ClientStatement
         $payments = $receivables->flatMap(fn (Receivable $receivable) => $receivable->payments->reject(fn (Payment $payment): bool => $payment->isAdvance())->map(fn (Payment $payment) => [
             'key' => 'p'.$payment->getKey().($payment->is_split ? '-'.$receivable->id : ''),
             'date' => $payment->paid_on,
-            'description' => collect(['Recebimento', $payment->method?->getLabel(), $payment->invoice_number])->filter()->implode(' · '),
+            'description' => collect([__('Payment received', [], $this->locale), $payment->method?->getLabel($this->locale), $payment->invoice_number])->filter()->implode(' · '),
             'debit' => 0,
             'credit' => (int) $payment->pivot->amount,
             'is_future' => false,
@@ -103,7 +108,7 @@ final class ClientStatement
         $advances = Payment::query()->where('advance_client_id', $this->client->getKey())->get()->map(fn (Payment $payment): array => [
             'key' => 'p'.$payment->getKey(),
             'date' => $payment->paid_on,
-            'description' => collect(['Sinal recebido', $payment->method?->getLabel(), $payment->invoice_number])->filter()->implode(' · '),
+            'description' => collect([__('Advance received', [], $this->locale), $payment->method?->getLabel($this->locale), $payment->invoice_number])->filter()->implode(' · '),
             'debit' => 0,
             'credit' => $payment->amount,
             'is_future' => false,
@@ -144,7 +149,7 @@ final class ClientStatement
             $entries->prepend([
                 'key' => 'opening',
                 'date' => $this->from,
-                'description' => 'Saldo anterior',
+                'description' => __('Opening balance', [], $this->locale),
                 'debit' => 0,
                 'credit' => 0,
                 'balance' => $this->opening,
@@ -167,10 +172,10 @@ final class ClientStatement
                 $entry = ['date' => $refund->paid_on, 'is_future' => false];
 
                 return [[
-                    ...$entry, 'key' => 'rf'.$refund->id, 'description' => 'Reembolso · '.$refund->reference,
+                    ...$entry, 'key' => 'rf'.$refund->id, 'description' => __('Refund · :reference', ['reference' => $refund->reference], $this->locale),
                     'debit' => $refund->amount, 'credit' => 0, 'kind' => 'refund', 'order' => 3,
                 ], [
-                    ...$entry, 'key' => 'rfc'.$refund->id, 'description' => 'Nota de crédito reembolsada · '.$refund->creditNote->number,
+                    ...$entry, 'key' => 'rfc'.$refund->id, 'description' => __('Credit note refunded · :number', ['number' => $refund->creditNote->number], $this->locale),
                     'debit' => 0, 'credit' => $refund->amount, 'kind' => 'credit', 'order' => 4,
                 ]];
             });
@@ -185,7 +190,7 @@ final class ClientStatement
             ->map(fn (object $record): array => [
                 'key' => 'w'.$record->id,
                 'date' => CarbonImmutable::parse($record->paid_on),
-                'description' => 'Retenção na fonte · '.$record->document_number,
+                'description' => __('Withholding tax · :number', ['number' => $record->document_number], $this->locale),
                 'debit' => 0,
                 'credit' => (int) $record->retained_amount,
                 'is_future' => false,
@@ -204,7 +209,7 @@ final class ClientStatement
             $entry = ['is_future' => false, 'kind' => 'credit', 'order' => 2];
             $applied = [
                 ...$entry, 'key' => 'c'.$application->id, 'date' => $application->applied_on,
-                'description' => 'Nota de crédito · '.$label, 'debit' => 0, 'credit' => $application->amount,
+                'description' => __('Credit note · :reference', ['reference' => $label], $this->locale), 'debit' => 0, 'credit' => $application->amount,
             ];
 
             if ($application->reversed_on === null) {
@@ -213,7 +218,7 @@ final class ClientStatement
 
             return [$applied, [
                 ...$entry, 'key' => 'cr'.$application->id, 'date' => $application->reversed_on,
-                'description' => 'Aplicação revertida · '.$label, 'debit' => $application->amount, 'credit' => 0,
+                'description' => __('Application reversed · :reference', ['reference' => $label], $this->locale), 'debit' => $application->amount, 'credit' => 0,
             ]];
         });
     }

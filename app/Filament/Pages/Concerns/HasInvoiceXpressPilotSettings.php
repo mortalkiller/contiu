@@ -40,10 +40,12 @@ trait HasInvoiceXpressPilotSettings
         $this->authorizeAccount();
         $this->resetValidation();
         $this->validate(['approvedItems' => ['array', 'max:25'], 'approvedItems.*' => ['integer', 'min:1']]);
-        $settings->save(implode(',', $this->approvedItems), $this->taxName, $this->sequenceId);
+        $draftOnly = ($this->catalog['account'] ?? null) === InvoiceXpressConfig::current()?->subdomain
+            && isset($this->catalog['draftSequences'][$this->sequenceId]);
+        $settings->save(implode(',', $this->approvedItems), $this->taxName, $this->sequenceId, draftOnly: $draftOnly);
         $this->afterInvoiceXpressPilotSettingsSave();
 
-        Notification::make()->title('Configuração de emissão guardada')->success()->send();
+        Notification::make()->title(__('Issuing settings saved'))->success()->send();
     }
 
     protected function fillInvoiceXpressPilotSettings(): void

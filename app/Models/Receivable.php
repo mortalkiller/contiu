@@ -22,7 +22,7 @@ use OwenIt\Auditing\Auditable;
 use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
 
 /**
- * Valor a receber: one instalment of a project or one period of a retainer.
+ * Valor a receber: a charge against a billable.
  */
 class Receivable extends Model implements AuditableContract
 {
@@ -34,7 +34,7 @@ class Receivable extends Model implements AuditableContract
     {
         static::deleting(function (Receivable $receivable): void {
             if ($receivable->payments()->exists()) {
-                throw HasPaymentsException::for('este valor a receber');
+                throw HasPaymentsException::for(__('this receivable'));
             }
         });
     }
@@ -47,7 +47,7 @@ class Receivable extends Model implements AuditableContract
         ];
     }
 
-    /** @return MorphTo<Project|Retainer, $this> */
+    /** @return MorphTo<Project|Retainer|OneOffIncome|DirectInvoiceSale, $this> */
     public function billable(): MorphTo
     {
         return $this->morphTo();
@@ -68,27 +68,54 @@ class Receivable extends Model implements AuditableContract
     /** @param Builder<Receivable> $query */
     public function scopeForClient(Builder $query, int $clientId): void
     {
-        $query->where(fn (Builder $query) => $query
-            ->whereHasMorph('billable', [Project::class, Retainer::class], fn (Builder $query) => $query->where('client_id', $clientId)));
+        $query->forClients([$clientId]);
+    }
+
+    /** @param Builder<Receivable> $query
+     * @param  list<int>  $clientIds
+     */
+    public function scopeForClients(Builder $query, array $clientIds): void
+    {
+        $query->whereHasMorph('billable', [Project::class, Retainer::class, DirectInvoiceSale::class], fn (Builder $query) => $query->whereIn('client_id', $clientIds));
     }
 
     /** @param Builder<Receivable> $query */
     public function scopeOpen(Builder $query): void
     {
-        $credit = CreditApplication::withoutGlobalScope(AccountScope::class)->effectiveAt(today()->toDateString())
+        [$settled, $bindings] = self::settledAmountExpression(today()->toDateString());
+
+        $query->whereRaw('receivables.amount > ('.$settled.')', $bindings);
+    }
+
+    /** @param Builder<Receivable> $query */
+    public function scopeWithOutstandingBalance(Builder $query): void
+    {
+        [$settled, $bindings] = self::settledAmountExpression(today()->toDateString());
+
+        if ($query->getQuery()->columns === null) {
+            $query->select('receivables.*');
+        }
+
+        $query->selectRaw('receivables.amount - ('.$settled.') as outstanding_balance', $bindings);
+    }
+
+    /** @return array{string, list<mixed>} */
+    private static function settledAmountExpression(string $day): array
+    {
+        $credit = CreditApplication::withoutGlobalScope(AccountScope::class)->effectiveAt($day)
             ->whereColumn('credit_applications.receivable_id', 'receivables.id')
             ->whereColumn('credit_applications.account_id', 'receivables.account_id')
             ->selectRaw('coalesce(sum(credit_applications.amount), 0)')
             ->toBase();
-        $withholding = WithholdingReview::settlementsOn(today()->toDateString())
+        $withholding = WithholdingReview::settlementsOn($day)
             ->whereColumn('withholding_records.receivable_id', 'receivables.id')
             ->whereColumn('withholding_records.account_id', 'receivables.account_id')
             ->selectRaw('coalesce(sum(withholding_records.retained_amount), 0)');
 
-        $query->whereRaw(
-            'receivables.amount > (select coalesce(sum(payment_allocations.amount), 0) from payment_allocations where payment_allocations.receivable_id = receivables.id and payment_allocations.account_id = receivables.account_id) + ('.$credit->toSql().') + ('.$withholding->toSql().')',
+        return [
+            '(select coalesce(sum(payment_allocations.amount), 0) from payment_allocations where payment_allocations.receivable_id = receivables.id and payment_allocations.account_id = receivables.account_id) + ('.$credit->toSql().') + ('.$withholding->toSql().')',
             [...$credit->getBindings(), ...$withholding->getBindings()],
-        );
+        ];
     }
 
     /** @param Builder<Receivable> $query */
@@ -106,6 +133,14 @@ class Receivable extends Model implements AuditableContract
     protected function outstanding(): Attribute
     {
         return Attribute::get(fn (): int => $this->balanceAfter($this->received, today()->toDateString()));
+    }
+
+    /** The current balance from a read query that used withOutstandingBalance(). */
+    public function projectedOutstanding(): int
+    {
+        return array_key_exists('outstanding_balance', $this->getAttributes())
+            ? max(0, (int) $this->getAttribute('outstanding_balance'))
+            : $this->outstanding;
     }
 
     /** Closing balance for the given date. Both credits and allocations use their effective dates. */
@@ -134,7 +169,7 @@ class Receivable extends Model implements AuditableContract
     protected function status(): Attribute
     {
         return Attribute::get(function (): ReceivableStatus {
-            if ($this->outstanding <= 0) {
+            if ($this->projectedOutstanding() <= 0) {
                 return ReceivableStatus::Paid;
             }
 
@@ -157,7 +192,7 @@ class Receivable extends Model implements AuditableContract
         return Attribute::get(fn (): ?Client => $this->billable?->client);
     }
 
-    /** The job or retainer page this belongs to; a one-off income has none. */
+    /** The job or retainer page this belongs to. */
     public function billableUrl(): ?string
     {
         return match (true) {

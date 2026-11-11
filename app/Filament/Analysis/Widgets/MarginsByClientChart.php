@@ -4,22 +4,18 @@ namespace App\Filament\Analysis\Widgets;
 
 use App\Filament\Analysis\Concerns\UsesMarginPeriod;
 use App\Filament\Widgets\Concerns\CategoryDoughnut;
-use Filament\Widgets\ChartWidget;
-use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
+use MortalKiller\FilamentAppearance\Widgets\BreakdownChartWidget;
 
-class MarginsByClientChart extends ChartWidget
+class MarginsByClientChart extends BreakdownChartWidget
 {
     use CategoryDoughnut;
-    use HasSkeletonPlaceholder;
     use UsesMarginPeriod;
 
     protected int|string|array $columnSpan = 'full';
 
-    protected ?string $maxHeight = '220px';
-
     public function getHeading(): string
     {
-        return 'Faturado por cliente';
+        return __('Invoiced by client');
     }
 
     public function getDescription(): string

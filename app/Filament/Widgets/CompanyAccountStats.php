@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Enums\BankTransactionStatus;
+use App\Enums\Language;
 use App\Enums\ReconciliationStatus;
 use App\Filament\Pages\BankStatementImport;
 use App\Filament\Resources\Expenses\ExpenseResource;
@@ -31,7 +32,7 @@ class CompanyAccountStats extends StatsOverviewWidget
 
     protected int|string|array $columnSpan = 'full';
 
-    protected ?string $heading = 'Conta da empresa';
+    protected ?string $heading = 'Business account';
 
     /** Its balance comes from the statement: only for an account with a bank account for the activity. */
     public static function canView(): bool
@@ -52,15 +53,19 @@ class CompanyAccountStats extends StatsOverviewWidget
         return $this->withLineProgress ? ['md' => 2, 'xl' => 4] : ['md' => 3];
     }
 
+    protected function getHeading(): ?string
+    {
+        return __('Business account');
+    }
+
     protected function getDescription(): ?string
     {
         $pending = (new CompanyAccount($this->until()))->pendingLines();
 
-        return 'Saldo do banco comparado com o que registaste na Contiu.'
+        return __('Bank balance compared with what you recorded in Contiu.')
             .match ($pending) {
                 0 => '',
-                1 => ' Há 1 linha do extrato por tratar: os valores ainda podem mudar.',
-                default => ' Há '.$pending.' linhas do extrato por tratar: os valores ainda podem mudar.',
+                default => ' '.trans_choice('{1} There is 1 statement line to process: amounts may still change.|[2,*] There are :count statement lines to process: amounts may still change.', $pending),
             };
     }
 
@@ -76,8 +81,8 @@ class CompanyAccountStats extends StatsOverviewWidget
 
         if ($bank === null) {
             return [
-                Stat::make('Conta da empresa', 'Sem extrato')
-                    ->description('Importa o extrato do banco para comparar o saldo.')
+                Stat::make(__('Business account'), __('No statement'))
+                    ->description(__('Import your bank statement to compare the balance.'))
                     ->icon(Phosphor::Bank)
                     ->url(BankStatementImport::getUrl()),
             ];
@@ -88,28 +93,28 @@ class CompanyAccountStats extends StatsOverviewWidget
         $notReconciled = fn (string $resource) => $resource::getUrl('index', ['tableFilters' => ['reconciliation' => ['value' => ReconciliationStatus::NotReconciled->value]]]);
 
         return [
-            Stat::make('Saldo no banco', Money::format($bank))
-                ->description('Extrato até '.$account->endsOn()?->format('d/m/Y'))
+            Stat::make(__('Bank balance'), Money::format($bank, locale: app()->getLocale()))
+                ->description(__('Statement through :date', ['date' => $account->endsOn()?->format(Language::resolve(app()->getLocale())->dateFormat())]))
                 ->icon(Phosphor::Bank)
                 ->url(BankStatementImport::getUrl()),
-            Stat::make('Saldo segundo a Contiu', Money::format($account->contiuBalance()))
-                ->description('Saldo inicial + recebido − despesas pagas')
+            Stat::make(__('Balance according to Contiu'), Money::format($account->contiuBalance(), locale: app()->getLocale()))
+                ->description(__('Opening balance + payments received − paid expenses'))
                 ->icon(Phosphor::Calculator),
             match (true) {
-                $difference < 0 => Stat::make('Falta transferir para a conta da empresa', Money::format(-$difference))
-                    ->description('Ver o que falta reconciliar')
+                $difference < 0 => Stat::make(__('Amount to transfer to the business account'), Money::format(-$difference, locale: app()->getLocale()))
+                    ->description(__('View unreconciled lines'))
                     ->descriptionIcon(Phosphor::ArrowRight)
                     ->url($notReconciled(PaymentResource::class))
                     ->color('warning')
                     ->icon(Phosphor::ArrowsLeftRight),
-                $difference > 0 => Stat::make('A empresa deve-te', Money::format($difference))
-                    ->description('Ver o que falta reconciliar')
+                $difference > 0 => Stat::make(__('The business owes you'), Money::format($difference, locale: app()->getLocale()))
+                    ->description(__('View unreconciled lines'))
                     ->descriptionIcon(Phosphor::ArrowRight)
                     ->url($notReconciled(ExpenseResource::class))
                     ->color('info')
                     ->icon(Phosphor::ArrowsLeftRight),
-                default => Stat::make('Diferença', 'Bate certo')
-                    ->description($pending > 0 ? 'Falta tratar linhas do extrato.' : 'O banco tem o que a Contiu diz.')
+                default => Stat::make(__('Difference'), __('Matches'))
+                    ->description($pending > 0 ? __('Some statement lines still need processing.') : __('The bank balance matches Contiu.'))
                     ->color($pending > 0 ? 'warning' : 'success')
                     ->icon(Phosphor::CheckCircle),
             },
@@ -126,9 +131,9 @@ class CompanyAccountStats extends StatsOverviewWidget
         $total = $treated + BankTransaction::pending()->count();
         $percent = $total === 0 ? 0 : (int) floor($treated / $total * 100);
 
-        return Stat::make('Linhas tratadas', "{$treated} de {$total}")
+        return Stat::make(__('Processed lines'), __(':treated of :total', ['treated' => $treated, 'total' => $total]))
             ->description(new HtmlString(
-                '<span class="contiu-progress" role="img" aria-label="'.$percent.'% das linhas tratadas"><i style="width: '.$percent.'%"></i></span>',
+                '<span class="fap-progress" role="img" aria-label="'.e(__(':percent% of lines processed', ['percent' => $percent])).'"><i style="width: '.$percent.'%"></i></span>',
             ))
             ->color($treated === $total ? 'success' : null)
             ->icon(Phosphor::ListChecks);

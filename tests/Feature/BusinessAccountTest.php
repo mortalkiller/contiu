@@ -21,6 +21,8 @@ use App\Support\MonthReview;
 use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 
+pest()->group('ui');
+
 /*
  * "Tens uma conta bancária só para a atividade?" Without one there is no statement to import, so
  * everything built on it (reconciliation, the company account card, the forecast's balance) is

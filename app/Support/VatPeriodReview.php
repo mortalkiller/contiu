@@ -20,6 +20,18 @@ use InvalidArgumentException;
 /** Documentary review in EUR cents, with a separate, explicitly confirmed fiscal result. */
 final readonly class VatPeriodReview
 {
+    // Confirmations hash the original classification reasons, regardless of the display locale.
+    private const HASH_REASONS = [
+        'Voided document' => 'Documento anulado',
+        'Receipt of payment' => 'Recibo de pagamento',
+        'Currency other than EUR' => 'Moeda diferente de EUR',
+        'Adjustment to confirm' => 'Regularização a confirmar',
+        'Issue and operation in different periods' => 'Emissão e operação em períodos diferentes',
+        'Document amounts to check' => 'Montantes do documento por conferir',
+        'VAT treatment to confirm' => 'Enquadramento de IVA por confirmar',
+        'VAT shown on the document' => 'IVA inscrito no documento',
+    ];
+
     /** @param Collection<int, array{document: FiscalDocument, status: 'supported'|'unresolved'|'excluded', reason: string}> $documents */
     private function __construct(
         public CarbonImmutable $start,
@@ -36,7 +48,7 @@ final readonly class VatPeriodReview
     public static function forPeriod(int $year, int $month, int $months = 1): self
     {
         if (! checkdate($month, 1, $year) || ! in_array($months, [1, 3], true) || ($months === 3 && ($month - 1) % 3 !== 0)) {
-            throw new InvalidArgumentException('O período deve ser um mês ou um trimestre civil.');
+            throw new InvalidArgumentException(__('The period must be a calendar month or quarter.'));
         }
 
         $accountId = CurrentAccount::id();
@@ -56,13 +68,13 @@ final readonly class VatPeriodReview
         return new self(
             $start,
             $months,
-            $documents,
+            $documents->map(fn (array $row): array => [...$row, 'reason' => __($row['reason'])]),
             $supported->where('document.direction', FiscalDocumentDirection::Issued)->sum('document.vat_amount'),
             $supported->where('document.direction', FiscalDocumentDirection::Received)->sum('document.vat_amount'),
             VatPeriodConfirmation::whereDate('starts_on', $from)->where('months', $months)->first(),
             $accountId,
             hash('sha256', json_encode($documents->map(fn (array $row): array => [
-                $row['document']->getRawOriginal(), $row['status'], $row['reason'],
+                $row['document']->getRawOriginal(), $row['status'], self::HASH_REASONS[$row['reason']],
             ]), JSON_THROW_ON_ERROR)),
         );
     }
@@ -121,20 +133,20 @@ final readonly class VatPeriodReview
 
         if ($liquidated < 0 || $deductible < 0 || max($liquidated, $deductible, $adjustments) > 99_999_999_999
             || $adjustments < -99_999_999_999 || $reference === '' || mb_strlen($reference) > 500) {
-            throw ValidationException::withMessages(['reference' => 'Revê os totais e indica a origem do apuramento.']);
+            throw ValidationException::withMessages(['reference' => __('Review the totals and enter the source of the VAT calculation.')]);
         }
 
         Validator::make(['dueOn' => $dueOn, 'paidOn' => $paidOn], [
             'dueOn' => ['nullable', 'date_format:Y-m-d'],
             'paidOn' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today'],
         ], [
-            'dueOn.date_format' => 'Indica uma data-limite válida.',
-            'paidOn.date_format' => 'Indica uma data de pagamento válida.',
-            'paidOn.before_or_equal' => 'A data de pagamento não pode ser futura.',
+            'dueOn.date_format' => __('Enter a valid due date.'),
+            'paidOn.date_format' => __('Enter a valid payment date.'),
+            'paidOn.before_or_equal' => __('The payment date cannot be in the future.'),
         ])->validate();
 
         if ($paidOn !== null && $liquidated - $deductible + $adjustments <= 0) {
-            throw ValidationException::withMessages(['paidOn' => 'A data de pagamento exige um montante a pagar.']);
+            throw ValidationException::withMessages(['paidOn' => __('A payment date requires an amount due.')]);
         }
 
         DB::transaction(function () use ($liquidated, $deductible, $adjustments, $reference, $dueOn, $paidOn): void {
@@ -142,7 +154,7 @@ final readonly class VatPeriodReview
             $current = self::forPeriod($this->start->year, $this->start->month, $this->months);
 
             if ($this->revision() !== $current->revision()) {
-                throw ValidationException::withMessages(['reference' => 'O período mudou. Volta a abrir a revisão antes de confirmar.']);
+                throw ValidationException::withMessages(['reference' => __('The period has changed. Reopen the review before confirming.')]);
             }
 
             ($current->confirmation ?? new VatPeriodConfirmation)
@@ -167,14 +179,14 @@ final readonly class VatPeriodReview
         $operation = $document->operation_date?->toDateString();
 
         [$status, $reason] = match (true) {
-            $document->status === FiscalDocumentStatus::Voided => ['excluded', 'Documento anulado'],
-            $document->type === FiscalDocumentType::Receipt => ['excluded', 'Recibo de pagamento'],
-            $document->currency !== 'EUR' => ['excluded', 'Moeda diferente de EUR'],
-            $document->type === FiscalDocumentType::CreditNote => ['unresolved', 'Regularização a confirmar'],
-            $issue < $from || $issue >= $until || ($operation !== null && ($operation < $from || $operation >= $until)) => ['unresolved', 'Emissão e operação em períodos diferentes'],
-            $document->net_amount < 0 || $document->vat_amount < 0 || $document->total_amount - $document->net_amount !== $document->vat_amount => ['unresolved', 'Montantes do documento por conferir'],
-            $document->vat_amount === 0 => ['unresolved', 'Enquadramento de IVA por confirmar'],
-            default => ['supported', 'IVA inscrito no documento'],
+            $document->status === FiscalDocumentStatus::Voided => ['excluded', 'Voided document'],
+            $document->type === FiscalDocumentType::Receipt => ['excluded', 'Receipt of payment'],
+            $document->currency !== 'EUR' => ['excluded', 'Currency other than EUR'],
+            $document->type === FiscalDocumentType::CreditNote => ['unresolved', 'Adjustment to confirm'],
+            $issue < $from || $issue >= $until || ($operation !== null && ($operation < $from || $operation >= $until)) => ['unresolved', 'Issue and operation in different periods'],
+            $document->net_amount < 0 || $document->vat_amount < 0 || $document->total_amount - $document->net_amount !== $document->vat_amount => ['unresolved', 'Document amounts to check'],
+            $document->vat_amount === 0 => ['unresolved', 'VAT treatment to confirm'],
+            default => ['supported', 'VAT shown on the document'],
         };
 
         return ['document' => $document, 'status' => $status, 'reason' => $reason];

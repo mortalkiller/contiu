@@ -7,6 +7,8 @@ use App\Support\FinanceSettings;
 use App\Support\ReverseChargeVat;
 use Carbon\CarbonImmutable;
 
+pest()->group('integration', 'fiscal');
+
 function foreignExpense(Seat $seat, array $attributes = []): Expense
 {
     return Expense::factory()->for(Supplier::factory()->create(['seat' => $seat]), 'supplier')->create($attributes + [

@@ -7,6 +7,8 @@ use App\Models\Retainer;
 use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 
+pest()->group('ui');
+
 beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-03-10'));
     actingAsAdmin();

@@ -16,17 +16,21 @@ use App\Models\Expense;
 use App\Models\FinanceReviewItem;
 use App\Models\FiscalDocument;
 use App\Models\User;
+use App\Support\AccountantAccess;
 use App\Support\CurrentAccount;
 use App\Support\ExpenseEvidence;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Livewire\Livewire;
 use Symfony\Component\HttpKernel\Exception\HttpException;
+
+pest()->group('ui', 'tenancy');
 
 function reviewMember(Account $account, string $role): User
 {
@@ -238,4 +242,19 @@ it('keeps existing reviews readable after expiry and allows the owner to revoke 
 
     $this->assertDatabaseCount('finance_review_items', 1);
     $this->assertDatabaseMissing('account_user', ['account_id' => $this->account->id, 'user_id' => $accountant->id]);
+});
+
+describe('Access settings summary', function () {
+    beforeEach(function () {
+        $this->travelTo(Carbon::parse('2026-11-10 12:00'));
+        actingAsAdmin();
+    });
+
+    it('shows since when each accountant has access', function () {
+        $accountant = User::factory()->create();
+        Filament::getTenant()->users()->attach($accountant, ['role' => AccountantAccess::ROLE]);
+
+        Livewire::test(AccountantAccessSettings::class)
+            ->assertTableColumnFormattedStateSet('access_since', '10/11/2026', $accountant);
+    });
 });

@@ -9,6 +9,7 @@ use App\Support\ActivityCalendar;
 use App\Support\CalendarEntry;
 use App\Support\FinanceSettings;
 use App\Support\Money;
+use App\Support\Period;
 use Carbon\CarbonImmutable;
 use Filament\Widgets\Widget;
 use Illuminate\Support\HtmlString;
@@ -50,14 +51,14 @@ class MonthAhead extends Widget
         });
 
         return [
-            'month' => $today->translatedFormat('F'),
-            'incoming' => Money::format($incoming),
-            'outgoing' => Money::format($outgoing),
-            'difference' => Money::format($incoming - $outgoing),
+            'month' => Period::monthName($today->month, inSentence: true),
+            'incoming' => Money::format($incoming, locale: app()->getLocale()),
+            'outgoing' => Money::format($outgoing, locale: app()->getLocale()),
+            'difference' => Money::format($incoming - $outgoing, locale: app()->getLocale()),
             'negative' => $incoming < $outgoing,
             'bar' => ProportionBar::render([
-                ['label' => 'Entra', 'cents' => $incoming, 'tone' => 'strong'],
-                ['label' => 'Sai', 'cents' => $outgoing, 'tone' => 'clay'],
+                ['label' => __('Coming in'), 'cents' => $incoming, 'tone' => 'strong'],
+                ['label' => __('Going out'), 'cents' => $outgoing, 'tone' => 'clay'],
             ]),
             'forecastUrl' => CashForecast::getUrl(),
         ];

@@ -22,23 +22,31 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Tapp\FilamentAuditing\RelationManagers\AuditsRelationManager;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
-use UnitEnum;
 
 class RetainerResource extends Resource
 {
     protected static ?string $model = Retainer::class;
 
-    protected static ?string $modelLabel = 'avença';
-
-    protected static ?string $pluralModelLabel = 'avenças';
-
     protected static ?string $recordTitleAttribute = 'code';
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::Repeat;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Receitas';
-
     protected static ?int $navigationSort = 2;
+
+    public static function getModelLabel(): string
+    {
+        return __('retainer');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('retainers');
+    }
+
+    public static function getNavigationGroup(): string
+    {
+        return __('Revenue');
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -57,7 +65,7 @@ class RetainerResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['client', 'category', 'receivables.payments', 'expenses']);
+        return parent::getEloquentQuery()->with(['client', 'category', 'receivables' => fn ($query) => $query->withOutstandingBalance(), 'receivables.payments', 'expenses']);
     }
 
     public static function getGloballySearchableAttributes(): array

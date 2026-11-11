@@ -6,7 +6,7 @@
             </span>
 
             <div class="min-w-0 flex-1">
-                <p class="text-xs">Conta ativa</p>
+                <p class="text-xs">{{ __('Active account') }}</p>
                 <div class="flex min-w-0 items-center gap-2">
                     <p class="min-w-0 flex-1 truncate text-sm font-semibold" title="{{ $accountName }}">
                         {{ $accountName }}
@@ -28,7 +28,7 @@
                 :icon="\ToneGabes\Filament\Icons\Enums\Phosphor::Buildings"
                 class="mt-1"
             >
-                Perfil da conta
+                {{ __('Account profile') }}
             </x-filament::dropdown.list.item>
         @endif
     @endif

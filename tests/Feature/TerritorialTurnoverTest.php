@@ -21,6 +21,8 @@ use Livewire\Livewire;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
+pest()->group('fiscal');
+
 beforeEach(function () {
     $this->travelTo(CarbonImmutable::parse('2026-11-10'));
 });
@@ -50,7 +52,7 @@ it('uses the confirmed operation date and net cents, including only the eligible
         ->and($report->unclassifiedCount())->toBe(0)
         ->and($report->coverage())->toBeNull()
         ->and(TerritorialTurnover::forYear(2025)->subtotal())->toBeNull();
-});
+})->group('integration');
 
 it('invalidates classifications and coverage on source changes and rejects a stale confirmation', function () {
     actingAsAdmin();
@@ -67,7 +69,7 @@ it('invalidates classifications and coverage on source changes and rejects a sta
         ->and(fn () => $fresh->confirmDocument($document->id, $report->documents[$document->id]['revision'], '2026-02-01', 9000))
         ->toThrow(ValidationException::class)
         ->and(fn () => $fresh->confirmCoverage($fresh->revision()))->toThrow(ValidationException::class);
-});
+})->group('integration');
 
 it('requires separate coverage and uses strict legal thresholds on both screens', function (int $amount, ?string $notice) {
     actingAsAdmin();
@@ -94,7 +96,7 @@ it('requires separate coverage and uses strict legal thresholds on both screens'
     'exactly 15,000' => [1500000, null],
     'exactly 18,750' => [1875000, 'Ultrapassou 15 000 €'],
     'one cent above 18,750' => [1875001, 'Ultrapassou 18 750 €'],
-]);
+])->group('ui');
 
 it('requires all documents to be classified and invalidates coverage on newly recorded operations', function () {
     actingAsAdmin();
@@ -106,7 +108,7 @@ it('requires all documents to be classified and invalidates coverage on newly re
     $report = TerritorialTurnover::forYear(2026);
     expect($report->coverage())->toBeNull()
         ->and($report->unclassifiedCount())->toBe(1);
-});
+})->group('integration');
 
 it('classifies a document through the standalone page and requires a separate affirmative coverage action', function () {
     actingAsAdmin();
@@ -125,7 +127,7 @@ it('classifies a document through the standalone page and requires a separate af
         ->callAction('confirmCoverage', data: ['complete' => true])
         ->assertHasNoActionErrors()
         ->assertSee('Cobertura confirmada');
-});
+})->group('ui');
 
 it('scopes review records to the tenant and refuses coverage writes on read-only accounts', function () {
     actingAsAdmin();
@@ -138,7 +140,7 @@ it('scopes review records to the tenant and refuses coverage writes on read-only
     $this->account->users()->attach($user, ['role' => 'accountant']);
     $this->actingAs($user);
     expect(fn () => $report->confirmCoverage($report->revision()))->toThrow(HttpException::class);
-});
+})->group('integration');
 
 it('retains a confirmed earlier crossing after a linked credit note reduces the year-end balance', function () {
     actingAsAdmin();
@@ -154,7 +156,7 @@ it('retains a confirmed earlier crossing after a linked credit note reduces the 
 
     expect($report->subtotal())->toBe(1400000)
         ->and($report->notice())->toContain('Ultrapassou 18 750 €');
-});
+})->group('integration');
 
 it('flags a possible same-day crossing without asserting the order of the operations', function () {
     actingAsAdmin();
@@ -170,7 +172,7 @@ it('flags a possible same-day crossing without asserting the order of the operat
 
     expect($report->notice())->toBeNull()
         ->and($report->advisory())->toContain('ordem das operações');
-});
+})->group('integration');
 
 it('withholds threshold notices when a credit note lacks a verified eligible original', function () {
     actingAsAdmin();
@@ -185,7 +187,7 @@ it('withholds threshold notices when a credit note lacks a verified eligible ori
 
     expect($report->notice())->toBeNull()
         ->and($report->advisory())->toContain('fatura de origem');
-});
+})->group('integration');
 
 it('uses the effective historical proxy threshold and displays the VAT regime periods', function () {
     actingAsAdmin();
@@ -211,7 +213,7 @@ it('uses the effective historical proxy threshold and displays the VAT regime pe
         ->assertSee('Subtotal confirmado')
         ->assertSee('Perfil fiscal em vigor desde 01/07/2025')
         ->assertDontSee('aproximação por recebimentos');
-});
+})->group('integration');
 
 it('requires year-end coverage before using a prior-year threshold in the current obligations', function () {
     actingAsAdmin();
@@ -231,7 +233,7 @@ it('requires year-end coverage before using a prior-year threshold in the curren
     $rows = array_column((new TaxObligations(app(FinanceSettings::class), CarbonImmutable::today()))->thisMonth(), null, 'key');
     expect($rows['vat-threshold-previous:2025']->detail)->toContain('1 de janeiro de 2026')
         ->and($rows['vat-threshold-previous:2025']->status)->toBe('info');
-});
+})->group('integration');
 
 it('does not use credit amounts above the linked original eligible total for definitive notices', function () {
     actingAsAdmin();
@@ -250,7 +252,7 @@ it('does not use credit amounts above the linked original eligible total for def
     $report = TerritorialTurnover::forYear(2026);
     expect($report->notice())->toBeNull()
         ->and($report->advisory())->toContain('fatura de origem');
-});
+})->group('integration');
 
 it('disallows coverage confirmation without the affirmative check and allows withdrawing it', function () {
     actingAsAdmin();
@@ -264,7 +266,7 @@ it('disallows coverage confirmation without the affirmative check and allows wit
         ->assertSee('Cobertura por confirmar');
 
     expect(TerritorialTurnover::forYear(2026)->coverage())->toBeNull();
-});
+})->group('ui');
 
 it('requires a confirmed euro value to include a non-euro document', function () {
     actingAsAdmin();
@@ -280,7 +282,7 @@ it('requires a confirmed euro value to include a non-euro document', function ()
         ->assertHasNoActionErrors();
 
     expect(TerritorialTurnover::forYear(2026)->subtotal())->toBe(8501);
-});
+})->group('ui');
 
 it('shows zero confirmed contribution for an excluded operation while coverage remains unconfirmed', function () {
     actingAsAdmin();
@@ -290,7 +292,7 @@ it('shows zero confirmed contribution for an excluded operation while coverage r
     $report = TerritorialTurnover::forYear(2026);
     expect($report->subtotal())->toBe(0)
         ->and($report->coverage())->toBeNull();
-});
+})->group('integration');
 
 it('lets a read-only owner view the review without classification or coverage actions', function () {
     $document = FiscalDocument::factory()->create();
@@ -304,4 +306,4 @@ it('lets a read-only owner view the review without classification or coverage ac
         ->assertSee($document->number)
         ->assertDontSee('Confirmar cobertura')
         ->assertDontSee('Classificar');
-});
+})->group('ui');

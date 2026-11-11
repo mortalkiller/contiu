@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Enums\FiscalDocumentType;
+use App\Enums\Language;
 use App\Models\Account;
 use App\Models\FiscalDocument;
 use App\Models\TerritorialTurnoverCoverage;
@@ -153,22 +154,26 @@ final readonly class TerritorialTurnover
     public function coverageLabel(): string
     {
         return ($coverage = $this->coverage()) === null
-            ? 'Cobertura por confirmar'
-            : 'Cobertura confirmada até '.$coverage->through_on->format('d/m/Y');
+            ? __('Coverage to confirm')
+            : __('Coverage confirmed through :date', ['date' => $coverage->through_on->format(Language::resolve(app()->getLocale())->dateFormat())]);
     }
 
     public function subtotalLabel(): string
     {
         return match (true) {
-            $this->hasUnverifiedCreditNotes() => 'Subtotal com notas de crédito por validar',
-            $this->coverage() === null => 'Subtotal confirmado (parcial)',
-            default => 'Volume nacional confirmado',
+            $this->hasUnverifiedCreditNotes() => __('Subtotal with credit notes to verify'),
+            $this->coverage() === null => __('Confirmed subtotal (partial)'),
+            default => __('Confirmed domestic turnover'),
         };
     }
 
     public function summary(): string
     {
-        return $this->coverageLabel().'. Excluídos: '.$this->excludedCount().' · Por classificar: '.$this->unclassifiedCount().'.';
+        return __(':coverage. Excluded: :excluded · Unclassified: :unclassified.', [
+            'coverage' => $this->coverageLabel(),
+            'excluded' => $this->excludedCount(),
+            'unclassified' => $this->unclassifiedCount(),
+        ]);
     }
 
     public function notice(): ?string
@@ -180,7 +185,7 @@ final readonly class TerritorialTurnover
         if ($this->year >= 2026) {
             $crossing = $this->inYearCrossing();
             if ($crossing === 'confirmed') {
-                return 'Ultrapassou 18 750 € em '.$this->year.'. O art. 58.º prevê IVA a partir da operação que excede esse valor.';
+                return __('Turnover exceeded €18,750 in :year. Article 58 requires VAT starting with the transaction that exceeds that amount.', ['year' => $this->year]);
             }
             if ($crossing === 'possible') {
                 return null;
@@ -194,10 +199,12 @@ final readonly class TerritorialTurnover
     {
         if ($this->year >= 2025 && $this->coverage() !== null && ! $this->hasUnverifiedCreditNotes()
             && $this->subtotal() > self::ANNUAL_LIMIT) {
-            $effect = 'o art. 58.º prevê IVA a partir de 1 de janeiro de '.($this->year + 1).'.';
-
-            return 'Ultrapassou 15 000 € em '.$this->year.'. '
-                .($this->year === $this->asOfYear ? 'Se o total no fecho do ano continuar acima desse valor, '.$effect : ucfirst($effect));
+            return __($this->year === $this->asOfYear
+                ? 'Turnover exceeded €15,000 in :year. If the total remains above that amount at year end, Article 58 requires VAT from January 1, :nextYear.'
+                : 'Turnover exceeded €15,000 in :year. Article 58 requires VAT from January 1, :nextYear.', [
+                    'year' => $this->year,
+                    'nextYear' => $this->year + 1,
+                ]);
         }
 
         return null;
@@ -206,12 +213,12 @@ final readonly class TerritorialTurnover
     public function advisory(): ?string
     {
         if ($this->hasUnverifiedCreditNotes()) {
-            return 'Confirma a fatura de origem e o valor elegível das notas de crédito antes de avaliar os limiares de IVA.';
+            return __('Confirm the original invoice and eligible amount of the credit notes before assessing the VAT thresholds.');
         }
 
         if ($this->coverage() !== null && $this->year >= 2026
             && $this->inYearCrossing() === 'possible') {
-            return 'Pode ter ultrapassado 18 750 €. Confirma a ordem das operações do mesmo dia.';
+            return __('Turnover may have exceeded €18,750. Confirm the order of the transactions on that day.');
         }
 
         return null;
@@ -228,15 +235,15 @@ final readonly class TerritorialTurnover
         $percent = $limit > 0 ? round($amount / $limit * 100, 1) : 0.0;
         $notice = $this->notice();
         $advisory = $this->advisory() ?? ($fallback && $percent >= 80
-            ? 'Os recebimentos aproximam-se ou atingiram o limite configurado. Revê o volume de negócios em território nacional.'
+            ? __('Payments received are approaching or have reached the configured threshold. Review the domestic turnover.')
             : null);
 
         return [
             'label' => match (true) {
-                $fallback => 'Isenção de IVA · aproximação',
-                $this->hasUnverifiedCreditNotes() => 'Isenção de IVA · subtotal a rever',
-                $covered => 'Isenção de IVA · volume nacional confirmado',
-                default => 'Isenção de IVA · subtotal parcial',
+                $fallback => __('VAT exemption · estimate'),
+                $this->hasUnverifiedCreditNotes() => __('VAT exemption · subtotal to review'),
+                $covered => __('VAT exemption · confirmed domestic turnover'),
+                default => __('VAT exemption · partial subtotal'),
             },
             'amount' => $amount,
             'percent' => $percent,
@@ -245,7 +252,12 @@ final readonly class TerritorialTurnover
                 $advisory !== null || ($covered && $amount >= 1200000) => 'warning',
                 default => 'ok',
             },
-            'detail' => Money::format($amount).' de '.Money::format($limit).' em '.$this->year.'. '.$this->summary(),
+            'detail' => __(':amount of :limit in :year. :summary', [
+                'amount' => Money::format($amount),
+                'limit' => Money::format($limit),
+                'year' => $this->year,
+                'summary' => $this->summary(),
+            ]),
             'notice' => $notice,
             'advisory' => $advisory,
             'usesReceipts' => $fallback,
@@ -268,15 +280,15 @@ final readonly class TerritorialTurnover
             $document = DocumentedTurnover::billingDocuments()->lockForUpdate()->find($id) ?? abort(404);
             $row = self::forYear($this->year)->documents[$id] ?? null;
             if ($row === null || $row['revision'] !== $revision) {
-                throw ValidationException::withMessages(['operation_on' => 'O documento mudou. Volta a abrir a classificação.']);
+                throw ValidationException::withMessages(['operation_on' => __('The document has changed. Reopen the classification.')]);
             }
 
             validator(['operation_on' => $operationOn], [
                 'operation_on' => ['required', 'date_format:Y-m-d', 'after_or_equal:1900-01-01', 'before_or_equal:today'],
-            ], ['operation_on.*' => 'Indica uma data de operação válida até hoje.'])->validate();
+            ], ['operation_on.*' => __('Enter a valid operation date no later than today.')])->validate();
 
             if ($eligibleCents !== null && ($eligibleCents < 0 || ($document->currency === 'EUR' && $eligibleCents > abs($document->net_amount)))) {
-                throw ValidationException::withMessages(['eligible_amount' => 'Indica um valor elegível válido, até ao valor líquido do documento em EUR.']);
+                throw ValidationException::withMessages(['eligible_amount' => __('Enter a valid eligible amount up to the document’s net amount in EUR.')]);
             }
 
             TerritorialTurnoverReview::query()->updateOrCreate(['fiscal_document_id' => $id], [
@@ -295,7 +307,7 @@ final readonly class TerritorialTurnover
             $report = self::forYear($this->year);
 
             if ($report->revision() !== $revision || $report->unclassifiedCount() > 0 || $this->year > $report->through->year) {
-                throw ValidationException::withMessages(['complete' => 'Revê os documentos por classificar e volta a confirmar a cobertura.']);
+                throw ValidationException::withMessages(['complete' => __('Review the unclassified documents and confirm the coverage again.')]);
             }
 
             TerritorialTurnoverCoverage::query()->updateOrCreate(['year' => $this->year], [

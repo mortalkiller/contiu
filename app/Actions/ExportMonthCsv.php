@@ -6,10 +6,13 @@ use App\Models\User;
 use App\Support\CurrentAccount;
 use App\Support\MonthReview;
 use Generator;
+use Illuminate\Support\Traits\Localizable;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class ExportMonthCsv
 {
+    use Localizable;
+
     public function handle(MonthReview $review): StreamedResponse
     {
         $account = CurrentAccount::get();
@@ -17,8 +20,10 @@ final class ExportMonthCsv
 
         abort_unless($account !== null && $actor instanceof User && $actor->hasVerifiedEmail() && $actor->canAccessTenant($account), 403);
 
-        return response()->streamDownload(function () use ($account, $review): void {
-            CurrentAccount::run($account, function () use ($review): void {
+        $locale = app()->getLocale();
+
+        return response()->streamDownload(function () use ($account, $review, $locale): void {
+            CurrentAccount::run($account, fn () => $this->withLocale($locale, function () use ($review): void {
                 $output = fopen('php://output', 'wb');
 
                 try {
@@ -30,8 +35,8 @@ final class ExportMonthCsv
                 } finally {
                     fclose($output);
                 }
-            });
-        }, 'fecho-'.$account->slug.'-'.$review->start->format('Y-m').'.csv', [
+            }));
+        }, __('month-close').'-'.$account->slug.'-'.$review->start->format('Y-m').'.csv', [
             'Content-Type' => 'text/csv; charset=UTF-8',
             'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
@@ -42,19 +47,19 @@ final class ExportMonthCsv
     private function rows(MonthReview $review): Generator
     {
         yield [
-            'Tipo', 'ID', 'Referência', 'Descrição', 'Vencimento', 'Data da despesa', 'Data do movimento',
-            'Valor (EUR)', 'Saldo atual em aberto (EUR)', 'Estado financeiro', 'Documento fiscal',
-            'Referência anterior por confirmar', 'Banco', 'Dados por completar', 'Saldo no fim do mês (EUR)',
+            __('Type'), __('ID'), __('Reference'), __('Description'), __('Due date'), __('Expense date'), __('Bank transaction date'),
+            __('Amount (EUR)'), __('Current outstanding balance (EUR)'), __('Financial status'), __('Fiscal document'),
+            __('Previous reference awaiting confirmation'), __('Bank'), __('Incomplete data'), __('End-of-month balance (EUR)'),
         ];
 
         foreach ($review->receivablesQuery(withFiscalReference: true)->get() as $receivable) {
             yield [
-                'A receber', $receivable->id, $this->textCell($receivable->billable?->code), $this->textCell($receivable->description),
+                __('To receive'), $receivable->id, $this->textCell($receivable->billable?->code), $this->textCell($receivable->description),
                 $receivable->due_on->toDateString(), null, null, $this->amount($receivable->amount), $this->amount($receivable->outstanding),
                 match (true) {
-                    $receivable->outstanding === 0 => 'Recebido',
-                    $review->isDueLater($receivable) => 'Vence após o mês',
-                    default => 'Por receber',
+                    $receivable->outstanding === 0 => __('Received'),
+                    $review->isDueLater($receivable) => __('Due after the month'),
+                    default => __('Awaiting payment'),
                 },
                 $this->textCell($receivable->fiscal_reference), null, null, implode(' · ', $review->dataIssues($receivable)),
                 $this->amount($review->outstandingAtClose($receivable)),
@@ -63,8 +68,8 @@ final class ExportMonthCsv
 
         foreach ($review->paymentsQuery()->get() as $payment) {
             yield [
-                'Recebimento', $payment->id, $this->textCell($payment->receivableLabels()), null, null, null,
-                $payment->paid_on->toDateString(), $this->amount($payment->amount), null, 'Recebido',
+                __('Payment received'), $payment->id, $this->textCell($payment->receivableLabels()), null, null, null,
+                $payment->paid_on->toDateString(), $this->amount($payment->amount), null, __('Received'),
                 $this->textCell($payment->fiscal_reference), $this->textCell(MonthReview::unconfirmedLegacyReference($payment)),
                 $review->reconciliationFor($payment)?->label(), implode(' · ', $review->dataIssues($payment)), null,
             ];
@@ -72,9 +77,9 @@ final class ExportMonthCsv
 
         foreach ($review->expensesQuery(withFiscalReference: true)->get() as $expense) {
             yield [
-                'Despesa', $expense->id, $this->textCell($expense->supplier?->name), $this->textCell($expense->description),
+                __('Expense'), $expense->id, $this->textCell($expense->supplier?->name), $this->textCell($expense->description),
                 null, $expense->spent_on->toDateString(), $expense->paid_on?->toDateString(),
-                $this->amount($expense->total), $this->amount($expense->is_paid ? 0 : $expense->total), $expense->is_paid ? 'Paga' : 'Por pagar',
+                $this->amount($expense->total), $this->amount($expense->is_paid ? 0 : $expense->total), $expense->is_paid ? __('Expense paid') : __('Unpaid'),
                 $this->textCell($expense->fiscal_reference), $this->textCell(MonthReview::unconfirmedLegacyReference($expense)),
                 $review->reconciliationFor($expense)?->label(), implode(' · ', $review->dataIssues($expense)), null,
             ];
@@ -82,7 +87,7 @@ final class ExportMonthCsv
 
         foreach ($review->pendingBankLinesQuery()->orderBy('booked_on')->orderBy('id')->get() as $line) {
             yield [
-                'Linha do extrato', $line->id, null, $this->textCell($line->description), null, null,
+                __('Bank statement line'), $line->id, null, $this->textCell($line->description), null, null,
                 $line->booked_on->toDateString(), $this->amount($line->amount), null,
                 null, null, null, $line->status->getLabel(), null, null,
             ];

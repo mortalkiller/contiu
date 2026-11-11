@@ -15,10 +15,10 @@ enum FiscalProfileViesStatus: string implements HasColor, HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::Pending => 'Por verificar',
-            self::Valid => 'Válido',
-            self::Invalid => 'Inválido',
-            self::Unavailable => 'Serviço indisponível',
+            self::Pending => __('Awaiting verification'),
+            self::Valid => __('Valid'),
+            self::Invalid => __('Invalid'),
+            self::Unavailable => __('Service unavailable'),
         };
     }
 

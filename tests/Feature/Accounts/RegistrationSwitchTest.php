@@ -2,6 +2,8 @@
 
 use Filament\Facades\Filament;
 
+pest()->group('ui', 'tenancy');
+
 /*
  * Public sign-up opens with CONTIU_REGISTRATION_OPEN. Filament builds the /register route as the
  * app boots, so the "registration-open" group boots the app with it on (tests/TestCase.php).

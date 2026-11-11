@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Expenses\Tables;
 
 use App\Enums\ExpenseKind;
+use App\Enums\Language;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Support\ReconciliationColumns;
 use App\Models\Expense;
@@ -40,79 +41,81 @@ class ExpensesTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->defaultDateDisplayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
+            ->defaultNumberLocale(fn (): string => app()->getLocale())
             // Rows load right after the page; a skeleton shows meanwhile (filament-skeleton-loading).
             ->deferLoading()
             ->headerActions([
                 ExportAction::make()
-                    ->label('Exportar Excel')
+                    ->label(__('Export to Excel'))
                     ->exports([
-                        ExcelExport::make()->fromTable()->ignoreFormatting(fn (ExportColumn $column) => method_exists($column->tableColumn, 'isMoney') && $column->tableColumn->isMoney())->withFilename(fn () => 'despesas-'.now()->format('Y-m-d')),
+                        ExcelExport::make()->fromTable()->ignoreFormatting(fn (ExportColumn $column) => method_exists($column->tableColumn, 'isMoney') && $column->tableColumn->isMoney())->withFilename(fn () => __('expenses').'-'.now()->format('Y-m-d')),
                     ]),
             ])
             ->defaultSort('spent_on', 'desc')
             ->columns([
                 TextColumn::make('spent_on')
-                    ->label('Data')
+                    ->label(fn (): string => __('Date'))
                     ->date()
                     ->sortable(),
                 TextColumn::make('supplier.name')
-                    ->label('Fornecedor')
+                    ->label(fn (): string => __('Supplier'))
                     ->searchable()
                     ->limit(28)
                     ->tooltip(fn (Expense $record) => $record->supplier->name),
                 TextColumn::make('description')
-                    ->label('Descrição')
+                    ->label(fn (): string => __('Description'))
                     ->description(fn (Expense $record) => $record->category?->name)
                     ->searchable(),
                 TextColumn::make('kind')
-                    ->label('Tipo')
+                    ->label(fn (): string => __('Type'))
                     ->badge(),
                 TextColumn::make('cost_centre')
-                    ->label('Imputada a')
+                    ->label(fn (): string => __('Charged to'))
                     ->placeholder('—'),
                 TextColumn::make('total')
-                    ->label('Total')
+                    ->label(fn (): string => __('Total'))
                     ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->summarize(Summarizer::make()
-                        ->label('Total')
+                        ->label(fn (): string => __('Total'))
                         ->money('EUR', divideBy: 100)
                         ->using(fn ($query) => $query->get()->sum(fn ($row) => round((float) $row->net_amount * (1 + (float) $row->vat_rate), 2)))),
                 IconColumn::make('is_paid')
-                    ->label('Paga')
+                    ->label(fn (): string => __('Expense paid'))
                     ->boolean(),
                 IconColumn::make('has_proof')
-                    ->label('Documentada')
+                    ->label(fn (): string => __('Documented'))
                     ->state(fn (Expense $record): bool => $record->hasProof())
                     ->boolean(),
                 IconColumn::make('is_reviewed')
-                    ->label('Revista')
+                    ->label(fn (): string => __('Reviewed'))
                     ->boolean(),
                 TextColumn::make('attribution')
-                    ->label('Afetação')
+                    ->label(fn (): string => __('Allocation'))
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('method')
-                    ->label('Método')
+                    ->label(fn (): string => __('Method'))
                     ->badge()
                     ->color('gray')
                     ->placeholder('—')
                     ->toggleable(),
                 TextColumn::make('invoice_number')
-                    ->label('Fatura')
+                    ->label(fn (): string => __('Invoice'))
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('proof_reference')
-                    ->label('Referência do comprovativo')
+                    ->label(fn (): string => __('Supporting document reference'))
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
-                ReconciliationColumns::expenseColumn(),
+                ReconciliationColumns::expenseColumn()->label(fn (): string => __('Bank')),
             ])
             ->groups([
                 Group::make('spent_on')
-                    ->label('Mês')
+                    ->label(__('Month'))
                     ->getKeyFromRecordUsing(fn (Expense $record) => $record->spent_on->format('Y-m'))
-                    ->getTitleFromRecordUsing(fn (Expense $record) => ucfirst($record->spent_on->locale('pt')->translatedFormat('F Y')))
+                    ->getTitleFromRecordUsing(fn (Expense $record) => ucfirst($record->spent_on->locale(app()->getLocale())->translatedFormat('F Y')))
                     ->groupQueryUsing(fn (Builder $query) => $query->groupByRaw(static::monthExpression()))
                     ->orderQueryUsing(fn (Builder $query, string $direction) => $query->orderBy('spent_on', $direction))
                     ->scopeQueryByKeyUsing(function (Builder $query, ?string $key) {
@@ -122,68 +125,68 @@ class ExpensesTable
                     })
                     ->collapsible(),
                 Group::make('supplier.name')
-                    ->label('Fornecedor')
+                    ->label(__('Supplier'))
                     ->collapsible(),
                 Group::make('category.name')
-                    ->label('Categoria')
+                    ->label(__('Category'))
                     ->collapsible(),
             ])
             ->filters([
                 ReconciliationColumns::expenseFilter(),
                 SelectFilter::make('supplier')
-                    ->label('Fornecedor')
+                    ->label(__('Supplier'))
                     ->relationship('supplier', 'name')
                     ->preload(),
                 SelectFilter::make('category')
-                    ->label('Categoria')
+                    ->label(__('Category'))
                     ->relationship('category', 'name', fn (Builder $query) => $query->expense())
                     ->preload(),
                 SelectFilter::make('kind')
-                    ->label('Tipo')
+                    ->label(__('Type'))
                     ->options(ExpenseKind::class),
                 SelectFilter::make('year')
-                    ->label('Ano')
+                    ->label(__('Year'))
                     ->options(fn () => Expense::query()->pluck('spent_on')->map->year->unique()->sortDesc()->mapWithKeys(fn ($year) => [$year => $year])->all())
                     ->query(fn (Builder $query, array $data) => $query->when($data['value'] ?? null, fn (Builder $query, $year) => $query->whereYear('spent_on', $year))),
                 SelectFilter::make('paid_tax_year')
-                    ->label('Impostos e contribuições pagos no ano')
+                    ->label(__('Taxes and contributions paid in the year'))
                     ->options(fn (): array => PeriodSummary::availableYears())
                     ->query(fn (Builder $query, array $data) => $query->when(
                         $data['value'] ?? null,
                         fn (Builder $query, int|string $year): Builder => AnnualFiscalReview::taxPayments((int) $year, $query),
                     )),
                 SelectFilter::make('month')
-                    ->label('Mês')
-                    ->options(collect(range(1, 12))->mapWithKeys(fn (int $month) => [$month => ucfirst(Carbon::create(2000, $month)->locale('pt')->translatedFormat('F'))])->all())
+                    ->label(__('Month'))
+                    ->options(collect(range(1, 12))->mapWithKeys(fn (int $month) => [$month => ucfirst(Carbon::create(2000, $month)->locale(app()->getLocale())->translatedFormat('F'))])->all())
                     ->query(fn (Builder $query, array $data) => $query->when($data['value'] ?? null, fn (Builder $query, $month) => $query->whereMonth('spent_on', $month))),
             ])
             ->recordActions([
                 Action::make('markPaid')
-                    ->label('Marcar como paga')
+                    ->label(__('Mark expense as paid'))
                     ->icon(Phosphor::CheckCircle)
                     ->color('success')
                     ->iconButton()
                     // Not behind a policy: the read-only gate cannot hide it.
                     ->disabled(fn () => CurrentAccount::readOnly())
-                    ->tooltip(fn () => CurrentAccount::readOnly() ? 'A conta está só de leitura' : 'Marcar como paga')
+                    ->tooltip(fn () => CurrentAccount::readOnly() ? __('The account is read-only') : __('Mark expense as paid'))
                     ->visible(fn (Expense $record) => ! $record->is_paid)
                     ->action(function (Expense $record): void {
                         $record->update(['is_paid' => true, 'paid_on' => today()]);
 
-                        Notification::make()->title('Despesa marcada como paga')->success()->send();
+                        Notification::make()->title(__('Expense marked as paid'))->success()->send();
                     }),
                 ActionGroup::make([
                     EditAction::make(),
                     Action::make('downloadProof')
-                        ->label('Descarregar comprovativo')
+                        ->label(__('Download supporting document'))
                         ->extraAttributes(['download' => true])
                         ->icon(Phosphor::DownloadSimple)
                         ->visible(fn (Expense $record): bool => $record->hasProof() && ExpenseResource::canView($record))
                         ->url(fn (Expense $record): string => ExpenseResource::getUrl('download-proof', ['record' => $record])),
                     ReconciliationColumns::detailsAction(),
                     ReplicateAction::make()
-                        ->label('Duplicar')
-                        ->modalDescription('Cria uma cópia com a data de hoje, por pagar, para corrigires o que mudou.')
+                        ->label(__('Duplicate'))
+                        ->modalDescription(__('Create an unpaid copy dated today so you can update what changed.'))
                         ->excludeAttributes(['proof_path', 'proof_reference', 'is_reviewed'])
                         ->beforeReplicaSaved(fn (Model $replica) => $replica->fill([
                             'spent_on' => today(),
@@ -191,7 +194,7 @@ class ExpensesTable
                             'paid_on' => null,
                             'invoice_number' => null,
                         ]))
-                        ->successNotificationTitle('Despesa duplicada')
+                        ->successNotificationTitle(__('Expense duplicated'))
                         ->successRedirectUrl(fn (Model $replica) => ExpenseResource::getUrl('edit', ['record' => $replica])),
                     DeleteAction::make(),
                 ]),
@@ -199,7 +202,7 @@ class ExpensesTable
             ->toolbarActions([
                 BulkActionGroup::make([
                     BulkAction::make('markPaid')
-                        ->label('Marcar como pagas')
+                        ->label(__('Mark selected expenses as paid'))
                         ->icon(Phosphor::CheckCircle)
                         ->color('success')
                         ->disabled(fn () => CurrentAccount::readOnly())
@@ -208,18 +211,18 @@ class ExpensesTable
                         ->action(function (Collection $records): void {
                             $records->where('is_paid', false)->each->update(['is_paid' => true, 'paid_on' => today()]);
 
-                            Notification::make()->title('Despesas marcadas como pagas')->success()->send();
+                            Notification::make()->title(__('Expenses marked as paid'))->success()->send();
                         }),
                     ExportBulkAction::make()
-                        ->label('Exportar seleção')
+                        ->label(__('Export selected'))
                         ->exports([
-                            ExcelExport::make()->fromTable()->ignoreFormatting(fn (ExportColumn $column) => method_exists($column->tableColumn, 'isMoney') && $column->tableColumn->isMoney())->withFilename(fn () => 'despesas-'.now()->format('Y-m-d')),
+                            ExcelExport::make()->fromTable()->ignoreFormatting(fn (ExportColumn $column) => method_exists($column->tableColumn, 'isMoney') && $column->tableColumn->isMoney())->withFilename(fn () => __('expenses').'-'.now()->format('Y-m-d')),
                         ]),
                     DeleteBulkAction::make(),
                 ]),
             ])
-            ->emptyStateHeading('Sem despesas')
-            ->emptyStateDescription('Regista uma despesa ou cria uma despesa recorrente.');
+            ->emptyStateHeading(__('No expenses'))
+            ->emptyStateDescription(__('Record an expense or create a recurring expense.'));
     }
 
     protected static function monthExpression(): string

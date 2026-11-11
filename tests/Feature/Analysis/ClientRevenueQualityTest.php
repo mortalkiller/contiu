@@ -14,7 +14,10 @@ use App\Support\CurrentAccount;
 use App\Support\Money;
 use App\Support\Period;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
+
+pest()->group('ui');
 
 it('separates clients with the same name and uses the actual allocation and settlement date', function () {
     $this->travelTo(Carbon::parse('2026-11-15'));
@@ -99,8 +102,8 @@ it('warns when half or more of what came in is from one client, and draws the sh
 
     Livewire::test(ClientRevenuePage::class)
         ->assertSee('Estúdio Atlântico trouxe 90% do que recebeste')
-        ->assertSeeHtml('contiu-percent-bar')
-        ->assertSeeHtml('bg-warning-500');
+        ->assertSeeHtml('fap-progress-with-value')
+        ->assertSeeHtml('data-color="warning"');
 });
 
 it('stays quiet about dependence when no client reaches half', function () {
@@ -114,3 +117,21 @@ it('stays quiet about dependence when no client reaches half', function () {
 
     Livewire::test(ClientRevenuePage::class)->assertDontSee('do que recebeste');
 });
+
+it('loads settlement delays once per page render', function () {
+    actingAsAdmin();
+
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+
+    try {
+        Livewire::test(ClientRevenuePage::class)->assertSee('Receitas por cliente');
+
+        $delayQueries = collect(DB::getQueryLog())->filter(fn (array $query): bool => str_contains($query['query'], 'from "receivables"')
+            && str_contains($query['query'], '"due_on" between'));
+
+        expect($delayQueries->countBy('query')->max())->toBe(1);
+    } finally {
+        DB::disableQueryLog();
+    }
+})->group('performance');

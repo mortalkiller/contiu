@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Projects\Schemas;
 
+use App\Enums\Language;
 use App\Enums\ProjectStatus;
 use App\Models\Payment;
 use App\Models\Project;
@@ -23,11 +24,11 @@ final class ProjectTimeline
 
         $events = [[
             'title' => match (true) {
-                $project->status === ProjectStatus::Cancelled => 'Trabalho cancelado',
-                $approved => 'Orçamento aprovado',
-                default => 'Proposta enviada',
+                $project->status === ProjectStatus::Cancelled => __('Project cancelled'),
+                $approved => __('Quote approved'),
+                default => __('Proposal sent'),
             },
-            'meta' => $project->quoted_on === null ? 'Sem data de orçamento' : 'Orçamento de '.$project->quoted_on->format('d/m/Y'),
+            'meta' => $project->quoted_on === null ? __('No quote date') : __('Quote dated :date', ['date' => $project->quoted_on->format(Language::resolve(app()->getLocale())->dateFormat())]),
             'amount' => null,
             'state' => $approved ? 'done' : 'pending',
         ]];
@@ -42,8 +43,8 @@ final class ProjectTimeline
     /** @return array{title: string, meta: string, amount: ?string, state: 'done'|'late'|'pending'} */
     private static function receivableEvent(Receivable $receivable): array
     {
-        $description = $receivable->description ?: 'Valor a receber';
-        $outstanding = $receivable->outstanding;
+        $description = $receivable->description ?: __('Receivable');
+        $outstanding = $receivable->projectedOutstanding();
         /** @var Payment|null $lastPayment */
         $lastPayment = $receivable->payments->sortBy('paid_on')->last();
 
@@ -51,11 +52,11 @@ final class ProjectTimeline
             $days = (int) $receivable->due_on->diffInDays($lastPayment->paid_on, false);
 
             return [
-                'title' => 'Recebido: '.$description,
-                'meta' => $lastPayment->paid_on->format('d/m/Y').' · '.match (true) {
-                    $days === 0 => 'no dia do vencimento',
-                    $days > 0 => trans_choice('{1} 1 dia depois|[2,*] :count dias depois', $days),
-                    default => trans_choice('{1} 1 dia antes|[2,*] :count dias antes', abs($days)),
+                'title' => __('Received: :description', ['description' => $description]),
+                'meta' => $lastPayment->paid_on->format(Language::resolve(app()->getLocale())->dateFormat()).' · '.match (true) {
+                    $days === 0 => __('on the due date'),
+                    $days > 0 => trans_choice('{1} 1 day later|[2,*] :count days later', $days),
+                    default => trans_choice('{1} 1 day earlier|[2,*] :count days earlier', abs($days)),
                 },
                 'amount' => Money::format($receivable->amount),
                 'state' => 'done',
@@ -63,12 +64,17 @@ final class ProjectTimeline
         }
 
         $late = $receivable->due_on->isBefore(today());
+        $date = $receivable->due_on->format(Language::resolve(app()->getLocale())->dateFormat());
         $meta = $late
-            ? 'Venceu a '.$receivable->due_on->format('d/m/Y').' · há '.trans_choice('{1} 1 dia|[2,*] :count dias', (int) $receivable->due_on->diffInDays(today()))
-            : 'Vence a '.$receivable->due_on->format('d/m/Y');
+            ? trans_choice(
+                '{1} Was due on :date · 1 day ago|[2,*] Was due on :date · :count days ago',
+                (int) $receivable->due_on->diffInDays(today()),
+                ['date' => $date],
+            )
+            : __('Due on :date', ['date' => $date]);
 
         if ($receivable->received > 0) {
-            $meta .= ' · '.Money::format($receivable->received).' já recebidos';
+            $meta .= ' · '.__(':amount already received', ['amount' => Money::format($receivable->received)]);
         }
 
         return [

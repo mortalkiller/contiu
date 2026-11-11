@@ -43,6 +43,23 @@
 .fph-root[data-fph-stuck="true"][data-fph-compact="true"] .fph-header {
     box-shadow: 0 4px 6px -1px rgb(0 0 0 / .1), 0 2px 4px -2px rgb(0 0 0 / .1);
 }
+/*
+ * Header::contained(false): the header sits on the page, without the card. Once it is stuck it
+ * needs a background again, so the content scrolling under it does not show through: the page's
+ * own, which a panel with another page colour sets with --fph-page-background (and
+ * --fph-page-background-dark).
+ */
+.fph-root .fph-header[data-fph-contained="false"] {
+    padding: 0;
+    border-radius: 0;
+}
+.fph-root[data-fph-stuck="true"] .fph-header[data-fph-contained="false"] {
+    padding-block: .75rem;
+    background: var(--fph-page-background, var(--gray-50));
+}
+.dark .fph-root[data-fph-stuck="true"] .fph-header[data-fph-contained="false"] {
+    background: var(--fph-page-background-dark, var(--gray-950));
+}
 .fph-breadcrumbs { min-width: 0; }
 .fph-root .fph-surface { min-width: 0; }
 .fph-root .fph-surface > .fph-breadcrumbs {
@@ -139,6 +156,11 @@
     font-size: 1.125rem;
     font-weight: 600;
 }
+.fph-root .fph-avatar[data-fph-avatar-shape="rounded"] { border-radius: .75rem; font-size: 1.25rem; }
+.dark .fph-root .fph-avatar[data-fph-avatar-style="soft"] {
+    background: var(--fph-avatar-background-dark, var(--fph-avatar-background));
+    color: var(--fph-avatar-text-dark, var(--fph-avatar-text));
+}
 .fph-root .fph-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .fph-root .fph-icon svg { width: 1.5rem; height: 1.5rem; }
 .fph-root .fph-leading { flex: 0 0 auto; max-width: 4rem; }
@@ -192,6 +214,7 @@
 .fph-root[data-fph-compact="true"] .fph-description { font-size: .75rem; line-height: 1.25; }
 .fph-root[data-fph-compact="true"] .fph-badges { margin-top: 0; }
 .fph-root[data-fph-compact="true"] .fph-avatar { width: clamp(2rem, 3vw, 2.5rem); height: clamp(2rem, 3vw, 2.5rem); font-size: .75rem; }
+.fph-root[data-fph-compact="true"] .fph-avatar[data-fph-avatar-shape="rounded"] { border-radius: .5rem; }
 .fph-root[data-fph-compact="true"] .fph-leading img { max-height: clamp(2rem, 3vw, 2.5rem); max-width: clamp(2rem, 3vw, 2.5rem); }
 @media (min-width: 768px) {
     /* Match compact visibility, including the keyboard-focus exception. */

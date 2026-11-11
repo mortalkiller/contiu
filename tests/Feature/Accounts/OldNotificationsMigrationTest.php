@@ -4,6 +4,8 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
+pest()->group('migration', 'tenancy');
+
 /** A database notification as Filament stores it, linking to a URL from before accounts. */
 function oldNotification(?string $readAt = null): string
 {

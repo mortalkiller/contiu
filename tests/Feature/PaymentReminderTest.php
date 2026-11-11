@@ -40,7 +40,7 @@ it('lists the client open amounts, flags the overdue ones and signs off', functi
         ->assertSeeInHtml('Olá Gonçalo')
         ->assertSeeInHtml(e($this->account->name))
         ->assertDontSeeInHtml('Adjudicação');
-});
+})->group('integration');
 
 it('sends the reviewed reminder to the edited address and logs it', function () {
     Livewire::test(ViewClient::class, ['record' => $this->client->getRouteKey()])
@@ -60,13 +60,13 @@ it('sends the reviewed reminder to the edited address and logs it', function () 
         ->to->toBe('contabilidade@example.pt')
         ->user_id->toBe($this->user->id)
         ->sent_at->not->toBeNull();
-});
+})->group('ui');
 
 it('mentions the overdue amount in the suggested message', function () {
     Livewire::test(ViewClient::class, ['record' => $this->client->getRouteKey()])
         ->mountAction('sendPaymentReminder')
         ->assertActionDataSet(fn (array $data) => str_contains($data['message'], '500,00'));
-});
+})->group('ui');
 
 it('cannot remind a client without email', function () {
     $this->client->update(['email' => null]);
@@ -76,7 +76,7 @@ it('cannot remind a client without email', function () {
         ->assertActionVisible('addClientEmail');
 
     Mail::assertNothingSent();
-});
+})->group('ui');
 
 it('reminds the client from an open amount on the receivables list and shows when', function () {
     Livewire::test(ListReceivables::class)->loadTable()
@@ -86,7 +86,7 @@ it('reminds the client from an open amount on the receivables list and shows whe
     Mail::assertSent(PaymentReminder::class, fn (PaymentReminder $mail) => $mail->highlightedId === $this->overdue->id);
 
     Livewire::test(ListReceivables::class)->loadTable()->assertSee('Lembrete enviado a 06/11');
-});
+})->group('ui');
 
 it('offers the reminder on the statement page too', function () {
     Livewire::test(ClientStatementPage::class, ['record' => $this->client->getRouteKey()])
@@ -94,7 +94,7 @@ it('offers the reminder on the statement page too', function () {
         ->assertHasNoActionErrors();
 
     Mail::assertSent(PaymentReminder::class, 1);
-});
+})->group('ui');
 
 it('never sends emails on its own', function () {
     $this->travelTo(Carbon::parse('2026-12-01'));
@@ -104,4 +104,4 @@ it('never sends emails on its own', function () {
 
     Mail::assertNothingSent();
     expect(ClientMessage::count())->toBe(0);
-});
+})->group('integration');

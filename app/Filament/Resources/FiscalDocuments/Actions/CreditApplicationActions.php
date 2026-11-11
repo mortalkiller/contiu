@@ -22,14 +22,14 @@ final class CreditApplicationActions
     public static function apply(): Action
     {
         return Action::make('applyCredit')
-            ->label('Aplicar crédito')
+            ->label(__('Apply credit'))
             ->requiresConfirmation()
             ->modalDescription(function (FiscalDocument $record): string {
                 $number = $record->links?->relatedFiscalDocument?->number;
 
                 return $number === null
-                    ? 'Liga primeiro a nota à fatura original.'
-                    : 'Abater '.Money::format(abs($record->total_amount)).' ao valor a receber da fatura '.$number.'. Esta operação não regista um recebimento.';
+                    ? __('Link the credit note to the original invoice first.')
+                    : __('Deduct :amount from the amount due on invoice :number. This does not record a payment.', ['amount' => Money::format(abs($record->total_amount), locale: app()->getLocale()), 'number' => $number]);
             })
             ->visible(fn (FiscalDocument $record): bool => $record->type === FiscalDocumentType::CreditNote
                 && $record->direction === FiscalDocumentDirection::Issued
@@ -58,24 +58,24 @@ final class CreditApplicationActions
                     'receivable_id' => (int) $data['receivable_id'],
                 ]),
             ))
-            ->successNotificationTitle('Crédito aplicado');
+            ->successNotificationTitle(__('Credit applied'));
     }
 
     public static function reverse(): Action
     {
         return Action::make('reverseCredit')
-            ->label('Reverter aplicação do crédito')
-            ->modalDescription('O valor do crédito volta a ficar em aberto. O histórico da aplicação é conservado.')
+            ->label(__('Reverse credit application'))
+            ->modalDescription(__('The credit amount becomes available again. The application history is kept.'))
             ->visible(fn (FiscalDocument $record): bool => self::canChange($record) && self::activeApplicationId($record) !== null)
             ->fillForm(fn (FiscalDocument $record): array => ['application_id' => self::activeApplicationId($record)])
             ->schema([
                 Hidden::make('application_id')->required()->rule('integer'),
-                Textarea::make('reason')->label('Motivo da reversão')->required()->maxLength(ManageCreditApplication::MAX_REASON_LENGTH),
+                Textarea::make('reason')->label(__('Reversal reason'))->required()->maxLength(ManageCreditApplication::MAX_REASON_LENGTH),
             ])
             ->action(fn (FiscalDocument $record, array $data, Action $action) => self::run(
                 $action, fn () => app(ManageCreditApplication::class)->reverse($record->id, (int) $data['application_id'], $data['reason']),
             ))
-            ->successNotificationTitle('Aplicação do crédito revertida');
+            ->successNotificationTitle(__('Credit application reversed'));
     }
 
     private static function canChange(FiscalDocument $record): bool

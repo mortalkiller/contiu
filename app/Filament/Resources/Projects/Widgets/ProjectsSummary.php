@@ -30,7 +30,7 @@ class ProjectsSummary extends StatsOverviewWidget
     protected function getStats(): array
     {
         /** @var Collection<int, Project> $projects */
-        $projects = Project::query()->with('receivables.payments')->get();
+        $projects = Project::query()->with(['receivables' => fn ($query) => $query->withOutstandingBalance(), 'receivables.payments'])->get();
 
         $active = $projects->filter(fn (Project $project): bool => in_array($project->status, [ProjectStatus::Approved, ProjectStatus::InProgress], true));
         $notCancelled = $projects->filter(fn (Project $project): bool => $project->status !== ProjectStatus::Cancelled);
@@ -43,19 +43,22 @@ class ProjectsSummary extends StatsOverviewWidget
         $approved = $decided->reject(fn (Project $project): bool => in_array($project->status, [ProjectStatus::Proposal, ProjectStatus::Cancelled], true));
         $approvalRate = $decided->isEmpty() ? 0 : (int) round($approved->count() / $decided->count() * 100);
 
-        $count = fn (int $number): string => trans_choice('{0} Nenhum trabalho|{1} 1 trabalho|[2,*] :count trabalhos', $number);
+        $count = fn (int $number): string => trans_choice('{0} No projects|{1} 1 project|[2,*] :count projects', $number);
 
         return [
-            Stat::make('Em curso', Money::format((int) $active->sum(fn (Project $project): int => (int) $project->total)))
+            Stat::make(__('Active projects'), Money::format((int) $active->sum(fn (Project $project): int => (int) $project->total)))
                 ->description($active->isEmpty()
                     ? $count(0)
-                    : $count($active->count()).' · '.Money::format((int) $active->sum(fn (Project $project): int => $project->received_amount)).' recebidos')
+                    : __(':projects · :amount received', [
+                        'projects' => $count($active->count()),
+                        'amount' => Money::format((int) $active->sum(fn (Project $project): int => $project->received_amount)),
+                    ]))
                 ->icon(Phosphor::Briefcase),
-            Stat::make('Por receber', Money::format((int) $owing->sum(fn (Project $project): int => $project->outstanding_amount)))
+            Stat::make(__('Awaiting payment'), Money::format((int) $owing->sum(fn (Project $project): int => $project->outstanding_amount)))
                 ->description(match (true) {
-                    $owing->isEmpty() => 'Tudo recebido',
-                    $overdue > 0 => Money::format($overdue).' vencidos',
-                    default => $count($owing->count()).' · nada vencido',
+                    $owing->isEmpty() => __('All payments received'),
+                    $overdue > 0 => __(':amount past due', ['amount' => Money::format($overdue)]),
+                    default => __(':projects · none past due', ['projects' => $count($owing->count())]),
                 })
                 ->color(match (true) {
                     $owing->isEmpty() => 'success',
@@ -63,16 +66,18 @@ class ProjectsSummary extends StatsOverviewWidget
                     default => 'warning',
                 })
                 ->icon(Phosphor::HourglassMedium),
-            Stat::make('Propostas à espera', Money::format((int) $proposals->sum(fn (Project $project): int => (int) $project->total)))
+            Stat::make(__('Pending proposals'), Money::format((int) $proposals->sum(fn (Project $project): int => (int) $project->total)))
                 ->description($proposals->isEmpty()
-                    ? 'Nenhuma proposta em aberto'
-                    : trans_choice('{1} 1 proposta|[2,*] :count propostas', $proposals->count())
-                        .' · a mais antiga há '.trans_choice('{0} menos de um dia|{1} 1 dia|[2,*] :count dias', (int) $oldestProposal->diffInDays(today())))
+                    ? __('No open proposals')
+                    : __(':proposals · the oldest is :age old', [
+                        'proposals' => trans_choice('{1} 1 proposal|[2,*] :count proposals', $proposals->count()),
+                        'age' => trans_choice('{0} less than a day|{1} 1 day|[2,*] :count days', (int) $oldestProposal->diffInDays(today())),
+                    ]))
                 ->icon(Phosphor::PaperPlaneTilt),
-            Stat::make('Propostas aprovadas', $decided->isEmpty() ? '—' : $approved->count().' de '.$decided->count())
+            Stat::make(__('Approved proposals'), $decided->isEmpty() ? '—' : __(':approved of :total', ['approved' => $approved->count(), 'total' => $decided->count()]))
                 ->description($decided->isEmpty()
-                    ? 'Ainda sem propostas em '.today()->year
-                    : new HtmlString('<span class="contiu-progress" role="img" aria-label="'.$approvalRate.'% das propostas aprovadas"><i style="width: '.$approvalRate.'%"></i></span>'))
+                    ? __('No proposals yet in :year', ['year' => today()->year])
+                    : new HtmlString('<span class="fap-progress" role="img" aria-label="'.e(__(':percent% of proposals approved', ['percent' => $approvalRate])).'"><i style="width: '.$approvalRate.'%"></i></span>'))
                 ->icon(Phosphor::CheckCircle),
         ];
     }

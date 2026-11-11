@@ -22,44 +22,44 @@ class MonthReceivablesTable extends TableWidget
     public function table(Table $table): Table
     {
         return $table
-            ->heading('A receber')
-            ->description('Cobranças com vencimento, fatura ou adiantamento no mês e valores ainda em aberto de meses anteriores.')
+            ->heading(__('To receive'))
+            ->description(__('Charges due, invoiced or paid in advance during the month, and outstanding amounts from previous months.'))
             ->query(fn () => $this->review()->receivablesQuery(withFiscalReference: true))
             ->paginated(false)
             ->columns([
                 TextColumn::make('due_on')
-                    ->label('Vencimento')
+                    ->label(__('Due date'))
                     ->date()
                     ->description(fn (Receivable $record) => match (true) {
-                        $this->review()->isCarriedOver($record) => 'de meses anteriores',
-                        $this->review()->isDueLater($record) => 'vence após o mês',
+                        $this->review()->isCarriedOver($record) => __('from previous months'),
+                        $this->review()->isDueLater($record) => __('due after this month'),
                         default => null,
                     })
                     ->color(fn (Receivable $record) => $record->status->value === 'overdue' ? 'danger' : null),
                 TextColumn::make('client')
-                    ->label('Cliente')
+                    ->label(__('Client'))
                     ->state(fn (Receivable $record) => $record->client?->name),
                 TextColumn::make('billable.code')
-                    ->label('Referente a')
+                    ->label(__('For'))
                     ->description(fn (Receivable $record) => $record->description)
                     ->url(fn (Receivable $record) => $record->billableUrl()),
-                TextColumn::make('amount')->label('Valor')->money('EUR', divideBy: 100)->alignEnd(),
-                TextColumn::make('outstanding')->label('Saldo atual em aberto')->money('EUR', divideBy: 100)->alignEnd()
+                TextColumn::make('amount')->label(__('Amount'))->money('EUR', divideBy: 100)->alignEnd(),
+                TextColumn::make('outstanding')->label(__('Current outstanding balance'))->money('EUR', divideBy: 100)->alignEnd()
                     ->weight('medium')
                     ->color(fn (float $state) => $state > 0 ? 'warning' : 'gray'),
-                TextColumn::make('outstandingAtClose')->label('Saldo no fim do mês')->money('EUR', divideBy: 100)->alignEnd()
+                TextColumn::make('outstandingAtClose')->label(__('End-of-month balance'))->money('EUR', divideBy: 100)->alignEnd()
                     ->state(fn (Receivable $record): int => $this->review()->outstandingAtClose($record)),
-                TextColumn::make('status')->label('Estado atual')->badge(),
+                TextColumn::make('status')->label(__('Current status'))->badge(),
                 FiscalDocumentColumn::make(),
             ])
             ->recordActions([
                 RecordPaymentAction::make()
                     ->button()
-                    ->label('Receber')
+                    ->label(__('Receive payment'))
                     ->visible(fn (Receivable $record) => $record->outstanding > 0)
                     ->after(fn () => $this->monthChanged()),
             ])
-            ->emptyStateHeading('Nada a receber neste mês')
+            ->emptyStateHeading(__('Nothing due this month'))
             ->emptyStateIcon(Phosphor::CheckCircle);
     }
 }

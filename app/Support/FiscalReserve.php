@@ -10,7 +10,7 @@ use Illuminate\Validation\ValidationException;
 
 final class FiscalReserve
 {
-    public const INVALID_TRANSFER = 'Escolhe uma saída do extrato classificada como «Transferência minha».';
+    public const INVALID_TRANSFER = 'Choose an outgoing bank statement entry classified as “Own transfer”.';
 
     public function __construct(private readonly FinanceSettings $settings) {}
 
@@ -49,14 +49,14 @@ final class FiscalReserve
         abort_if(CurrentAccount::readOnly(), 403);
 
         if ($transferId !== null && $amount === 0) {
-            throw ValidationException::withMessages(['amount' => 'Indica um montante superior a zero para associar a transferência.']);
+            throw ValidationException::withMessages(['amount' => __('Enter an amount greater than zero to link the transfer.')]);
         }
 
         DB::transaction(function () use ($amount, $transferId): void {
             $transfer = $transferId === null ? null : $this->eligibleTransfers()->lockForUpdate()->find($transferId);
 
             if ($transferId !== null && $transfer === null) {
-                throw ValidationException::withMessages(['transfer_id' => self::INVALID_TRANSFER]);
+                throw ValidationException::withMessages(['transfer_id' => __(self::INVALID_TRANSFER)]);
             }
 
             $this->settings->set([

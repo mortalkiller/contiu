@@ -21,7 +21,7 @@ final class ManageCustomerAdvance
         ])->validate();
 
         if (! Client::query()->whereKey($clientId)->exists()) {
-            throw ValidationException::withMessages(['client_id' => 'Escolhe um cliente desta conta.']);
+            throw ValidationException::withMessages(['client_id' => __('Choose a client from this account.')]);
         }
 
         return Payment::query()->create([
@@ -43,7 +43,7 @@ final class ManageCustomerAdvance
                 ->excludingCancelled()->lockForUpdate()->find($receivableId);
 
             if ($payment->allocations()->exists() || $charge === null || $payment->amount > $charge->outstanding) {
-                throw ValidationException::withMessages(['receivable_id' => 'Escolhe uma cobrança do cliente com saldo suficiente e um sinal ainda por afetar.']);
+                throw ValidationException::withMessages(['receivable_id' => __('Choose a receivable for the client with a sufficient balance and a deposit still to allocate.')]);
             }
 
             $payment->allocations()->create([

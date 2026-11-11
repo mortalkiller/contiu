@@ -2,6 +2,8 @@
 
 use Illuminate\Console\Scheduling\Schedule;
 
+pest()->group('integration');
+
 function scheduledAt(string $command): ?string
 {
     return collect(app(Schedule::class)->events())

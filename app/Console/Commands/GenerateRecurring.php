@@ -11,7 +11,7 @@ use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
 #[Signature('finance:generate-recurring')]
-#[Description('Cria os valores a receber das avenças (próximos 30 dias) e as despesas recorrentes até hoje')]
+#[Description('Create retainer receivables for the next 30 days and recurring expenses through today')]
 class GenerateRecurring extends Command
 {
     public function handle(GenerateRetainerPeriods $periods, GenerateRecurringExpenses $expenses): int
@@ -31,8 +31,8 @@ class GenerateRecurring extends Command
             });
         });
 
-        $this->info('Valores a receber criados: '.$receivables);
-        $this->info('Despesas criadas: '.$created);
+        $this->info(__('Receivables created: :count', ['count' => $receivables]));
+        $this->info(__('Expenses created: :count', ['count' => $created]));
 
         return self::SUCCESS;
     }

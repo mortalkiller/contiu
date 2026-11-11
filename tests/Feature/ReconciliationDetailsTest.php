@@ -15,6 +15,8 @@ use App\Support\Money;
 use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 
+pest()->group('ui', 'banking');
+
 beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-11-20'));
     actingAsAdmin();

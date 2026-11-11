@@ -22,7 +22,7 @@ class EditAccountProfile extends EditTenantProfile
 
     public static function getLabel(): string
     {
-        return 'Perfil da conta';
+        return __('Account profile');
     }
 
     /** Only the account's owners, and super admins giving support. */
@@ -42,11 +42,11 @@ class EditAccountProfile extends EditTenantProfile
     {
         return $schema->components([
             TextInput::make('name')
-                ->label('Nome')
+                ->label(__('Name'))
                 ->required()
                 ->maxLength(255),
             TextInput::make('nif')
-                ->label('NIF')
+                ->label(__('Tax ID'))
                 ->rule(new PortugueseNif)
                 ->unique(ignoreRecord: true)
                 // Accounts migrated from before multi-account (billing exempt) may not have one yet.
@@ -55,17 +55,17 @@ class EditAccountProfile extends EditTenantProfile
             // the migrated account named "conta-principal" when the release ran with cached config).
             // Hidden fields are not saved, so an owner cannot send one either.
             TextInput::make('slug')
-                ->label('Endereço')
+                ->label(__('Account address'))
                 ->prefix(url('/').'/')
-                ->helperText('Só minúsculas, números e hífenes. Os links antigos para a conta deixam de funcionar.')
+                ->helperText(__('Use only lowercase letters, numbers and hyphens. Old links to the account will stop working.'))
                 ->visible(fn (): bool => User::loggedInIsSuperAdmin())
                 ->required()
                 ->maxLength(CreateAccount::SLUG_MAX_LENGTH)
                 ->regex('/^[a-z0-9]+(-[a-z0-9]+)*$/')
-                ->validationMessages(['regex' => 'Usa só minúsculas, números e hífenes (sem espaços nem acentos).'])
+                ->validationMessages(['regex' => __('Use only lowercase letters, numbers and hyphens (no spaces or accents).')])
                 ->rule(fn (?Account $record): Closure => function (string $attribute, mixed $value, Closure $fail) use ($record): void {
                     if (is_string($value) && ! app(CreateAccount::class)->slugIsAvailable($value, $record)) {
-                        $fail('Este endereço não está disponível.');
+                        $fail(__('This address is unavailable.'));
                     }
                 }),
         ]);

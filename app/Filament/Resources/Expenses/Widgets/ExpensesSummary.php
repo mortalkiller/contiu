@@ -54,23 +54,23 @@ class ExpensesSummary extends StatsOverviewWidget
         $withoutProof = Expense::query()->whereNull('proof_path')->count();
 
         return [
-            Stat::make('Por pagar', Money::format((int) $unpaid->sum(fn (Expense $expense): int => (int) $expense->total)))
-                ->description($unpaid->isEmpty() ? 'Tudo pago' : trans_choice('{1} 1 despesa|[2,*] :count despesas', $unpaid->count()))
+            Stat::make(__('Unpaid'), Money::format((int) $unpaid->sum(fn (Expense $expense): int => (int) $expense->total), locale: app()->getLocale()))
+                ->description($unpaid->isEmpty() ? __('All paid') : trans_choice('{1} 1 expense|[2,*] :count expenses', $unpaid->count()))
                 ->color($unpaid->isEmpty() ? 'success' : 'warning')
                 ->icon(Phosphor::Clock),
-            Stat::make('Pagas em '.today()->translatedFormat('F'), Money::format((int) end($paidByMonth)))
-                ->description('Últimos 6 meses')
+            Stat::make(__('Expenses paid in :month', ['month' => today()->locale(app()->getLocale())->translatedFormat('F')]), Money::format((int) end($paidByMonth), locale: app()->getLocale()))
+                ->description(__('Last 6 months'))
                 ->chart($paidByMonth)
                 ->color('clay')
                 ->icon(Phosphor::Receipt),
-            Stat::make('Sem comprovativo', (string) $withoutProof)
-                ->description($withoutProof === 0 ? 'Todas documentadas' : 'Junta-os em Importar faturas')
+            Stat::make(__('Missing supporting document'), (string) $withoutProof)
+                ->description($withoutProof === 0 ? __('All documented') : __('Attach them in Import invoices'))
                 ->color($withoutProof === 0 ? 'success' : null)
                 ->icon(Phosphor::Paperclip),
-            Stat::make('Em '.today()->year, Money::format($byKind(ExpenseKind::Overhead) + $byKind(ExpenseKind::Direct)))
+            Stat::make(__('In :year', ['year' => today()->year]), Money::format($byKind(ExpenseKind::Overhead) + $byKind(ExpenseKind::Direct), locale: app()->getLocale()))
                 ->description(ProportionBar::render([
-                    ['label' => 'Estrutura', 'cents' => $byKind(ExpenseKind::Overhead), 'tone' => 'clay'],
-                    ['label' => 'Diretas', 'cents' => $byKind(ExpenseKind::Direct), 'tone' => 'strong'],
+                    ['label' => __('Overhead'), 'cents' => $byKind(ExpenseKind::Overhead), 'tone' => 'clay'],
+                    ['label' => __('Direct expenses'), 'cents' => $byKind(ExpenseKind::Direct), 'tone' => 'strong'],
                 ]))
                 ->icon(Phosphor::ChartPieSlice),
         ];

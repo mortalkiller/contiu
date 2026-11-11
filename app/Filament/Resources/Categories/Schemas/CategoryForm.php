@@ -15,13 +15,13 @@ class CategoryForm
         return $schema
             ->components([
                 ToggleButtons::make('type')
-                    ->label('Tipo')
+                    ->label(__('Type'))
                     ->options(CategoryType::class)
                     ->default(CategoryType::Expense)
                     ->inline()
                     ->required(),
                 TextInput::make('name')
-                    ->label('Nome')
+                    ->label(__('Name'))
                     ->required()
                     ->maxLength(100),
                 Hidden::make('sort')

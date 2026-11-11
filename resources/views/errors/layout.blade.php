@@ -3,7 +3,7 @@
     itself is broken. Each errors/{code}.blade.php fills in the code, title, message and actions.
 --}}
 <!DOCTYPE html>
-<html lang="pt-PT">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -140,14 +140,14 @@
 </head>
 <body>
     <header>
-        <a href="{{ url('/') }}" aria-label="Contiu — ir para o painel">
+        <a href="{{ url('/') }}" aria-label="{{ __('Contiu — go to dashboard') }}">
             <img src="{{ asset('brand/contiu/contiu-logo-white.svg') }}" alt="Contiu">
         </a>
     </header>
 
     <main>
         <div class="card">
-            <span class="code">Erro @yield('code')</span>
+            <span class="code">{{ __('Error :code', ['code' => trim($__env->yieldContent('code'))]) }}</span>
             <h1>@yield('title')</h1>
             <p>@yield('message')</p>
 
@@ -155,13 +155,13 @@
                 @hasSection('actions')
                     @yield('actions')
                 @else
-                    <a class="btn btn-primary" href="{{ url('/') }}">Voltar ao painel</a>
-                    <button type="button" class="btn" onclick="history.length > 1 ? history.back() : location.assign('{{ url('/') }}')">Voltar atrás</button>
+                    <a class="btn btn-primary" href="{{ url('/') }}">{{ __('Back to dashboard') }}</a>
+                    <button type="button" class="btn" onclick="history.length > 1 ? history.back() : location.assign('{{ url('/') }}')">{{ __('Go back') }}</button>
                 @endif
             </div>
         </div>
     </main>
 
-    <footer>Contiu · se o problema continuar, tenta mais tarde.</footer>
+    <footer>{{ __('Contiu · if the problem persists, try again later.') }}</footer>
 </body>
 </html>

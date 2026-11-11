@@ -103,7 +103,7 @@ it('records and reconciles a partial customer refund without changing the origin
         ->and($line->fresh()->status->value)->toBe('pending');
     app(RecordCustomerRefund::class)->handle($note->id, 7000, '2026-11-05', 'REF-1', $line->id);
     expect(CustomerRefund::count())->toBe(1)->and($line->fresh()->difference())->toBe(0);
-});
+})->group('ui');
 
 it('refuses refunds above received cash and prevents reusing a refunded credit to abate a charge', function () {
     signInForCreditApplication();
@@ -115,7 +115,7 @@ it('refuses refunds above received cash and prevents reusing a refunded credit t
     expect(fn () => $refunds->handle($note->id, 2000, '2026-11-04', 'REF-2'))->toThrow(ValidationException::class)
         ->and(fn () => app(ManageCreditApplication::class)->apply($note->id))->toThrow(ValidationException::class);
     expect(CustomerRefund::count())->toBe(1);
-});
+})->group('integration');
 
 it('applies and reverses a credit from the document list without recording cash or changing the original invoice', function () {
     $owner = signInForCreditApplication();
@@ -128,6 +128,7 @@ it('applies and reverses a credit from the document list without recording cash 
 
     $application = CreditApplication::query()->sole();
     expect($receivable->fresh()->outstanding)->toBe(65000)
+        ->and(Receivable::query()->withOutstandingBalance()->findOrFail($receivable->id)->projectedOutstanding())->toBe(65000)
         ->and($receivable->fresh()->received)->toBe(0)
         ->and($receivable->fresh()->amount)->toBe(80000)
         ->and($invoice->fresh()->total_amount)->toBe(80000)
@@ -150,7 +151,7 @@ it('applies and reverses a credit from the document list without recording cash 
         ->and($application->fresh()->reversed_on->toDateString())->toBe('2026-11-11')
         ->and($application->fresh()->reversed_by)->toBe($owner->id)
         ->and($application->fresh()->reversal_reason)->toBe('Aplicação registada por engano.');
-});
+})->group('ui');
 
 it('reflects credits and allocations on their effective dates and reopens a fully credited balance on reversal', function () {
     signInForCreditApplication();
@@ -172,7 +173,7 @@ it('reflects credits and allocations on their effective dates and reopens a full
         ->and($receivable->outstandingAt('2026-11-11'))->toBe(0)
         ->and($receivable->outstandingAt('2026-11-12'))->toBe(15000)
         ->and($receivable->fresh()->received)->toBe(65000);
-});
+})->group('integration');
 
 it('rejects a duplicate application and any application above the open balance', function () {
     signInForCreditApplication();
@@ -192,7 +193,7 @@ it('rejects a duplicate application and any application above the open balance',
     $new = $action->apply($credit->id);
     expect(fn () => $action->reverse($credit->id, $application->id, 'Pedido antigo.'))->toThrow(ValidationException::class)
         ->and($new->fresh()->reversed_on)->toBeNull();
-});
+})->group('integration');
 
 it('requires an active issued EUR credit note and original invoice', function (array $note, array $invoice) {
     signInForCreditApplication();
@@ -209,7 +210,7 @@ it('requires an active issued EUR credit note and original invoice', function (a
     'voided original' => [[], ['status' => FiscalDocumentStatus::Voided]],
     'foreign currency original' => [[], ['currency' => 'USD']],
     'future-dated note' => [['document_date' => '2026-11-11'], []],
-]);
+])->group('integration');
 
 it('requires the explicit original invoice and its receivable link', function () {
     signInForCreditApplication();
@@ -223,7 +224,7 @@ it('requires the explicit original invoice and its receivable link', function ()
     expect(fn () => $action->apply($credit->id))->toThrow(ValidationException::class);
 
     $this->assertDatabaseCount('credit_applications', 0);
-});
+})->group('integration');
 
 it('refuses applications across accounts and from review-only users', function () {
     [, , $credit] = linkedCreditApplicationDocuments();
@@ -234,7 +235,7 @@ it('refuses applications across accounts and from review-only users', function (
         ->and(fn () => app(ManageCreditApplication::class)->apply($credit->id))->toThrow(HttpException::class);
 
     $this->assertDatabaseCount('credit_applications', 0);
-});
+})->group('integration');
 
 it('makes the existing split payment writer respect the reduced balance', function () {
     signInForCreditApplication();
@@ -250,7 +251,7 @@ it('makes the existing split payment writer respect the reduced balance', functi
 
     $this->assertDatabaseCount('payments', 0);
     $this->assertDatabaseCount('payment_allocations', 0);
-});
+})->group('integration');
 
 it('rejects a cross-account application at the database boundary', function () {
     [$receivable, $invoice, $credit] = linkedCreditApplicationDocuments();
@@ -263,7 +264,7 @@ it('rejects a cross-account application at the database boundary', function () {
     ]))->toThrow(QueryException::class);
     $this->assertDatabaseCount('credit_applications', 0);
     expect($receivable->outstanding)->toBe(80000);
-});
+})->group('integration');
 
 it('requires a new confirmation if the original invoice changes after the modal opens', function () {
     signInForCreditApplication();
@@ -277,4 +278,4 @@ it('requires a new confirmation if the original invoice changes after the modal 
 
     $this->assertDatabaseCount('credit_applications', 0);
     expect($otherReceivable->outstanding)->toBe(80000);
-});
+})->group('ui');

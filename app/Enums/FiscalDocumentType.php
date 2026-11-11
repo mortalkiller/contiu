@@ -15,11 +15,11 @@ enum FiscalDocumentType: string implements HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::Invoice => 'Fatura',
-            self::Receipt => 'Recibo',
-            self::InvoiceReceipt => 'Fatura-recibo',
-            self::CreditNote => 'Nota de crédito',
-            self::DebitNote => 'Nota de débito',
+            self::Invoice => __('Invoice'),
+            self::Receipt => __('Receipt'),
+            self::InvoiceReceipt => __('Invoice receipt'),
+            self::CreditNote => __('Credit note'),
+            self::DebitNote => __('Debit note'),
         };
     }
 }

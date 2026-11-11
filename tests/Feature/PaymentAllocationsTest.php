@@ -26,7 +26,7 @@ it('attributes a split payment to both balances while counting the transfer once
         ->and($first->fresh()->outstanding)->toBe(10000)
         ->and($second->fresh()->outstanding)->toBe(30000)
         ->and(Payment::sum('amount'))->toBe(70000);
-});
+})->group('integration');
 
 it('reconciles a split payment as one bank movement and preserves both allocations on undo', function () {
     $project = Project::factory()->create();
@@ -52,7 +52,7 @@ it('reconciles a split payment as one bank movement and preserves both allocatio
     expect($payment->allocations()->count())->toBe(2)
         ->and($first->fresh()->outstanding)->toBe(10000)
         ->and($second->fresh()->outstanding)->toBe(30001);
-});
+})->group('integration');
 
 it('rejects an allocation above the balance without recording a payment', function () {
     $project = Project::factory()->create();
@@ -64,7 +64,7 @@ it('rejects an allocation above the balance without recording a payment', functi
     ], [$first->id => 60000, $second->id => 10000]))->toThrow(ValidationException::class);
 
     expect(Payment::count())->toBe(0);
-});
+})->group('integration');
 
 it('records the split through the payments screen', function () {
     actingAsAdmin();
@@ -84,4 +84,4 @@ it('records the split through the payments screen', function () {
         ])->assertHasNoFormErrors();
 
     expect(Payment::query()->sole()->amount)->toBe(70003);
-});
+})->group('ui');

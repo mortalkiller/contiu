@@ -38,16 +38,16 @@ final class FiscalDocumentPdfs
 
         $this->authorizeWrite($document);
         if (! $upload instanceof TemporaryUploadedFile) {
-            throw ValidationException::withMessages(['data.pdf_upload' => 'Seleciona um ficheiro PDF.']);
+            throw ValidationException::withMessages(['data.pdf_upload' => __('Select a PDF file.')]);
         }
 
         if ($upload->getSize() > self::MAX_BYTES) {
-            throw ValidationException::withMessages(['data.pdf_upload' => 'O PDF pode ter até 10 MB.']);
+            throw ValidationException::withMessages(['data.pdf_upload' => __('The PDF can be up to 10 MB.')]);
         }
 
         $stream = $upload->readStream();
         if (! is_resource($stream)) {
-            throw ValidationException::withMessages(['data.pdf_upload' => 'Não foi possível ler o PDF.']);
+            throw ValidationException::withMessages(['data.pdf_upload' => __('Could not read the PDF.')]);
         }
 
         try {
@@ -57,20 +57,20 @@ final class FiscalDocumentPdfs
         }
 
         if (! is_string($bytes) || ! self::isPdf($bytes)) {
-            throw ValidationException::withMessages(['data.pdf_upload' => 'Seleciona um ficheiro PDF válido de até 10 MB.']);
+            throw ValidationException::withMessages(['data.pdf_upload' => __('Select a valid PDF file up to 10 MB.')]);
         }
 
         try {
             return $this->store($bytes, function () use ($data, $document): FiscalDocument {
                 $record = app(SaveFiscalDocument::class)->handle($data, $document);
                 if ($record->invoiceXpressSnapshot()->exists()) {
-                    throw ValidationException::withMessages(['data.pdf_upload' => 'Obtém o PDF deste documento através do InvoiceXpress.']);
+                    throw ValidationException::withMessages(['data.pdf_upload' => __('Get the PDF for this document through InvoiceXpress.')]);
                 }
 
                 return $record;
             });
         } catch (FilesystemException) {
-            throw ValidationException::withMessages(['data.pdf_upload' => 'Não foi possível guardar o PDF.']);
+            throw ValidationException::withMessages(['data.pdf_upload' => __('Could not save the PDF.')]);
         }
     }
 
@@ -81,7 +81,7 @@ final class FiscalDocumentPdfs
         $snapshot = $document->invoiceXpressSnapshot()->first();
         $config = InvoiceXpressConfig::current();
         if ($snapshot === null || $config === null || $snapshot->subdomain !== $config->subdomain) {
-            throw new InvoiceXpressException('O documento não está ligado à conta InvoiceXpress atual.');
+            throw new InvoiceXpressException(__('This document is not linked to the current InvoiceXpress account.'));
         }
 
         $bytes = app(InvoiceXpressFiscalPdf::class)->retrieve($config, $snapshot->provider_id);
@@ -97,13 +97,13 @@ final class FiscalDocumentPdfs
 
                 if ($record->invoiceXpressSnapshot()->first()?->id !== $snapshot->id
                     || InvoiceXpressConfig::current()?->subdomain !== $snapshot->subdomain) {
-                    throw new InvoiceXpressException('A ligação do documento ao InvoiceXpress mudou. Tenta novamente.');
+                    throw new InvoiceXpressException(__('The document’s link to InvoiceXpress has changed. Try again.'));
                 }
 
                 return $record;
             }, $snapshot);
         } catch (FilesystemException) {
-            throw new InvoiceXpressException('Não foi possível guardar o PDF oficial.');
+            throw new InvoiceXpressException(__('Could not save the official PDF.'));
         }
 
         return true;

@@ -19,17 +19,26 @@ class SupplierResource extends Resource
 {
     protected static ?string $model = Supplier::class;
 
-    protected static ?string $modelLabel = 'fornecedor';
-
-    protected static ?string $pluralModelLabel = 'fornecedores';
-
     protected static ?string $recordTitleAttribute = 'name';
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::Storefront;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Contactos';
-
     protected static ?int $navigationSort = 2;
+
+    public static function getModelLabel(): string
+    {
+        return __('supplier');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('suppliers');
+    }
+
+    public static function getNavigationGroup(): string|UnitEnum|null
+    {
+        return __('Contacts');
+    }
 
     public static function form(Schema $schema): Schema
     {

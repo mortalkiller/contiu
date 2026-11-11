@@ -4,6 +4,8 @@ use App\Enums\Seat;
 use App\Models\Account;
 use App\Models\Client;
 use App\Models\Expense;
+use App\Models\FiscalDocument;
+use App\Models\FiscalProfile;
 use App\Models\Payment;
 use App\Models\Project;
 use App\Models\Receivable;
@@ -12,12 +14,15 @@ use App\Models\TaxObligationCompletion;
 use App\Models\User;
 use App\Support\CurrentAccount;
 use App\Support\FinanceSettings;
+use App\Support\InvoiceXpressEuService;
 use App\Support\SocialSecurity;
 use App\Support\TaxEstimator;
 use App\Support\TaxObligation;
 use App\Support\TaxObligations;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
+
+pest()->group('integration', 'fiscal');
 
 /** Settings of an account whose SS obligation started long ago. */
 const OBLIGATIONS_COMPLETE_SETTINGS = ['activity_started_on' => '2024-01-01', 'activity_start_kind' => 'first'];
@@ -166,20 +171,142 @@ it('asks to complete the settings when they are incomplete', function () {
         ->and($obligations->upcoming())->toBe([]);
 });
 
-it('lists the recapitulativa only for EU business clients', function () {
+function recordRecapService(string $operationOn, array $attributes = []): FiscalDocument
+{
+    $client = Client::factory()->create([
+        'fiscal_country_code' => 'DE',
+        'fiscal_party_type' => 'business',
+        'vat_number' => 'DE123456789',
+    ]);
+    $client->forceFill(['vat_validation_status' => 'valid', 'vat_validated_at' => $attributes['document_date'] ?? now()])->save();
+
+    $document = FiscalDocument::factory()->create($attributes + [
+        'operation_date' => $operationOn,
+        'party_tax_id' => 'DE123456789',
+        'vat_amount' => 0,
+        'total_amount' => 10000,
+    ]);
+    InvoiceXpressEuService::record($document, InvoiceXpressEuService::terms($client, $operationOn));
+
+    return $document;
+}
+
+it('keeps legacy EU receipts and documents with missing evidence visible for review', function () {
     paymentFrom(Client::factory()->create(['seat' => Seat::EuropeanUnion, 'is_business' => false]), '2026-10-05', 10000);
     paymentFrom(Client::factory()->create(['seat' => Seat::OutsideEu, 'is_business' => true]), '2026-10-06', 10000);
     paymentFrom(Client::factory()->create(['seat' => Seat::Portugal, 'is_business' => true]), '2026-10-07', 10000);
 
-    expect(byKey(obligationsOn('2026-11-09')->thisMonth()))->not->toHaveKey('recapitulativa:2026-10');
+    $obligations = obligationsOn('2026-11-09');
+    expect(byKey($obligations->thisMonth()))->not->toHaveKey('recapitulativa-review');
 
     paymentFrom(Client::factory()->create(['seat' => Seat::EuropeanUnion, 'is_business' => true]), '2026-10-08', 10000);
+    FiscalDocument::factory()->create(['party_tax_id' => 'FRAB123456789', 'vat_amount' => 0, 'total_amount' => 10000]);
 
-    $row = byKey(obligationsOn('2026-11-09')->thisMonth())['recapitulativa:2026-10'];
+    $rows = byKey($obligations->thisMonth());
 
-    expect($row)->toMatchObject(['kind' => 'recapitulativa', 'amount' => null, 'status' => 'due'])
-        ->and($row->dueOn->toDateString())->toBe('2026-11-20');
+    expect($rows)->not->toHaveKey('recapitulativa:2026-10')
+        ->and($rows['recapitulativa-review'])->toMatchObject(['amount' => null, 'dueOn' => null, 'status' => 'info'])
+        ->and($rows['recapitulativa-review']->detail)->toContain('1 documento', '1 recebimento');
 });
+
+it('flags an unpaid historic document with an unprefixed VAT number when its linked charge identifies an EU business', function () {
+    $obligations = obligationsOn('2026-11-09');
+    $client = Client::factory()->create(['fiscal_country_code' => 'DE', 'fiscal_party_type' => 'business']);
+    $project = Project::factory()->for($client)->create();
+    $charge = Receivable::factory()->for($project, 'billable')->create();
+    FiscalDocument::factory()->create(['party_tax_id' => '123456789', 'vat_amount' => 0, 'total_amount' => 10000])
+        ->links()->create(['receivable_id' => $charge->id]);
+
+    $rows = byKey($obligations->thisMonth());
+    expect($rows['recapitulativa-review']->detail)->toBe('1 documento sem evidência da operação');
+});
+
+it('uses the monthly operation date even if the invoice and payment are in later months', function () {
+    $obligations = obligationsOn('2026-11-09');
+    FiscalProfile::factory()->create(['effective_from' => '2026-01-01', 'vat_regime' => 'Regime normal mensal']);
+    $document = recordRecapService('2026-10-31', ['document_date' => '2026-11-05']);
+    $paid = paymentFrom(Client::factory()->create(['seat' => Seat::EuropeanUnion, 'is_business' => true]), '2026-11-08', 10000);
+    $document->links()->create(['payment_id' => $paid->id]);
+    $obligations->complete('recapitulativa:2026-10', null);
+
+    $rows = byKey($obligations->thisMonth());
+    $row = $rows['recapitulativa:operacoes:2026-10'];
+
+    expect($rows)->not->toHaveKey('recapitulativa-review')
+        ->and($row)->toMatchObject(['kind' => 'recapitulativa', 'amount' => null, 'status' => 'due'])
+        ->and($row->dueOn->toDateString())->toBe('2026-11-20')
+        ->and($row->period())->toBe('outubro')
+        ->and(byKey($obligations->between(CarbonImmutable::parse('2026-12-01'), CarbonImmutable::parse('2026-12-31'))))
+        ->not->toHaveKey('recapitulativa:operacoes:2026-11');
+
+    $obligations->complete($row->key, null);
+    expect(byKey($obligations->done()))->toHaveKey($row->key);
+});
+
+it('keeps quarterly services quarterly even above the intra-EU goods threshold', function () {
+    $obligations = obligationsOn('2026-10-05', since: '2026-07-01');
+    FiscalProfile::factory()->create(['effective_from' => '2026-01-01', 'vat_regime' => 'Regime normal trimestral']);
+    recordRecapService('2026-07-03', ['net_amount' => 5_000_001, 'total_amount' => 5_000_001]);
+    recordRecapService('2026-08-03');
+
+    $row = byKey($obligations->thisMonth())['recapitulativa:operacoes:2026-Q3'];
+
+    expect($row->dueOn->toDateString())->toBe('2026-10-20')
+        ->and($row->period())->toBe('3.º trimestre')
+        ->and(byKey($obligations->between(CarbonImmutable::parse('2026-08-01'), CarbonImmutable::parse('2026-09-30'))))
+        ->not->toHaveKeys(['recapitulativa:operacoes:2026-07', 'recapitulativa:operacoes:2026-08']);
+});
+
+it('applies August fiscal holidays and weekend rollovers to monthly recap deadlines', function () {
+    $obligations = obligationsOn('2026-09-01', since: '2026-05-01');
+    FiscalProfile::factory()->create(['effective_from' => '2026-01-01', 'vat_regime' => 'Regime normal mensal']);
+    recordRecapService('2026-05-15');
+    recordRecapService('2026-07-15');
+    recordRecapService('2026-08-15');
+    $rows = byKey($obligations->thisMonth());
+
+    expect($rows['recapitulativa:operacoes:2026-05']->dueOn->toDateString())->toBe('2026-06-22')
+        ->and($rows['recapitulativa:operacoes:2026-07']->dueOn->toDateString())->toBe('2026-08-31')
+        ->and($rows['recapitulativa:operacoes:2026-08']->dueOn->toDateString())->toBe('2026-09-21');
+});
+
+it('surfaces verified operations with unconfirmed periodicity and drops voided documents from the recap', function () {
+    $obligations = obligationsOn('2026-11-09');
+    FiscalProfile::factory()->create(['effective_from' => '2026-01-01']);
+    $document = recordRecapService('2026-10-10');
+
+    $rows = byKey($obligations->thisMonth());
+    expect($rows)->not->toHaveKey('recapitulativa:operacoes:2026-10')
+        ->and($rows['recapitulativa-review']->detail)->toContain('1 operação');
+
+    FiscalProfile::factory()->create(['effective_from' => '2026-10-01', 'vat_regime' => 'Regime normal mensal']);
+    expect(byKey($obligations->thisMonth()))->toHaveKey('recapitulativa:operacoes:2026-10');
+
+    $document->update(['status' => 'voided']);
+    expect(byKey($obligations->thisMonth()))->not->toHaveKeys(['recapitulativa:operacoes:2026-10', 'recapitulativa-review'])
+        ->and($document->fiscalOperationEvidence()->exists())->toBeTrue();
+});
+
+it('excludes an edited invoice from the recap and preserves the original evidence for review', function (array $changes) {
+    $obligations = obligationsOn('2026-11-09');
+    FiscalProfile::factory()->create(['effective_from' => '2026-01-01', 'vat_regime' => 'Regime normal mensal']);
+    $document = recordRecapService('2026-10-10');
+    $document->update($changes);
+
+    $rows = byKey($obligations->thisMonth());
+    expect($rows)->not->toHaveKey('recapitulativa:operacoes:2026-10')
+        ->and($rows['recapitulativa-review']->detail)->toContain('1 documento alterado')
+        ->and($document->fiscalOperationEvidence()->sole()->net_amount)->toBe(10000);
+})->with([
+    'total' => [['total_amount' => 10001]],
+    'net' => [['net_amount' => 10001]],
+    'VAT' => [['vat_amount' => 2300]],
+    'party VAT number' => [['party_tax_id' => 'DE987654321']],
+    'document number' => [['number' => 'FT 2026/REV']],
+    'issued date' => [['document_date' => '2026-11-08']],
+    'operation date' => [['operation_date' => '2026-10-09']],
+    'operation date removed' => [['operation_date' => null]],
+]);
 
 it('keeps completions per account', function () {
     $other = Account::factory()->create(['billing_exempt' => true]);

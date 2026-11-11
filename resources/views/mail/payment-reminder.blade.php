@@ -3,17 +3,17 @@
 {!! nl2br(e($body)) !!}
 
 <x-mail::table>
-| Referência | Vencimento | Em aberto |
+| {{ __('Reference') }} | {{ __('Due date') }} | {{ __('Outstanding') }} |
 |:-----------|:-----------|----------:|
 @foreach ($items as $item)
-| {{ $item['highlighted'] ? '**' : '' }}{{ $item['code'] }} · {{ $item['description'] }}{{ $item['highlighted'] ? '**' : '' }} | {{ $item['due_on'] }}{{ $item['overdue'] ? ' (em atraso)' : '' }} | {{ Money::format($item['outstanding']) }} |
+| {{ $item['highlighted'] ? '**' : '' }}{{ $item['code'] }} · {{ $item['description'] }}{{ $item['highlighted'] ? '**' : '' }} | {{ $item['due_on'] }}{{ $item['overdue'] ? ' '.__('(overdue)') : '' }} | {{ Money::format($item['outstanding'], app()->getLocale()) }} |
 @endforeach
-| **Total em aberto** | | **{{ Money::format($totalOpen) }}** |
+| **{{ __('Total outstanding') }}** | | **{{ Money::format($totalOpen, app()->getLocale()) }}** |
 @if ($totalOverdue > 0)
-| Dos quais em atraso | | {{ Money::format($totalOverdue) }} |
+| {{ __('Of which overdue') }} | | {{ Money::format($totalOverdue, app()->getLocale()) }} |
 @endif
 </x-mail::table>
 
-Com os melhores cumprimentos,<br>
+{{ __('Kind regards,') }}<br>
 {{ $accountName }}
 </x-mail::message>

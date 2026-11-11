@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\Language;
 use Brick\Math\BigDecimal;
 use Brick\Math\Exception\MathException;
 use Brick\Math\RoundingMode;
@@ -29,7 +30,7 @@ final readonly class PlatformPayoutAmounts
         $commission = self::amount($data['original_commission'] ?? null);
 
         if ($gross <= $commission) {
-            throw new DomainException('O valor bruto tem de ser superior à comissão.');
+            throw new DomainException(__('The gross amount must be greater than the fee.'));
         }
 
         if ($currency === 'EUR') {
@@ -39,7 +40,7 @@ final readonly class PlatformPayoutAmounts
         $rate = is_string($data['fx_rate'] ?? null) ? str_replace(',', '.', trim($data['fx_rate'])) : '';
 
         if (! preg_match('/\A[0-9]{1,12}(?:\.[0-9]{1,12})?\z/', $rate) || BigDecimal::of($rate)->isZero()) {
-            throw new DomainException('Indica uma taxa de conversão para EUR superior a zero.');
+            throw new DomainException(__('Enter a conversion rate to EUR greater than zero.'));
         }
 
         try {
@@ -49,11 +50,11 @@ final readonly class PlatformPayoutAmounts
             $grossEur = $convert($gross);
             $commissionEur = $convert($commission);
         } catch (MathException) {
-            throw new DomainException('O valor convertido para euros é demasiado elevado.');
+            throw new DomainException(__('The amount converted to euros is too large.'));
         }
 
         if ($grossEur <= $commissionEur || ($commission > 0 && $commissionEur === 0)) {
-            throw new DomainException('A conversão arredonda o líquido ou a comissão para zero.');
+            throw new DomainException(__('The conversion rounds the net amount or fee to zero.'));
         }
 
         return new self($currency, $gross, $commission, $grossEur, $commissionEur, $rate);
@@ -78,7 +79,13 @@ final readonly class PlatformPayoutAmounts
 
     public static function formatOriginal(int $amount, string $currency): string
     {
-        return str_replace('.', ',', (string) BigDecimal::ofUnscaledValue($amount, self::scale($currency))).' '.$currency;
+        $value = (string) BigDecimal::ofUnscaledValue($amount, self::scale($currency));
+
+        if (Language::resolve(app()->getLocale()) === Language::PortuguesePortugal) {
+            $value = str_replace('.', ',', $value);
+        }
+
+        return $value.' '.$currency;
     }
 
     private static function scale(mixed $code): int
@@ -86,7 +93,7 @@ final readonly class PlatformPayoutAmounts
         $currencies = new ISOCurrencies;
 
         if (! is_string($code) || ! preg_match('/\A[A-Z]{3}\z/', $code) || ! $currencies->contains(new Currency($code))) {
-            throw new DomainException('Escolhe uma moeda válida.');
+            throw new DomainException(__('Choose a valid currency.'));
         }
 
         return $currencies->subunitFor(new Currency($code));
@@ -97,13 +104,13 @@ final readonly class PlatformPayoutAmounts
         $decimal = is_scalar($value) ? str_replace(',', '.', trim((string) $value)) : '';
 
         if (! preg_match('/\A[0-9]{1,19}(?:\.[0-9]{1,4})?\z/', $decimal)) {
-            throw new DomainException('Indica valores originais válidos.');
+            throw new DomainException(__('Enter valid original amounts.'));
         }
 
         try {
             return BigDecimal::of($decimal)->toScale($scale)->withPointMovedRight($scale)->toInt();
         } catch (MathException) {
-            throw new DomainException('Confere o montante e as casas decimais da moeda original.');
+            throw new DomainException(__('Check the amount and the decimal places for the original currency.'));
         }
     }
 
@@ -114,7 +121,7 @@ final readonly class PlatformPayoutAmounts
             : false;
 
         if ($integer === false) {
-            throw new DomainException('Indica um valor bruto e uma comissão válidos.');
+            throw new DomainException(__('Enter a valid gross amount and fee.'));
         }
 
         return $integer;

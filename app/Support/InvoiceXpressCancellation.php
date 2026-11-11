@@ -48,14 +48,14 @@ final class InvoiceXpressCancellation
         $reason = trim($reason);
         Validator::make(['reason' => $reason], [
             'reason' => ['required', 'string', 'max:'.self::MAX_REASON_LENGTH, 'not_regex:/[\x00-\x1f\x7f]/u'],
-        ], ['reason.*' => 'Indica o motivo do cancelamento numa só linha, com até 255 caracteres.'])->validate();
+        ], ['reason.*' => __('Enter a cancellation reason on one line, up to 255 characters.')])->validate();
 
         return DB::transaction(function () use ($documentId, $reason, $expectedSourceHash): FiscalDocument {
             $account = Account::query()->lockForUpdate()->findOrFail(CurrentAccount::id());
             abort_unless($account->hasAccess() && AccountantAccess::canManage($account), 403);
 
             if (! InvoiceXpressIssue::canWriteDocuments()) {
-                throw $this->invalid('O cancelamento está bloqueado até a conta InvoiceXpress ser validada para alterações.');
+                throw $this->invalid(__('Cancellation is blocked until the InvoiceXpress account is approved for changes.'));
             }
 
             $document = FiscalDocument::query()->findOrFail($documentId);
@@ -73,13 +73,13 @@ final class InvoiceXpressCancellation
             $path = "/{$type}s/{$snapshot->provider_id}";
             [$original] = $this->readOriginal($snapshot, $type, $path);
             if ($original['status'] !== 'final') {
-                throw $this->invalid('A fatura já está cancelada no InvoiceXpress. Confirma a atualização pela importação.');
+                throw $this->invalid(__('The invoice is already cancelled in InvoiceXpress. Confirm the update by importing it.'));
             }
 
             $related = $this->read("/document/{$snapshot->provider_id}/related_documents.json", $subdomain);
 
             if (($related['documents'] ?? null) !== []) {
-                throw $this->invalid('O InvoiceXpress não confirmou uma lista vazia de documentos relacionados.');
+                throw $this->invalid(__('InvoiceXpress did not confirm an empty list of related documents.'));
             }
 
             try {
@@ -93,11 +93,11 @@ final class InvoiceXpressCancellation
 
             [$verified, $localHash] = $this->readOriginal($snapshot, $type, $path);
             if ($verified['status'] !== 'canceled') {
-                throw $this->invalid('O InvoiceXpress ainda não confirmou o cancelamento. O documento local continua ativo.');
+                throw $this->invalid(__('InvoiceXpress has yet to confirm the cancellation. The local document is still active.'));
             }
 
             if (($verified['reference'] ?? null) !== ($original['reference'] ?? null)) {
-                throw $this->invalid('A referência da fatura devolvida pelo InvoiceXpress mudou.');
+                throw $this->invalid(__('The invoice reference returned by InvoiceXpress has changed.'));
             }
 
             return $this->import->confirmInvoice(
@@ -135,7 +135,7 @@ final class InvoiceXpressCancellation
                 || $charge->creditApplications()->exists()
                 || FiscalDocumentLink::query()->where('receivable_id', $chargeId)->where('fiscal_document_id', '!=', $document->id)->exists()
             ))) {
-            throw $this->invalid('Só podes cancelar faturas originais do InvoiceXpress sem recebimentos, créditos ou outros documentos relacionados.');
+            throw $this->invalid(__('You can only cancel original InvoiceXpress invoices without payments, credits or other related documents.'));
         }
     }
 
@@ -152,7 +152,7 @@ final class InvoiceXpressCancellation
                 ->orWhere('provider_id', '!=', $snapshot->provider_id))->exists()
             || InvoiceXpressSnapshot::query()->where('subdomain', $subdomain)
                 ->where('provider_id', $snapshot->provider_id)->latest('id')->value('id') !== $snapshot->id) {
-            throw $this->invalid('A origem ou a versão da fatura mudou. Volta a abrir o documento para confirmar.');
+            throw $this->invalid(__('The source or version of the invoice has changed. Reopen the document to confirm.'));
         }
 
         return $snapshot;
@@ -166,7 +166,7 @@ final class InvoiceXpressCancellation
             || ($invoice['type'] ?? null) !== $snapshot->source['provider_type']
             || ! in_array($invoice['status'] ?? null, ['final', 'canceled'], true)
             || (isset($invoice['reference']) && ! is_string($invoice['reference']))) {
-            throw $this->invalid('O InvoiceXpress não devolveu a fatura original num estado verificável para cancelamento.');
+            throw $this->invalid(__('InvoiceXpress did not return the original invoice in a state that could be verified for cancellation.'));
         }
 
         $review = $this->import->reviewInvoice($invoice, $snapshot->subdomain);
@@ -180,7 +180,7 @@ final class InvoiceXpressCancellation
             || Arr::sortRecursive($review['after']) !== Arr::sortRecursive($canceled ? [
                 ...$expected, 'status' => FiscalDocumentStatus::Voided->value,
             ] : $expected)) {
-            throw $this->invalid('Os dados da fatura devolvida pelo InvoiceXpress não correspondem ao documento original.');
+            throw $this->invalid(__('The invoice details returned by InvoiceXpress do not match the original document.'));
         }
 
         return [$invoice, $review['local_hash']];
@@ -192,7 +192,7 @@ final class InvoiceXpressCancellation
         try {
             return $this->client->request('GET', $path, expectedSubdomain: $subdomain);
         } catch (InvoiceXpressException) {
-            throw $this->invalid('Não foi possível confirmar o estado no InvoiceXpress. Revê a fatura antes de voltar a tentar.');
+            throw $this->invalid(__('Could not confirm the status in InvoiceXpress. Review the invoice before trying again.'));
         }
     }
 

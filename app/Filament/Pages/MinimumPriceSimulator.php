@@ -11,23 +11,19 @@ use Filament\Forms\Components\TextInput;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Components\Attributes\Unexposed;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Number;
 use Livewire\Attributes\Locked;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
-use UnitEnum;
 
 class MinimumPriceSimulator extends Page
 {
     protected string $view = 'filament.pages.minimum-price-simulator';
 
-    protected static ?string $title = 'Simulador de preço mínimo';
-
     protected static ?string $slug = 'simulador-preco-minimo';
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::Calculator;
-
-    protected static string|UnitEnum|null $navigationGroup = 'Análise';
 
     protected static ?int $navigationSort = 5;
 
@@ -56,44 +52,44 @@ class MinimumPriceSimulator extends Page
         return $schema
             ->statePath('data')
             ->components([
-                Section::make('Dados da simulação')
+                Section::make(__('Scenario inputs'))
                     ->columns(['md' => 2])
                     ->schema([
                         $this->decimalInput('incomeGoal', 9)
-                            ->label('Meta de rendimento anual')
+                            ->label(__('Annual income target'))
                             ->suffix('€')
-                            ->helperText('Quanto queres que te sobre no ano depois de cobrir os custos e a reserva.')
-                            ->validationMessages(['regex' => 'Introduz um valor entre 0 e 999 999 999,99 € com até duas casas decimais.']),
+                            ->helperText(__('How much you want left for the year after covering costs and the reserve.'))
+                            ->validationMessages(['regex' => __('Enter an amount between €0 and €999,999,999.99 with up to two decimal places.')]),
                         $this->decimalInput('costs', 9)
-                            ->label('Custos anuais da atividade')
+                            ->label(__('Annual business costs'))
                             ->suffix('€')
-                            ->helperText('Soma os custos do ano inteiro, incluindo os dos meses sem faturação.')
-                            ->validationMessages(['regex' => 'Introduz um valor entre 0 e 999 999 999,99 € com até duas casas decimais.']),
+                            ->helperText(__('Add up the full year’s costs, including months with no invoicing.'))
+                            ->validationMessages(['regex' => __('Enter an amount between €0 and €999,999,999.99 with up to two decimal places.')]),
                         TextInput::make('billableMonths')
-                            ->label('Meses faturáveis por ano')
+                            ->label(__('Billable months per year'))
                             ->integer()
                             ->minValue(1)
                             ->maxValue(12)
                             ->required()
                             ->validationMessages([
-                                'integer' => 'Introduz um número inteiro de meses.',
-                                'min' => 'Indica pelo menos um mês faturável.',
-                                'max' => 'Indica no máximo 12 meses faturáveis.',
+                                'integer' => __('Enter a whole number of months.'),
+                                'min' => __('Enter at least one billable month.'),
+                                'max' => __('Enter no more than 12 billable months.'),
                             ]),
                         $this->decimalInput('hoursPerMonth', 4)
-                            ->label('Horas por mês faturável')
+                            ->label(__('Hours per billable month'))
                             ->suffix('h')
-                            ->helperText('Conta apenas as horas que esperas poder cobrar.')
+                            ->helperText(__('Count only the hours you expect to bill.'))
                             ->rule('not_regex:/\A0+(?:[,.]0+)?\z/')
                             ->validationMessages([
-                                'regex' => 'Introduz um valor até 9 999,99 horas com até duas casas decimais.',
-                                'not_regex' => 'Indica mais de zero horas faturáveis por mês.',
+                                'regex' => __('Enter up to 9,999.99 hours with up to two decimal places.'),
+                                'not_regex' => __('Enter more than zero billable hours per month.'),
                             ]),
                         $this->decimalInput('reservePercent', 2)
-                            ->label('Reserva sobre a faturação')
+                            ->label(__('Reserve from invoiced revenue'))
                             ->suffix('%')
-                            ->helperText('Escolhe a percentagem da faturação que queres pôr de lado. Introduz 0 se não quiseres reservar nada.')
-                            ->validationMessages(['regex' => 'Introduz uma percentagem entre 0 e 99,99 com até duas casas decimais.']),
+                            ->helperText(__('Choose the percentage of invoiced revenue to set aside. Enter 0 if you want to set aside nothing.'))
+                            ->validationMessages(['regex' => __('Enter a percentage between 0 and 99.99 with up to two decimal places.')]),
                     ]),
             ]);
     }
@@ -114,9 +110,9 @@ class MinimumPriceSimulator extends Page
         }
 
         return ProportionBar::render([
-            ['label' => 'Rendimento', 'cents' => $this->inputs['incomeGoal'], 'tone' => 'strong'],
-            ['label' => 'Reserva', 'cents' => max(0, $this->result['annual'] - $this->inputs['incomeGoal'] - $this->inputs['costs']), 'tone' => 'soft'],
-            ['label' => 'Custos', 'cents' => $this->inputs['costs'], 'tone' => 'clay'],
+            ['label' => __('Earnings'), 'cents' => $this->inputs['incomeGoal'], 'tone' => 'strong'],
+            ['label' => __('Reserve'), 'cents' => max(0, $this->result['annual'] - $this->inputs['incomeGoal'] - $this->inputs['costs']), 'tone' => 'soft'],
+            ['label' => __('Costs'), 'cents' => $this->inputs['costs'], 'tone' => 'clay'],
         ]);
     }
 
@@ -139,7 +135,7 @@ class MinimumPriceSimulator extends Page
 
         return [
             'year' => today()->year,
-            'billed' => Money::format($billed),
+            'billed' => Money::format($billed, locale: app()->getLocale()),
             'percent' => (int) min(100, max(0, floor($billed * 100 / $this->result['annual']))),
             'pace' => $missing > 0 ? $this->formatMinimum((int) ceil($missing / $monthsLeft)) : null,
             'reached' => $missing <= 0,
@@ -171,9 +167,12 @@ class MinimumPriceSimulator extends Page
 
     public function formatMinimum(int $cents): string
     {
-        $wholeEuros = Number::format(intdiv($cents, 100), 0, locale: 'pt_PT');
+        $locale = app()->getLocale();
+        $wholeEuros = Number::format(intdiv($cents, 100), 0, locale: $locale);
 
-        return sprintf('%s,%02d €', $wholeEuros, $cents % 100);
+        return $locale === 'en_US'
+            ? sprintf('€%s.%02d', $wholeEuros, $cents % 100)
+            : sprintf('%s,%02d €', $wholeEuros, $cents % 100);
     }
 
     private function decimalInput(string $name, int $wholeDigits): TextInput
@@ -188,5 +187,23 @@ class MinimumPriceSimulator extends Page
 
                 return (int) $whole * 100 + (int) str_pad($fraction, 2, '0');
             });
+    }
+
+    #[Unexposed]
+    public function getTitle(): string
+    {
+        return __('Minimum price calculator');
+    }
+
+    #[Unexposed]
+    public static function getNavigationGroup(): string
+    {
+        return __('Analysis');
+    }
+
+    #[Unexposed]
+    public static function getNavigationLabel(): string
+    {
+        return __('Minimum price calculator');
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Actions;
 
+use App\Enums\Language;
 use App\Mail\PaymentReminder;
 use App\Models\Client;
 use App\Models\ClientMessage;
@@ -38,20 +39,20 @@ class SendPaymentReminderAction extends Action
         parent::setUp();
 
         $this
-            ->label('Enviar lembrete')
+            ->label(__('Send reminder'))
             ->icon(Phosphor::EnvelopeSimple)
             ->color('gray')
-            ->modalHeading(fn (?Model $record, $livewire) => 'Lembrete de pagamento — '.static::clientFor($record, $livewire)?->name)
-            ->modalDescription('Revê o email antes de enviar. Nada é enviado sem confirmares.')
+            ->modalHeading(fn (?Model $record, $livewire) => __('Payment reminder — :name', ['name' => static::clientFor($record, $livewire)?->name ?? '']))
+            ->modalDescription(__('Review the email before sending.'))
             ->modalIcon(Phosphor::EnvelopeSimple)
             ->modalWidth(Width::TwoExtraLarge)
-            ->modalSubmitActionLabel('Enviar')
+            ->modalSubmitActionLabel(__('Send'))
             ->visible(fn (?Model $record, $livewire) => static::clientFor($record, $livewire)?->openReceivables()->isNotEmpty() ?? false)
             // Emails to clients are a write too: none from a read-only account.
             ->disabled(fn (?Model $record, $livewire) => CurrentAccount::readOnly() || blank(static::clientFor($record, $livewire)?->email))
             ->tooltip(fn (?Model $record, $livewire) => match (true) {
-                CurrentAccount::readOnly() => 'A conta está só de leitura',
-                blank(static::clientFor($record, $livewire)?->email) => 'O cliente não tem email',
+                CurrentAccount::readOnly() => __('The account is read-only'),
+                blank(static::clientFor($record, $livewire)?->email) => __('The client has no email address'),
                 default => null,
             })
             ->fillForm(function (?Model $record, $livewire): array {
@@ -59,16 +60,16 @@ class SendPaymentReminderAction extends Action
 
                 return [
                     'to' => $client?->email,
-                    'subject' => 'Lembrete de pagamento — '.$client?->name,
+                    'subject' => $client ? __('Payment reminder — :name', ['name' => $client->name], $client->preferredLanguage()->locale()) : null,
                     'message' => $client ? static::defaultMessage($client) : null,
                 ];
             })
             ->schema(fn (?Model $record, $livewire) => [
-                TextInput::make('to')->label('Para')->email()->required(),
-                TextInput::make('subject')->label('Assunto')->required()->maxLength(200),
-                Textarea::make('message')->label('Mensagem')->rows(8)->required(),
+                TextInput::make('to')->label(__('To'))->email()->required(),
+                TextInput::make('subject')->label(__('Subject'))->required()->maxLength(200),
+                Textarea::make('message')->label(__('Message'))->rows(8)->required(),
                 TextEntry::make('items')
-                    ->label('Valores em aberto incluídos no email')
+                    ->label(__('Outstanding amounts included in the email'))
                     ->state(fn () => static::itemsPreview(static::clientFor($record, $livewire), $record instanceof Receivable ? $record->getKey() : null)),
             ])
             ->action(function (array $data, ?Model $record, $livewire): void {
@@ -91,7 +92,7 @@ class SendPaymentReminderAction extends Action
                     'sent_at' => now(),
                 ]);
 
-                Notification::make()->title('Lembrete enviado para '.$data['to'])->success()->send();
+                Notification::make()->title(__('Reminder sent to :email', ['email' => $data['to']]))->success()->send();
             });
     }
 
@@ -111,18 +112,21 @@ class SendPaymentReminderAction extends Action
         $overdue = $open->filter(fn (Receivable $receivable) => $receivable->due_on->isBefore(today()));
         $overdueTotal = $overdue->sum(fn (Receivable $receivable) => $receivable->outstanding);
 
-        $lines = ['Olá '.$client->name.',', '', 'Esperamos que esteja tudo bem.', ''];
+        $locale = $client->preferredLanguage()->locale();
+        $lines = [__('Hello :name,', ['name' => $client->name], $locale), '', __('We hope you are well.', [], $locale), ''];
 
         if ($overdue->isNotEmpty()) {
-            $lines[] = ($overdue->count() === 1
-                ? 'Verificámos que há 1 valor com o prazo de pagamento ultrapassado, no total de '
-                : 'Verificámos que há '.$overdue->count().' valores com o prazo de pagamento ultrapassado, no total de ')
-                .Money::format($overdueTotal).'.';
+            $lines[] = trans_choice(
+                '{1} There is one overdue amount, totaling :total.|[2,*] There are :count overdue amounts, totaling :total.',
+                $overdue->count(),
+                ['total' => Money::format($overdueTotal, $locale)],
+                $locale,
+            );
         }
 
-        $lines[] = 'Segue abaixo o resumo dos valores em aberto. Se já efetuou o pagamento, por favor ignore esta mensagem.';
+        $lines[] = __('A summary of the outstanding amounts is below. If you have already paid, please disregard this message.', [], $locale);
         $lines[] = '';
-        $lines[] = 'Obrigado.';
+        $lines[] = __('Thank you.', [], $locale);
 
         return implode("\n", $lines);
     }
@@ -135,8 +139,8 @@ class SendPaymentReminderAction extends Action
 
         $rows = $client->openReceivables()->map(function (Receivable $receivable) use ($highlightedId) {
             $text = e(trim(($receivable->billable?->code ?? '').' · '.$receivable->description, ' ·'))
-                .' — vence '.$receivable->due_on->format('d/m/Y')
-                .($receivable->due_on->isBefore(today()) ? ' <strong>(em atraso)</strong>' : '')
+                .' — '.e(__('due :date', ['date' => $receivable->due_on->format(Language::resolve(app()->getLocale())->dateFormat())]))
+                .($receivable->due_on->isBefore(today()) ? ' <strong>'.e(__('(overdue)')).'</strong>' : '')
                 .' — '.e(Money::format($receivable->outstanding));
 
             return '<li>'.($receivable->getKey() === $highlightedId ? '<strong>'.$text.'</strong>' : $text).'</li>';

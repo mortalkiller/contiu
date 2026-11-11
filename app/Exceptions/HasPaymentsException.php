@@ -11,6 +11,6 @@ class HasPaymentsException extends RuntimeException
 {
     public static function for(string $what): self
     {
-        return new self("Não é possível apagar {$what}: já tem recebimentos registados. Apaga primeiro os recebimentos.");
+        return new self(__('Cannot delete :record because it already has payments on record. Delete the payments first.', ['record' => $what]));
     }
 }

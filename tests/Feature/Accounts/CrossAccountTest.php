@@ -13,6 +13,8 @@ use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
+pest()->group('ui', 'tenancy');
+
 /*
  * What the panel offers across screens — global search, relationship selects, Excel exports —
  * only ever shows the account being viewed, even when another account has look-alike records.

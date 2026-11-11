@@ -3,8 +3,8 @@
 
     @if ($preview)
         <x-filament::section
-            :heading="$preview['dryRun'] ? 'Pré-visualização' : 'Resultado'"
-            description="Nada foi gravado ainda. Revê os números e os avisos e carrega em Importar."
+            :heading="$preview['dryRun'] ? __('Preview results') : __('Result')"
+            :description="__('Nothing has been saved yet. Review the figures and warnings, then click Import.')"
             icon="phosphor-eye"
         >
             <div class="grid gap-6 md:grid-cols-2">
@@ -16,20 +16,20 @@
                 </dl>
 
                 <dl class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                    <dt class="text-gray-500 dark:text-gray-400">Contratado</dt>
-                    <dd class="text-end font-medium tabular-nums text-gray-950 dark:text-white">{{ \App\Support\Money::format($preview['contracted']) }}</dd>
-                    <dt class="text-gray-500 dark:text-gray-400">Recebido</dt>
-                    <dd class="text-end font-medium tabular-nums text-gray-950 dark:text-white">{{ \App\Support\Money::format($preview['received']) }}</dd>
-                    <dt class="text-gray-500 dark:text-gray-400">Por receber</dt>
-                    <dd class="text-end font-medium tabular-nums text-gray-950 dark:text-white">{{ \App\Support\Money::format($preview['contracted'] - $preview['received']) }}</dd>
-                    <dt class="text-gray-500 dark:text-gray-400">Despesas</dt>
-                    <dd class="text-end font-medium tabular-nums text-gray-950 dark:text-white">{{ \App\Support\Money::format($preview['expenses']) }}</dd>
+                    <dt class="text-gray-500 dark:text-gray-400">{{ __('Contracted') }}</dt>
+                    <dd class="text-end font-medium tabular-nums text-gray-950 dark:text-white">{{ \App\Support\Money::format($preview['contracted'], app()->getLocale()) }}</dd>
+                    <dt class="text-gray-500 dark:text-gray-400">{{ __('Received') }}</dt>
+                    <dd class="text-end font-medium tabular-nums text-gray-950 dark:text-white">{{ \App\Support\Money::format($preview['received'], app()->getLocale()) }}</dd>
+                    <dt class="text-gray-500 dark:text-gray-400">{{ __('To be collected') }}</dt>
+                    <dd class="text-end font-medium tabular-nums text-gray-950 dark:text-white">{{ \App\Support\Money::format($preview['contracted'] - $preview['received'], app()->getLocale()) }}</dd>
+                    <dt class="text-gray-500 dark:text-gray-400">{{ __('Expenses') }}</dt>
+                    <dd class="text-end font-medium tabular-nums text-gray-950 dark:text-white">{{ \App\Support\Money::format($preview['expenses'], app()->getLocale()) }}</dd>
                 </dl>
             </div>
 
             @if (filled($preview['warnings']))
                 <div class="mt-6 rounded-lg bg-warning-50 p-4 text-sm text-warning-800 ring-1 ring-warning-600/20 dark:bg-warning-400/10 dark:text-warning-300 dark:ring-warning-400/30">
-                    <p class="font-medium">{{ count($preview['warnings']) }} {{ count($preview['warnings']) === 1 ? 'aviso' : 'avisos' }}</p>
+                    <p class="font-medium">{{ trans_choice('{1} 1 warning|[2,*] :count warnings', count($preview['warnings'])) }}</p>
                     <ul class="mt-2 list-disc space-y-1 ps-5">
                         @foreach ($preview['warnings'] as $warning)
                             <li>{{ $warning }}</li>

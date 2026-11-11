@@ -2,9 +2,11 @@
 
 namespace App\Filament\Pages;
 
+use App\Exceptions\InvoiceXpressException;
 use App\Filament\Pages\Concerns\HasInvoiceXpressPilotSettings;
 use App\Models\InvoiceXpressConfig;
 use App\Support\CurrentAccount;
+use App\Support\InvoiceXpressClient;
 use App\Support\InvoiceXpressIssue;
 use App\Support\InvoiceXpressIssueRepository;
 use App\Support\InvoiceXpressIssueSettings;
@@ -13,9 +15,10 @@ use Closure;
 use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Filament\Support\Components\Attributes\Unexposed;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
-use UnitEnum;
 
 class InvoiceXpressSettingsPage extends InvoiceXpressSectionPage
 {
@@ -23,15 +26,9 @@ class InvoiceXpressSettingsPage extends InvoiceXpressSectionPage
 
     protected static bool $shouldRegisterNavigation = true;
 
-    protected static ?string $navigationLabel = 'InvoiceXpress';
-
-    protected static string|UnitEnum|null $navigationGroup = 'Receitas';
-
     protected static string|BackedEnum|null $navigationIcon = Phosphor::Invoice;
 
     protected static ?int $navigationSort = 6;
-
-    protected static ?string $title = 'Configuração do InvoiceXpress';
 
     protected static ?string $slug = 'configurar-invoicexpress';
 
@@ -39,6 +36,10 @@ class InvoiceXpressSettingsPage extends InvoiceXpressSectionPage
 
     #[Locked]
     public int $accountId;
+
+    /** @var list<string>|null */
+    #[Locked]
+    public ?array $connectionSeries = null;
 
     public static function canAccess(): bool
     {
@@ -60,24 +61,52 @@ class InvoiceXpressSettingsPage extends InvoiceXpressSectionPage
     public static function connectionForm(Closure $canWrite, Closure $onSaved): Action
     {
         return Action::make('configure')
-            ->label('Configurar ligação')
+            ->label(__('Configure connection'))
             ->icon(Phosphor::Sliders)
             ->visible($canWrite)
             ->fillForm(fn (): array => ['subdomain' => InvoiceXpressConfig::current()?->subdomain])
             ->schema([
-                TextInput::make('subdomain')->label('Subdomínio da conta')
+                TextInput::make('subdomain')->label(__('Account subdomain'))
                     ->suffix('.app.invoicexpress.com')
                     ->required()->maxLength(63)->regex(InvoiceXpressConfig::SUBDOMAIN_PATTERN),
-                TextInput::make('api_key')->label('Chave de API')
+                TextInput::make('api_key')->label(__('API key'))
                     ->password()->required()->maxLength(1024)->autocomplete('new-password'),
             ])
-            ->modalSubmitActionLabel('Guardar ligação')
+            ->modalSubmitActionLabel(__('Save connection'))
             ->action(function (array $data) use ($canWrite, $onSaved): void {
                 abort_unless($canWrite(), 403);
                 InvoiceXpressConfig::store($data['subdomain'], $data['api_key']);
                 $onSaved();
-                Notification::make()->success()->title('Ligação guardada')->send();
+                Notification::make()->success()->title(__('Connection saved'))->send();
             });
+    }
+
+    public function testConnection(InvoiceXpressClient $client): void
+    {
+        abort_unless(static::canAccess() && $this->accountId === CurrentAccount::id(), 403);
+        $this->reset('connectionSeries');
+        $this->resetValidation('connection');
+
+        try {
+            $series = $client->request('GET', '/sequences.json')['sequences'] ?? null;
+            if (! is_array($series) || ! array_is_list($series)) {
+                throw new InvoiceXpressException(__('InvoiceXpress returned an invalid series list.'));
+            }
+
+            $names = [];
+            foreach ($series as $entry) {
+                $name = is_array($entry) ? ($entry['serie'] ?? null) : null;
+                if (! is_string($name) || trim($name) === '') {
+                    throw new InvoiceXpressException(__('InvoiceXpress returned an invalid series list.'));
+                }
+
+                $names[] = $name;
+            }
+
+            $this->connectionSeries = $names;
+        } catch (InvoiceXpressException $exception) {
+            throw ValidationException::withMessages(['connection' => $exception->getMessage()]);
+        }
     }
 
     protected function getHeaderActions(): array
@@ -86,7 +115,7 @@ class InvoiceXpressSettingsPage extends InvoiceXpressSectionPage
             self::connectionForm(
                 fn (): bool => static::canAccess() && ! CurrentAccount::readOnly() && $this->accountId === CurrentAccount::id(),
                 function (): void {
-                    $this->reset('catalog');
+                    $this->reset('catalog', 'connectionSeries');
                     $this->resetValidation();
                     $this->fillInvoiceXpressPilotSettings();
                 },
@@ -104,7 +133,6 @@ class InvoiceXpressSettingsPage extends InvoiceXpressSectionPage
         return [
             'subdomain' => $subdomain,
             'canManagePilot' => $canManagePilot,
-            'options' => InvoiceXpressIssue::options(),
             'catalogChoices' => $subdomain !== null && $subdomain === ($this->catalog['account'] ?? null) ? $this->catalog : null,
             'canWriteDocuments' => InvoiceXpressIssue::canWriteDocuments(),
             'hasPendingAttempts' => $canManagePilot && InvoiceXpressIssueSettings::hasPendingAttempts(),
@@ -114,5 +142,23 @@ class InvoiceXpressSettingsPage extends InvoiceXpressSectionPage
     private function authorizeAccount(): void
     {
         abort_unless(InvoiceXpressIssueRepository::ownerCanIssue() && $this->accountId === CurrentAccount::id(), 403);
+    }
+
+    #[Unexposed]
+    public function getTitle(): string
+    {
+        return __('InvoiceXpress settings');
+    }
+
+    #[Unexposed]
+    public static function getNavigationLabel(): string
+    {
+        return __('InvoiceXpress');
+    }
+
+    #[Unexposed]
+    public static function getNavigationGroup(): string
+    {
+        return __('Revenue');
     }
 }

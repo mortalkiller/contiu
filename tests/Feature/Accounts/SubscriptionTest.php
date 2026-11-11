@@ -23,6 +23,8 @@ use Symfony\Component\Mailer\Exception\TransportException;
 use Symfony\Component\Mailer\SentMessage;
 use Symfony\Component\Mailer\Transport\AbstractTransport;
 
+pest()->group('tenancy', 'billing');
+
 beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-11-10 10:00'));
     config(['contiu.prices.monthly' => 'price_monthly', 'contiu.prices.yearly' => 'price_yearly']);
@@ -93,8 +95,6 @@ function subscriptionCreatedEvent(Account $account): array
     ];
 }
 
-// --- Checkout ---------------------------------------------------------------------------------
-
 it('keeps the remaining trial days when subscribing during the trial', function () {
     $this->account->update(['trial_ends_at' => '2026-11-24 10:00']);
 
@@ -108,7 +108,7 @@ it('keeps the remaining trial days when subscribing during the trial', function 
         'customer_update' => ['address' => 'auto'],
         'subscription_data' => ['trial_end' => Carbon::parse('2026-11-24 10:00')->timestamp],
     ]);
-});
+})->group('integration');
 
 it('charges at once when the trial is over', function () {
     $this->account->update(['trial_ends_at' => '2026-11-01 10:00']);
@@ -116,7 +116,7 @@ it('charges at once when the trial is over', function () {
     expect(AccountSubscription::checkoutOptions($this->account, 'yearly'))
         ->toHaveKeys(['success_url', 'cancel_url', 'billing_address_collection'])
         ->not->toHaveKey('subscription_data');
-});
+})->group('integration');
 
 it('moves a trial ending within 48 hours to the minimum Stripe accepts', function () {
     // Stripe refuses a Checkout trial_end less than 48 hours away; the last two days of the trial
@@ -127,22 +127,20 @@ it('moves a trial ending within 48 hours to the minimum Stripe accepts', functio
 
     expect($trialEnd)->toBeGreaterThanOrEqual(now()->addHours(48)->timestamp)
         ->toBeLessThan(now()->addHours(49)->timestamp);
-});
+})->group('integration');
 
 it('maps each plan to its Stripe price', function () {
     expect(AccountSubscription::priceFor('monthly'))->toBe('price_monthly')
         ->and(AccountSubscription::priceFor('yearly'))->toBe('price_yearly')
         ->and(fn () => AccountSubscription::priceFor('weekly'))->toThrow(InvalidArgumentException::class);
-});
+})->group('integration');
 
 it('names the Stripe customer after the account and its owner', function () {
     $owner = plainOwnerOf($this->account);
 
     expect($this->account->stripeName())->toBe($this->account->name)
         ->and($this->account->stripeEmail())->toBe($owner->email);
-});
-
-// --- Page -------------------------------------------------------------------------------------
+})->group('integration');
 
 it('opens the subscription page to owners, read-only ones included, and super admins', function (string $who) {
     if ($who === 'read-only owner') {
@@ -158,7 +156,7 @@ it('opens the subscription page to owners, read-only ones included, and super ad
         ->assertSee('Assinatura')
         ->assertSee('Subscrever mensal')
         ->assertSee('Subscrever anual');
-})->with(['owner', 'read-only owner', 'super admin']);
+})->with(['owner', 'read-only owner', 'super admin'])->group('ui');
 
 it('shows a super admin outside the account its state but not the buttons to pay', function () {
     $superAdmin = User::factory()->create();
@@ -183,7 +181,7 @@ it('shows a super admin outside the account its state but not the buttons to pay
     Livewire::test(AccountSubscription::class)
         ->assertSee('Assinatura mensal ativa.')
         ->assertActionHidden('manage');
-});
+})->group('ui');
 
 it('hides the subscription page from exempt accounts', function () {
     $this->account->update(['billing_exempt' => true, 'trial_ends_at' => null]);
@@ -191,7 +189,7 @@ it('hides the subscription page from exempt accounts', function () {
     asAWebRequest();
 
     $this->get(AccountSubscription::getUrl(panel: 'admin', tenant: $this->account))->assertForbidden();
-});
+})->group('ui');
 
 it('offers both plans until the account subscribes, then the billing portal', function () {
     openAccountAs($this->account, plainOwnerOf($this->account));
@@ -207,7 +205,7 @@ it('offers both plans until the account subscribes, then the billing portal', fu
         ->assertActionHidden('subscribeMonthly')
         ->assertActionHidden('subscribeYearly')
         ->assertActionVisible('manage');
-});
+})->group('ui');
 
 it('lets a read-only account subscribe', function () {
     $this->account->update(['trial_ends_at' => now()->subDay()]);
@@ -216,7 +214,7 @@ it('lets a read-only account subscribe', function () {
     Livewire::test(AccountSubscription::class)
         ->assertActionVisible('subscribeMonthly')
         ->assertActionEnabled('subscribeMonthly');
-});
+})->group('ui');
 
 it('explains a missing price instead of failing', function () {
     config(['contiu.prices.monthly' => null]);
@@ -228,7 +226,7 @@ it('explains a missing price instead of failing', function () {
         ->assertNoRedirect();
 
     expect($this->account->subscriptions()->count())->toBe(0);
-});
+})->group('ui');
 
 it('links the banner to the subscription page', function () {
     openAccountAs($this->account, plainOwnerOf($this->account));
@@ -239,9 +237,7 @@ it('links the banner to the subscription page', function () {
     $this->get(Dashboard::getUrl(tenant: $this->account))
         ->assertOk()
         ->assertSee(AccountSubscription::getUrl(panel: 'admin', tenant: $this->account));
-});
-
-// --- Webhooks ---------------------------------------------------------------------------------
+})->group('ui');
 
 it('records an invoice.paid webhook and emails super admins', function () {
     Mail::fake();
@@ -267,7 +263,7 @@ it('records an invoice.paid webhook and emails super admins', function () {
     Mail::assertQueued(SubscriptionPaid::class, fn (SubscriptionPaid $mail) => $mail->hasTo($admin->email));
     Mail::assertQueued(SubscriptionPaid::class, fn (SubscriptionPaid $mail) => $mail->hasTo($otherAdmin->email));
     Mail::assertNotQueued(SubscriptionPaid::class, fn (SubscriptionPaid $mail) => $mail->hasTo($owner->email));
-});
+})->group('ui');
 
 it('records a payment once when Stripe repeats the webhook', function () {
     Mail::fake();
@@ -279,7 +275,7 @@ it('records a payment once when Stripe repeats the webhook', function () {
 
     expect(SubscriptionPayment::count())->toBe(1);
     Mail::assertQueued(SubscriptionPaid::class, 1);
-});
+})->group('ui');
 
 it('keeps the payment when the email to the super admins fails', function () {
     // Stripe stops retrying once it gets a 2xx: the row is what tells Pedro to invoice, so a mail
@@ -305,7 +301,7 @@ it('keeps the payment when the email to the super admins fails', function () {
 
     expect(SubscriptionPayment::count())->toBe(1);
     Exceptions::assertReported(TransportException::class);
-});
+})->group('ui');
 
 it('ignores zero-amount invoices', function () {
     // The invoice that opens a subscription during the trial is 0 €: nothing to invoice.
@@ -317,7 +313,7 @@ it('ignores zero-amount invoices', function () {
 
     expect(SubscriptionPayment::count())->toBe(0);
     Mail::assertNothingOutgoing();
-});
+})->group('ui');
 
 it('ignores invoices of an unknown customer', function () {
     Mail::fake();
@@ -328,7 +324,7 @@ it('ignores invoices of an unknown customer', function () {
 
     expect(SubscriptionPayment::count())->toBe(0);
     Mail::assertNothingOutgoing();
-});
+})->group('ui');
 
 it('tells the super admins what to invoice', function () {
     $this->account->update(['stripe_id' => 'cus_123', 'nif' => '123456789', 'name' => 'Ana Silva Design']);
@@ -351,7 +347,7 @@ it('tells the super admins what to invoice', function () {
         ->assertSeeInHtml('54,00')
         ->assertSeeInHtml('24/11/2026')
         ->assertSeeInHtml('24/11/2026 a 24/11/2027');
-});
+})->group('integration');
 
 it('refuses unsigned webhooks outside local and testing when no secret is set', function () {
     // A forged customer.subscription.created would otherwise give the account access.
@@ -362,7 +358,7 @@ it('refuses unsigned webhooks outside local and testing when no secret is set', 
     $this->postJson(route('cashier.webhook'), subscriptionCreatedEvent($this->account))->assertForbidden();
 
     expect($this->account->subscriptions()->count())->toBe(0);
-});
+})->group('integration');
 
 it('leaves the signature check to Cashier when a secret is set', function () {
     $this->account->update(['stripe_id' => 'cus_123']);
@@ -380,9 +376,7 @@ it('leaves the signature check to Cashier when a secret is set', function () {
     $timestamp = time();
     $post("t={$timestamp},v1=".hash_hmac('sha256', "{$timestamp}.{$payload}", 'whsec_test'))->assertOk();
     expect($this->account->subscriptions()->count())->toBe(1);
-});
-
-// --- Accounts list (super admins) -------------------------------------------------------------
+})->group('ui');
 
 it('lists accounts and marks a payment as invoiced', function () {
     $this->account->update(['nif' => '123456789']);
@@ -417,7 +411,7 @@ it('lists accounts and marks a payment as invoiced', function () {
         ->assertTableActionHidden('markInvoiced', $payment->fresh());
 
     expect($payment->fresh()->invoiced_at)->not->toBeNull();
-});
+})->group('ui');
 
 it('shows each account\'s billing state', function (string $state, string $label) {
     match ($state) {
@@ -439,7 +433,7 @@ it('shows each account\'s billing state', function (string $state, string $label
     ['yearly', 'Anual'],
     ['read only', 'Só leitura'],
     ['exempt', 'Isenta'],
-]);
+])->group('integration');
 
 it('keeps the accounts list and payments out of an owner\'s reach', function () {
     $owner = openAccountAs($this->account, plainOwnerOf($this->account));
@@ -448,4 +442,25 @@ it('keeps the accounts list and payments out of an owner\'s reach', function () 
         ->and($owner->can('ViewAny:SubscriptionPayment'))->toBeFalse()
         ->and(AccountResource::isScopedToTenant())->toBeFalse()
         ->and(AccountResource::canGloballySearch())->toBeFalse();
+})->group('integration');
+
+describe('Trial progress', function () {
+    beforeEach(function () {
+        $this->travelTo(Carbon::parse('2026-11-10 12:00'));
+        actingAsAdmin();
+    });
+
+    it('shows how much of the free trial is used', function () {
+        $account = Filament::getTenant();
+        $account->forceFill(['created_at' => '2026-10-30 12:00', 'trial_ends_at' => '2026-11-13 12:00', 'billing_exempt' => false])->save();
+
+        $page = Livewire::test(AccountSubscription::class);
+
+        expect($page->instance()->trialProgress())->toBe(['percent' => 79, 'label' => 'Faltam 3 dias de experiência · 11 de 14 usados']);
+        $page->assertSee('Faltam 3 dias de experiência');
+
+        $account->forceFill(['trial_ends_at' => '2026-11-01 12:00'])->save();
+
+        expect(Livewire::test(AccountSubscription::class)->instance()->trialProgress())->toBeNull();
+    })->group('ui');
 });

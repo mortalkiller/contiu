@@ -3,7 +3,6 @@
 namespace App\Filament\Analysis\Concerns;
 
 use App\Support\CashForecast;
-use App\Support\FinanceSettings;
 use Livewire\Attributes\Reactive;
 
 trait ForecastsMonths
@@ -13,6 +12,6 @@ trait ForecastsMonths
 
     protected function forecast(): CashForecast
     {
-        return new CashForecast(app(FinanceSettings::class), $this->months);
+        return CashForecast::forRequest($this->months);
     }
 }

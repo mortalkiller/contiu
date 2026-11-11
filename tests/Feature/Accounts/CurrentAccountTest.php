@@ -11,6 +11,8 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 
+pest()->group('integration', 'tenancy');
+
 uses(RefreshDatabase::class);
 
 class ScopeProbe extends Model

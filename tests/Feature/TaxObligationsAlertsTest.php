@@ -7,6 +7,8 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 
+pest()->group('integration', 'fiscal');
+
 beforeEach(function () {
     Mail::fake();
     $this->alertsUser = User::factory()->create();
@@ -68,4 +70,19 @@ it('includes overdue obligations in the email', function () {
     alertsRunOn('2026-12-01', since: '2026-10-01');
 
     Mail::assertQueued(TaxObligationsDigest::class, fn (TaxObligationsDigest $mail) => collect($mail->items)->contains('overdue', true));
+});
+
+it('creates scheduled emails and notifications in each recipient’s language', function () {
+    $englishUser = User::factory()->create(['language' => 'en-US']);
+    $this->account->users()->attach($englishUser, ['role' => 'member']);
+
+    alertsRunOn('2026-11-01');
+
+    Mail::assertQueued(TaxObligationsDigest::class, fn (TaxObligationsDigest $mail) => $mail->hasTo($englishUser->email)
+        && collect($mail->items)->contains(fn ($item) => str_contains($item['title'], 'Social Security')));
+
+    alertsRunOn('2026-11-17');
+
+    expect($englishUser->notifications()->first()->data['title'])->toContain('3 days left')
+        ->and(alertsTitles()[0])->toContain('faltam 3 dias');
 });

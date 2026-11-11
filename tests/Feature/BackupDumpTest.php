@@ -2,6 +2,8 @@
 
 use Spatie\Backup\Tasks\Backup\DbDumperFactory;
 
+pest()->group('integration');
+
 it('dumps only the Contiu tables from PostgreSQL, ready to restore elsewhere', function () {
     $command = DbDumperFactory::createFromConnection('pgsql')->getDumpCommand('/tmp/dump.sql');
 

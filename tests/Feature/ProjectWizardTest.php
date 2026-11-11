@@ -58,7 +58,7 @@ it('creates a project in steps using the equal instalments preset', function () 
             ['Prestação 2/3', 33333, '2026-04-10'],
             ['Prestação 3/3', 33334, '2026-05-10'],
         ]);
-});
+})->group('integration');
 
 it('fills a monthly plan up to a chosen last due date', function () {
     wizardAtPlanStep(Client::factory()->create())
@@ -67,7 +67,7 @@ it('fills a monthly plan up to a chosen last due date', function () {
         ->assertHasNoFormErrors();
 
     expect(Project::firstWhere('code', 'OC-202603-9')->receivables()->count())->toBe(4);
-});
+})->group('integration');
 
 it('does not leave the plan step while the instalments do not add up', function () {
     wizardAtPlanStep(Client::factory()->create())
@@ -75,7 +75,7 @@ it('does not leave the plan step while the instalments do not add up', function 
         ->goToWizardStep(4)
         ->assertHasFormErrors(['receivables'])
         ->assertWizardCurrentStep(3);
-});
+})->group('integration');
 
 it('starts with the client chosen when opened from a client page', function () {
     $client = Client::factory()->create();
@@ -83,7 +83,7 @@ it('starts with the client chosen when opened from a client page', function () {
     Livewire::withQueryParams(['client' => $client->id])
         ->test(CreateProject::class)
         ->assertSchemaStateSet(['client_id' => $client->id]);
-});
+})->group('integration');
 
 it('keeps the full form on the edit page', function () {
     $project = Project::factory()->create(['net_amount' => 50000, 'quoted_on' => '2026-03-01']);
@@ -98,4 +98,4 @@ it('keeps the full form on the edit page', function () {
         ->assertHasNoFormErrors();
 
     expect($project->fresh()->title)->toBe('Título novo');
-});
+})->group('ui');

@@ -14,11 +14,11 @@ abstract class InvoiceXpressSectionPage extends Page
     protected static ?SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
 
     private const array Tabs = [
-        InvoiceXpressIssuePage::class => 'Faturas',
-        InvoiceXpressReceiptPage::class => 'Recibos',
-        InvoiceXpressNoteIssuePage::class => 'Notas de crédito e débito',
-        InvoiceXpressImport::class => 'Importar',
-        InvoiceXpressSettingsPage::class => 'Configuração',
+        InvoiceXpressIssuePage::class => 'Invoices',
+        InvoiceXpressReceiptPage::class => 'Receipts',
+        InvoiceXpressNoteIssuePage::class => 'Credit and debit notes',
+        InvoiceXpressImport::class => 'Import',
+        InvoiceXpressSettingsPage::class => 'Configuration',
     ];
 
     public static function getNavigationItemActiveRoutePattern(): array
@@ -34,7 +34,7 @@ abstract class InvoiceXpressSectionPage extends Page
 
         foreach (self::Tabs as $page => $label) {
             if ($page::canAccess()) {
-                $items[] = NavigationItem::make($label)
+                $items[] = NavigationItem::make(__($label))
                     ->sort(count($items))
                     ->url($page::getUrl())
                     ->activeWhen(fn (): bool => static::class === $page);

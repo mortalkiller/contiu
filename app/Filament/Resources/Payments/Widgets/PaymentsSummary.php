@@ -60,20 +60,20 @@ class PaymentsSummary extends StatsOverviewWidget
         }
 
         if ($byMethod->count() > 3) {
-            $segments[] = ['label' => 'Outros', 'cents' => (int) $byMethod->skip(3)->sum(), 'tone' => 'clay'];
+            $segments[] = ['label' => __('Others'), 'cents' => (int) $byMethod->skip(3)->sum(), 'tone' => 'clay'];
         }
 
         return [
-            Stat::make('Recebido em '.today()->translatedFormat('F'), Money::format((int) end($byMonth)))
-                ->description('Últimos 6 meses')
+            Stat::make(__('Received in :period', ['period' => today()->locale(app()->getLocale())->translatedFormat('F')]), Money::format((int) end($byMonth), locale: app()->getLocale()))
+                ->description(__('Last 6 months'))
                 ->chart($byMonth)
                 ->color('primary')
                 ->icon(Phosphor::HandCoins),
-            Stat::make('Recebido em '.today()->year, Money::format((int) $thisYear->sum('amount')))
-                ->description(trans_choice('{0} Nenhum recebimento|{1} 1 recebimento|[2,*] :count recebimentos', $thisYear->count()))
+            Stat::make(__('Received in :period', ['period' => today()->year]), Money::format((int) $thisYear->sum('amount'), locale: app()->getLocale()))
+                ->description(trans_choice('{0} No payments|{1} 1 payment|[2,*] :count payments', $thisYear->count()))
                 ->icon(Phosphor::CalendarBlank),
-            Stat::make('Como te pagam', $byMethod->keys()->first() ?? '—')
-                ->description($byMethod->isEmpty() ? 'Ainda sem recebimentos este ano' : ProportionBar::render($segments))
+            Stat::make(__('How clients pay you'), $byMethod->keys()->first() ?? '—')
+                ->description($byMethod->isEmpty() ? __('No payments yet this year') : ProportionBar::render($segments))
                 ->icon(Phosphor::Wallet),
             ...$this->reconciliationStat(),
         ];
@@ -94,8 +94,8 @@ class PaymentsSummary extends StatsOverviewWidget
         $pending = count(ReconciliationColumns::reconciliation()->paymentIds(ReconciliationStatus::NotReconciled));
 
         return [
-            Stat::make('Por reconciliar com o banco', (string) $pending)
-                ->description($pending === 0 ? 'Tudo explicado pelo extrato' : 'Ainda não aparecem no extrato')
+            Stat::make(__('Unreconciled with the bank'), (string) $pending)
+                ->description($pending === 0 ? __('All matched to the bank statement') : __('Not yet on the bank statement'))
                 ->color($pending === 0 ? 'success' : 'warning')
                 ->url($pending === 0 ? null : BankStatementImport::getUrl())
                 ->icon(Phosphor::Bank),

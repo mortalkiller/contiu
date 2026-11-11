@@ -19,6 +19,8 @@ use Livewire\Livewire;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
+pest()->group('invoicexpress');
+
 function ixNoteLine(int $quantity): array
 {
     return [
@@ -42,6 +44,18 @@ function ixNoteDocument(string $type = 'Invoice', string $status = 'final', int 
         'items' => [ixNoteLine($quantity)],
         'owner_invoice_id' => 65, 'observations' => 'Corrigir serviço',
     ];
+}
+
+function ixDiscountedNoteDocument(string $type = 'Invoice', string $status = 'final'): array
+{
+    $invoice = $type === 'Invoice';
+    $quantity = $invoice ? 3 : 1;
+    [$net, $tax, $total, $discount] = $invoice ? ['0.21', '0.05', '0.26', '0.03'] : ['0.07', '0.02', '0.09', '0.01'];
+
+    return [...ixNoteDocument($type, $status, $quantity), 'before_taxes' => $net, 'taxes' => $tax, 'total' => $total, 'items' => [[
+        ...ixNoteLine($quantity), 'unit_price' => '0.08', 'discount' => '12.50', 'discount_amount' => $discount,
+        'subtotal' => $net, 'tax_amount' => $tax, 'total' => $total,
+    ]]];
 }
 
 function ixNoteOriginal(bool $allowWrites = true, array $overrides = []): FiscalDocument
@@ -95,7 +109,7 @@ it('previews exact amounts without writes and checks the catalogue guard on conf
         ->and(fn () => $issue->confirm($input, $preview['revision']))->toThrow(ValidationException::class);
     Http::assertNotSent(fn (Request $request): bool => $request->method() !== 'GET');
     expect(InvoiceXpressNoteAttempt::query()->count())->toBe(0);
-});
+})->group('integration');
 
 it('checks the remaining original line against prior provider notes and rejects a stale preview', function () {
     $original = ixNoteOriginal();
@@ -113,7 +127,7 @@ it('checks the remaining original line against prior provider notes and rejects 
         ->and(fn () => $issue->preview(ixNoteInput($original, quantity: 2)))->toThrow(ValidationException::class)
         ->and($issue->preview($input)['remaining'])->toBe(['quantity' => 1, 'total' => 12300]);
     Http::assertNotSent(fn (Request $request): bool => $request->method() !== 'GET');
-});
+})->group('integration');
 
 it('rejects unverifiable selections or reasons before any provider write', function (array $override, array $originalOverrides) {
     $original = ixNoteOriginal();
@@ -128,7 +142,7 @@ it('rejects unverifiable selections or reasons before any provider write', funct
     'unapproved catalog item' => [['itemId' => 91], []],
     'changed original amount' => [[], ['total' => 368]],
     'ambiguous duplicate original lines' => [[], ['items' => [ixNoteLine(1), ixNoteLine(2)]]],
-]);
+])->group('integration');
 
 it('checks remaining cents even when a whole unit is still available after rounding', function () {
     $originalTerms = [
@@ -146,7 +160,108 @@ it('checks remaining cents even when a whole unit is still available after round
     expect(fn () => app(InvoiceXpressNoteIssue::class)->preview(ixNoteInput($original)))
         ->toThrow(fn (ValidationException $exception) => expect($exception->errors())->toHaveKey('quantity'));
     Http::assertNotSent(fn (Request $request): bool => $request->method() !== 'GET');
-});
+})->group('integration');
+
+it('uses the original discount on partial credits and refuses a final unit above the discounted residual', function () {
+    $originalTerms = [...ixDiscountedNoteDocument(), 'discount' => '0.03'];
+    $original = ixNoteOriginal(overrides: $originalTerms);
+    $prior = ixDiscountedNoteDocument('CreditNote');
+    $history = [$prior];
+    ixNoteFake(function () use (&$history): array {
+        return $history;
+    }, originalOverrides: $originalTerms, itemOverrides: ['unit_price' => '0.08']);
+    $issue = app(InvoiceXpressNoteIssue::class);
+    $input = ixNoteInput($original);
+
+    $preview = $issue->preview($input);
+
+    expect($preview['original']['lines'][0]['discountBasisPoints'])->toBe(1250)
+        ->and($preview['totals'])->toBe(['net' => 7, 'tax' => 2, 'total' => 9, 'discount' => 1])
+        ->and($preview['remaining'])->toBe(['quantity' => 2, 'total' => 17])
+        ->and($preview['payload']['items'][0])->toMatchArray(['unit_price_cents' => 8, 'discount_basis_points' => 1250]);
+
+    $history[] = [...$prior, 'id' => 72];
+
+    expect(fn () => $issue->preview($input))
+        ->toThrow(fn (ValidationException $exception) => expect($exception->errors())->toHaveKey('quantity'));
+    Http::assertNotSent(fn (Request $request): bool => $request->method() !== 'GET');
+})->group('integration');
+
+it('rejects historical credits whose discount percentage differs even when their cents agree', function () {
+    $originalTerms = ixDiscountedNoteDocument();
+    $original = ixNoteOriginal(overrides: $originalTerms);
+    $prior = ixDiscountedNoteDocument('CreditNote');
+    ixNoteFake(function () use (&$prior): array {
+        return [$prior];
+    }, originalOverrides: $originalTerms, itemOverrides: ['unit_price' => '0.08']);
+    $issue = app(InvoiceXpressNoteIssue::class);
+    $input = ixNoteInput($original);
+
+    expect($issue->preview($input)['remaining']['total'])->toBe(17);
+
+    $prior['items'][0]['discount'] = '12.51';
+
+    expect(fn () => $issue->preview($input))
+        ->toThrow(fn (ValidationException $exception) => expect($exception->errors())->toHaveKey('line'));
+    Http::assertNotSent(fn (Request $request): bool => $request->method() !== 'GET');
+})->group('integration');
+
+it('blocks a zero-value debit note before writing to the provider', function () {
+    $originalTerms = ixDiscountedNoteDocument();
+    $originalTerms['before_taxes'] = $originalTerms['taxes'] = $originalTerms['total'] = '0.00';
+    $originalTerms['items'][0] = [
+        ...$originalTerms['items'][0], 'discount' => '100.00', 'discount_amount' => '0.24',
+        'subtotal' => '0.00', 'tax_amount' => '0.00', 'total' => '0.00',
+    ];
+    $original = ixNoteOriginal(overrides: $originalTerms);
+    ixNoteFake(fn () => [], originalOverrides: $originalTerms, itemOverrides: ['unit_price' => '0.08']);
+
+    expect(fn () => app(InvoiceXpressNoteIssue::class)->preview(ixNoteInput($original, 'debit_note')))
+        ->toThrow(fn (ValidationException $exception) => expect($exception->errors())->toHaveKey('quantity'));
+    Http::assertNotSent(fn (Request $request): bool => $request->method() !== 'GET');
+})->group('integration');
+
+it('verifies a discounted draft before finalizing and stores exact terms on the attempt', function (bool $mismatched) {
+    $originalTerms = ixDiscountedNoteDocument();
+    $original = ixNoteOriginal(overrides: $originalTerms);
+    $remote = ixDiscountedNoteDocument('CreditNote', 'draft');
+    if ($mismatched) {
+        $remote['items'][0]['discount'] = '12.51';
+    }
+
+    ixNoteFake(fn () => [], function (Request $request) use (&$remote) {
+        return match ([$request->method(), parse_url($request->url(), PHP_URL_PATH)]) {
+            ['POST', '/credit_notes.json'] => tap(Http::response(['credit_note' => ['id' => 71]], 201), function () use ($request, &$remote) {
+                $remote['reference'] = $request['credit_note']['reference'];
+            }),
+            ['GET', '/credit_notes/71.json'] => Http::response(['credit_note' => $remote]),
+            ['PUT', '/credit_notes/71/change-state.json'] => tap(Http::response('', 204), function () use (&$remote) {
+                $remote['status'] = 'final';
+            }),
+            default => throw new LogicException('Pedido inesperado'),
+        };
+    }, originalOverrides: $originalTerms, itemOverrides: ['unit_price' => '0.08']);
+    $issue = app(InvoiceXpressNoteIssue::class);
+    $input = ixNoteInput($original);
+
+    $attempt = $issue->confirm($input, $issue->preview($input)['revision'])->fresh();
+
+    $creation = Http::recorded(fn (Request $request): bool => $request->method() === 'POST')->sole()[0];
+    expect($creation['credit_note']['items'][0]['unit_price'])->toBe('0.08')
+        ->and($creation['credit_note']['items'][0]['discount'])->toBe(12.5);
+
+    expect($attempt->snapshot['payload']['items'][0])->toMatchArray(['unit_price_cents' => 8, 'discount_basis_points' => 1250])
+        ->and($attempt->snapshot['payload']['items'][0])->not->toHaveKeys(['unit_price', 'discount'])
+        ->and($attempt->snapshot['totals'])->toBe(['net' => 7, 'tax' => 2, 'total' => 9, 'discount' => 1])
+        ->and($attempt->state)->toBe($mismatched ? InvoiceXpressNoteAttempt::Blocked : InvoiceXpressNoteAttempt::Finalized)
+        ->and(Http::recorded(fn (Request $request): bool => $request->method() === 'PUT'))->toHaveCount($mismatched ? 0 : 1);
+
+    if (! $mismatched) {
+        $note = FiscalDocument::query()->findOrFail($attempt->fiscal_document_id);
+        expect($note->total_amount)->toBe(9)
+            ->and($note->links->related_fiscal_document_id)->toBe($original->id);
+    }
+})->with([false, true])->group('integration');
 
 it('finalizes and records only the note and the fiscal relationship', function (string $kind, string $providerType) {
     $original = ixNoteOriginal();
@@ -197,7 +312,7 @@ it('finalizes and records only the note and the fiscal relationship', function (
     $this->assertDatabaseCount('credit_applications', 0);
     $this->assertDatabaseCount('invoice_xpress_issue_attempts', 0);
     expect(Http::recorded(fn (Request $request): bool => $request->method() === 'POST'))->toHaveCount(1);
-})->with([['credit_note', 'CreditNote'], ['debit_note', 'DebitNote']]);
+})->with([['credit_note', 'CreditNote'], ['debit_note', 'DebitNote']])->group('integration');
 
 it('isolates original invoice selection by account', function () {
     $original = ixNoteOriginal();
@@ -214,7 +329,7 @@ it('isolates original invoice selection by account', function () {
     });
 
     Http::assertNothingSent();
-});
+})->group('integration');
 
 it('requires a new preview and an explicit confirmation in the note page', function () {
     $original = ixNoteOriginal(false);
@@ -228,9 +343,9 @@ it('requires a new preview and an explicit confirmation in the note page', funct
         ->call('confirm')->assertHasErrors(['accepted'])
         ->set('quantity', '2')->assertSet('previewData', null);
     Http::assertNotSent(fn (Request $request): bool => $request->method() !== 'GET');
-});
+})->group('ui');
 
-it('recovers an ambiguous creation using the same UUID and refuses another pending correction', function () {
+it('recovers an ambiguous creation using the same UUID and refuses another pending correction', function (bool $legacy) {
     $original = ixNoteOriginal();
     $uid = null;
     $reference = null;
@@ -273,6 +388,15 @@ it('recovers an ambiguous creation using the same UUID and refuses another pendi
     expect($pending->state)->toBe(InvoiceXpressNoteAttempt::Pending)
         ->and(fn () => $issue->confirm($alternative, $alternativePreview['revision']))->toThrow(ValidationException::class);
 
+    if ($legacy) {
+        $snapshot = $pending->snapshot;
+        $snapshot['payload']['items'][0] = [
+            'name' => 'Consultoria', 'description' => 'Serviço', 'unit' => 'service',
+            'unit_price' => '100.00', 'quantity' => 1, 'tax' => ['name' => 'IVA23'],
+        ];
+        $pending->forceFill(['snapshot' => $snapshot])->save();
+    }
+
     config(['services.invoicexpress.catalog_safe_accounts' => []]);
     expect(fn () => $issue->recover($pending->id))->toThrow(ValidationException::class);
     expect(Http::recorded(fn (Request $request): bool => $request->method() === 'POST'))->toHaveCount(1);
@@ -284,7 +408,7 @@ it('recovers an ambiguous creation using the same UUID and refuses another pendi
         ->and(InvoiceXpressNoteAttempt::query()->count())->toBe(1);
     expect(Http::recorded(fn (Request $request): bool => $request->method() === 'POST'))->toHaveCount(2);
     expect(Http::recorded(fn (Request $request): bool => $request->method() === 'PUT'))->toHaveCount(1);
-});
+})->with(['integer snapshot' => false, 'legacy euro snapshot' => true])->group('integration');
 
 it('blocks a draft whose original relationship or reason cannot be verified', function (array $override) {
     $original = ixNoteOriginal();
@@ -314,7 +438,7 @@ it('blocks a draft whose original relationship or reason cannot be verified', fu
 })->with([
     'another invoice' => [['owner_invoice_id' => 99]],
     'different reason' => [['observations' => 'Outro motivo']],
-]);
+])->group('integration');
 
 it('refuses to finalize a verified draft when catalogue safety was revoked', function () {
     $original = ixNoteOriginal();
@@ -340,7 +464,7 @@ it('refuses to finalize a verified draft when catalogue safety was revoked', fun
     expect(fn () => $issue->confirm($input, $preview['revision']))->toThrow(ValidationException::class)
         ->and(InvoiceXpressNoteAttempt::query()->sole()->state)->toBe(InvoiceXpressNoteAttempt::Draft);
     Http::assertNotSent(fn (Request $request): bool => $request->method() === 'PUT');
-});
+})->group('integration');
 
 it('refuses an account member who does not own the account before reading the provider', function () {
     $original = ixNoteOriginal();
@@ -353,7 +477,7 @@ it('refuses an account member who does not own the account before reading the pr
     expect(fn () => app(InvoiceXpressNoteIssue::class)->original($original->id))
         ->toThrow(fn (HttpException $exception) => expect($exception->getStatusCode())->toBe(403));
     Http::assertNothingSent();
-});
+})->group('integration');
 
 it('refuses a local fiscal note without verifiable provider history', function () {
     $original = ixNoteOriginal();
@@ -363,4 +487,4 @@ it('refuses a local fiscal note without verifiable provider history', function (
 
     expect(fn () => app(InvoiceXpressNoteIssue::class)->preview(ixNoteInput($original)))->toThrow(ValidationException::class);
     Http::assertNotSent(fn (Request $request): bool => $request->method() !== 'GET');
-});
+})->group('integration');

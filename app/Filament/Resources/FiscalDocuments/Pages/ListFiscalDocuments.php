@@ -26,7 +26,7 @@ class ListFiscalDocuments extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Faturas, recibos e notas de crédito, emitidos e recebidos.';
+        return __('Invoices, receipts and credit notes, issued and received.');
     }
 
     /** Active documents by direction, with the voided ones apart: they stay out of every sum. */
@@ -39,10 +39,10 @@ class ListFiscalDocuments extends ListRecords
         $count = fn (?callable $scope = null) => ($scope ? $scope(FiscalDocument::query()) : FiscalDocument::query())->count() ?: null;
 
         return [
-            'all' => Tab::make('Todos')->badge($count()),
-            'issued' => Tab::make('Emitidos')->modifyQueryUsing($active(FiscalDocumentDirection::Issued))->badge($count($active(FiscalDocumentDirection::Issued))),
-            'received' => Tab::make('Recebidos')->modifyQueryUsing($active(FiscalDocumentDirection::Received))->badge($count($active(FiscalDocumentDirection::Received))),
-            'voided' => Tab::make('Anulados')->modifyQueryUsing($voided)->badge($count($voided))->badgeColor('gray'),
+            'all' => Tab::make(__('All'))->badge($count()),
+            'issued' => Tab::make(__('Issued fiscal documents'))->modifyQueryUsing($active(FiscalDocumentDirection::Issued))->badge($count($active(FiscalDocumentDirection::Issued))),
+            'received' => Tab::make(__('Received fiscal documents'))->modifyQueryUsing($active(FiscalDocumentDirection::Received))->badge($count($active(FiscalDocumentDirection::Received))),
+            'voided' => Tab::make(__('Voided fiscal documents'))->modifyQueryUsing($voided)->badge($count($voided))->badgeColor('gray'),
         ];
     }
 
@@ -50,17 +50,17 @@ class ListFiscalDocuments extends ListRecords
     {
         return [
             Action::make('importFromInvoiceXpress')
-                ->label('Importar do InvoiceXpress')
+                ->label(__('Import from InvoiceXpress'))
                 ->link()
                 ->color('gray')
                 ->url(fn (): string => InvoiceXpressImport::getUrl())
                 ->visible(fn (): bool => InvoiceXpressImport::canAccess()),
             Action::make('issueInvoice')
-                ->label('Emitir fatura')
+                ->label(__('Prepare invoice'))
                 ->color('gray')
                 ->url(fn (): string => InvoiceXpressIssuePage::getUrl())
                 ->visible(fn (): bool => InvoiceXpressIssuePage::canAccess()),
-            CreateAction::make()->label('Registar documento'),
+            CreateAction::make()->label(__('Record document')),
         ];
     }
 }

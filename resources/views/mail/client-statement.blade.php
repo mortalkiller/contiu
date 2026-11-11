@@ -5,16 +5,16 @@
 <x-mail::table>
 | | |
 |:--|--:|
-| Cobrado | {{ Money::format($charged) }} |
-| Recebido | {{ Money::format($received) }} |
-| **Saldo** | **{{ Money::format($balance) }}** |
+| {{ __('Charged') }} | {{ Money::format($charged, app()->getLocale()) }} |
+| {{ __('Received') }} | {{ Money::format($received, app()->getLocale()) }} |
+| **{{ __('Balance') }}** | **{{ Money::format($balance, app()->getLocale()) }}** |
 @if ($overdue > 0)
-| Em atraso | {{ Money::format($overdue) }} |
+| {{ __('Overdue') }} | {{ Money::format($overdue, app()->getLocale()) }} |
 @endif
 </x-mail::table>
 
-O extrato completo segue em anexo (Excel).
+{{ __('The full statement is attached as an Excel file.') }}
 
-Com os melhores cumprimentos,<br>
+{{ __('Kind regards,') }}<br>
 {{ $accountName }}
 </x-mail::message>

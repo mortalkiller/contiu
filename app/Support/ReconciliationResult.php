@@ -38,7 +38,7 @@ final class ReconciliationResult
         }
 
         return $this->status === ReconciliationStatus::NotReconciled && $this->missing > 0 && $this->missing < $this->amount
-            ? 'Faltam '.Money::format($this->missing).' de '.Money::format($this->amount)
+            ? __(':missing of :total outstanding', ['missing' => Money::format($this->missing), 'total' => Money::format($this->amount)])
             : null;
     }
 }

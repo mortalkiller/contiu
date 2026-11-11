@@ -9,6 +9,8 @@ use App\Support\TaxEstimator;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 
+pest()->group('integration', 'fiscal');
+
 beforeEach(fn () => $this->travelTo(Carbon::parse('2026-11-06')));
 
 function payOn(string $date, int $amount, float $vat = 0): Payment

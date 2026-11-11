@@ -2,15 +2,18 @@
 
 namespace App\Actions;
 
+use App\Enums\Language;
 use App\Filament\Pages\MonthClose;
 use App\Filament\Resources\Receivables\ReceivableResource;
 use App\Models\Receivable;
 use App\Support\CurrentAccount;
 use App\Support\Money;
 use App\Support\MonthReview;
-use App\Support\Period;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
+use Illuminate\Support\Traits\Localizable;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 /**
@@ -18,6 +21,8 @@ use ToneGabes\Filament\Icons\Enums\Phosphor;
  */
 class SendFinanceReminders
 {
+    use Localizable;
+
     public const DAYS_BEFORE = 7;
 
     /** @return int number of reminders sent */
@@ -29,6 +34,7 @@ class SendFinanceReminders
             return 0;
         }
 
+        $recipientsByLocale = $recipients->groupBy(fn ($user): string => $user->preferredLocale());
         $sent = 0;
 
         $open = Receivable::query()->open()->excludingCancelled()
@@ -40,30 +46,24 @@ class SendFinanceReminders
             $days = (int) today()->diffInDays($receivable->due_on, false);
 
             if ($days < 0 && $receivable->overdue_notified_at === null) {
-                $this->notify($recipients, $receivable, 'Vencido: '.$receivable->label, 'danger', Phosphor::WarningCircle);
+                $this->notify($recipientsByLocale, $receivable, $days);
                 $receivable->forceFill(['overdue_notified_at' => now(), 'due_soon_notified_at' => $receivable->due_soon_notified_at ?? now()])->saveQuietly();
                 $sent++;
             } elseif ($days >= 0 && $receivable->due_soon_notified_at === null) {
-                $when = match ($days) {
-                    0 => 'Vence hoje',
-                    1 => 'Vence amanhã',
-                    default => "Vence em {$days} dias",
-                };
-
-                $this->notify($recipients, $receivable, $when.': '.$receivable->label, 'warning', Phosphor::HourglassMedium);
+                $this->notify($recipientsByLocale, $receivable, $days);
                 $receivable->forceFill(['due_soon_notified_at' => now()])->saveQuietly();
                 $sent++;
             }
         }
 
-        return $sent + $this->monthCloseReminder($recipients);
+        return $sent + $this->monthCloseReminder($recipientsByLocale);
     }
 
     /**
      * On the 1st, a nudge to close the previous month if it still has items left (the daily
      * schedule makes this run once per month).
      */
-    private function monthCloseReminder($recipients): int
+    private function monthCloseReminder(Collection $recipientsByLocale): int
     {
         if (today()->day !== 1) {
             return 0;
@@ -77,35 +77,58 @@ class SendFinanceReminders
             return 0;
         }
 
-        $label = Period::of($month->year, $month->month)->label();
-
-        Notification::make()
-            ->title('Fecho de '.$label.': falta'.($pending === 1 ? ' 1 item' : 'm '.$pending.' itens'))
-            ->body($review->pendingReceivables().' por receber · '.$review->pendingExpenses().' despesas por pagar')
-            ->warning()
-            ->icon(Phosphor::CalendarCheck)
-            ->actions([
-                Action::make('open')
-                    ->label('Abrir fecho do mês')
-                    ->url(MonthClose::getUrl(['month' => $month->format('Y-m')], panel: 'admin', tenant: CurrentAccount::get())),
-            ])
-            ->sendToDatabase($recipients);
+        foreach ($recipientsByLocale as $locale => $recipients) {
+            $this->withLocale($locale, function () use ($locale, $recipients, $month, $review, $pending): void {
+                Notification::make()
+                    ->title(trans_choice('Month close for :month: :count item pending|Month close for :month: :count items pending', $pending, [
+                        'month' => Str::ucfirst($month->copy()->locale($locale)->translatedFormat('F Y')),
+                    ]))
+                    ->body(__(':receivables pending receipt · :expenses', [
+                        'receivables' => $review->pendingReceivables(),
+                        'expenses' => trans_choice(':count unpaid expense|:count unpaid expenses', $review->pendingExpenses()),
+                    ]))
+                    ->warning()
+                    ->icon(Phosphor::CalendarCheck)
+                    ->actions([
+                        Action::make('open')
+                            ->label(__('Open month close'))
+                            ->url(MonthClose::getUrl(['month' => $month->format('Y-m')], panel: 'admin', tenant: CurrentAccount::get())),
+                    ])
+                    ->sendToDatabase($recipients);
+            });
+        }
 
         return 1;
     }
 
-    private function notify($recipients, Receivable $receivable, string $title, string $status, Phosphor $icon): void
+    private function notify(Collection $recipientsByLocale, Receivable $receivable, int $days): void
     {
-        Notification::make()
-            ->title($title)
-            ->body(($receivable->client?->name ?? '—').' — falta receber '.Money::format($receivable->outstanding).' (vencimento '.$receivable->due_on->format('d/m/Y').')')
-            ->status($status)
-            ->icon($icon)
-            ->actions([
-                Action::make('open')
-                    ->label('Ver a receber')
-                    ->url(ReceivableResource::getUrl(panel: 'admin', tenant: CurrentAccount::get())),
-            ])
-            ->sendToDatabase($recipients);
+        foreach ($recipientsByLocale as $locale => $recipients) {
+            $this->withLocale($locale, function () use ($locale, $recipients, $receivable, $days): void {
+                $label = $receivable->label;
+                $title = match (true) {
+                    $days < 0 => __('Overdue: :label', ['label' => $label]),
+                    $days === 0 => __('Due today: :label', ['label' => $label]),
+                    $days === 1 => __('Due tomorrow: :label', ['label' => $label]),
+                    default => __('Due in :days days: :label', ['days' => $days, 'label' => $label]),
+                };
+
+                Notification::make()
+                    ->title($title)
+                    ->body(__(':client — :amount outstanding (due :date)', [
+                        'client' => $receivable->client?->name ?? '—',
+                        'amount' => Money::format($receivable->outstanding, $locale),
+                        'date' => $receivable->due_on->format(Language::resolve($locale)->dateFormat()),
+                    ]))
+                    ->status($days < 0 ? 'danger' : 'warning')
+                    ->icon($days < 0 ? Phosphor::WarningCircle : Phosphor::HourglassMedium)
+                    ->actions([
+                        Action::make('open')
+                            ->label(__('View receivables'))
+                            ->url(ReceivableResource::getUrl(panel: 'admin', tenant: CurrentAccount::get())),
+                    ])
+                    ->sendToDatabase($recipients);
+            });
+        }
     }
 }

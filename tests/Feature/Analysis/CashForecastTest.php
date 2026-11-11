@@ -28,7 +28,9 @@ use App\Support\SocialSecurity;
 use App\Support\VatPeriodReview;
 use Carbon\CarbonImmutable;
 use Filament\Facades\Filament;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -52,7 +54,7 @@ function row(CashForecast $forecast, int $index): array
 it('covers the current month and the following ones', function () {
     expect(collect(forecast(3)->months())->pluck('label')->all())->toBe(['Novembro 2026', 'Dezembro 2026', 'Janeiro 2027'])
         ->and(forecast(6)->months())->toHaveCount(6);
-});
+})->group('integration');
 
 it('puts open receivables in their month and rolls overdue ones into the current month', function () {
     $partial = Receivable::factory()->create(['amount' => 50000, 'due_on' => '2026-12-15']);
@@ -67,7 +69,7 @@ it('puts open receivables in their month and rolls overdue ones into the current
     expect(row($forecast, 0))->toMatchArray(['inflows' => 10000, 'overdueInflows' => 10000])
         ->and(row($forecast, 1)['inflows'])->toBe(30000)
         ->and(row($forecast, 2)['inflows'])->toBe(0);
-});
+})->group('integration');
 
 it('projects retainer periods not generated yet without double counting existing ones', function () {
     $retainer = Retainer::factory()->create(['starts_on' => '2026-01-01', 'due_day' => 1, 'net_amount' => 2000]);
@@ -76,14 +78,14 @@ it('projects retainer periods not generated yet without double counting existing
     $forecast = forecast();
 
     expect(array_column($forecast->months(), 'inflows'))->toBe([2000, 2000, 2000]);
-});
+})->group('integration');
 
 it('stops projecting at the retainer end date and skips inactive retainers', function () {
     $ending = Retainer::factory()->create(['starts_on' => '2026-11-01', 'due_day' => 1, 'net_amount' => 2000, 'ends_on' => '2026-12-31']);
     Retainer::factory()->create(['starts_on' => '2026-11-01', 'net_amount' => 5000, 'is_active' => false]);
 
     expect(array_column(forecast()->months(), 'inflows'))->toBe([2000, 2000, 0]);
-});
+})->group('integration');
 
 it('counts unpaid expenses and projects recurring ones after the latest generated expense', function () {
     Expense::factory()->unpaid()->create(['spent_on' => '2026-10-20', 'net_amount' => 5000]);
@@ -95,7 +97,7 @@ it('counts unpaid expenses and projects recurring ones after the latest generate
     expect(row($forecast, 0))->toMatchArray(['outflows' => 6000, 'overdueOutflows' => 5000])
         ->and(row($forecast, 1)['outflows'])->toBe(1000)
         ->and(row($forecast, 2)['outflows'])->toBe(1000);
-});
+})->group('integration');
 
 it('adds the estimated Segurança Social contribution when it is due', function () {
     app(FinanceSettings::class)->set(['activity_started_on' => '2024-01-01']);
@@ -108,7 +110,7 @@ it('adds the estimated Segurança Social contribution when it is due', function 
     // December, all set by the income of jul–set.
     expect(array_column($forecast->months(), 'socialSecurity'))->toBe([14980, 14980, 14980])
         ->and(row($forecast, 0)['outflows'])->toBe(14980);
-});
+})->group('integration');
 
 it('starts from the imported statement plus what was recorded since, or from zero without one', function () {
     Receivable::factory()->create(['amount' => 10000, 'due_on' => '2026-12-10']);
@@ -125,7 +127,7 @@ it('starts from the imported statement plus what was recorded since, or from zer
         ->and(forecast()->startingBalance())->toBe(105000)
         ->and(array_column(forecast()->months(), 'balance'))->toBe([105000, 115000, 115000])
         ->and(forecast()->totals())->toMatchArray(['inflows' => 10000, 'outflows' => 0, 'net' => 10000]);
-});
+})->group('integration');
 
 it('projects the same dates the generators would create', function () {
     $retainer = Retainer::factory()->create(['starts_on' => '2026-01-15', 'due_day' => 31]);
@@ -140,7 +142,7 @@ it('projects the same dates the generators would create', function () {
 
     expect($projectedPeriods)->toBe($retainer->receivables()->pluck('due_on')->map->toDateString()->all())
         ->and($projectedExpenses)->toBe($template->expenses()->orderBy('spent_on')->pluck('spent_on')->map->toDateString()->all());
-});
+})->group('integration');
 
 it('keeps reserved money separate from the bank balance and tax payments already recorded', function () {
     actingAsAdmin();
@@ -162,7 +164,7 @@ it('keeps reserved money separate from the bank balance and tax payments already
 
     expect(forecast()->reserve())->toBe(['reserved' => 20003, 'available' => 79997, 'paidThisYear' => 9001])
         ->and(forecast()->startingBalance())->toBe(100000);
-});
+})->group('ui');
 
 it('keeps the available balance unknown without a statement and rejects invalid reserves', function () {
     actingAsAdmin();
@@ -175,7 +177,7 @@ it('keeps the available balance unknown without a statement and rejects invalid 
 
     expect(forecast()->reserve())->toBe(['reserved' => 20003, 'available' => null, 'paidThisYear' => 0])
         ->and(CurrentAccount::run(Account::factory()->create(), fn () => (new CashForecast(new FinanceSettings))->reserve()['reserved']))->toBe(0);
-});
+})->group('ui');
 
 it('uses confirmed fiscal amounts and omits an already paid contribution and overlapping VAT reviews', function () {
     actingAsAdmin();
@@ -194,7 +196,7 @@ it('uses confirmed fiscal amounts and omits an already paid contribution and ove
     expect(row($forecast, 0))->toMatchArray(['socialSecurity' => 0, 'confirmedVat' => 9001])
         ->and(row($forecast, 1))->toMatchArray(['socialSecurity' => 14001, 'socialSecurityConfirmed' => true, 'confirmedVat' => 0])
         ->and(row($forecast, 2)['confirmedVat'])->toBe(0);
-});
+})->group('integration');
 
 it('shows the part of the fiscal reserve supported by an explicitly linked outgoing own transfer', function () {
     actingAsAdmin();
@@ -228,7 +230,7 @@ it('shows the part of the fiscal reserve supported by an explicitly linked outgo
         ->callAction('setTaxReserve', data: ['amount' => '80,02', 'transfer_id' => null])
         ->assertHasNoActionErrors()
         ->assertSee('Valor declarado manualmente');
-});
+})->group('ui');
 
 it('flags a linked transfer that has been undone or removed and keeps the reserve as declared', function (string $change) {
     actingAsAdmin();
@@ -252,7 +254,7 @@ it('flags a linked transfer that has been undone or removed and keeps the reserv
         ->assertSee('Comprovativo inválido')
         ->assertDontSee('Comprovada pela transferência');
     expect(forecast()->reserve()['reserved'])->toBe(15000);
-})->with(['undo', 'delete', 'amount']);
+})->with(['undo', 'delete', 'amount'])->group('ui');
 
 it('refuses an ineligible fiscal reserve transfer without changing the saved amount', function (string $kind) {
     actingAsAdmin();
@@ -270,7 +272,7 @@ it('refuses an ineligible fiscal reserve transfer without changing the saved amo
         ->assertHasActionErrors(['transfer_id']);
 
     expect(forecast()->reserve()['reserved'])->toBe(9000);
-})->with(['other account', 'pending', 'incoming', 'future']);
+})->with(['other account', 'pending', 'incoming', 'future'])->group('ui');
 
 it('requires a positive reserve to save a transfer as evidence', function () {
     actingAsAdmin();
@@ -287,7 +289,7 @@ it('requires a positive reserve to save a transfer as evidence', function () {
     expect($page->instance()->getErrorBag()->first('mountedActions.0.data.amount'))
         ->toBe('Indica um montante superior a zero para associar a transferência.');
     expect(forecast()->reserve()['reserved'])->toBe(9000);
-});
+})->group('ui');
 
 it('keeps the fiscal reserve read-only after the account loses write access', function () {
     app(FinanceSettings::class)->set(['tax_reserved_amount' => 9000]);
@@ -302,4 +304,57 @@ it('keeps the fiscal reserve read-only after the account loses write access', fu
 
     expect(fn () => app(FiscalReserve::class)->save(15000, null))->toThrow(HttpException::class);
     expect(forecast()->reserve()['reserved'])->toBe(9000);
-});
+})->group('ui');
+
+it('reads the bank statement opening and projects unpaid expenses once per forecast request', function () {
+    actingAsAdmin();
+    BankTransaction::create([
+        'hash' => 'forecast-opening', 'booked_on' => '2026-11-06', 'description' => 'Saldo',
+        'amount' => 10000, 'balance' => 110000, 'import_batch' => 'b',
+    ]);
+    Expense::factory()->unpaid()->create(['spent_on' => '2026-11-08', 'net_amount' => 12003, 'vat_rate' => 0]);
+
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+
+    try {
+        Livewire::withoutLazyLoading()->test(CashForecastPage::class)
+            ->assertSee('Começa em '.Money::format(100000))
+            ->assertSee(Money::format(12003));
+
+        $queries = collect(DB::getQueryLog());
+        $opening = $queries->filter(fn (array $query): bool => str_starts_with($query['query'], 'select min("booked_on")')
+            && str_contains($query['query'], 'from "bank_transactions"'));
+        $unpaid = $queries->filter(fn (array $query): bool => str_starts_with($query['query'], 'select * from "expenses" where "is_paid" = ?')
+            && $query['bindings'][0] === false);
+
+        expect($opening)->toHaveCount(1)->and($unpaid)->toHaveCount(1);
+    } finally {
+        DB::disableQueryLog();
+    }
+})->group('integration', 'performance');
+
+it('isolates the shared forecast by request, account and horizon', function () {
+    $request = request();
+    $threeMonths = CashForecast::forRequest(3);
+    $sixMonths = CashForecast::forRequest(6);
+    $other = Account::factory()->create();
+
+    expect($threeMonths)->not->toBe($sixMonths)
+        ->and($threeMonths->monthsAhead)->toBe(3)
+        ->and($sixMonths->monthsAhead)->toBe(6);
+
+    CurrentAccount::run($other, function () use ($threeMonths): void {
+        expect(CashForecast::forRequest(3))->not->toBe($threeMonths);
+    });
+
+    expect(CashForecast::forRequest(3))->toBe($threeMonths);
+
+    try {
+        app()->instance('request', Request::create('/forecast'));
+
+        expect(CashForecast::forRequest(3))->not->toBe($threeMonths);
+    } finally {
+        app()->instance('request', $request);
+    }
+})->group('integration');

@@ -17,27 +17,53 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Tapp\FilamentAuditing\RelationManagers\AuditsRelationManager;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
-use UnitEnum;
 
 class ExpenseResource extends Resource
 {
     protected static ?string $model = Expense::class;
 
-    protected static ?string $modelLabel = 'despesa';
-
-    protected static ?string $pluralModelLabel = 'despesas';
-
     protected static ?string $recordTitleAttribute = 'description';
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::Receipt;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Despesas';
-
     protected static ?int $navigationSort = 1;
+
+    public static function getModelLabel(): string
+    {
+        return __('expense');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('expenses');
+    }
+
+    public static function getNavigationGroup(): string
+    {
+        return __('Expenses');
+    }
 
     public static function form(Schema $schema): Schema
     {
         return ExpenseForm::configure($schema, withEvidence: true);
+    }
+
+    /** In the menu: how many expenses are still to pay, the same count as the "Por pagar" tab. */
+    public static function getNavigationBadge(): ?string
+    {
+        $unpaid = Expense::query()->where('is_paid', false)->count();
+
+        return $unpaid > 0 ? (string) $unpaid : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return __('Expenses to pay');
     }
 
     public static function table(Table $table): Table

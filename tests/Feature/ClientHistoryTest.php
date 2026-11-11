@@ -4,6 +4,8 @@ use App\Filament\Resources\Clients\ClientResource;
 use App\Models\Client;
 use Tapp\FilamentAuditing\RelationManagers\AuditsRelationManager;
 
+pest()->group('integration');
+
 it('records changes to a client', function () {
     config(['audit.console' => true]);
     actingAsAdmin();

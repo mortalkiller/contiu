@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Language;
 use App\Support\AccountantAccess;
 use Database\Factories\UserFactory;
 use Filament\Auth\Notifications\VerifyEmail;
@@ -11,27 +12,35 @@ use Filament\Models\Contracts\HasDefaultTenant;
 use Filament\Models\Contracts\HasTenants;
 use Filament\Panel;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use MortalKiller\FilamentAppearance\Concerns\HasPalette;
 use Spatie\Permission\Traits\HasRoles;
 
 /**
  * Must verify the email before opening the panel (->emailVerification()). Users from before the
  * public sign-up were marked verified by the accounts migration.
  */
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'email', 'password', 'language'])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable implements FilamentUser, HasDefaultTenant, HasTenants, MustVerifyEmail
+class User extends Authenticatable implements FilamentUser, HasDefaultTenant, HasLocalePreference, HasTenants, MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, HasRoles, Notifiable;
+    use HasFactory, HasPalette, HasRoles, Notifiable;
+
+    protected $attributes = ['language' => 'pt-PT'];
+
+    public function preferredLocale(): string
+    {
+        return Language::resolve($this->language)->locale();
+    }
 
     public function canAccessPanel(Panel $panel): bool
     {
@@ -42,17 +51,6 @@ class User extends Authenticatable implements FilamentUser, HasDefaultTenant, Ha
     public function accounts(): BelongsToMany
     {
         return $this->belongsToMany(Account::class)->withPivot('role')->withTimestamps();
-    }
-
-    /**
-     * Colour palettes the user made in Perfil → Aparência. The chosen one (theirs or a built-in
-     * one) is in the "palette" column; see App\Support\Appearance\PaletteRegistry.
-     *
-     * @return HasMany<UserPalette, $this>
-     */
-    public function palettes(): HasMany
-    {
-        return $this->hasMany(UserPalette::class);
     }
 
     /**

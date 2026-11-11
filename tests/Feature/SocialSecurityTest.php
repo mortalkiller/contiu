@@ -14,6 +14,8 @@ use Filament\Facades\Filament;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
+pest()->group('fiscal');
+
 it('only prepares closed quarters using the Lisbon calendar boundary', function () {
     actingAsAdmin();
     $this->travelTo(CarbonImmutable::parse('2026-12-31 23:59:59', 'Europe/Lisbon'));
@@ -28,7 +30,7 @@ it('only prepares closed quarters using the Lisbon calendar boundary', function 
 
     expect($security->latestClosedQuarter())->toBe('2026-Q4')
         ->and($security->closedQuarter('2026-Q4')?->toDateString())->toBe('2026-10-01');
-});
+})->group('integration');
 
 it('lists each tenant receipt once by payment date and keeps the estimator basis separate', function () {
     $this->travelTo(CarbonImmutable::parse('2026-11-10'));
@@ -44,7 +46,7 @@ it('lists each tenant receipt once by payment date and keeps the estimator basis
         ->and($details['receipts']->sum('amount'))->toBe(305000)
         ->and($details['estimateIncome'])->toBe(300000)
         ->and($details['estimatedContributions'])->toBe(['2026-10' => 14980, '2026-11' => 14980, '2026-12' => 14980]);
-});
+})->group('integration');
 
 it('keeps declared snapshots independent from receipts and requires an explicit current revision to correct them', function () {
     $this->travelTo(CarbonImmutable::parse('2026-11-10'));
@@ -68,7 +70,7 @@ it('keeps declared snapshots independent from receipts and requires an explicit 
         expect($security->declaration('2026-Q3'))->toBeNull();
         expect(fn () => $security->recordDeclaration('2026-Q3', $amounts, $second->id))->toThrow(ValidationException::class);
     });
-});
+})->group('integration');
 
 it('rejects missing, out-of-period or non-integer declared values', function (array $amounts) {
     $this->travelTo(CarbonImmutable::parse('2026-11-10'));
@@ -81,7 +83,7 @@ it('rejects missing, out-of-period or non-integer declared values', function (ar
     'outside quarter' => [['2026-07' => 100, '2026-08' => 100, '2026-10' => 100]],
     'fractional cent' => [['2026-07' => 100.1, '2026-08' => 100, '2026-09' => 0]],
     'negative' => [['2026-07' => -1, '2026-08' => 100, '2026-09' => 0]],
-]);
+])->group('integration');
 
 it('maps the latest separately confirmed contribution to its payment month across the year boundary', function () {
     $this->travelTo(CarbonImmutable::parse('2026-11-10'));
@@ -102,7 +104,7 @@ it('maps the latest separately confirmed contribution to its payment month acros
     expect(fn () => $security->confirmContribution('2026-Q3', '2026-12', 100, $november->id))->toThrow(ValidationException::class);
     expect(fn () => $security->confirmContribution('2026-Q4', '2027-01', 100))->toThrow(ValidationException::class);
     CurrentAccount::run(Account::factory()->create(), fn () => expect($security->confirmedPaymentInMonth(CarbonImmutable::parse('2027-01-20')))->toBeNull());
-});
+})->group('integration');
 
 it('keeps both write paths closed for a read-only account', function () {
     $this->travelTo(CarbonImmutable::parse('2026-11-10'));
@@ -114,7 +116,7 @@ it('keeps both write paths closed for a read-only account', function () {
     expect(fn () => $security->confirmContribution('2026-Q3', '2026-10', 2000))->toThrow(AccountIsReadOnly::class);
     expect($security->declaration('2026-Q3'))->toBeNull()
         ->and($security->contributionHistory('2026-Q3'))->toBeEmpty();
-});
+})->group('integration');
 
 it('opens a closed quarter from its tenant URL and rejects an open one', function () {
     $this->travelTo(CarbonImmutable::parse('2026-11-10'));
@@ -128,7 +130,7 @@ it('opens a closed quarter from its tenant URL and rejects an open one', functio
     $this->get($url('2026-Q4', $this->account))->assertNotFound();
     $this->get($url('2026-Q2', $this->account).'&quarter[]=2026-Q2')->assertNotFound();
     $this->get($url('2026-Q2', $otherAccount))->assertNotFound();
-});
+})->group('ui');
 
 it('records manually entered euro amounts and displays local corrections through the page', function () {
     $this->travelTo(CarbonImmutable::parse('2026-11-10'));
@@ -150,7 +152,7 @@ it('records manually entered euro amounts and displays local corrections through
     $security = app(SocialSecurity::class);
     expect($security->declaration('2026-Q3')?->amounts)->toBe(['2026-07' => 123456, '2026-08' => 0, '2026-09' => 5012])
         ->and($security->confirmedPaymentInMonth(CarbonImmutable::parse('2026-11-01')))->toBe(0);
-});
+})->group('ui');
 
 it('shows a read-only account the quarter and hides the write actions', function () {
     $this->travelTo(CarbonImmutable::parse('2026-11-10'));
@@ -164,7 +166,7 @@ it('shows a read-only account the quarter and hides the write actions', function
         ->assertSee('Rendimentos declarados')
         ->assertActionHidden('recordDeclaration')
         ->assertActionHidden(TestAction::make('recordContribution')->arguments(['month' => '2026-10']));
-});
+})->group('ui');
 
 it('preserves the newest declaration when a second tab submits an older revision', function () {
     $this->travelTo(CarbonImmutable::parse('2026-11-10'));
@@ -182,4 +184,23 @@ it('preserves the newest declaration when a second tab submits an older revision
         ->assertSee('Histórico da declaração');
 
     expect($security->declarationHistory('2026-Q3')->modelKeys())->toBe([$newest->id, $original->id]);
+})->group('ui');
+
+describe('Closed quarter summary', function () {
+    beforeEach(function () {
+        $this->travelTo(CarbonImmutable::parse('2026-11-10'));
+        actingAsAdmin();
+        app(FinanceSettings::class)->set(['activity_started_on' => '2020-01-01', 'activity_start_kind' => 'first']);
+    });
+
+    it('sums up the closed quarter above the social security detail', function () {
+        Payment::factory()->create(['paid_on' => '2026-07-01', 'amount' => 300000]);
+        Payment::factory()->create(['paid_on' => '2026-09-30', 'amount' => 5000, 'tax_exempt' => true]);
+
+        Livewire::withQueryParams(['quarter' => '2026-Q3'])->test(SocialSecurityPage::class)
+            ->assertSeeInOrder(['Total registado', Money::format(305000), '2 recebimentos no trimestre'], false)
+            ->assertSeeInOrder(['Usado na estimativa', Money::format(300000), Money::format(5000).' marcados como isentos ficam de fora'], false)
+            ->assertSeeInOrder(['Declaração trimestral', 'Por registar'])
+            ->assertSeeInOrder(['Contribuições confirmadas', '0 de 3']);
+    })->group('integration');
 });

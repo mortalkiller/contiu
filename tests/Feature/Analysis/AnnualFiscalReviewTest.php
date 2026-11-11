@@ -9,7 +9,11 @@ use App\Models\Expense;
 use App\Models\FiscalDocument;
 use App\Models\Payment;
 use App\Support\AnnualFiscalReview;
+use App\Support\FinanceSettings;
+use Carbon\CarbonImmutable;
 use Livewire\Livewire;
+
+pest()->group('ui', 'fiscal');
 
 it('shows separately dated annual totals and gives the origin and unresolved evidence', function () {
     actingAsAdmin();
@@ -32,4 +36,22 @@ it('shows separately dated annual totals and gives the origin and unresolved evi
         ->assertSee('Ver documentos')
         ->assertSee('Despesas sem comprovativo')
         ->assertSee('Ver pagamentos de impostos e contribuições');
+});
+
+describe('Readiness for the accountant', function () {
+    beforeEach(function () {
+        $this->travelTo(CarbonImmutable::parse('2026-11-10'));
+        actingAsAdmin();
+        app(FinanceSettings::class)->set(['activity_started_on' => '2020-01-01', 'activity_start_kind' => 'first']);
+    });
+
+    it('says whether the annual summary is ready for the accountant', function () {
+        Livewire::test(AnnualFiscalReviewPage::class)->assertSee('Pronto para o contabilista: nada por rever');
+
+        Expense::factory()->create(['spent_on' => '2026-05-01', 'is_reviewed' => false]);
+
+        Livewire::test(AnnualFiscalReviewPage::class)
+            ->assertDontSee('Pronto para o contabilista: nada por rever')
+            ->assertSee('antes de entregares ao contabilista');
+    });
 });

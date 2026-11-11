@@ -141,10 +141,10 @@ final class MonthReview
     public static function missingDocumentLabel(Receivable|Payment|Expense $record): string
     {
         if ($record instanceof Payment && filled($record->fiscal_reference) && $record->uncovered_allocation !== null) {
-            return 'Falta recibo para parte do recebimento';
+            return __('Receipt missing for part of the payment');
         }
 
-        return $record instanceof Payment ? 'Falta recibo ou fatura-recibo' : 'Falta fatura ou fatura-recibo';
+        return $record instanceof Payment ? __('Receipt or invoice-receipt missing') : __('Invoice or invoice-receipt missing');
     }
 
     public static function hasCompleteFiscalReference(Receivable|Payment|Expense $record): bool
@@ -180,11 +180,11 @@ final class MonthReview
         }
 
         if ($record instanceof Expense && ! $record->hasProof()) {
-            $issues[] = 'Sem comprovativo';
+            $issues[] = __('No supporting document');
         }
 
         if (! $record instanceof Receivable && $this->reconciliationFor($record)?->isReconciled() === false) {
-            $issues[] = 'Por reconciliar';
+            $issues[] = __('Pending reconciliation');
         }
 
         return $issues;

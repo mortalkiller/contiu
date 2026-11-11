@@ -13,8 +13,8 @@ use App\Support\FinanceSettings;
 use App\Support\Money;
 use BackedEnum;
 use Filament\Pages\Page;
+use Filament\Support\Components\Attributes\Unexposed;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
-use UnitEnum;
 
 /**
  * "Centro de ajuda": how to use the app day to day, from a new job to the bank statement and the
@@ -24,13 +24,7 @@ class HelpCentre extends Page
 {
     protected static string|BackedEnum|null $navigationIcon = Phosphor::Question;
 
-    protected static ?string $navigationLabel = 'Centro de ajuda';
-
-    protected static ?string $title = 'Centro de ajuda';
-
     protected static ?string $slug = 'ajuda';
-
-    protected static string|UnitEnum|null $navigationGroup = 'Definições';
 
     protected static ?int $navigationSort = 99;
 
@@ -39,8 +33,8 @@ class HelpCentre extends Page
     public function getSubheading(): string
     {
         return $this->hasBusinessAccount()
-            ? 'Como usar a app no dia a dia: do trabalho novo ao extrato do banco e ao fecho do mês.'
-            : 'Como usar a app no dia a dia: do trabalho novo ao recebimento e ao fecho do mês.';
+            ? __('How to use the app day to day, from new work to bank statements and month close.')
+            : __('How to use the app day to day, from new work to payment and month close.');
     }
 
     /** Without a bank account for the activity, the statement and the transfers are left out. */
@@ -61,16 +55,16 @@ class HelpCentre extends Page
     private function allTopics(): array
     {
         return [
-            ['id' => 'fluxo', 'title' => $this->hasBusinessAccount() ? 'Do trabalho ao extrato' : 'Do trabalho ao recebimento', 'summary' => 'Um exemplo completo, passo a passo.', 'icon' => Phosphor::Path],
-            ['id' => 'recebimentos', 'title' => 'Recebimentos', 'summary' => 'Totais, parciais e faturas-recibo.', 'icon' => Phosphor::HandCoins],
-            ['id' => 'despesas', 'title' => 'Despesas', 'summary' => 'Registar, recorrentes e fornecedores.', 'icon' => Phosphor::Receipt],
-            ['id' => 'receitas-avulsas', 'title' => 'Receitas avulsas', 'summary' => 'Donativos e outras entradas.', 'icon' => Phosphor::Gift],
-            ['id' => 'extrato', 'title' => 'Extrato bancário', 'summary' => 'Importar e explicar cada linha.', 'icon' => Phosphor::Bank],
-            ['id' => 'fecho-do-mes', 'title' => 'Fecho do mês', 'summary' => 'Confirmar que nada ficou para trás.', 'icon' => Phosphor::CalendarCheck],
-            ['id' => 'conta-pessoal', 'title' => 'Conta pessoal', 'summary' => 'Quando o dinheiro passa pela tua conta.', 'icon' => Phosphor::ArrowsLeftRight],
-            ['id' => 'obrigacoes-fiscais', 'title' => 'Obrigações fiscais', 'summary' => 'O que pagar e entregar em cada mês.', 'icon' => Phosphor::CalendarDots],
-            ['id' => 'notas-legais', 'title' => 'Notas legais', 'summary' => 'O que confirmar com o contabilista.', 'icon' => Phosphor::Scales],
-            ['id' => 'conta', 'title' => 'A tua conta e a assinatura', 'summary' => 'Experiência, preços e conta só de leitura.', 'icon' => Phosphor::CreditCard],
+            ['id' => 'fluxo', 'title' => $this->hasBusinessAccount() ? __('From work to bank statement') : __('From work to payment'), 'summary' => __('A complete, step-by-step example.'), 'icon' => Phosphor::Path],
+            ['id' => 'recebimentos', 'title' => __('Payments received'), 'summary' => __('Full payments, partial payments and invoice-receipts.'), 'icon' => Phosphor::HandCoins],
+            ['id' => 'despesas', 'title' => __('Expenses'), 'summary' => __('Recording expenses, recurring expenses and suppliers.'), 'icon' => Phosphor::Receipt],
+            ['id' => 'receitas-avulsas', 'title' => __('One-off receipts'), 'summary' => __('Donations and other inflows.'), 'icon' => Phosphor::Gift],
+            ['id' => 'extrato', 'title' => __('Bank statement'), 'summary' => __('Import and explain each line.'), 'icon' => Phosphor::Bank],
+            ['id' => 'fecho-do-mes', 'title' => __('Month close'), 'summary' => __('Check that everything is accounted for.'), 'icon' => Phosphor::CalendarCheck],
+            ['id' => 'conta-pessoal', 'title' => __('Personal account'), 'summary' => __('When money goes through your own account.'), 'icon' => Phosphor::ArrowsLeftRight],
+            ['id' => 'obrigacoes-fiscais', 'title' => __('Tax obligations'), 'summary' => __('What to pay and file each month.'), 'icon' => Phosphor::CalendarDots],
+            ['id' => 'notas-legais', 'title' => __('Legal notes'), 'summary' => __('What to check with your accountant.'), 'icon' => Phosphor::Scales],
+            ['id' => 'conta', 'title' => __('Your account and subscription'), 'summary' => __('Trial, pricing and read-only access.'), 'icon' => Phosphor::CreditCard],
         ];
     }
 
@@ -84,8 +78,8 @@ class HelpCentre extends Page
     {
         return [
             'trialDays' => (int) config('contiu.trial_days'),
-            'monthly' => Money::format(AccountSubscription::PLANS['monthly']['amount']),
-            'yearly' => Money::format(AccountSubscription::PLANS['yearly']['amount']),
+            'monthly' => Money::format(AccountSubscription::PLANS['monthly']['amount'], locale: app()->getLocale()),
+            'yearly' => Money::format(AccountSubscription::PLANS['yearly']['amount'], locale: app()->getLocale()),
         ];
     }
 
@@ -106,5 +100,23 @@ class HelpCentre extends Page
             'clients' => ClientResource::getUrl(),
             'dashboard' => Dashboard::getUrl(),
         ];
+    }
+
+    #[Unexposed]
+    public function getTitle(): string
+    {
+        return __('Help center');
+    }
+
+    #[Unexposed]
+    public static function getNavigationLabel(): string
+    {
+        return __('Help center');
+    }
+
+    #[Unexposed]
+    public static function getNavigationGroup(): string
+    {
+        return __('Settings');
     }
 }

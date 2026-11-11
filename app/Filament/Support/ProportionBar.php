@@ -35,11 +35,11 @@ final class ProportionBar
             $width = round($segment['cents'] / $total * 100, 1);
 
             $bars .= "<i data-tone=\"{$tone}\" style=\"width: {$width}%\"></i>";
-            $legend .= "<span><i data-tone=\"{$tone}\"></i>".e($segment['label']).' <strong>'.e(Money::format($segment['cents'])).'</strong></span>';
+            $legend .= "<span><i data-tone=\"{$tone}\"></i>".e($segment['label']).' <strong>'.e(Money::format($segment['cents'], locale: app()->getLocale())).'</strong></span>';
         }
 
         $summary = e(implode(', ', array_map(
-            fn (array $segment): string => $segment['label'].' '.Money::format($segment['cents']),
+            fn (array $segment): string => $segment['label'].' '.Money::format($segment['cents'], locale: app()->getLocale()),
             array_filter($segments, fn (array $segment): bool => $segment['cents'] > 0),
         )));
 

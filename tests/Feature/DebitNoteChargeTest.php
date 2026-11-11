@@ -54,7 +54,7 @@ it('opens a separate charge from a debit note without changing the original or r
     expect($again->is($charge))->toBeTrue()->and(Receivable::count())->toBe(2);
     expect((new MonthReview(today()))->receivablesQuery(withFiscalReference: true)->findOrFail($charge->id)->fiscal_reference)
         ->toBe($note->number);
-});
+})->group('ui');
 
 it('rejects an ineligible or changed debit note without opening a charge', function (array $attributes, string $dueOn, int $total, string $customerTaxId = '508025338') {
     actingAsAdmin();
@@ -70,4 +70,4 @@ it('rejects an ineligible or changed debit note without opening a charge', funct
     'voided' => [['status' => FiscalDocumentStatus::Voided], '2026-11-30', 2460],
     'stale amount' => [[], '2026-11-30', 2500],
     'due before issue' => [[], '2026-11-04', 2460],
-]);
+])->group('integration');

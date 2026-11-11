@@ -12,8 +12,8 @@ enum FiscalProfilePartyType: string implements HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::Individual => 'Pessoa singular',
-            self::Business => 'Organização',
+            self::Individual => __('Individual'),
+            self::Business => __('Organization'),
         };
     }
 }

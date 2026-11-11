@@ -11,7 +11,6 @@ use Filament\Resources\Resource;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
-use UnitEnum;
 
 /**
  * "A receber": every instalment and retainer period in one place, oldest due first.
@@ -21,19 +20,31 @@ class ReceivableResource extends Resource
 {
     protected static ?string $model = Receivable::class;
 
-    protected static ?string $modelLabel = 'valor a receber';
-
-    protected static ?string $pluralModelLabel = 'valores a receber';
-
-    protected static ?string $navigationLabel = 'A receber';
-
     protected static ?string $slug = 'a-receber';
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::HourglassMedium;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Receitas';
-
     protected static ?int $navigationSort = 3;
+
+    public static function getModelLabel(): string
+    {
+        return __('receivable');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('receivables');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return __('Amounts to receive');
+    }
+
+    public static function getNavigationGroup(): string
+    {
+        return __('Revenue');
+    }
 
     public static function getNavigationBadge(): ?string
     {
@@ -49,7 +60,7 @@ class ReceivableResource extends Resource
 
     public static function getNavigationBadgeTooltip(): ?string
     {
-        return 'Vencidos';
+        return __('Overdue receivables');
     }
 
     public static function canCreate(): bool
@@ -64,7 +75,7 @@ class ReceivableResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->excludingCancelled()->with(['payments', 'billable.client']);
+        return parent::getEloquentQuery()->excludingCancelled()->withOutstandingBalance()->with(['payments', 'billable.client']);
     }
 
     public static function getWidgets(): array

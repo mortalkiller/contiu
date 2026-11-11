@@ -2,6 +2,8 @@
 
 use App\Filament\Resources\Projects\ProjectResource;
 
+pest()->group('ui');
+
 /*
  * Regression: StickyTableHeaderPlugin::shouldScrollToTopOnPageChanged() hooks EVERY Livewire request
  * (widget polling every 5s, notifications polling, live form fields…) and scrolls the first table

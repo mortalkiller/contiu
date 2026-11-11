@@ -21,7 +21,7 @@ class ViewProject extends ViewRecord
         return [
             EditAction::make()->color('gray'),
             Action::make('issueInvoice')
-                ->label('Emitir fatura')
+                ->label(__('Prepare invoice'))
                 ->color('gray')
                 ->url(fn (): string => InvoiceXpressIssuePage::getUrl())
                 ->visible(fn (): bool => $this->record->outstanding_amount > 0 && InvoiceXpressIssuePage::canAccess()),

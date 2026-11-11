@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Retainers\Tables;
 
 use App\Enums\Frequency;
+use App\Enums\Language;
 use App\Filament\Actions\RecordPaymentAction;
 use App\Models\Retainer;
 use Filament\Actions\ActionGroup;
@@ -22,74 +23,76 @@ class RetainersTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->defaultDateDisplayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
+            ->defaultNumberLocale(fn (): string => app()->getLocale())
             ->headerActions([
                 ExportAction::make()
-                    ->label('Exportar Excel')
+                    ->label(__('Export to Excel'))
                     ->exports([
-                        ExcelExport::make()->fromTable()->ignoreFormatting(fn (ExportColumn $column) => method_exists($column->tableColumn, 'isMoney') && $column->tableColumn->isMoney())->withFilename(fn () => 'avencas-'.now()->format('Y-m-d')),
+                        ExcelExport::make()->fromTable()->ignoreFormatting(fn (ExportColumn $column) => method_exists($column->tableColumn, 'isMoney') && $column->tableColumn->isMoney())->withFilename(fn () => str(__('Retainers'))->slug().'-'.now()->format('Y-m-d')),
                     ]),
             ])
             ->toolbarActions([
                 ExportBulkAction::make()
-                    ->label('Exportar seleção')
+                    ->label(__('Export selected'))
                     ->exports([
-                        ExcelExport::make()->fromTable()->ignoreFormatting(fn (ExportColumn $column) => method_exists($column->tableColumn, 'isMoney') && $column->tableColumn->isMoney())->withFilename(fn () => 'avencas-'.now()->format('Y-m-d')),
+                        ExcelExport::make()->fromTable()->ignoreFormatting(fn (ExportColumn $column) => method_exists($column->tableColumn, 'isMoney') && $column->tableColumn->isMoney())->withFilename(fn () => str(__('Retainers'))->slug().'-'.now()->format('Y-m-d')),
                     ]),
             ])
             ->defaultSort('starts_on', 'desc')
             ->columns([
                 TextColumn::make('code')
-                    ->label('Avença')
+                    ->label(fn (): string => __('Retainer'))
                     ->description(fn (Retainer $record) => $record->title)
                     ->weight('medium')
                     ->searchable(['code', 'title']),
                 TextColumn::make('client.name')
-                    ->label('Cliente')
+                    ->label(fn (): string => __('Client'))
                     ->searchable()
                     ->limit(28),
                 TextColumn::make('frequency')
-                    ->label('Frequência')
+                    ->label(fn (): string => __('Billing frequency'))
                     ->badge()
                     ->color('gray'),
                 TextColumn::make('total')
-                    ->label('Valor')
+                    ->label(fn (): string => __('Amount'))
                     ->money('EUR', divideBy: 100)
                     ->alignEnd(),
                 TextColumn::make('yearly_value')
-                    ->label('Por ano')
+                    ->label(fn (): string => __('Per year'))
                     ->money('EUR', divideBy: 100)
                     ->alignEnd(),
                 TextColumn::make('next_due_on')
-                    ->label('Próximo vencimento')
+                    ->label(fn (): string => __('Next due date'))
                     ->date()
                     ->placeholder('—'),
                 TextColumn::make('outstanding_amount')
-                    ->label('Em aberto')
+                    ->label(fn (): string => __('Outstanding'))
                     ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->color(fn (float $state) => $state > 0 ? 'warning' : 'gray'),
                 TextColumn::make('margin')
-                    ->label('Margem')
+                    ->label(fn (): string => __('Margin'))
                     ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->color(fn (float $state) => $state < 0 ? 'danger' : null)
                     ->toggleable(),
                 IconColumn::make('is_active')
-                    ->label('Ativa')
+                    ->label(fn (): string => __('Active retainer'))
                     ->boolean(),
             ])
             ->filters([
-                SelectFilter::make('client')->label('Cliente')->relationship('client', 'name')->preload(),
-                SelectFilter::make('frequency')->label('Frequência')->options(Frequency::class),
+                SelectFilter::make('client')->label(__('Client'))->relationship('client', 'name')->preload(),
+                SelectFilter::make('frequency')->label(__('Billing frequency'))->options(Frequency::class),
             ])
             ->recordActions([
-                RecordPaymentAction::make()->iconButton()->tooltip('Registar recebimento'),
+                RecordPaymentAction::make()->iconButton()->tooltip(__('Record payment')),
                 ActionGroup::make([
                     ViewAction::make(),
                     EditAction::make(),
                 ]),
             ])
-            ->emptyStateHeading('Sem avenças')
-            ->emptyStateDescription('Cria uma avença para valores que se repetem, como manutenção ou alojamento.');
+            ->emptyStateHeading(__('No retainers'))
+            ->emptyStateDescription(__('Create a retainer for recurring charges such as maintenance or hosting.'));
     }
 }

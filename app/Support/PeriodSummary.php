@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Enums\ProjectStatus;
 use App\Models\CustomerRefund;
+use App\Models\DirectInvoiceSale;
 use App\Models\Expense;
 use App\Models\OneOffIncome;
 use App\Models\Payment;
@@ -11,12 +12,14 @@ use App\Models\Project;
 use App\Models\Receivable;
 use App\Models\Retainer;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Collection;
 
 /**
  * Dashboard figures for a year or a month, following the Excel "Resumo":
  * - contracted / outstanding / overdue look at what was contracted in the period (projects by quote
- *   date, retainer periods and one-off incomes by due date), cancelled projects excluded;
+ *   date, direct sales by issue date, retainer periods and one-off incomes by due date),
+ *   cancelled projects excluded;
  * - received and expenses follow the cash date (payment date, expense date).
  */
 final class PeriodSummary
@@ -24,11 +27,19 @@ final class PeriodSummary
     /** @var array<string, int> */
     private array $memo = [];
 
+    private ?self $previousSummary = null;
+
+    /** @var Collection<int, Receivable>|null */
+    private ?Collection $receivablesForPeriod = null;
+
+    /** @var Collection<int, Expense>|null */
+    private ?Collection $expensesForPeriod = null;
+
     public function __construct(public readonly Period $period) {}
 
     public function previous(): self
     {
-        return new self($this->period->previous());
+        return $this->previousSummary ??= new self($this->period->previous());
     }
 
     public function change(string $figure): Change
@@ -41,6 +52,7 @@ final class PeriodSummary
         return Payment::query()->pluck('paid_on')->map->year
             ->merge(Expense::query()->pluck('spent_on')->map->year)
             ->merge(Project::query()->whereNotNull('quoted_on')->pluck('quoted_on')->map->year)
+            ->merge(DirectInvoiceSale::query()->pluck('issued_on')->map->year)
             ->push(today()->year)
             ->unique()->sortDesc()->values()
             ->mapWithKeys(fn (int $year) => [$year => (string) $year])->all();
@@ -58,14 +70,14 @@ final class PeriodSummary
 
     public function outstanding(): int
     {
-        return $this->remember(__FUNCTION__, fn () => $this->contractedReceivables()->sum(fn (Receivable $receivable) => $receivable->outstanding));
+        return $this->remember(__FUNCTION__, fn () => $this->contractedReceivables()->sum(fn (Receivable $receivable): int => max(0, (int) $receivable->outstanding_balance)));
     }
 
     public function overdue(): int
     {
         return $this->remember(__FUNCTION__, fn () => $this->contractedReceivables()
             ->filter(fn (Receivable $receivable) => $receivable->due_on->lt(today()))
-            ->sum(fn (Receivable $receivable) => $receivable->outstanding));
+            ->sum(fn (Receivable $receivable): int => max(0, (int) $receivable->outstanding_balance)));
     }
 
     public function paidExpenses(): int
@@ -96,9 +108,9 @@ final class PeriodSummary
     /** Always from today, whatever the period. */
     public static function dueNext30Days(): int
     {
-        return (int) Receivable::query()->open()->excludingCancelled()->with('payments')
+        return (int) Receivable::query()->excludingCancelled()->withOutstandingBalance()
             ->whereBetween('due_on', [today()->startOfDay()->toDateTimeString(), today()->addDays(30)->endOfDay()->toDateTimeString()])
-            ->get()->sum(fn (Receivable $receivable) => $receivable->outstanding);
+            ->get()->sum(fn (Receivable $receivable): int => max(0, (int) $receivable->outstanding_balance));
     }
 
     /**
@@ -114,7 +126,7 @@ final class PeriodSummary
         while ($cursor->lte($this->period->end)) {
             $key = $this->bucketKey($cursor);
             $buckets[$key] = [
-                'label' => $this->period->isMonth() ? (string) $cursor->day : Period::SHORT_MONTHS[$cursor->month - 1],
+                'label' => $this->period->isMonth() ? (string) $cursor->day : Period::monthName($cursor->month, short: true),
                 'received' => 0,
                 'paid' => 0,
                 'refunded' => 0,
@@ -147,11 +159,15 @@ final class PeriodSummary
     public function receivedByCategory(): array
     {
         return Payment::query()
-            ->with('allocations.receivable.billable.category')
+            ->with(['allocations.receivable.billable' => fn (MorphTo $billable) => $billable->morphWith([
+                Project::class => ['category'],
+                Retainer::class => ['category'],
+                OneOffIncome::class => ['category'],
+            ])])
             ->whereBetween('paid_on', $this->period->range())
             ->get()
             ->flatMap->allocations
-            ->groupBy(fn ($allocation) => $allocation->receivable->billable?->category?->name ?? 'Sem categoria')
+            ->groupBy(fn ($allocation) => $allocation->receivable->billable?->category?->name ?? __('Uncategorized'))
             ->map(fn (Collection $payments) => (int) $payments->sum('amount'))
             ->sortDesc()
             ->all();
@@ -161,7 +177,7 @@ final class PeriodSummary
     public function paidExpensesByCategory(): array
     {
         return $this->expenses()->where('is_paid', true)
-            ->groupBy(fn (Expense $expense) => $expense->category?->name ?? 'Sem categoria')
+            ->groupBy(fn (Expense $expense) => $expense->category?->name ?? __('Uncategorized'))
             ->map(fn (Collection $expenses) => (int) $expenses->sum(fn (Expense $expense) => $expense->total))
             ->sortDesc()
             ->all();
@@ -180,6 +196,8 @@ final class PeriodSummary
                 ->whereHasMorph('billable', [Project::class], fn (Builder $query) => $query
                     ->where('status', '!=', ProjectStatus::Cancelled)
                     ->whereBetween('quoted_on', $this->period->range()))
+                ->orWhereHasMorph('billable', [DirectInvoiceSale::class], fn (Builder $query) => $query
+                    ->whereBetween('issued_on', $this->period->range()))
                 ->orWhere(fn (Builder $query) => $query
                     ->whereIn('billable_type', [Retainer::class, OneOffIncome::class])
                     ->whereBetween('due_on', $this->period->range())));
@@ -188,13 +206,13 @@ final class PeriodSummary
     /** @return Collection<int, Receivable> */
     private function contractedReceivables(): Collection
     {
-        return $this->contractedReceivablesQuery()->get();
+        return $this->receivablesForPeriod ??= $this->contractedReceivablesQuery()->without('payments')->withOutstandingBalance()->get();
     }
 
     /** @return Collection<int, Expense> */
     private function expenses(): Collection
     {
-        return Expense::query()->with('category')->whereBetween('spent_on', $this->period->range())->get();
+        return $this->expensesForPeriod ??= Expense::query()->with('category')->whereBetween('spent_on', $this->period->range())->get();
     }
 
     private function bucketKey(\DateTimeInterface $date): string

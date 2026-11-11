@@ -8,10 +8,15 @@ use App\Filament\Pages\VatReviewPage;
 use App\Models\Account;
 use App\Models\FiscalDocument;
 use App\Support\CurrentAccount;
+use App\Support\FinanceSettings;
+use App\Support\Money;
 use App\Support\VatPeriodReview;
+use Carbon\CarbonImmutable;
 use Filament\Facades\Filament;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
+
+pest()->group('fiscal');
 
 it('separates documentary VAT from items requiring fiscal review and excluded documents', function () {
     $invoice = FiscalDocument::factory()->create(['document_date' => '2026-03-31', 'vat_amount' => 2301, 'total_amount' => 12301]);
@@ -37,7 +42,7 @@ it('separates documentary VAT from items requiring fiscal review and excluded do
         ->and($review->documents->where('status', 'unresolved')->pluck('document.id')->all())->toEqualCanonicalizing([$credit->id, $zero->id, $crossPeriod->id])
         ->and($review->documents->where('status', 'excluded')->pluck('document.id')->all())->toEqualCanonicalizing([$receipt->id, $void->id, $foreign->id])
         ->and($review->confirmedBalance())->toBeNull();
-});
+})->group('integration');
 
 it('keeps explicit signed balances separate and invalidates a confirmation when source evidence changes', function () {
     $document = FiscalDocument::factory()->create(['document_date' => '2026-03-31']);
@@ -52,7 +57,7 @@ it('keeps explicit signed balances separate and invalidates a confirmation when 
 
     expect(VatPeriodReview::forPeriod(2026, 3)->confirmedBalance())->toBeNull()
         ->and(fn () => $review->confirm(2301, 1005, -1500, 'Apuramento anterior.'))->toThrow(ValidationException::class);
-});
+})->group('integration');
 
 it('exposes an independent page that confirms cents for the selected period', function () {
     actingAsAdmin();
@@ -70,7 +75,7 @@ it('exposes an independent page that confirms cents for the selected period', fu
         ->assertHasNoErrors();
 
     expect(VatPeriodReview::forPeriod(2026, 3)->confirmedBalance())->toBe(-204);
-});
+})->group('ui');
 
 it('refuses VAT confirmations in a read-only account', function () {
     $this->actingAs(ownerOf($this->account));
@@ -78,7 +83,7 @@ it('refuses VAT confirmations in a read-only account', function () {
 
     expect(fn () => VatPeriodReview::forPeriod(2026, 3)->confirm(0, 0, 0, 'Período revisto.'))
         ->toThrow(AccountIsReadOnly::class);
-});
+})->group('integration');
 
 it('shows the review to a read-only member and refuses a direct Livewire write', function () {
     $this->actingAs(ownerOf($this->account));
@@ -92,7 +97,7 @@ it('shows the review to a read-only member and refuses a direct Livewire write',
         ->call('confirm')
         ->assertForbidden();
     $this->assertDatabaseEmpty('vat_period_confirmations');
-});
+})->group('ui');
 
 it('exposes the confirmed payment amount and manual dates for forecasts', function () {
     $this->travelTo(now()->setDate(2026, 6, 20));
@@ -105,7 +110,7 @@ it('exposes the confirmed payment amount and manual dates for forecasts', functi
         ->and($review->dueOn()?->toDateString())->toBe('2026-05-25')
         ->and($review->paidOn()?->toDateString())->toBe('2026-05-22')
         ->and($review->isPaid())->toBeTrue();
-});
+})->group('integration');
 
 it('rejects recording a payment date for a credit or in the future', function (int $liquidated, string $paidOn) {
     $this->travelTo(now()->setDate(2026, 6, 20));
@@ -117,4 +122,33 @@ it('rejects recording a payment date for a credit or in the future', function (i
 })->with([
     'credit' => [1000, '2026-05-22'],
     'future payment' => [2301, '2026-06-21'],
-]);
+])->group('integration');
+
+describe('VAT period summary', function () {
+    beforeEach(function () {
+        $this->travelTo(CarbonImmutable::parse('2026-11-10'));
+        actingAsAdmin();
+        app(FinanceSettings::class)->set(['activity_started_on' => '2020-01-01', 'activity_start_kind' => 'first']);
+    });
+
+    it('shows the period\'s VAT and the exemption limit while exempt', function () {
+        app(FinanceSettings::class)->set(['vat_exempt' => true]);
+        FiscalDocument::factory()->create(['document_date' => '2026-11-02', 'vat_amount' => 2300, 'total_amount' => 12300]);
+        FiscalDocument::factory()->create(['document_date' => '2026-11-03', 'direction' => FiscalDocumentDirection::Received, 'vat_amount' => 1150, 'total_amount' => 6150]);
+
+        Livewire::test(VatReviewPage::class, ['year' => 2026, 'month' => 11])
+            ->assertSee('Tens isenção de IVA (art. 53.º)')
+            ->assertSeeInOrder(['IVA nos documentos emitidos', Money::format(2300), '1 documento no período'], false)
+            ->assertSeeInOrder(['IVA nos documentos recebidos', '1 documento no período'])
+            ->assertSee('Limite de isenção');
+    })->group('ui');
+
+    it('leaves the exemption limit out of the VAT review in the normal regime', function () {
+        app(FinanceSettings::class)->set(['vat_exempt' => false]);
+
+        Livewire::test(VatReviewPage::class, ['year' => 2026, 'month' => 11])
+            ->assertSee('IVA nos documentos emitidos')
+            ->assertDontSee('Tens isenção de IVA')
+            ->assertDontSee('Limite de isenção');
+    })->group('ui');
+});

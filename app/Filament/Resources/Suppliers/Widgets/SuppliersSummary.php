@@ -34,7 +34,7 @@ class SuppliersSummary extends StatsOverviewWidget
         $expenses = Expense::query()->whereYear('spent_on', today()->year)->with('supplier')->get();
 
         $bySupplier = $expenses
-            ->groupBy(fn (Expense $expense): string => $expense->supplier?->name ?? 'Sem fornecedor')
+            ->groupBy(fn (Expense $expense): string => $expense->supplier?->name ?? '')
             ->map(fn (Collection $group): int => (int) $group->sum(fn (Expense $expense): int => (int) $expense->total))
             ->sortDesc();
 
@@ -44,24 +44,27 @@ class SuppliersSummary extends StatsOverviewWidget
         $segments = [];
 
         foreach ($bySupplier->take(3)->keys()->values() as $index => $name) {
-            $segments[] = ['label' => $name, 'cents' => $bySupplier[$name], 'tone' => self::TONES[$index]];
+            $segments[] = ['label' => $name === '' ? __('No supplier') : $name, 'cents' => $bySupplier[$name], 'tone' => self::TONES[$index]];
         }
 
         if ($bySupplier->count() > 3) {
-            $segments[] = ['label' => 'Outros', 'cents' => (int) $bySupplier->skip(3)->sum(), 'tone' => 'soft'];
+            $segments[] = ['label' => __('Others'), 'cents' => (int) $bySupplier->skip(3)->sum(), 'tone' => 'soft'];
         }
 
         return [
-            Stat::make('Gasto em '.today()->year, Money::format($total))
-                ->description(trans_choice('{0} Nenhum fornecedor com despesas|{1} 1 fornecedor com despesas|[2,*] :count fornecedores com despesas', $bySupplier->count()))
+            Stat::make(__('Spent in :year', ['year' => today()->year]), Money::format($total))
+                ->description(trans_choice('{0} No suppliers with expenses|{1} 1 supplier with expenses|[2,*] :count suppliers with expenses', $bySupplier->count()))
                 ->icon(Phosphor::Receipt),
-            Stat::make('Maior fornecedor', $biggest ?? '—')
+            Stat::make(__('Top supplier'), $biggest === '' ? __('No supplier') : ($biggest ?? '—'))
                 ->description($biggest === null
-                    ? 'Ainda sem despesas este ano'
-                    : Money::format($bySupplier[$biggest]).' · '.round($bySupplier[$biggest] / max(1, $total) * 100).'% do total')
+                    ? __('No expenses yet this year')
+                    : __(':amount · :percent% of total', [
+                        'amount' => Money::format($bySupplier[$biggest]),
+                        'percent' => round($bySupplier[$biggest] / max(1, $total) * 100),
+                    ]))
                 ->icon(Phosphor::Storefront),
-            Stat::make('Onde gastas mais', $bySupplier->isEmpty() ? '—' : trans_choice('{1} 1 fornecedor|[2,*] :count fornecedores', $bySupplier->count()))
-                ->description($bySupplier->isEmpty() ? 'Ainda sem despesas este ano' : ProportionBar::render($segments))
+            Stat::make(__('Where you spend the most'), $bySupplier->isEmpty() ? '—' : trans_choice('{1} 1 supplier|[2,*] :count suppliers', $bySupplier->count()))
+                ->description($bySupplier->isEmpty() ? __('No expenses yet this year') : ProportionBar::render($segments))
                 ->icon(Phosphor::ChartPieSlice),
         ];
     }

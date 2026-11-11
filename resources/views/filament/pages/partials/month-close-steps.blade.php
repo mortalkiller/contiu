@@ -11,15 +11,15 @@
     $percent = (int) floor($done / max(1, count($steps)) * 100);
 @endphp
 
-<section class="contiu-steps contiu-edge-to-edge" aria-labelledby="month-close-steps-heading">
+<section class="contiu-steps fap-edge-to-edge" aria-labelledby="month-close-steps-heading">
     <div class="contiu-steps-head">
-        <h2 id="month-close-steps-heading">O que falta para fechar</h2>
+        <h2 id="month-close-steps-heading">{{ __('Still to do before closing') }}</h2>
 
         <div class="contiu-steps-progress">
-            <span class="contiu-progress" role="img" aria-label="{{ $done }} de {{ count($steps) }} passos concluídos">
+            <span class="fap-progress" role="img" aria-label="{{ __(':done of :total steps complete', ['done' => $done, 'total' => count($steps)]) }}">
                 <i style="width: {{ $percent }}%"></i>
             </span>
-            <span>{{ $done }} de {{ count($steps) }}</span>
+            <span>{{ __(':done of :total', ['done' => $done, 'total' => count($steps)]) }}</span>
         </div>
     </div>
 

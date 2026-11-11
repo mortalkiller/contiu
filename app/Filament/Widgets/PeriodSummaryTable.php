@@ -18,14 +18,15 @@ class PeriodSummaryTable extends TableWidget
     use HasSkeletonPlaceholder;
     use UsesDashboardPeriod;
 
-    protected static ?int $sort = 6;
+    protected static ?int $sort = 7;
 
     protected int|string|array $columnSpan = 'full';
 
     public function table(Table $table): Table
     {
         return $table
-            ->heading('Resumo do período')
+            ->heading(__('Period summary'))
+            ->description(fn () => __(':period compared with :previous.', ['period' => $this->period()->label(), 'previous' => $this->period()->previous()->label()]))
             ->records(fn (): array => $this->rows())
             ->paginated(false)
             ->recordClasses(fn (array $record) => $record['highlight'] ? 'bg-warning-50 dark:bg-warning-400/10' : null)
@@ -48,7 +49,7 @@ class PeriodSummaryTable extends TableWidget
                     ->alignEnd()
                     ->placeholder('—'),
                 TextColumn::make('change')
-                    ->label('Var.')
+                    ->label(__('Change'))
                     ->alignEnd()
                     ->size('xs')
                     ->placeholder('')
@@ -76,23 +77,23 @@ class PeriodSummaryTable extends TableWidget
         };
 
         return [
-            'contracted' => $row('Total contratado', 'contracted'),
-            'received' => $row('Total recebido', 'received'),
-            'outstanding' => $row('Total por receber', 'outstanding', higherIsBetter: false, highlight: true),
-            'overdue' => $row('Por receber vencido', 'overdue', higherIsBetter: false),
+            'contracted' => $row(__('Total contracted'), 'contracted'),
+            'received' => $row(__('Total received'), 'received'),
+            'outstanding' => $row(__('Total receivable'), 'outstanding', higherIsBetter: false, highlight: true),
+            'overdue' => $row(__('Outstanding overdue'), 'overdue', higherIsBetter: false),
             'next30' => [
-                'label' => 'A receber nos próximos 30 dias',
-                'note' => 'a partir de hoje',
+                'label' => __('Due in the next 30 days'),
+                'note' => __('starting today'),
                 'current' => PeriodSummary::dueNext30Days(),
                 'previous' => null,
                 'change' => null,
                 'changeColor' => 'gray',
                 'highlight' => false,
             ],
-            'paidExpenses' => $row('Despesas pagas', 'paidExpenses', higherIsBetter: false),
-            'unpaidExpenses' => $row('Despesas por pagar', 'unpaidExpenses', higherIsBetter: false),
-            'cashResult' => $row('Resultado de caixa', 'cashResult'),
-            'forecastResult' => $row('Resultado previsto', 'forecastResult'),
+            'paidExpenses' => $row(__('Expenses paid'), 'paidExpenses', higherIsBetter: false),
+            'unpaidExpenses' => $row(__('Unpaid expenses'), 'unpaidExpenses', higherIsBetter: false),
+            'cashResult' => $row(__('Cash result'), 'cashResult'),
+            'forecastResult' => $row(__('Expected result'), 'forecastResult'),
         ];
     }
 

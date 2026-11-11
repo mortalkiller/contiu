@@ -17,17 +17,26 @@ class CategoryResource extends Resource
 {
     protected static ?string $model = Category::class;
 
-    protected static ?string $modelLabel = 'categoria';
-
-    protected static ?string $pluralModelLabel = 'categorias';
-
     protected static ?string $recordTitleAttribute = 'name';
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::Tag;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Definições';
-
     protected static ?int $navigationSort = 1;
+
+    public static function getModelLabel(): string
+    {
+        return __('category');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('categories');
+    }
+
+    public static function getNavigationGroup(): string|UnitEnum|null
+    {
+        return __('Settings');
+    }
 
     public static function form(Schema $schema): Schema
     {

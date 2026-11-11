@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
+pest()->group('integration', 'invoicexpress');
+
 it('reserves exactly one provider key for an account and business intent', function () {
     $user = actingAsAdmin();
     $repository = app(InvoiceXpressIssueRepository::class);

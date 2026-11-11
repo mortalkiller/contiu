@@ -5,6 +5,7 @@ namespace App\Filament\Resources\FiscalDocuments;
 use App\Enums\FiscalDocumentDirection;
 use App\Enums\FiscalDocumentStatus;
 use App\Enums\FiscalDocumentType;
+use App\Enums\Language;
 use App\Filament\Resources\FiscalDocuments\Actions\CreditApplicationActions;
 use App\Filament\Resources\FiscalDocuments\Actions\CustomerRefundAction;
 use App\Filament\Resources\FiscalDocuments\Actions\DebitNoteChargeAction;
@@ -41,21 +42,33 @@ class FiscalDocumentResource extends Resource
 {
     protected static ?string $model = FiscalDocument::class;
 
-    protected static ?string $modelLabel = 'documento fiscal';
-
-    protected static ?string $pluralModelLabel = 'documentos fiscais';
-
-    protected static ?string $navigationLabel = 'Documentos fiscais';
-
     protected static ?string $slug = 'documentos-fiscais';
 
     protected static ?string $recordTitleAttribute = 'number';
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::Invoice;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Receitas';
-
     protected static ?int $navigationSort = 5;
+
+    public static function getModelLabel(): string
+    {
+        return __('fiscal document');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('fiscal documents');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return __('Fiscal documents');
+    }
+
+    public static function getNavigationGroup(): string
+    {
+        return __('Revenue');
+    }
 
     public static function getAuthorizationResponse(string|UnitEnum $action, ?Model $record = null): Response
     {
@@ -80,33 +93,35 @@ class FiscalDocumentResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->defaultDateDisplayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
+            ->defaultNumberLocale(fn (): string => app()->getLocale())
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with([
                 'currentPdf', 'invoiceXpressSnapshot',
                 'links.receivable.billable', 'links.payment', 'links.expense.supplier', 'links.relatedFiscalDocument',
             ]))
             ->defaultSort('document_date', 'desc')
             ->columns([
-                TextColumn::make('number')->label('Documento')->searchable()->sortable()
+                TextColumn::make('number')->label(__('Document'))->searchable()->sortable()
                     ->fontFamily(FontFamily::Mono)
-                    ->description(fn (FiscalDocument $record): string => $record->type->getLabel().' · '.self::directionWord($record)),
-                TextColumn::make('document_date')->label('Data')->date('d/m/Y')->sortable(),
-                TextColumn::make('party_name')->label('Contraparte')->searchable()->placeholder('—'),
-                TextColumn::make('linkedTo')->label('Ligado a')
+                    ->description(fn (FiscalDocument $record): string => self::documentDescription($record)),
+                TextColumn::make('document_date')->label(__('Date'))->date()->sortable(),
+                TextColumn::make('party_name')->label(__('Counterparty'))->searchable()->placeholder('—'),
+                TextColumn::make('linkedTo')->label(__('Linked to'))
                     ->state(fn (FiscalDocument $record): ?string => self::linkedTo($record)['label'] ?? null)
                     ->description(fn (FiscalDocument $record): ?string => self::linkedTo($record)['detail'] ?? null)
-                    ->placeholder('Sem ligação')
+                    ->placeholder(__('Not linked'))
                     ->wrap(),
-                TextColumn::make('net_amount')->label('Sem IVA')->money(fn (FiscalDocument $record): string => $record->currency, divideBy: 100)->alignEnd()
+                TextColumn::make('net_amount')->label(__('Excluding VAT'))->money(fn (FiscalDocument $record): string => $record->currency, divideBy: 100)->alignEnd()
                     ->color(fn (FiscalDocument $record): ?string => $record->net_amount < 0 ? 'danger' : null),
-                TextColumn::make('total_amount')->label('Total')->money(fn (FiscalDocument $record): string => $record->currency, divideBy: 100)->alignEnd()
+                TextColumn::make('total_amount')->label(__('Total'))->money(fn (FiscalDocument $record): string => $record->currency, divideBy: 100)->alignEnd()
                     ->color(fn (FiscalDocument $record): ?string => $record->total_amount < 0 ? 'danger' : null),
-                TextColumn::make('status')->label('Estado')->badge(),
+                TextColumn::make('status')->label(__('Status'))->badge(),
             ])
             ->filters([
-                SelectFilter::make('type')->label('Tipo')->options(FiscalDocumentType::class),
-                SelectFilter::make('direction')->label('Sentido')->options(FiscalDocumentDirection::class),
-                SelectFilter::make('status')->label('Estado')->options(FiscalDocumentStatus::class),
-                SelectFilter::make('billed_year')->label('Faturação documentada em EUR')
+                SelectFilter::make('type')->label(__('Type'))->options(FiscalDocumentType::class),
+                SelectFilter::make('direction')->label(__('Direction'))->options(FiscalDocumentDirection::class),
+                SelectFilter::make('status')->label(__('Status'))->options(FiscalDocumentStatus::class),
+                SelectFilter::make('billed_year')->label(__('Documented turnover in EUR'))
                     ->options(fn (): array => collect(DocumentedTurnover::issueYears())->mapWithKeys(fn (int $year): array => [$year => (string) $year])->all())
                     ->query(fn (Builder $query, array $data): Builder => $query->when(
                         $data['value'] ?? null,
@@ -126,7 +141,7 @@ class FiscalDocumentResource extends Resource
                 InvoiceAdvanceAction::make(),
                 InvoiceXpressCancellationAction::make(),
             ])
-            ->emptyStateHeading('Sem documentos fiscais');
+            ->emptyStateHeading(__('No fiscal documents'));
     }
 
     /**
@@ -140,20 +155,25 @@ class FiscalDocumentResource extends Resource
         $link = $record->links;
 
         return match (true) {
-            $link?->receivable !== null => ['label' => $link->receivable->label, 'detail' => 'Valor a receber · vence a '.$link->receivable->due_on->format('d/m/Y')],
-            $link?->payment !== null => ['label' => $link->payment->receivableLabels(), 'detail' => 'Recebimento de '.$link->payment->paid_on->format('d/m/Y')],
-            $link?->expense !== null => ['label' => $link->expense->supplier?->name ?? 'Despesa', 'detail' => 'Despesa de '.$link->expense->spent_on->format('d/m/Y')],
-            $link?->relatedFiscalDocument !== null => ['label' => $link->relatedFiscalDocument->number, 'detail' => 'Documento original'],
+            $link?->receivable !== null => ['label' => $link->receivable->label, 'detail' => __('Receivable · due on :date', ['date' => $link->receivable->due_on->format(Language::resolve(app()->getLocale())->dateFormat())])],
+            $link?->payment !== null => ['label' => $link->payment->receivableLabels(), 'detail' => __('Payment on :date', ['date' => $link->payment->paid_on->format(Language::resolve(app()->getLocale())->dateFormat())])],
+            $link?->expense !== null => ['label' => $link->expense->supplier?->name ?? __('Expense'), 'detail' => __('Expense on :date', ['date' => $link->expense->spent_on->format(Language::resolve(app()->getLocale())->dateFormat())])],
+            $link?->relatedFiscalDocument !== null => ['label' => $link->relatedFiscalDocument->number, 'detail' => __('Original document')],
             default => null,
         };
     }
 
-    /** "emitida" or "recebida", agreeing with the document type ("Recibo" is the only masculine one). */
-    private static function directionWord(FiscalDocument $record): string
+    private static function documentDescription(FiscalDocument $record): string
     {
-        $ending = $record->type === FiscalDocumentType::Receipt ? 'o' : 'a';
+        $issued = $record->direction === FiscalDocumentDirection::Issued;
 
-        return ($record->direction === FiscalDocumentDirection::Issued ? 'emitid' : 'recebid').$ending;
+        if ($record->type === FiscalDocumentType::Receipt) {
+            return $issued ? __('Receipt · issued') : __('Receipt · received');
+        }
+
+        $type = $record->type->getLabel();
+
+        return $issued ? __(':type · issued', ['type' => $type]) : __(':type · received', ['type' => $type]);
     }
 
     public static function getWidgets(): array

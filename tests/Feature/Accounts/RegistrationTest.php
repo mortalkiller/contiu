@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 
+pest()->group('tenancy');
+
 // Public sign-up is off unless CONTIU_REGISTRATION_OPEN is set (tests/TestCase.php).
 pest()->group('registration-open');
 
@@ -111,7 +113,7 @@ it('creates user and account from the wizard', function () {
     // The account opens only after the email is confirmed: the dashboard sends to the prompt.
     $this->get(Dashboard::getUrl(tenant: $account))
         ->assertRedirect(Filament::getEmailVerificationPromptUrl());
-});
+})->group('ui');
 
 it('leaves the bank out for a freelancer without an account only for the activity', function () {
     registrationWizard(['has_business_account' => false])
@@ -124,7 +126,7 @@ it('leaves the bank out for a freelancer without an account only for the activit
         expect($settings->hasBusinessAccount())->toBeFalse()
             ->and($settings->accountNames())->toBe([]);
     });
-});
+})->group('integration');
 
 it('starts with the usual rates and VAT limit', function () {
     Livewire::test(RegisterAccount::class)->assertFormSet([
@@ -138,19 +140,19 @@ it('starts with the usual rates and VAT limit', function () {
         'vat_exemption_threshold' => 15000,
         'terms' => false,
     ]);
-});
+})->group('ui');
 
 it('no longer asks for the first-year exemption, now computed from the activity', function () {
     Livewire::test(RegisterAccount::class)
         ->assertFormFieldDoesNotExist('ss_first_year_exempt')
         ->assertDontSee('Isento nos primeiros 12 meses');
-});
+})->group('ui');
 
 it('no longer asks for an IRS exemption, now computed from the IRS settings', function () {
     Livewire::test(RegisterAccount::class)
         ->assertFormFieldDoesNotExist('irs_exempt')
         ->assertDontSee('Isento de IRS');
-});
+})->group('ui');
 
 it('stores a first start without the restart, IRS Jovem or salary answers', function () {
     registrationWizard([
@@ -173,7 +175,7 @@ it('stores a first start without the restart, IRS Jovem or salary answers', func
             ->and($settings->birthDate())->toBeNull()
             ->and($settings->irsJovemYearNumber(2026))->toBeNull();
     });
-});
+})->group('integration');
 
 it('asks for the birth date and the year number with IRS Jovem', function () {
     registrationWizard(['birth_date' => null, 'irs_jovem_year_number' => null])
@@ -181,7 +183,7 @@ it('asks for the birth date and the year number with IRS Jovem', function () {
         ->assertHasFormErrors(['birth_date' => 'required', 'irs_jovem_year_number' => 'required']);
 
     expect(Account::where('nif', '501964843')->exists())->toBeFalse();
-});
+})->group('integration');
 
 it('takes a restart without the cessation date, which few freelancers can find', function () {
     registrationWizard(['previous_activity_ended_on' => null])
@@ -191,7 +193,7 @@ it('takes a restart without the cessation date, which few freelancers can find',
     CurrentAccount::run(Account::firstWhere('nif', '501964843'), function () {
         expect(app(FinanceSettings::class)->previousActivityEndedOn())->toBeNull();
     });
-});
+})->group('integration');
 
 it('says where to find each fiscal answer', function () {
     registrationWizard()
@@ -199,7 +201,7 @@ it('says where to find each fiscal answer', function () {
         ->assertSee('Declarações de Atividade')
         ->assertSee('Enquadramento em IVA')
         ->assertSee('Forma de atividade (taxa)');
-});
+})->group('integration');
 
 it('sums up the tax answers before creating the account', function () {
     registrationWizard()
@@ -209,7 +211,7 @@ it('sums up the tax answers before creating the account', function () {
         ->assertSee('Com salário ou pensão em 2026')
         ->assertSee('Coeficiente 0,35 · IRS Jovem, ano n.º 2 em 2026')
         ->assertSee('21,4 % sobre 70 % do rendimento · isento de contribuições (art. 157.º)');
-});
+})->group('integration');
 
 it('stores no VAT limit when the account is not VAT exempt', function () {
     registrationWizard(['vat_exempt' => false, 'vat_exemption_threshold' => 999])
@@ -223,7 +225,7 @@ it('stores no VAT limit when the account is not VAT exempt', function () {
             ->and($settings->paymentsExemptByDefault())->toBeFalse()
             ->and($settings->vatExemptionThreshold())->toBe(1500000);
     });
-});
+})->group('integration');
 
 it('rejects an invalid or repeated NIF', function (string $nif, string $message) {
     Account::factory()->create(['nif' => '123456789']);
@@ -238,7 +240,7 @@ it('rejects an invalid or repeated NIF', function (string $nif, string $message)
     'wrong check digit' => ['123456780', 'O NIF não é válido.'],
     'trailing newline' => ["501964843\n", 'O NIF não é válido.'],
     'already has an account' => ['123456789', 'Já existe uma conta com este NIF.'],
-]);
+])->group('integration');
 
 it('does not take an email that already has a user', function () {
     User::factory()->create(['email' => 'rita@example.pt']);
@@ -247,7 +249,7 @@ it('does not take an email that already has a user', function () {
         ->goToWizardStep(2)
         ->assertHasFormErrors(['email' => 'unique'])
         ->assertWizardCurrentStep(1);
-});
+})->group('integration');
 
 it('refuses a negative VAT limit', function () {
     registrationWizard(['vat_exemption_threshold' => -1])
@@ -255,7 +257,7 @@ it('refuses a negative VAT limit', function () {
         ->assertHasFormErrors(['vat_exemption_threshold' => 'min']);
 
     expect(Account::where('nif', '501964843')->exists())->toBeFalse();
-});
+})->group('integration');
 
 it('requires accepting the terms', function () {
     registrationWizard(['terms' => false])
@@ -264,7 +266,7 @@ it('requires accepting the terms', function () {
 
     expect(User::where('email', 'rita@example.pt')->exists())->toBeFalse()
         ->and(Account::where('nif', '501964843')->exists())->toBeFalse();
-});
+})->group('integration');
 
 it('leaves no user behind when the account cannot be created', function () {
     $this->mock(CreateAccount::class)->shouldReceive('handle')->andThrow(new RuntimeException('falhou'));
@@ -273,7 +275,7 @@ it('leaves no user behind when the account cannot be created', function () {
 
     expect(User::where('email', 'rita@example.pt')->exists())->toBeFalse();
     $this->assertGuest();
-});
+})->group('integration');
 
 it('blocks the panel until the email is verified', function () {
     $user = User::factory()->unverified()->create();
@@ -290,19 +292,19 @@ it('blocks the panel until the email is verified', function () {
 
     expect($user->fresh()->hasVerifiedEmail())->toBeTrue();
     $this->get(Dashboard::getUrl(tenant: $this->account))->assertOk();
-});
+})->group('ui');
 
 it('keeps letting verified users in', function () {
     $this->actingAs(ownerOf($this->account));
 
     $this->get(Dashboard::getUrl(tenant: $this->account))->assertOk();
-});
+})->group('ui');
 
 it('seeds a local admin whose email is already verified', function () {
     $this->seed(DatabaseSeeder::class);
 
     expect(User::firstWhere('email', 'admin@pressiumize.test')->hasVerifiedEmail())->toBeTrue();
-});
+})->group('integration');
 
 it('seeds an example account owned by the local admin, without billing', function () {
     $this->seed(DatabaseSeeder::class);
@@ -319,7 +321,7 @@ it('seeds an example account owned by the local admin, without billing', functio
         ->and(CurrentAccount::run($account, fn () => Category::pluck('name')))
         ->toContain('Serviços', 'Software e subscrições', 'Comissões')
         ->toHaveCount(11);
-});
+})->group('integration');
 
 it('shows the email confirmation prompt and email in European Portuguese', function () {
     $user = User::factory()->unverified()->create(['email' => 'rita@example.pt']);
@@ -344,7 +346,7 @@ it('shows the email confirmation prompt and email in European Portuguese', funct
         ->not->toContain('Regards')
         ->not->toContain('trouble clicking')
         ->not->toContain('All rights reserved');
-});
+})->group('ui');
 
 it('shows the sign-up page with links to the terms and the privacy policy', function () {
     $this->get(Filament::getRegistrationUrl())
@@ -354,7 +356,7 @@ it('shows the sign-up page with links to the terms and the privacy policy', func
         ->assertSee(url('/privacidade'), escape: false);
 
     $this->get(Filament::getLoginUrl())->assertSee(Filament::getRegistrationUrl(), escape: false);
-});
+})->group('ui');
 
 it('serves the terms and privacy pages', function (string $path, string $title) {
     $this->get($path)
@@ -368,7 +370,7 @@ it('serves the terms and privacy pages', function (string $path, string $title) 
 })->with([
     'terms' => ['/termos', 'Termos de Serviço'],
     'privacy' => ['/privacidade', 'Política de Privacidade'],
-]);
+])->group('ui');
 
 it('keeps the sign-up page logo while moving between steps', function () {
     // Each step is a Livewire update: the route is Livewire's, not the sign-up page's.
@@ -377,4 +379,4 @@ it('keeps the sign-up page logo while moving between steps', function () {
         ->assertWizardCurrentStep(2)
         ->assertSee('brand/contiu/contiu-logo-black.svg', escape: false)
         ->assertSee('height: 2.5rem', escape: false);
-});
+})->group('integration');

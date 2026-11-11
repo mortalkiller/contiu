@@ -45,13 +45,13 @@ it('exports the statement rows with money as numbers', function () {
         ->and($rows[2][4])->toEqual(0)
         ->and($rows[3])->toEqual(['01/12/2026', 'MINFRA · Dez 2026', 20, null, 20, 'a vencer'])
         ->and($rows[1][2])->toBeNumeric();
-});
+})->group('integration');
 
 it('downloads the statement as Excel from the statement page', function () {
     Livewire::test(ClientStatementPage::class, ['record' => $this->client->getRouteKey()])
         ->callAction('exportExcel')
         ->assertFileDownloaded('extrato-mariana-sousa-2026-11-06.xlsx');
-});
+})->group('ui');
 
 it('emails the statement with the Excel attached and logs it', function () {
     Mail::fake();
@@ -70,4 +70,4 @@ it('emails the statement with the Excel attached and logs it', function () {
     });
 
     expect(ClientMessage::sole()->type)->toBe('statement');
-});
+})->group('ui');

@@ -20,8 +20,8 @@ final class InvoiceAdvanceAction
     public static function make(): Action
     {
         return Action::make('linkInvoiceAdvance')
-            ->label('Ligar adiantamento')
-            ->modalDescription('A fatura final deve mencionar a fatura do adiantamento e incluir apenas o valor após a dedução.')
+            ->label(__('Link advance invoice'))
+            ->modalDescription(__('The final invoice must reference the advance invoice and include only the amount after deduction.'))
             ->visible(fn (FiscalDocument $record): bool => $record->type === FiscalDocumentType::Invoice
                 && $record->direction === FiscalDocumentDirection::Issued
                 && $record->status === FiscalDocumentStatus::Active
@@ -33,14 +33,14 @@ final class InvoiceAdvanceAction
                 && FiscalDocumentResource::canEdit($record)
                 && self::advances($record)->exists())
             ->schema([
-                Select::make('advance')->label('Fatura do adiantamento')->required()->searchable()
+                Select::make('advance')->label(__('Advance invoice'))->required()->searchable()
                     ->options(fn (FiscalDocument $record): array => self::advances($record)->orderByDesc('document_date')->get()
                         ->mapWithKeys(fn (FiscalDocument $advance): array => [
-                            $advance->id => $advance->number.' · '.Money::format($advance->total_amount),
+                            $advance->id => $advance->number.' · '.Money::format($advance->total_amount, locale: app()->getLocale()),
                         ])->all()),
             ])
             ->action(fn (FiscalDocument $record, array $data) => app(LinkInvoiceAdvance::class)->handle($record->id, (int) $data['advance']))
-            ->successNotificationTitle('Adiantamento ligado à fatura final');
+            ->successNotificationTitle(__('Advance invoice linked to the final invoice'));
     }
 
     /** @return Builder<FiscalDocument> */

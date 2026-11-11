@@ -20,8 +20,8 @@ final class DebitNoteChargeAction
     public static function make(): Action
     {
         return Action::make('recordDebitNoteCharge')
-            ->label('Criar valor a receber')
-            ->modalDescription(fn (FiscalDocument $record): string => 'Criar uma cobrança de '.Money::format($record->total_amount).' para a nota '.$record->number.'.')
+            ->label(__('Create receivable'))
+            ->modalDescription(fn (FiscalDocument $record): string => __('Create a charge of :amount for note :number.', ['amount' => Money::format($record->total_amount, locale: app()->getLocale()), 'number' => $record->number]))
             ->visible(fn (FiscalDocument $record): bool => $record->type === FiscalDocumentType::DebitNote
                 && $record->direction === FiscalDocumentDirection::Issued
                 && $record->status === FiscalDocumentStatus::Active
@@ -36,7 +36,7 @@ final class DebitNoteChargeAction
                 'due_on' => today()->toDateString(),
             ])
             ->schema([
-                DatePicker::make('due_on')->label('Vencimento')->required()->minDate(fn (FiscalDocument $record) => $record->document_date),
+                DatePicker::make('due_on')->label(__('Due date'))->required()->minDate(fn (FiscalDocument $record) => $record->document_date),
                 Hidden::make('total')->required()->rule('integer'),
                 Hidden::make('original')->required()->rule('integer'),
             ])
@@ -46,6 +46,6 @@ final class DebitNoteChargeAction
                 (int) $data['total'],
                 (int) $data['original'],
             ))
-            ->successNotificationTitle('Valor a receber criado');
+            ->successNotificationTitle(__('Receivable created'));
     }
 }

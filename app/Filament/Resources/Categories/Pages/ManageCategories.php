@@ -17,7 +17,7 @@ class ManageCategories extends ManageRecords
     {
         return [
             CreateAction::make()
-                ->label('Nova categoria')
+                ->label(__('New category'))
                 ->fillForm(fn () => ['type' => $this->activeTab === 'income' ? CategoryType::Income : CategoryType::Expense, 'sort' => 99]),
         ];
     }
@@ -25,9 +25,9 @@ class ManageCategories extends ManageRecords
     public function getTabs(): array
     {
         return [
-            'expense' => Tab::make('Despesas')
+            'expense' => Tab::make(__('Expenses'))
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('type', CategoryType::Expense)),
-            'income' => Tab::make('Receitas')
+            'income' => Tab::make(__('Revenue'))
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('type', CategoryType::Income)),
         ];
     }

@@ -26,23 +26,23 @@ class TaxQuartersTable extends TableWidget
     public function table(Table $table): Table
     {
         return $table
-            ->heading('Segurança Social por trimestre')
-            ->description('O rendimento de cada trimestre fixa a contribuição dos três meses do trimestre seguinte; a de cada mês paga-se entre 10 e 20 do mês seguinte. Por exemplo, o rendimento de jul–set fixa as contribuições de out–dez, pagas de novembro a janeiro.')
+            ->heading(__('Social Security by quarter'))
+            ->description(__('Each quarter’s income determines the contributions for the three months of the next quarter. Each month’s contribution is due between the 10th and 20th of the following month. For example, income from Jul–Sep determines contributions for Oct–Dec, paid from November to January.'))
             ->records(fn (): array => $this->rows())
             ->paginated(false)
             ->recordClasses(fn (array $record) => $record['is_total'] ? 'bg-gray-50 dark:bg-white/5' : null)
             ->columns([
-                TextColumn::make('label')->label('Trimestre')->weight(fn (array $record) => $record['is_total'] ? 'bold' : 'medium'),
-                TextColumn::make('income')->label('Rendimento')->money('EUR', divideBy: 100)->alignEnd(),
-                TextColumn::make('base')->label('Base mensal')->money('EUR', divideBy: 100)->alignEnd()->placeholder(''),
+                TextColumn::make('label')->label(__('Quarter'))->weight(fn (array $record) => $record['is_total'] ? 'bold' : 'medium'),
+                TextColumn::make('income')->label(__('Earnings'))->money('EUR', divideBy: 100)->alignEnd(),
+                TextColumn::make('base')->label(__('Monthly basis'))->money('EUR', divideBy: 100)->alignEnd()->placeholder(''),
                 // Blank in a quarter whose payment months are all exempt: nothing is paid.
-                TextColumn::make('monthly')->label('Contribuição mensal')->money('EUR', divideBy: 100)->alignEnd()->placeholder('')
+                TextColumn::make('monthly')->label(__('Monthly contribution'))->money('EUR', divideBy: 100)->alignEnd()->placeholder('')
                     ->state(fn (array $record): ?int => ($record['chargedMonths'] ?? 0) > 0 ? $record['monthly'] : null),
                 TextColumn::make('paidIn')
-                    ->label('Pago em')
+                    ->label(__('Paid in'))
                     ->description(fn (array $record) => $record['note'])
                     ->placeholder(''),
-                TextColumn::make('total')->label('Total')->money('EUR', divideBy: 100)->alignEnd()->weight('semibold'),
+                TextColumn::make('total')->label(__('Total'))->money('EUR', divideBy: 100)->alignEnd()->weight('semibold'),
             ]);
     }
 
@@ -61,7 +61,7 @@ class TaxQuartersTable extends TableWidget
         }
 
         $rows['total'] = [
-            'label' => 'Ano',
+            'label' => __('Year'),
             'income' => $estimator->income(),
             'base' => null,
             'monthly' => null,
@@ -86,11 +86,11 @@ class TaxQuartersTable extends TableWidget
         return collect([
             match (true) {
                 $exemptMonths === 0 => null,
-                $quarter['status'] === 'exempt' => 'Isento (art. 157.º)',
-                $exemptMonths === 3 => 'Isento (1.º enquadramento)',
-                default => $exemptMonths.' '.($exemptMonths === 1 ? 'mês isento' : 'meses isentos').' (1.º enquadramento)',
+                $quarter['status'] === 'exempt' => __('Exempt (Article 157)'),
+                $exemptMonths === 3 => __('Exempt (initial registration)'),
+                default => trans_choice('{1} :count exempt month (initial registration)|[2,*] :count exempt months (initial registration)', $exemptMonths),
             },
-            $quarter['chargedMonths'] > 0 && $quarter['monthly'] === TaxEstimator::SS_MINIMUM_CONTRIBUTION ? 'Contribuição mínima' : null,
+            $quarter['chargedMonths'] > 0 && $quarter['monthly'] === TaxEstimator::SS_MINIMUM_CONTRIBUTION ? __('Minimum contribution') : null,
         ])->filter()->implode(' · ') ?: null;
     }
 }

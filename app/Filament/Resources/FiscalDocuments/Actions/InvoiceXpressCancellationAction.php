@@ -17,16 +17,16 @@ final class InvoiceXpressCancellationAction
     public static function make(): Action
     {
         return Action::make('cancelInvoiceXpress')
-            ->label('Cancelar no InvoiceXpress')
+            ->label(__('Cancel in InvoiceXpress'))
             ->color('danger')
             ->requiresConfirmation()
-            ->modalHeading('Cancelar fatura no InvoiceXpress')
-            ->modalDescription(fn (FiscalDocument $record): string => 'Confirma o cancelamento da fatura '.$record->number.' de '.Money::format($record->total_amount).'. O motivo fica no InvoiceXpress.')
-            ->modalSubmitActionLabel('Confirmar cancelamento')
+            ->modalHeading(__('Cancel invoice in InvoiceXpress'))
+            ->modalDescription(fn (FiscalDocument $record): string => __('Confirm cancellation of invoice :number for :amount. The reason will be kept in InvoiceXpress.', ['number' => $record->number, 'amount' => Money::format($record->total_amount, locale: app()->getLocale())]))
+            ->modalSubmitActionLabel(__('Confirm cancellation'))
             ->visible(fn (FiscalDocument $record): bool => app(InvoiceXpressCancellation::class)->canCancel($record))
             ->fillForm(fn (FiscalDocument $record): array => ['sourceHash' => $record->invoiceXpressSnapshot?->source_hash])
             ->schema([
-                TextInput::make('reason')->label('Motivo do cancelamento')->required()->maxLength(InvoiceXpressCancellation::MAX_REASON_LENGTH),
+                TextInput::make('reason')->label(__('Cancellation reason'))->required()->maxLength(InvoiceXpressCancellation::MAX_REASON_LENGTH),
                 Hidden::make('sourceHash')->required()->regex('/\A[a-f0-9]{64}\z/'),
             ])
             ->action(function (FiscalDocument $record, array $data, Schema $schema): void {
@@ -38,6 +38,6 @@ final class InvoiceXpressCancellationAction
                     );
                 }
             })
-            ->successNotificationTitle('Fatura cancelada e confirmada no InvoiceXpress');
+            ->successNotificationTitle(__('Invoice cancellation confirmed in InvoiceXpress'));
     }
 }

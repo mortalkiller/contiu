@@ -6,6 +6,7 @@ use App\Actions\RecordCustomerRefund;
 use App\Enums\FiscalDocumentDirection;
 use App\Enums\FiscalDocumentStatus;
 use App\Enums\FiscalDocumentType;
+use App\Enums\Language;
 use App\Filament\Resources\FiscalDocuments\FiscalDocumentResource;
 use App\Filament\Support\MoneyInput;
 use App\Models\BankTransaction;
@@ -26,13 +27,14 @@ final class CustomerRefundAction
     public static function make(): Action
     {
         return Action::make('recordCustomerRefund')
-            ->label('Registar reembolso')
+            ->label(__('Record refund'))
             ->modalDescription(function (FiscalDocument $record): string {
                 $existing = CustomerRefund::query()->where('credit_note_id', $record->id)->orderBy('paid_on')->get()
-                    ->map(fn (CustomerRefund $refund): string => $refund->reference.' · '.Money::format($refund->amount))->implode(', ');
+                    ->map(fn (CustomerRefund $refund): string => $refund->reference.' · '.Money::format($refund->amount, locale: app()->getLocale()))->implode(', ');
 
-                return 'Regista uma devolução que já fizeste ao cliente.'
-                    .($existing === '' ? '' : ' Reembolsos registados: '.$existing.'.');
+                return $existing === ''
+                    ? __('Record a refund you have already made to the client.')
+                    : __('Record a refund you have already made to the client. Recorded refunds: :refunds.', ['refunds' => $existing]);
             })
             ->visible(fn (FiscalDocument $record): bool => $record->type === FiscalDocumentType::CreditNote
                 && $record->direction === FiscalDocumentDirection::Issued
@@ -44,13 +46,13 @@ final class CustomerRefundAction
                 'amount' => max(0, abs($record->total_amount) - (int) CustomerRefund::query()->where('credit_note_id', $record->id)->sum('amount')),
             ])
             ->schema([
-                DatePicker::make('paid_on')->label('Data do reembolso')->required()->maxDate(today()),
-                MoneyInput::make('amount')->label('Valor devolvido')->required()->minValue(0.01)->rule('decimal:0,2'),
-                TextInput::make('reference')->label('Referência do comprovativo')->required()->maxLength(120),
-                Select::make('bank_transaction_id')->label('Movimento bancário')->searchable()
+                DatePicker::make('paid_on')->label(__('Refund date'))->required()->maxDate(today()),
+                MoneyInput::make('amount')->label(__('Refunded amount'))->required()->minValue(0.01)->rule('decimal:0,2'),
+                TextInput::make('reference')->label(__('Supporting document reference'))->required()->maxLength(120),
+                Select::make('bank_transaction_id')->label(__('Bank transaction'))->searchable()
                     ->options(fn (): array => BankTransaction::query()->pending()->where('amount', '<', 0)
                         ->latest('booked_on')->latest('id')->limit(100)->get()->mapWithKeys(
-                            fn (BankTransaction $line): array => [$line->id => $line->booked_on->format('d/m/Y').' · '.Money::format($line->absolute_amount).' · '.$line->description],
+                            fn (BankTransaction $line): array => [$line->id => $line->booked_on->format(Language::resolve(app()->getLocale())->dateFormat()).' · '.Money::format($line->absolute_amount, locale: app()->getLocale()).' · '.$line->description],
                         )->all()),
             ])
             ->action(function (FiscalDocument $record, array $data, Schema $schema): void {
@@ -61,6 +63,6 @@ final class CustomerRefundAction
                     throw ValidationException::withMessages(Arr::prependKeysWith($exception->errors(), $schema->getStatePath().'.'));
                 }
             })
-            ->successNotificationTitle('Reembolso registado');
+            ->successNotificationTitle(__('Refund recorded'));
     }
 }

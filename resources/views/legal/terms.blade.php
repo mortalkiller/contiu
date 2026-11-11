@@ -1,15 +1,15 @@
 {{-- Structure only: the text is Pedro's (or his lawyer's) to write. --}}
 @extends('legal.layout', ['sections' => [
-    'Quem presta o serviço',
-    'O serviço',
-    'Conta e registo',
-    'Período de experiência e assinatura',
-    'Pagamentos e faturação',
-    'Cancelamento e fim da conta',
-    'Os teus dados e os dos teus clientes',
-    'Responsabilidade',
-    'Alterações a estes termos',
-    'Lei aplicável e contactos',
+    __('Who provides the service'),
+    __('The service'),
+    __('Account and registration'),
+    __('Trial period and subscription'),
+    __('Payments and billing'),
+    __('Cancellation and account closure'),
+    __('Your data and your clients’ data'),
+    __('Liability'),
+    __('Changes to these terms'),
+    __('Applicable law and contacts'),
 ]])
 
-@section('title', 'Termos de Serviço')
+@section('title', __('Terms of Service'))

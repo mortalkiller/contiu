@@ -30,6 +30,8 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 
+pest()->group('tenancy', 'billing');
+
 /** A Cashier subscription row, as the webhooks would leave it (no Stripe call). */
 function subscribe(Account $account, string $status, ?string $endsAt = null): void
 {
@@ -85,11 +87,11 @@ it('gives access while trialing, subscribed or exempt, and not otherwise', funct
     'incomplete expired' => [['trial_ends_at' => '2026-11-01'], ['incomplete_expired'], false],
     'unpaid' => [['trial_ends_at' => '2026-11-01'], ['unpaid'], false],
     'billing exempt' => [['trial_ends_at' => null, 'billing_exempt' => true], null, true],
-]);
+])->group('integration');
 
 it('starts new accounts on the trial', function () {
     expect(Account::factory()->create()->hasAccess())->toBeTrue();
-});
+})->group('integration');
 
 it('refuses writes in a read-only account', function () {
     $client = Client::factory()->create();
@@ -100,7 +102,7 @@ it('refuses writes in a read-only account', function () {
         ->and(fn () => $client->update(['name' => 'Outro nome']))->toThrow(AccountIsReadOnly::class)
         ->and(fn () => $client->delete())->toThrow(AccountIsReadOnly::class)
         ->and($client->fresh()->name)->not->toBe('Outro nome');
-});
+})->group('integration');
 
 it('lets a paying account write again', function () {
     expire($this->account);
@@ -109,7 +111,7 @@ it('lets a paying account write again', function () {
 
     expect(CurrentAccount::readOnly())->toBeFalse()
         ->and(Client::create(['name' => 'Nova'])->exists)->toBeTrue();
-});
+})->group('integration');
 
 it('still lets a super admin write', function () {
     actingAsAdmin();
@@ -117,7 +119,7 @@ it('still lets a super admin write', function () {
 
     expect(CurrentAccount::readOnly())->toBeFalse()
         ->and(Client::create(['name' => 'Nova'])->exists)->toBeTrue();
-});
+})->group('integration');
 
 it('keeps database notifications working in a read-only account', function () {
     $owner = signInAsOwner(expire($this->account));
@@ -125,7 +127,7 @@ it('keeps database notifications working in a read-only account', function () {
     Notification::make()->title('Aviso')->sendToDatabase($owner);
 
     expect($owner->notifications()->count())->toBe(1);
-});
+})->group('integration');
 
 it('hides create buttons when read-only', function () {
     $client = Client::factory()->create();
@@ -141,13 +143,13 @@ it('hides create buttons when read-only', function () {
         ->and($owner->can('View:Client'))->toBeTrue();
 
     Livewire::test(ListClients::class)->assertActionHidden('create');
-});
+})->group('ui');
 
 it('shows the create buttons again with access', function () {
     signInAsOwner($this->account);
 
     Livewire::test(ListClients::class)->assertActionVisible('create');
-});
+})->group('ui');
 
 it('tells the user the account is read-only instead of failing', function () {
     // A write that skips the disabled button (Enter in a field, a forged Livewire call): the model
@@ -160,7 +162,7 @@ it('tells the user the account is read-only instead of failing', function () {
         ->assertNotified('A conta está só de leitura. Subscreve para continuar a registar.');
 
     expect(app(FinanceSettings::class)->accountNames())->toBe([]);
-});
+})->group('ui');
 
 it('disables the writes no policy covers while read-only', function () {
     // "Registar recebimento", "Receita avulsa", "Marcar como paga" and saving the fiscal settings
@@ -186,7 +188,7 @@ it('disables the writes no policy covers while read-only', function () {
 
     // Call sites that set their own tooltip keep it, except while read-only.
     expect(RecordPaymentAction::make()->tooltip('Registar recebimento')->getTooltip())->toBe('A conta está só de leitura');
-});
+})->group('ui');
 
 it('disables them in the quick create menu too', function () {
     // Menu items take a faster rendering path that never asks isDisabled(): check the HTML.
@@ -197,7 +199,7 @@ it('disables them in the quick create menu too', function () {
         ->assertSee('A conta está só de leitura')
         ->assertDontSeeHtml("wire:click=\"mountAction('oneOffIncome')\"")
         ->assertDontSeeHtml("wire:click=\"mountAction('recordPayment')\"");
-});
+})->group('ui');
 
 it('keeps those writes enabled while the account has access', function () {
     $client = Client::factory()->create();
@@ -221,14 +223,14 @@ it('keeps those writes enabled while the account has access', function () {
         ->assertSeeHtml("wire:click=\"mountAction('oneOffIncome')\"");
 
     expect(RecordPaymentAction::make()->tooltip('Registar recebimento')->getTooltip())->toBe('Registar recebimento');
-});
+})->group('ui');
 
 it('hides the create button even from a user given Shield permissions', function () {
     // Filament asks the policy ability ("create"), which no Spatie permission answers first.
     signInAsOwner(expire($this->account), ownerOf($this->account));
 
     Livewire::test(ListClients::class)->assertActionHidden('create');
-});
+})->group('ui');
 
 it('stops client emails while read-only', function () {
     $client = Client::factory()->create(['email' => 'cliente@example.pt']);
@@ -241,7 +243,7 @@ it('stops client emails while read-only', function () {
     Livewire::test(ClientStatementPage::class, ['record' => $client->getRouteKey()])
         ->assertActionDisabled('sendPaymentReminder')
         ->assertActionDisabled('sendStatement');
-});
+})->group('ui');
 
 it('stops bank statement imports and reconciliation while read-only', function () {
     $line = BankTransaction::create(['hash' => 'r1', 'booked_on' => '2026-11-02', 'description' => 'TRF', 'amount' => 10000, 'import_batch' => 'x']);
@@ -254,7 +256,7 @@ it('stops bank statement imports and reconciliation while read-only', function (
         ->assertTableActionDisabled('link', $line)
         ->assertTableActionDisabled('ignore', $line)
         ->assertTableBulkActionDisabled('acceptSuggestions');
-});
+})->group('ui');
 
 it('skips read-only accounts in scheduled commands', function () {
     $other = Account::factory()->create();
@@ -269,7 +271,7 @@ it('skips read-only accounts in scheduled commands', function () {
     $this->artisan('finance:send-reminders')->expectsOutputToContain('Avisos enviados: 0')->assertSuccessful();
 
     expect(CurrentAccount::run($other, fn () => Expense::count()))->toBe(0);
-});
+})->group('integration');
 
 it('shows the trial banner with days left', function () {
     $this->account->update(['trial_ends_at' => '2026-11-24 10:00']);
@@ -279,7 +281,7 @@ it('shows the trial banner with days left', function () {
     $this->get(Dashboard::getUrl(tenant: $this->account))
         ->assertOk()
         ->assertSee('Experiência: faltam 14 dias');
-});
+})->group('ui');
 
 it('counts the trial days left', function (string $endsAt, string $text) {
     $this->account->update(['trial_ends_at' => $endsAt]);
@@ -291,7 +293,7 @@ it('counts the trial days left', function (string $endsAt, string $text) {
     ['2026-11-12 09:00', 'Experiência: faltam 2 dias'],
     ['2026-11-11 09:00', 'Experiência: falta 1 dia'],
     ['2026-11-10 23:00', 'Experiência: último dia'],
-]);
+])->group('integration');
 
 it('shows the read-only notice when nothing pays for the account', function () {
     signInAsOwner(expire($this->account));
@@ -300,7 +302,7 @@ it('shows the read-only notice when nothing pays for the account', function () {
     $this->get(Dashboard::getUrl(tenant: $this->account))
         ->assertOk()
         ->assertSee('Esta conta está só de leitura');
-});
+})->group('ui');
 
 it('shows no banner to exempt or paying accounts, nor to super admins', function (string $who) {
     match ($who) {
@@ -313,4 +315,4 @@ it('shows no banner to exempt or paying accounts, nor to super admins', function
     $who === 'super admin' ? actingAsAdmin() : signInAsOwner($this->account);
 
     expect(AccountStatus::banner())->toBeNull();
-})->with(['exempt', 'paying', 'super admin']);
+})->with(['exempt', 'paying', 'super admin'])->group('integration');

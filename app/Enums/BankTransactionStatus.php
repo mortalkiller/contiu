@@ -15,10 +15,10 @@ enum BankTransactionStatus: string implements HasColor, HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::Pending => 'Por tratar',
-            self::Matched => 'Registado',
-            self::OwnTransfer => 'Transferência minha',
-            self::Ignored => 'Ignorado',
+            self::Pending => __('To review'),
+            self::Matched => __('Recorded'),
+            self::OwnTransfer => __('Own transfer'),
+            self::Ignored => __('Ignored'),
         };
     }
 

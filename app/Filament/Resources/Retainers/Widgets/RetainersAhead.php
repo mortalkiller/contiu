@@ -30,8 +30,8 @@ class RetainersAhead extends Widget
                 $month = $first->addMonths($offset);
 
                 return [
-                    'label' => ucfirst($month->translatedFormat('M')),
-                    'amount' => Money::format((int) $retainers->sum(fn (Retainer $retainer): int => self::billsIn($retainer, $month) ? (int) $retainer->total : 0)),
+                    'label' => ucfirst($month->locale(app()->getLocale())->translatedFormat('M')),
+                    'amount' => Money::format((int) $retainers->sum(fn (Retainer $retainer): int => self::billsIn($retainer, $month) ? (int) $retainer->total : 0), locale: app()->getLocale()),
                 ];
             })->all(),
         ];

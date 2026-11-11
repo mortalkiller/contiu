@@ -5,6 +5,7 @@ namespace App\Actions;
 use App\Enums\CategoryType;
 use App\Enums\ExpenseKind;
 use App\Enums\Frequency;
+use App\Enums\Language;
 use App\Enums\PaymentMethod;
 use App\Enums\ProjectStatus;
 use App\Models\Category;
@@ -94,7 +95,7 @@ class ImportFinanceWorkbook
 
             if ($this->hasFinanceData()) {
                 if (! $replace) {
-                    throw new ImportRefusedException('Já existem dados financeiros. Escolhe "Substituir os dados atuais" para os apagar e importar de novo.');
+                    throw new ImportRefusedException(__('Financial data already exists. Choose "Replace current data" to delete it and import again.'));
                 }
 
                 $plans = $this->instalmentPlans();
@@ -131,7 +132,7 @@ class ImportFinanceWorkbook
             $reader->setReadDataOnly(true);
             $spreadsheet = $reader->load($path);
         } catch (Throwable $exception) {
-            throw new ImportRefusedException('Não foi possível ler o ficheiro: '.$exception->getMessage(), previous: $exception);
+            throw new ImportRefusedException(__('Could not read the file: :error', ['error' => $exception->getMessage()]), previous: $exception);
         }
 
         $required = [
@@ -145,14 +146,14 @@ class ImportFinanceWorkbook
 
         foreach ($required as $name => $columns) {
             $sheet = $spreadsheet->getSheetByName($name)
-                ?? throw new ImportRefusedException("O ficheiro não tem a folha \"{$name}\".");
+                ?? throw new ImportRefusedException(__('The file does not contain the ":sheet" sheet.', ['sheet' => $name]));
 
             $rows = $sheet->toArray(null, false, false, false);
             $headers = array_map(fn ($header) => trim((string) $header), array_shift($rows) ?? []);
 
             foreach ($columns as $column) {
                 if (! in_array($column, $headers, true)) {
-                    throw new ImportRefusedException("A folha \"{$name}\" não tem a coluna \"{$column}\".");
+                    throw new ImportRefusedException(__('The ":sheet" sheet does not contain the ":column" column.', ['sheet' => $name, 'column' => $column]));
                 }
             }
 
@@ -233,7 +234,7 @@ class ImportFinanceWorkbook
 
         if ($status === null) {
             $status = ProjectStatus::Approved;
-            $this->warn($row, $id, "estado \"{$row['Status']}\" desconhecido, ficou como Aprovado.");
+            $this->warn($row, $id, __('unknown status ":status"; it was set to Approved.', ['status' => $row['Status']]));
         }
 
         $this->checkDueDate($row, $id, $quotedOn, $dueOn);
@@ -254,7 +255,7 @@ class ImportFinanceWorkbook
 
         if ($dueOn === null) {
             $dueOn = $quotedOn ?? today();
-            $this->warn($row, $id, 'sem data limite de pagamento; usei a data do orçamento.');
+            $this->warn($row, $id, __('no payment due date; the quote date was used.'));
         }
 
         $this->receivablesById[$id] = $project->receivables()->create([
@@ -323,12 +324,15 @@ class ImportFinanceWorkbook
         if ($dueOn->lt($periodStart)) {
             $fixed = $periodStart->copy()->day(min($retainer->due_day, $periodStart->daysInMonth));
             $fixed = $fixed->lt($periodStart) ? $periodStart->copy() : $fixed;
-            $this->warn($row, $id, 'data limite '.$dueOn->format('d/m/Y').' anterior ao início do período; corrigi para '.$fixed->format('d/m/Y').'. Corrige também o Excel.');
+            $this->warn($row, $id, __('due date :original is before the start of the period; it was changed to :corrected. Update the workbook as well.', [
+                'original' => $dueOn->format(Language::resolve(app()->getLocale())->dateFormat()),
+                'corrected' => $fixed->format(Language::resolve(app()->getLocale())->dateFormat()),
+            ]));
             $dueOn = $fixed;
         }
 
         if ($net !== $retainer->net_amount) {
-            $this->warn($row, $id, 'valor diferente dos outros meses da avença '.$retainer->code.'; mantive o valor desta linha.');
+            $this->warn($row, $id, __('the amount differs from other months for retainer :code; the amount on this row was kept.', ['code' => $retainer->code]));
         }
 
         $this->receivablesById[$id] = $retainer->receivables()->create([
@@ -351,7 +355,7 @@ class ImportFinanceWorkbook
             $receivable = $this->receivablesById[$id] ?? null;
 
             if ($receivable === null) {
-                $this->warn($row, $id ?: '—', 'recebimento ignorado: não existe nenhuma receita com este ID.', 'Pagamentos');
+                $this->warn($row, $id ?: '—', __('payment skipped: no income entry has this ID.'), 'Pagamentos');
 
                 continue;
             }
@@ -360,7 +364,10 @@ class ImportFinanceWorkbook
             $outstanding = $receivable->amount - $receivable->received;
 
             if ($amount > $outstanding) {
-                $this->warn($row, $id, 'o recebimento ('.Money::format($amount).') é maior do que o valor em aberto ('.Money::format($outstanding).').', 'Pagamentos');
+                $this->warn($row, $id, __('the payment (:amount) exceeds the outstanding balance (:outstanding).', [
+                    'amount' => Money::format($amount, app()->getLocale()),
+                    'outstanding' => Money::format($outstanding, app()->getLocale()),
+                ]), 'Pagamentos');
             }
 
             Payment::create([
@@ -389,7 +396,7 @@ class ImportFinanceWorkbook
             $isPaid = Str::lower($this->text($row['Pago?'])) === 'sim';
 
             if (filled($id) && $owner === null) {
-                $this->warn($row, $id, 'a despesa refere um ID de receita que não existe; ficou como custo de estrutura.', 'Despesas');
+                $this->warn($row, $id, __('the expense refers to an income ID that does not exist; it was kept as overhead.'), 'Despesas');
             }
 
             $direct = $owner instanceof Retainer
@@ -426,7 +433,8 @@ class ImportFinanceWorkbook
     {
         return Project::query()->with('receivables')->get()
             ->filter(fn (Project $project) => $project->receivables->count() > 1
-                || ($project->receivables->count() === 1 && $project->receivables->first()->description !== 'Pagamento único'))
+                || ($project->receivables->count() === 1
+                    && ! in_array($project->receivables->first()->description, ['Pagamento único', 'Single payment'], true)))
             ->mapWithKeys(fn (Project $project) => [$project->code => $project->receivables
                 ->map(fn (Receivable $receivable) => [
                     'description' => $receivable->description,
@@ -455,7 +463,10 @@ class ImportFinanceWorkbook
             }
 
             if (array_sum(array_column($plan, 'amount')) !== $project->total) {
-                $this->result->warnings[] = "Receitas ({$code}): o plano de prestações feito na app já não soma o total importado (".Money::format($project->total).'); ficou um pagamento único.';
+                $this->result->warnings[] = __('Receitas (:code): the installment plan in the app no longer matches the imported total (:total); a single payment was kept.', [
+                    'code' => $code,
+                    'total' => Money::format($project->total, app()->getLocale()),
+                ]);
 
                 continue;
             }
@@ -481,7 +492,7 @@ class ImportFinanceWorkbook
         }
 
         if ($kept !== []) {
-            $this->result->info[] = 'Mantive o plano de prestações de '.count($kept).' '.(count($kept) === 1 ? 'trabalho' : 'trabalhos').' ('.implode(', ', $kept).').';
+            $this->result->info[] = trans_choice('Kept the installment plan for :count project (:codes).|Kept the installment plans for :count projects (:codes).', count($kept), ['codes' => implode(', ', $kept)]);
         }
     }
 
@@ -521,8 +532,8 @@ class ImportFinanceWorkbook
         }
 
         $this->result->info[] = $this->result->counts['recurring_expenses'] > 0
-            ? 'Criei '.$this->result->counts['recurring_expenses'].' despesa(s) recorrente(s) a partir de despesas que se repetem em 3 ou mais meses — confirma-as em Despesas → Recorrentes.'
-            : 'Nenhuma despesa se repete em 3 ou mais meses; as despesas recorrentes criam-se em Despesas → Recorrentes.';
+            ? trans_choice('Created :count recurring expense from expenses that repeat in 3 or more months. Confirm it under Expenses → Recurring.|Created :count recurring expenses from expenses that repeat in 3 or more months. Confirm them under Expenses → Recurring.', $this->result->counts['recurring_expenses'])
+            : __('No expense repeats in 3 or more months; create recurring expenses under Expenses → Recurring.');
     }
 
     // Data ------------------------------------------------------------------------------------
@@ -542,26 +553,26 @@ class ImportFinanceWorkbook
     private function wipeFinanceData(): void
     {
         if (Payment::query()->where('is_split', true)->exists()) {
-            throw new ImportRefusedException('Existem recebimentos repartidos que o Excel não repõe. A substituição foi interrompida para os preservar.');
+            throw new ImportRefusedException(__('There are split payments the workbook cannot restore. Replacement was stopped to preserve them.'));
         }
 
         if (FiscalDocumentLink::query()->where(fn ($query) => $query
             ->whereNotNull('payment_id')
             ->orWhereNotNull('receivable_id')
             ->orWhereNotNull('expense_id'))->exists()) {
-            throw new ImportRefusedException('Existem documentos fiscais associados a estes dados. Revê as ligações antes de substituir os dados pelo Excel.');
+            throw new ImportRefusedException(__('Fiscal documents are linked to this data. Review the links before replacing the data with the workbook.'));
         }
 
         $expenses = Expense::query()->lockForUpdate()->get(['id', 'proof_path', 'proof_reference', 'attribution', 'is_reviewed']);
         $clients = Client::query()->lockForUpdate()->get(['id', 'fiscal_country_code', 'fiscal_party_type', 'vat_validated_at']);
 
         if ($expenses->contains(fn (Expense $expense): bool => $expense->proof_path !== null)) {
-            throw new ImportRefusedException('Existem despesas com comprovativos. Revê os comprovativos antes de substituir os dados pelo Excel.');
+            throw new ImportRefusedException(__('Some expenses have supporting evidence. Review the evidence before replacing the data with the workbook.'));
         }
 
         if ($expenses->contains(fn (Expense $expense): bool => $expense->proof_reference !== null || $expense->attribution !== null || $expense->is_reviewed)
             || $clients->contains(fn (Client $client): bool => $client->fiscal_country_code !== null || $client->fiscal_party_type !== null || $client->vat_validated_at !== null)) {
-            throw new ImportRefusedException('Existem dados manuais em clientes ou despesas que o Excel não repõe. A substituição foi interrompida para os preservar.');
+            throw new ImportRefusedException(__('Some clients or expenses contain manually entered data the workbook cannot restore. Replacement was stopped to preserve it.'));
         }
 
         foreach ([Payment::class, Receivable::class, Expense::class, RecurringExpense::class, Project::class, Retainer::class, Client::class, Supplier::class, Category::class] as $model) {
@@ -572,7 +583,7 @@ class ImportFinanceWorkbook
             };
         }
 
-        $this->result->info[] = 'Os dados financeiros anteriores foram apagados antes da importação.';
+        $this->result->info[] = __('The previous financial data was deleted before the import.');
     }
 
     private function computeTotals(): void
@@ -642,13 +653,21 @@ class ImportFinanceWorkbook
 
     private function warn(array $row, string $id, string $message, string $sheet = 'Receitas'): void
     {
-        $this->result->warnings[] = "{$sheet}, linha {$row['_row']} ({$id}): {$message}";
+        $this->result->warnings[] = __(':sheet, row :row (:id): :message', [
+            'sheet' => $sheet,
+            'row' => $row['_row'],
+            'id' => $id,
+            'message' => $message,
+        ]);
     }
 
     private function checkDueDate(array $row, string $id, ?Carbon $quotedOn, ?Carbon $dueOn): void
     {
         if ($quotedOn !== null && $dueOn !== null && $dueOn->lt($quotedOn)) {
-            $this->warn($row, $id, 'a data limite ('.$dueOn->format('d/m/Y').') é anterior à data do orçamento ('.$quotedOn->format('d/m/Y').'). Corrige-a na app.');
+            $this->warn($row, $id, __('the due date (:due) is before the quote date (:quoted). Correct it in the app.', [
+                'due' => $dueOn->format(Language::resolve(app()->getLocale())->dateFormat()),
+                'quoted' => $quotedOn->format(Language::resolve(app()->getLocale())->dateFormat()),
+            ]));
         }
     }
 
@@ -675,7 +694,7 @@ class ImportFinanceWorkbook
         }
 
         if (! isset(self::METHODS[$label])) {
-            $this->warn($row, $id, "método \"{$value}\" desconhecido, ficou como Outro.", $sheet);
+            $this->warn($row, $id, __('unknown payment method ":method"; it was set to Other.', ['method' => $value]), $sheet);
 
             return PaymentMethod::Other;
         }

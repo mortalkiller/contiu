@@ -27,6 +27,8 @@ final class CashForecast
     /** @var array<int, array<string, mixed>>|null */
     private ?array $rows = null;
 
+    private ?int $startingBalance = null;
+
     public readonly CarbonImmutable $start;
 
     public readonly CarbonImmutable $end;
@@ -35,6 +37,19 @@ final class CashForecast
     {
         $this->start = CarbonImmutable::today()->startOfMonth();
         $this->end = $this->start->addMonths(max(1, $monthsAhead) - 1)->endOfMonth();
+    }
+
+    /** Shares the forecast across the page and widgets rendered in the same HTTP request. */
+    public static function forRequest(int $months): self
+    {
+        $attributes = request()->attributes;
+        $key = self::class.':'.CurrentAccount::id().':'.$months.':'.app()->getLocale();
+
+        if (! $attributes->has($key)) {
+            $attributes->set($key, new self(app(FinanceSettings::class), $months));
+        }
+
+        return $attributes->get($key);
     }
 
     /**
@@ -55,7 +70,7 @@ final class CashForecast
     /** The statement's balance plus what was recorded since, up to today (cents); 0 without a statement. */
     public function startingBalance(): int
     {
-        return $this->account()->contiuBalanceAt(CarbonImmutable::today()) ?? 0;
+        return $this->startingBalance ??= $this->account()->contiuBalanceAt(CarbonImmutable::today()) ?? 0;
     }
 
     /** @return array{reserved: int, available: ?int, paidThisYear: int} */
@@ -112,9 +127,9 @@ final class CashForecast
         $sum = fn (string $field) => (int) array_sum(array_column($rows, $field));
 
         return [
-            'A receber' => $sum('inflows') - $sum('overdueInflows') - $sum('projectedInflows'),
-            'Em atraso' => $sum('overdueInflows'),
-            'Avenças por gerar' => $sum('projectedInflows'),
+            __('To receive') => $sum('inflows') - $sum('overdueInflows') - $sum('projectedInflows'),
+            __('Overdue') => $sum('overdueInflows'),
+            __('Retainers to generate') => $sum('projectedInflows'),
         ];
     }
 
@@ -134,7 +149,7 @@ final class CashForecast
     public function clientInflowScenario(int $clientId, ?int $delayDays): array
     {
         if ($delayDays !== null && ($delayDays < 0 || $delayDays > self::MAX_DELAY_DAYS)) {
-            throw new InvalidArgumentException('Delay days are outside the forecast simulation range.');
+            throw new InvalidArgumentException(__('Delay days are outside the forecast simulation range.'));
         }
 
         $inflows = 0;
@@ -145,7 +160,7 @@ final class CashForecast
         if ($delayDays !== null) {
             for ($month = $this->start; $month->lte($this->end); $month = $month->addMonth()) {
                 $months[$month->format('Y-m')] = [
-                    'label' => Period::MONTHS[$month->month - 1].' '.$month->year,
+                    'label' => Period::of($month->year, $month->month)->label(),
                     'inflows' => 0,
                     'withDelay' => 0,
                 ];
@@ -204,13 +219,13 @@ final class CashForecast
     /** @return iterable<array{CarbonImmutable, int, ?Client, bool}> Date, amount, client and whether still to be generated. */
     private function expectedInflows(bool $withClient = true): iterable
     {
-        $receivables = Receivable::query()->open()->excludingCancelled()->with('payments')
+        $receivables = Receivable::query()->open()->excludingCancelled()->withOutstandingBalance()
             ->when($withClient, fn ($query) => $query->with('billable.client'))
             ->whereDate('due_on', '<=', $this->end)
             ->get();
 
         foreach ($receivables as $receivable) {
-            yield [CarbonImmutable::parse($receivable->due_on), $receivable->outstanding, $withClient ? $receivable->client : null, false];
+            yield [CarbonImmutable::parse($receivable->due_on), $receivable->projectedOutstanding(), $withClient ? $receivable->client : null, false];
         }
 
         $projector = new ScheduleProjector;
@@ -232,11 +247,11 @@ final class CashForecast
         $sum = fn (string $field) => (int) array_sum(array_column($rows, $field));
 
         return [
-            'Despesas por pagar' => $sum('outflows') - $sum('overdueOutflows') - $sum('projectedOutflows') - $sum('socialSecurity') - $sum('confirmedVat'),
-            'Despesas em atraso' => $sum('overdueOutflows'),
-            'Recorrentes previstas' => $sum('projectedOutflows'),
-            'Segurança Social' => $sum('socialSecurity'),
-            'IVA confirmado' => $sum('confirmedVat'),
+            __('Unpaid expenses') => $sum('outflows') - $sum('overdueOutflows') - $sum('projectedOutflows') - $sum('socialSecurity') - $sum('confirmedVat'),
+            __('Overdue expenses') => $sum('overdueOutflows'),
+            __('Projected recurring expenses') => $sum('projectedOutflows'),
+            __('Social Security') => $sum('socialSecurity'),
+            __('Confirmed VAT') => $sum('confirmedVat'),
         ];
     }
 
@@ -248,7 +263,7 @@ final class CashForecast
         for ($month = $this->start; $month->lte($this->end); $month = $month->addMonth()) {
             $buckets[$month->format('Y-m')] = [
                 'month' => $month,
-                'label' => Period::MONTHS[$month->month - 1].' '.$month->year,
+                'label' => Period::of($month->year, $month->month)->label(),
                 'inflows' => 0,
                 'overdueInflows' => 0,
                 'projectedInflows' => 0,

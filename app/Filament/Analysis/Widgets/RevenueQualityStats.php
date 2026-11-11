@@ -9,6 +9,8 @@ use App\Support\Money;
 use App\Support\Period;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Number;
+use Livewire\Attributes\Reactive;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 /**
@@ -17,7 +19,10 @@ use ToneGabes\Filament\Icons\Enums\Phosphor;
  */
 class RevenueQualityStats extends StatsOverviewWidget
 {
+    #[Reactive]
     public ?int $year = null;
+
+    protected ?string $pollingInterval = null;
 
     protected int|string|array $columnSpan = 'full';
 
@@ -48,15 +53,15 @@ class RevenueQualityStats extends StatsOverviewWidget
         $usualDelay = $delays->isEmpty() ? null : (int) round($delays->median());
 
         return [
-            Stat::make('Maior cliente', $share === null ? '—' : number_format($share, 0, ',', ' ').'%')
-                ->description($share === null ? 'Sem recebimentos no ano' : $biggest['label'].' · acima de 50% é dependência')
+            Stat::make(__('Largest client'), $share === null ? '—' : Number::format($share, precision: 0, locale: app()->getLocale()).'%')
+                ->description($share === null ? __('No payments received this year') : __(':client · over 50% means dependency', ['client' => $biggest['label']]))
                 ->color($share !== null && $share >= 50 ? 'warning' : null)
                 ->icon(Phosphor::UserFocus),
-            Stat::make('Receita que se repete', $recurringShare === null ? '—' : $recurringShare.'%')
-                ->description($recurringShare === null ? 'Sem recebimentos no ano' : Money::format($recurring).' de avenças em '.Money::format($received))
+            Stat::make(__('Recurring revenue'), $recurringShare === null ? '—' : $recurringShare.'%')
+                ->description($recurringShare === null ? __('No payments received this year') : __(':recurring from retainers out of :received', ['recurring' => Money::format($recurring, locale: app()->getLocale()), 'received' => Money::format($received, locale: app()->getLocale())]))
                 ->icon(Phosphor::Repeat),
-            Stat::make('Atraso habitual', $usualDelay === null ? '—' : trans_choice('{0} Sem atraso|{1} 1 dia|[2,*] :count dias', max(0, $usualDelay)))
-                ->description($usualDelay === null ? 'Sem valores liquidados no ano' : 'Depois do vencimento, mediana entre clientes')
+            Stat::make(__('Typical delay'), $usualDelay === null ? '—' : trans_choice('{0} No delay|{1} 1 day|[2,*] :count days', max(0, $usualDelay)))
+                ->description($usualDelay === null ? __('No amounts settled this year') : __('Median across clients after the due date'))
                 ->icon(Phosphor::Timer),
         ];
     }

@@ -18,6 +18,8 @@ use Filament\Facades\Filament;
 use ShuvroRoy\FilamentSpatieLaravelBackup\Pages\Backups;
 use Spatie\Permission\Models\Role;
 
+pest()->group('tenancy');
+
 /** Owners get no Shield permissions: being a member of the account is what opens it. */
 beforeEach(function () {
     Filament::setCurrentPanel('admin');
@@ -41,7 +43,7 @@ it('opens the account\'s own pages to an owner without permissions', function (s
     };
 
     $this->get($url)->assertOk();
-})->with(['clients', 'payments', 'bank statement', 'finance settings', 'account profile']);
+})->with(['clients', 'payments', 'bank statement', 'finance settings', 'account profile'])->group('ui');
 
 it('still keeps the system pages shut to an owner', function (string $page) {
     $this->actingAs($this->owner);
@@ -56,7 +58,7 @@ it('still keeps the system pages shut to an owner', function (string $page) {
     };
 
     $this->get($url)->assertForbidden();
-})->with(['users', 'roles', 'audits', 'backups', 'import']);
+})->with(['users', 'roles', 'audits', 'backups', 'import'])->group('ui');
 
 it('grants the account\'s abilities to its members, never the system ones', function () {
     $client = Client::factory()->create();
@@ -83,7 +85,7 @@ it('grants the account\'s abilities to its members, never the system ones', func
         ->and($this->owner->can('create-backup'))->toBeFalse()
         ->and($this->owner->can('viewPulse'))->toBeFalse()
         ->and($this->owner->can('frobnicate', 'not-a-class'))->toBeFalse();
-});
+})->group('integration');
 
 it('gives nothing to a user who is not a member of the current account', function () {
     $stranger = User::factory()->create();
@@ -93,13 +95,13 @@ it('gives nothing to a user who is not a member of the current account', functio
     expect($stranger->can('ViewAny:Client'))->toBeFalse()
         ->and($stranger->can('viewAny', Client::class))->toBeFalse()
         ->and($stranger->can('update', $client))->toBeFalse();
-});
+})->group('integration');
 
 it('gives nothing outside an account', function () {
     CurrentAccount::set(null);
 
     expect($this->owner->can('ViewAny:Client'))->toBeFalse();
-});
+})->group('integration');
 
 it('opens nothing of another account to an owner', function () {
     $other = Account::factory()->create();
@@ -107,4 +109,4 @@ it('opens nothing of another account to an owner', function () {
     asAWebRequest();
 
     $this->get(ClientResource::getUrl(tenant: $other))->assertNotFound();
-});
+})->group('ui');

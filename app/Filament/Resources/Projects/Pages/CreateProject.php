@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Projects\Pages;
 
+use App\Enums\Language;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Resources\Projects\Schemas\ProjectForm;
 use App\Models\Client;
@@ -33,7 +34,10 @@ class CreateProject extends CreateRecord
 
     protected static string $resource = ProjectResource::class;
 
-    protected static ?string $title = 'Novo trabalho';
+    public function getTitle(): string
+    {
+        return __('New project');
+    }
 
     /** "Novo trabalho" from a client page arrives with ?client=ID. */
     protected function afterFill(): void
@@ -46,14 +50,14 @@ class CreateProject extends CreateRecord
     protected function getSteps(): array
     {
         return [
-            Step::make('Cliente')
-                ->description('Para quem é')
+            Step::make(__('Client'))
+                ->description(__('Who it’s for'))
                 ->icon(Phosphor::User)
                 ->columns(2)
                 ->schema(ProjectForm::clientFields()),
 
-            Step::make('Trabalho')
-                ->description('O quê e quanto')
+            Step::make(__('Project'))
+                ->description(__('What and how much'))
                 ->icon(Phosphor::Briefcase)
                 ->columns(3)
                 ->schema([
@@ -69,8 +73,8 @@ class CreateProject extends CreateRecord
                         ->schema(ProjectForm::valueFields()),
                 ]),
 
-            Step::make('Plano de pagamento')
-                ->description('Quando recebes')
+            Step::make(__('Payment plan'))
+                ->description(__('When you’ll be paid'))
                 ->icon(Phosphor::CalendarBlank)
                 ->schema([
                     Actions::make($this->planPresetActions())
@@ -78,25 +82,25 @@ class CreateProject extends CreateRecord
                     ...ProjectForm::planFields(),
                 ]),
 
-            Step::make('Resumo')
-                ->description('Confirmar')
+            Step::make(__('Summary'))
+                ->description(__('Confirm'))
                 ->icon(Phosphor::CheckCircle)
                 ->columns(2)
                 ->schema([
                     TextEntry::make('summary_client')
-                        ->label('Cliente')
+                        ->label(__('Client'))
                         ->state(fn (Get $get) => Client::find($get('client_id'))?->name ?? '—'),
                     TextEntry::make('summary_total')
-                        ->label('Total')
+                        ->label(__('Total'))
                         ->state(fn (Get $get) => Money::format(ProjectForm::totalFrom($get))),
                     TextEntry::make('summary_code')
-                        ->label('Trabalho')
+                        ->label(__('Project'))
                         ->state(fn (Get $get) => trim($get('code').' — '.$get('title'), ' —')),
                     TextEntry::make('summary_quoted_on')
-                        ->label('Data do orçamento')
-                        ->state(fn (Get $get) => filled($get('quoted_on')) ? Carbon::parse($get('quoted_on'))->format('d/m/Y') : '—'),
+                        ->label(__('Quote date'))
+                        ->state(fn (Get $get) => filled($get('quoted_on')) ? Carbon::parse($get('quoted_on'))->format(Language::resolve(app()->getLocale())->dateFormat()) : '—'),
                     TextEntry::make('summary_plan')
-                        ->label('Plano de pagamento')
+                        ->label(__('Payment plan'))
                         ->columnSpanFull()
                         ->state(fn (Get $get) => $this->planSummary($get('receivables'))),
                 ]),
@@ -120,37 +124,37 @@ class CreateProject extends CreateRecord
 
         return [
             Action::make('planSingle')
-                ->label('Pagamento único')
+                ->label(__('Single payment'))
                 ->icon(Phosphor::Coin)
                 ->color('gray')
                 ->size('sm')
                 ->action(fn (Get $get, Set $set) => $apply($set, InstalmentPlanner::single(ProjectForm::totalFrom($get), $firstDue($get)))),
             Action::make('planHalves')
-                ->label('50% / 50%')
+                ->label(__('50% / 50%'))
                 ->icon(Phosphor::CircleHalf)
                 ->color('gray')
                 ->size('sm')
                 ->action(fn (Get $get, Set $set) => $apply($set, InstalmentPlanner::halves(ProjectForm::totalFrom($get), $firstDue($get)))),
             Action::make('planEqual')
-                ->label('3 prestações iguais')
+                ->label(__('3 equal instalments'))
                 ->icon(Phosphor::ListNumbers)
                 ->color('gray')
                 ->size('sm')
                 ->action(fn (Get $get, Set $set) => $apply($set, InstalmentPlanner::equal(ProjectForm::totalFrom($get), 3, $firstDue($get)))),
             Action::make('planMonthly')
-                ->label('Mensal até…')
+                ->label(__('Monthly until…'))
                 ->icon(Phosphor::CalendarDots)
                 ->color('gray')
                 ->size('sm')
-                ->modalHeading('Prestações mensais')
-                ->modalDescription('Divide o total em prestações mensais iguais, desde a data do orçamento até ao último vencimento.')
+                ->modalHeading(__('Monthly instalments'))
+                ->modalDescription(__('Divide the total into equal monthly instalments from the quote date to the final due date.'))
                 ->modalWidth(Width::Small)
-                ->modalSubmitActionLabel('Criar plano')
+                ->modalSubmitActionLabel(__('Create plan'))
                 ->schema([
                     DatePicker::make('last_due_on')
-                        ->label('Último vencimento')
+                        ->label(__('Final due date'))
                         ->native(false)
-                        ->displayFormat('d/m/Y')
+                        ->displayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
                         ->required(),
                 ])
                 ->action(fn (array $data, Get $get, Set $set) => $apply($set, InstalmentPlanner::monthlyUntil(ProjectForm::totalFrom($get), $firstDue($get), $data['last_due_on']))),
@@ -165,11 +169,10 @@ class CreateProject extends CreateRecord
             return new HtmlString('—');
         }
 
-        return new HtmlString('<ul class="space-y-1">'.$rows->map(fn ($row) => sprintf(
-            '<li>%s — %s — vence %s</li>',
-            e($row['description'] ?? ''),
-            e(Money::format(Money::toCents($row['amount'] ?? null) ?? 0)),
-            e(filled($row['due_on'] ?? null) ? Carbon::parse($row['due_on'])->format('d/m/Y') : '—'),
-        ))->implode('').'</ul>');
+        return new HtmlString('<ul class="space-y-1">'.$rows->map(fn (array $row): string => '<li>'.e(__(':description — :amount — due :date', [
+            'description' => $row['description'] ?? '',
+            'amount' => Money::format(Money::toCents($row['amount'] ?? null) ?? 0),
+            'date' => filled($row['due_on'] ?? null) ? Carbon::parse($row['due_on'])->format(Language::resolve(app()->getLocale())->dateFormat()) : '—',
+        ])).'</li>')->implode('').'</ul>');
     }
 }

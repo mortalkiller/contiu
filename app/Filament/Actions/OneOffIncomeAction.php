@@ -43,13 +43,13 @@ class OneOffIncomeAction extends Action
         parent::setUp();
 
         $this
-            ->label('Receita avulsa')
+            ->label(__('One-off income'))
             ->icon(Phosphor::Gift)
-            ->modalHeading('Receita avulsa')
-            ->modalDescription('Donativos, reembolsos ou outras entradas sem trabalho nem avença. Regista o valor bruto (o da fatura-recibo); a comissão da plataforma fica como despesa.')
+            ->modalHeading(__('One-off income'))
+            ->modalDescription(__('Donations, refunds or other income unrelated to a project or retainer. Record the gross amount from the invoice-receipt. The platform fee is recorded as an expense.'))
             ->modalIcon(Phosphor::Gift)
             ->modalWidth(Width::Large)
-            ->modalSubmitActionLabel('Registar')
+            ->modalSubmitActionLabel(__('Record'))
             ->fillForm(fn (): array => [
                 'received_on' => today()->toDateString(),
                 'method' => PaymentMethod::Transfer->value,
@@ -59,7 +59,7 @@ class OneOffIncomeAction extends Action
             ->action(function (array $data): void {
                 app(RecordOneOffIncome::class)->handle($data);
 
-                Notification::make()->title('Receita registada')->success()->send();
+                Notification::make()->title(__('Income recorded'))->success()->send();
             });
     }
 
@@ -73,50 +73,52 @@ class OneOffIncomeAction extends Action
     {
         return [
             Grid::make($withDate ? 2 : 1)->schema(array_values(array_filter([
-                $withDate ? DatePicker::make('received_on')->label('Data')->required() : null,
+                $withDate ? DatePicker::make('received_on')->label(__('Date'))->required() : null,
                 Select::make('category_id')
-                    ->label('Categoria')
+                    ->label(__('Category'))
                     ->options(fn () => Category::query()->where('type', CategoryType::Income)->orderBy('name')->pluck('name', 'id')->all())
-                    ->createOptionForm([TextInput::make('name')->label('Nome')->required()])
+                    ->createOptionForm([TextInput::make('name')->label(__('Name'))->required()])
                     ->createOptionUsing(fn (array $data) => Category::create([...$data, 'type' => CategoryType::Income])->getKey())
-                    ->placeholder('Ex.: Donativos'),
+                    ->placeholder(__('E.g. Donations')),
             ]))),
             TextInput::make('title')
-                ->label('Descrição')
-                ->placeholder('Ex.: Donativo Buy Me a Coffee')
+                ->label(__('Description'))
+                ->placeholder(__('E.g. Buy Me a Coffee donation'))
                 ->required(),
             Grid::make(2)->schema([
                 MoneyInput::make('gross_amount')
-                    ->label('Valor bruto')
-                    ->helperText('O valor da fatura-recibo.')
+                    ->label(__('Gross amount'))
+                    ->helperText(__('The amount on the invoice-receipt.'))
                     ->minValue($received === null ? 0.01 : Money::toEuros($received))
                     ->live(onBlur: true)
                     // From a bank line the commission is what didn't arrive, so the income always matches.
                     ->afterStateUpdated(fn (Set $set, $state) => $received === null ? null : $set('commission', Money::toEuros(max(0, (int) Money::toCents($state) - $received))))
                     ->required(),
                 MoneyInput::make('commission')
-                    ->label('Comissão da plataforma')
-                    ->helperText($received === null ? 'O que a plataforma ficou. Fica como despesa.' : 'Calculada: valor bruto menos o que chegou ao banco ('.Money::format($received).').')
+                    ->label(__('Platform fee'))
+                    ->helperText($received === null
+                        ? __('The amount the platform kept. It is recorded as an expense.')
+                        : __('Calculated as the gross amount minus the bank deposit (:amount).', ['amount' => Money::format($received)]))
                     ->minValue(0)
                     ->readOnly($received !== null)
                     ->live(onBlur: true),
             ]),
             Select::make('commission_supplier_id')
-                ->label('Plataforma')
+                ->label(__('Platform'))
                 ->options(fn () => Supplier::query()->orderBy('name')->pluck('name', 'id')->all())
                 ->searchable()
-                ->createOptionForm([TextInput::make('name')->label('Nome')->required()])
+                ->createOptionForm([TextInput::make('name')->label(__('Name'))->required()])
                 ->createOptionUsing(fn (array $data) => Supplier::create($data)->getKey())
                 ->visible(fn (Get $get): bool => (float) $get('commission') > 0)
                 ->required(fn (Get $get): bool => (float) $get('commission') > 0),
             ToggleButtons::make('method')
-                ->label('Método')
+                ->label(__('Method'))
                 ->options(PaymentMethod::class)
                 ->inline()
                 ->required(),
             Grid::make(2)->schema([
-                TextInput::make('invoice_number')->label('N.º da fatura-recibo'),
-                Toggle::make('tax_exempt')->label('Isenta de impostos')->inline(false),
+                TextInput::make('invoice_number')->label(__('Invoice-receipt number')),
+                Toggle::make('tax_exempt')->label(__('Tax-exempt'))->inline(false),
             ]),
         ];
     }

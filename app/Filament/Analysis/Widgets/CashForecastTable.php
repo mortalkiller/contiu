@@ -19,33 +19,33 @@ class CashForecastTable extends TableWidget
     public function table(Table $table): Table
     {
         return $table
-            ->heading('Mês a mês')
+            ->heading(__('Month by month'))
             ->records(fn (): array => $this->rows())
             ->paginated(false)
             ->recordClasses(fn (array $record) => $record['is_total'] ? 'bg-gray-50 dark:bg-white/5' : null)
             ->columns([
                 TextColumn::make('label')
-                    ->label('Mês')
+                    ->label(__('Month'))
                     ->weight(fn (array $record) => $record['is_total'] ? 'bold' : 'medium'),
                 TextColumn::make('inflows')
-                    ->label('Entradas')
+                    ->label(__('Inflows'))
                     ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->description(fn (array $record) => $record['inNote'])
                     ->wrap(),
                 TextColumn::make('outflows')
-                    ->label('Saídas')
+                    ->label(__('Outflows'))
                     ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->description(fn (array $record) => $record['outNote'])
                     ->wrap(),
                 TextColumn::make('net')
-                    ->label('Saldo do mês')
+                    ->label(__('Monthly balance'))
                     ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->color(fn (float $state) => $state < 0 ? 'danger' : null),
                 TextColumn::make('balance')
-                    ->label('Saldo acumulado')
+                    ->label(__('Running balance'))
                     ->visible(fn (): bool => $this->forecast()->showsBalance())
                     ->money('EUR', divideBy: 100)
                     ->alignEnd()
@@ -63,14 +63,14 @@ class CashForecastTable extends TableWidget
 
         foreach ($forecast->months() as $row) {
             $in = array_filter([
-                $row['overdueInflows'] > 0 ? 'inclui '.Money::format($row['overdueInflows']).' em atraso' : null,
-                $row['projectedInflows'] > 0 ? Money::format($row['projectedInflows']).' de avenças por gerar' : null,
+                $row['overdueInflows'] > 0 ? __('includes :amount overdue', ['amount' => Money::format($row['overdueInflows'], locale: app()->getLocale())]) : null,
+                $row['projectedInflows'] > 0 ? __(':amount from retainers yet to be generated', ['amount' => Money::format($row['projectedInflows'], locale: app()->getLocale())]) : null,
             ]);
             $out = array_filter([
-                $row['overdueOutflows'] > 0 ? 'inclui '.Money::format($row['overdueOutflows']).' em atraso' : null,
-                $row['projectedOutflows'] > 0 ? Money::format($row['projectedOutflows']).' de recorrentes por gerar' : null,
-                $row['socialSecurity'] > 0 ? 'Seg. Social '.Money::format($row['socialSecurity']).($row['socialSecurityConfirmed'] ? ' confirmada' : ' estimada') : null,
-                $row['confirmedVat'] > 0 ? 'IVA confirmado '.Money::format($row['confirmedVat']) : null,
+                $row['overdueOutflows'] > 0 ? __('includes :amount overdue', ['amount' => Money::format($row['overdueOutflows'], locale: app()->getLocale())]) : null,
+                $row['projectedOutflows'] > 0 ? __(':amount from recurring expenses yet to be generated', ['amount' => Money::format($row['projectedOutflows'], locale: app()->getLocale())]) : null,
+                $row['socialSecurity'] > 0 ? __('Social Security :amount :status', ['amount' => Money::format($row['socialSecurity'], locale: app()->getLocale()), 'status' => $row['socialSecurityConfirmed'] ? __('confirmed') : __('estimated')]) : null,
+                $row['confirmedVat'] > 0 ? __('Confirmed VAT :amount', ['amount' => Money::format($row['confirmedVat'], locale: app()->getLocale())]) : null,
             ]);
 
             $rows[$row['month']->format('Y-m')] = [
@@ -88,7 +88,7 @@ class CashForecastTable extends TableWidget
         $totals = $forecast->totals();
 
         $rows['total'] = [
-            'label' => 'Total',
+            'label' => __('Total'),
             'inflows' => $totals['inflows'],
             'outflows' => $totals['outflows'],
             'net' => $totals['net'],

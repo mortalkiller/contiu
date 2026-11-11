@@ -13,9 +13,9 @@ enum Frequency: string implements HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::Monthly => 'Mensal',
-            self::Quarterly => 'Trimestral',
-            self::Yearly => 'Anual',
+            self::Monthly => __('Monthly'),
+            self::Quarterly => __('Quarterly'),
+            self::Yearly => __('Annual'),
         };
     }
 

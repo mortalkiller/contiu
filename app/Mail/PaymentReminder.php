@@ -33,10 +33,12 @@ class PaymentReminder extends Mailable
         public string $body,
         public ?int $highlightedId = null,
     ) {
+        $language = $client->preferredLanguage();
+        $this->locale($language->locale());
         $this->items = $client->openReceivables()->map(fn (Receivable $receivable) => [
             'code' => (string) $receivable->billable?->code,
             'description' => $receivable->description,
-            'due_on' => $receivable->due_on->format('d/m/Y'),
+            'due_on' => $receivable->due_on->format($language->dateFormat()),
             'outstanding' => $receivable->outstanding,
             'overdue' => $receivable->due_on->isBefore(today()),
             'highlighted' => $receivable->getKey() === $highlightedId,

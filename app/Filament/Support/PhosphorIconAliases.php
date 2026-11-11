@@ -12,10 +12,12 @@ use Filament\Support\View\SupportIconAlias;
 use Filament\Tables\View\TablesIconAlias;
 use Filament\View\PanelsIconAlias;
 use Filament\Widgets\View\WidgetsIconAlias;
+use MortalKiller\FilamentAppearance\View\AppearanceIconAlias;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 /**
- * Replaces every Filament core icon alias with its Phosphor equivalent.
+ * Replaces every Filament core icon alias, and those of filament-appearance, with its Phosphor
+ * equivalent.
  *
  * Generated from the alias classes in vendor/filament (v5.11); when Filament adds an alias,
  * add it here so no Heroicon falls through.
@@ -269,6 +271,16 @@ final class PhosphorIconAliases
             QueryBuilderIconAlias::CONSTRAINTS_TEXT => Phosphor::TextT,
             QueryBuilderIconAlias::OR_GROUP_BLOCK => Phosphor::ArrowsSplit,
             QueryBuilderIconAlias::OR_GROUP_ADD_GROUP_ACTION => Phosphor::Plus,
+
+            // mortalkiller/filament-appearance
+            AppearanceIconAlias::USER_MENU_APPEARANCE => Phosphor::Palette,
+            AppearanceIconAlias::PICKER_ACTIONS_CREATE => Phosphor::Plus,
+            AppearanceIconAlias::PICKER_ACTIONS_EDIT => Phosphor::PencilSimple,
+            AppearanceIconAlias::PICKER_ACTIONS_DELETE => Phosphor::Trash,
+            AppearanceIconAlias::MOBILE_MENU_SEARCH => Phosphor::MagnifyingGlass,
+            AppearanceIconAlias::MOBILE_MENU_EXPAND => Phosphor::CaretDown,
+            AppearanceIconAlias::MOBILE_TAB_BAR_MORE => Phosphor::List,
+            AppearanceIconAlias::MOBILE_TAB_BAR_CLOSE => Phosphor::X,
         ];
     }
 }

@@ -15,40 +15,80 @@ final class InvoiceXpressIssueAdvance
 {
     // The invoice API documents catalogue upserts by name, but no catalogue-safe way to
     // represent an advance deduction and identify its original invoice on the final invoice.
-    public const string ProviderBlock = 'A emissão do acerto pela API está bloqueada até o InvoiceXpress confirmar como deduzir o adiantamento e referenciar a fatura original sem alterar o catálogo.';
+    public const string ProviderBlock = 'Issuing the settlement through the API is blocked until InvoiceXpress confirms how to deduct the advance and reference the original invoice without changing the catalog.';
 
     public static function source(Receivable $receivable, Payment $advance, int $vatRate, string $issueOn): FiscalDocument
     {
+        return self::resolveSource($receivable, $advance, $vatRate, $issueOn);
+    }
+
+    public static function sourceForFinal(Receivable $receivable, Payment $payment, FiscalDocument $final): FiscalDocument
+    {
+        $vatRate = match ($receivable->billable?->vat_rate) {
+            '0.0000' => 0,
+            '0.0600' => 600,
+            '0.1300' => 1300,
+            '0.2300' => 2300,
+            default => null,
+        };
+
+        if ($vatRate === null || $final->net_amount < 0
+            || $final->vat_amount !== self::vat($final->net_amount, $vatRate)
+            || Payment::query()->whereNotNull('advance_client_id')->whereKeyNot($payment->id)
+                ->whereHas('allocations', fn ($allocations) => $allocations->where('receivable_id', $receivable->id))->exists()) {
+            throw ValidationException::withMessages(['advance' => __('Confirm that the receivable has a single deposit and that the final invoice uses the same VAT rate.')]);
+        }
+
+        $advance = self::resolveSource($receivable, $payment, $vatRate, $final->document_date->toDateString(), $final->id);
+
+        if ($receivable->amount - $advance->total_amount !== $final->total_amount) {
+            throw ValidationException::withMessages(['advance' => __('Check that the gross advance amount has already been deducted from the final invoice total.')]);
+        }
+
+        return $advance;
+    }
+
+    private static function resolveSource(Receivable $receivable, Payment $advance, int $vatRate, string $issueOn, ?int $finalId = null): FiscalDocument
+    {
+        $field = $finalId === null ? 'advanceSettlement' : 'advance';
         $documents = FiscalDocument::query()
             ->whereHas('links', fn ($links) => $links->where('payment_id', $advance->id))
             ->where('status', FiscalDocumentStatus::Active)
             ->where('direction', FiscalDocumentDirection::Issued)
             ->whereIn('type', [FiscalDocumentType::Invoice, FiscalDocumentType::InvoiceReceipt])
             ->limit(2)->get();
-        $document = $documents->first();
-
         if ($documents->count() !== 1) {
-            throw ValidationException::withMessages(['advanceSettlement' => 'Liga ao recebimento uma única fatura de adiantamento ativa em Documentos fiscais antes de preparar o acerto.']);
+            throw ValidationException::withMessages([$field => __('Link a single active advance invoice to the payment in Fiscal documents before preparing the settlement.')]);
         }
 
+        $document = $documents->sole();
+        $allocations = $advance->allocations()->limit(2)->get();
+        $allocation = $allocations->first();
         $nif = InvoiceXpressIssueTerms::nif($receivable->client?->vat_number);
-        $allocatedOn = substr((string) $advance->pivot->allocated_on, 0, 10);
+        $allocatedOn = $allocation?->allocated_on->toDateString();
         $paidOn = $advance->paid_on->toDateString();
+        $withholding = $document->total_amount > $advance->amount
+            ? WithholdingReview::confirmedAdvanceEvidence($advance, $document)
+            : null;
 
-        if ($nif === null || $nif !== InvoiceXpressIssueTerms::nif($document->party_tax_id)
+        if ($advance->account_id !== $receivable->account_id || $document->account_id !== $receivable->account_id
+            || $nif === null || $nif !== InvoiceXpressIssueTerms::nif($document->party_tax_id)
             || (int) $advance->advance_client_id !== $receivable->client?->id
             || $document->currency !== 'EUR' || $document->document_date->toDateString() !== $paidOn
-            || $allocatedOn < $paidOn || $allocatedOn > $issueOn
-            || $advance->amount <= 0 || $advance->amount !== (int) $advance->pivot->amount
-            || $advance->allocations()->where('receivable_id', '!=', $receivable->id)->exists()
-            || $advance->amount !== $document->total_amount
+            || $allocations->count() !== 1 || $allocation?->receivable_id !== $receivable->id
+            || $allocatedOn === null || $allocatedOn < $paidOn || $allocatedOn > $issueOn
+            || $advance->amount <= 0 || $advance->amount !== $allocation->amount
             || $document->net_amount <= 0 || $document->net_amount > $document->total_amount
             || $document->net_amount + $document->vat_amount !== $document->total_amount
             || $document->vat_amount !== self::vat($document->net_amount, $vatRate)
+            || $document->total_amount !== $advance->amount + ($withholding?->retained_amount ?? 0)
             || FiscalDocumentLink::query()->where('related_fiscal_document_id', $document->id)
-                ->whereHas('fiscalDocument', fn ($documents) => $documents->where('status', FiscalDocumentStatus::Active))
+                ->when($finalId !== null, fn ($links) => $links->where('fiscal_document_id', '!=', $finalId))
+                ->when($withholding !== null, fn ($links) => $links->where('fiscal_document_id', '!=', $withholding->fiscal_document_id))
+                ->whereHas('fiscalDocument', fn ($documents) => $documents->where('status', FiscalDocumentStatus::Active)
+                    ->when($finalId !== null && $withholding === null, fn ($documents) => $documents->where('type', '!=', FiscalDocumentType::Receipt)))
                 ->exists()) {
-            throw ValidationException::withMessages(['advanceSettlement' => 'Confirma o cliente, a data, a afetação integral do recebimento e o IVA da fatura do adiantamento. Revê também se já existe um acerto ou uma retificação associada.']);
+            throw ValidationException::withMessages([$field => __('Confirm the client, dates, full payment allocation, VAT and income tax withholding on the advance invoice. Also check for an existing settlement or correction.')]);
         }
 
         return $document;
@@ -64,7 +104,7 @@ final class InvoiceXpressIssueAdvance
         $tax = self::vat($net, $vatRate);
 
         if ($net < 0 || $tax !== $service['tax'] - $advance->vat_amount) {
-            throw ValidationException::withMessages(['advanceSettlement' => 'A base e o IVA remanescentes não coincidem ao cêntimo. Revê o adiantamento e o arredondamento das linhas antes de emitir.']);
+            throw ValidationException::withMessages(['advanceSettlement' => __('The remaining net amount and VAT do not match to the cent. Review the advance and line rounding before issuing.')]);
         }
 
         return [

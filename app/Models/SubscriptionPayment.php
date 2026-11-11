@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Language;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -54,6 +55,11 @@ class SubscriptionPayment extends Model
             return '';
         }
 
-        return $this->period_start->format('d/m/Y').' a '.$this->period_end->format('d/m/Y');
+        $dateFormat = Language::resolve(app()->getLocale())->dateFormat();
+
+        return __(':start to :end', [
+            'start' => $this->period_start->format($dateFormat),
+            'end' => $this->period_end->format($dateFormat),
+        ]);
     }
 }

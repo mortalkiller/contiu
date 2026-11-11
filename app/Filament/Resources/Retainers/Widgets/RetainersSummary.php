@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Retainers\Widgets;
 
+use App\Enums\Language;
 use App\Models\Retainer;
 use App\Support\Money;
 use Filament\Widgets\StatsOverviewWidget;
@@ -28,7 +29,7 @@ class RetainersSummary extends StatsOverviewWidget
     protected function getStats(): array
     {
         /** @var Collection<int, Retainer> $active */
-        $active = Retainer::query()->where('is_active', true)->with(['client', 'receivables.payments'])->get();
+        $active = Retainer::query()->where('is_active', true)->with(['client', 'receivables' => fn ($query) => $query->withOutstandingBalance(), 'receivables.payments'])->get();
 
         $perYear = (int) $active->sum(fn (Retainer $retainer): int => $retainer->yearly_value);
         $outstanding = (int) $active->sum(fn (Retainer $retainer): int => $retainer->outstanding_amount);
@@ -40,20 +41,20 @@ class RetainersSummary extends StatsOverviewWidget
             ->first();
 
         return [
-            Stat::make('Receita recorrente por mês', Money::format(Money::round($perYear / 12)))
-                ->description(trans_choice('{0} Nenhuma avença ativa|{1} 1 avença ativa|[2,*] :count avenças ativas', $active->count()))
+            Stat::make(__('Monthly recurring income'), Money::format(Money::round($perYear / 12), locale: app()->getLocale()))
+                ->description(trans_choice('{0} No active retainers|{1} 1 active retainer|[2,*] :count active retainers', $active->count()))
                 ->icon(Phosphor::Repeat),
-            Stat::make('Por ano', Money::format($perYear))
-                ->description('Se nada mudar')
+            Stat::make(__('Per year'), Money::format($perYear, locale: app()->getLocale()))
+                ->description(__('If nothing changes'))
                 ->icon(Phosphor::CalendarBlank),
-            Stat::make('Próximo vencimento', $next === null ? '—' : $next->next_due_on->format('d/m/Y'))
-                ->description($next === null ? 'Nada por vencer' : $next->client->name)
+            Stat::make(__('Next due date'), $next === null ? '—' : $next->next_due_on->format(Language::resolve(app()->getLocale())->dateFormat()))
+                ->description($next === null ? __('Nothing due') : $next->client->name)
                 ->icon(Phosphor::Clock),
-            Stat::make('Em aberto', Money::format($outstanding))
+            Stat::make(__('Outstanding'), Money::format($outstanding, locale: app()->getLocale()))
                 ->description(match (true) {
-                    $outstanding === 0 => 'Tudo recebido',
-                    $overdue > 0 => Money::format($overdue).' vencidos',
-                    default => 'Nada vencido',
+                    $outstanding === 0 => __('All received'),
+                    $overdue > 0 => __(':amount overdue', ['amount' => Money::format($overdue, locale: app()->getLocale())]),
+                    default => __('No overdue amounts'),
                 })
                 ->color(match (true) {
                     $outstanding === 0 => 'success',

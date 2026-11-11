@@ -2,23 +2,19 @@
 
 namespace App\Support;
 
-use App\Enums\Seat;
+use App\Enums\Language;
 use App\Filament\Pages\FinanceSettingsPage;
 use App\Filament\Pages\SocialSecurity as SocialSecurityPage;
 use App\Filament\Pages\TaxEstimate;
 use App\Filament\Pages\TerritorialTurnoverPage;
 use App\Filament\Resources\Expenses\ExpenseResource;
+use App\Filament\Resources\FiscalDocuments\FiscalDocumentResource;
 use App\Models\Account;
 use App\Models\Expense;
-use App\Models\OneOffIncome;
-use App\Models\Payment;
-use App\Models\Project;
-use App\Models\Retainer;
 use App\Models\TaxObligationCompletion;
 use App\Models\User;
 use App\Models\VatPeriodConfirmation;
 use Carbon\CarbonImmutable;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 /**
@@ -30,7 +26,7 @@ use Illuminate\Support\Collection;
  *   of the month before (art. 155.º);
  * - ss-declaration:YYYY-Qn — quarterly SS declaration, by the end of the month after the quarter;
  * - vat-reverse:YYYY-MM — VAT self-assessed on the month's foreign services, by the end of the next month;
- * - recapitulativa:YYYY-MM — services to EU businesses received in the month, by the 20th of the next;
+ * - recapitulativa:operacoes:YYYY-MM or YYYY-Qn — verified EU services by operation date;
  * - irs-modelo3:YYYY — the year's IRS return, from 1 April to 30 June of the next year.
  *
  * An obligation not marked done stays listed after its deadline as overdue, for at most
@@ -40,8 +36,6 @@ use Illuminate\Support\Collection;
 final class TaxObligations
 {
     public const OVERDUE_MONTHS = 12;
-
-    private const SS_TITLE = 'Segurança Social';
 
     private readonly CarbonImmutable $today;
 
@@ -71,10 +65,7 @@ final class TaxObligations
      */
     public function thisMonth(): array
     {
-        $current = array_filter($this->dueIn($this->month), fn (TaxObligation $obligation) => $obligation->status !== 'done');
-        $overdue = array_filter($this->dueEarlier(), fn (TaxObligation $obligation) => $obligation->status === 'overdue');
-
-        return [...$this->byDeadline([...$overdue, ...$current]), ...$this->notes()];
+        return $this->openAndNotes($this->dueIn($this->month), $this->dueEarlier());
     }
 
     /**
@@ -84,9 +75,44 @@ final class TaxObligations
      */
     public function done(): array
     {
-        $earlier = array_filter($this->dueEarlier(), fn (TaxObligation $obligation) => $obligation->status === 'done'
+        return $this->completed($this->dueIn($this->month), $this->dueEarlier());
+    }
+
+    /** @return array{rows: list<TaxObligation>, done: list<TaxObligation>} */
+    public function monthOverview(): array
+    {
+        $current = $this->dueIn($this->month);
+        $earlier = $this->dueEarlier();
+
+        return [
+            'rows' => $this->openAndNotes($current, $earlier),
+            'done' => $this->completed($current, $earlier),
+        ];
+    }
+
+    /**
+     * @param  list<TaxObligation>  $current
+     * @param  list<TaxObligation>  $earlier
+     * @return list<TaxObligation>
+     */
+    private function openAndNotes(array $current, array $earlier): array
+    {
+        $current = array_filter($current, fn (TaxObligation $obligation): bool => $obligation->status !== 'done');
+        $overdue = array_filter($earlier, fn (TaxObligation $obligation): bool => $obligation->status === 'overdue');
+
+        return [...$this->byDeadline([...$overdue, ...$current]), ...$this->notes()];
+    }
+
+    /**
+     * @param  list<TaxObligation>  $current
+     * @param  list<TaxObligation>  $earlier
+     * @return list<TaxObligation>
+     */
+    private function completed(array $current, array $earlier): array
+    {
+        $earlier = array_filter($earlier, fn (TaxObligation $obligation): bool => $obligation->status === 'done'
             && $this->completions()[$obligation->key]->completed_at->gte($this->month));
-        $current = array_filter($this->dueIn($this->month), fn (TaxObligation $obligation) => $obligation->status === 'done');
+        $current = array_filter($current, fn (TaxObligation $obligation): bool => $obligation->status === 'done');
 
         return $this->byDeadline([...$earlier, ...$current]);
     }
@@ -196,13 +222,12 @@ final class TaxObligations
     {
         $previous = $month->subMonth();
 
-        return array_values(array_filter([
+        return [...array_values(array_filter([
             $this->settings->isIncomplete() ? null : $this->ss($month),
             $month->month % 3 === 1 ? $this->ssDeclaration($month->subMonths(3)) : null,
             $this->vatReverse($previous),
-            $this->recapitulativa($previous),
             $month->month === 6 ? $this->irsReturn($month->year - 1) : null,
-        ]));
+        ])), ...$this->recapitulativasDueIn($month)];
     }
 
     /**
@@ -248,28 +273,33 @@ final class TaxObligations
 
         if ($confirmed === 0 || ($confirmed === null && $status !== 'charged')) {
             $detail = match (true) {
-                $confirmed === 0 => 'Sem contribuição a pagar · valor confirmado',
-                $status === 'exempt' => 'Isento (art. 157.º)',
-                default => 'Isento (1.º enquadramento)',
+                $confirmed === 0 => __('No contribution due · confirmed amount'),
+                $status === 'exempt' => __('Exempt (Art. 157)'),
+                default => __('Exempt (first enrollment)'),
             };
 
-            return new TaxObligation($key, 'ss', self::SS_TITLE, null, null, null, $detail, $url, 'exempt');
+            return new TaxObligation($key, 'ss', __('Social Security'), null, null, null, $detail, $url, 'exempt');
         }
 
         // While the quarter of income is still open its figure would be partial (or the minimum).
         $amount = $confirmed ?? ($sourceClosed ? $this->estimator()->ssPaymentInMonth($month) : null);
-        $detail = 'Pagar entre 10 e 20 de '.self::monthName($month)
-            .' · contribuição de '.self::monthName($contributionMonth)
-            .' · rendimentos de '.self::quarterName($source)
-            .match (true) {
-                $confirmed !== null => ' · valor confirmado',
-                $amount === null => ' · valor por apurar',
-                $amount === TaxEstimator::SS_MINIMUM_CONTRIBUTION => ' · contribuição mínima',
-                default => '',
-            };
+        $detail = __('Pay between :month 10 and 20 · :contributionMonth contribution · income from :quarter', [
+            'month' => self::monthName($month),
+            'contributionMonth' => self::monthName($contributionMonth),
+            'quarter' => self::quarterName($source),
+        ]);
+        $amountStatus = match (true) {
+            $confirmed !== null => __('confirmed amount'),
+            $amount === null => __('amount to be determined'),
+            $amount === TaxEstimator::SS_MINIMUM_CONTRIBUTION => __('minimum contribution'),
+            default => null,
+        };
+        if ($amountStatus !== null) {
+            $detail .= ' · '.$amountStatus;
+        }
         $dueOn = $month->setDay(20);
 
-        return new TaxObligation($key, 'ss', self::SS_TITLE, $amount, $dueOn, $month->setDay(10), $detail, $url, $this->status($key, $dueOn));
+        return new TaxObligation($key, 'ss', __('Social Security'), $amount, $dueOn, $month->setDay(10), $detail, $url, $this->status($key, $dueOn));
     }
 
     /** Declared in the month after the quarter; not while the SS obligation has not started. */
@@ -288,11 +318,16 @@ final class TaxObligations
         return new TaxObligation(
             $key,
             'ss-declaration',
-            'Declaração trimestral da Segurança Social',
+            __('Quarterly Social Security return'),
             null,
             $dueOn,
             null,
-            'Até '.$dueOn->day.' de '.self::monthName($dueOn).' · rendimentos de '.self::quarterName($quarter).' '.$quarter->year,
+            __('Due by :month :day · income from :quarter :year', [
+                'month' => self::monthName($dueOn),
+                'day' => $dueOn->day,
+                'quarter' => self::quarterName($quarter),
+                'year' => $quarter->year,
+            ]),
             $quarter->endOfQuarter()->lt($this->today) ? $this->ssReviewUrl($quarter) : null,
             $this->status($key, $dueOn),
         );
@@ -320,12 +355,16 @@ final class TaxObligations
         return new TaxObligation(
             $key,
             'vat-reverse',
-            'IVA das compras ao estrangeiro',
+            __('VAT on purchases from abroad'),
             $vat['vat'],
             $dueOn,
             null,
-            'Declaração periódica e pagamento até '.$dueOn->day.' de '.self::monthName($dueOn)
-                .' · compras de '.self::monthName($month).' ('.Money::format($vat['base']).' sem IVA)',
+            __('File the periodic VAT return and pay by :dueMonth :day · :month purchases (:base excluding VAT)', [
+                'dueMonth' => self::monthName($dueOn),
+                'day' => $dueOn->day,
+                'month' => self::monthName($month),
+                'base' => Money::format($vat['base']),
+            ]),
             $this->url(fn (Account $account) => ExpenseResource::getUrl('index', [
                 'tableFilters' => ['year' => ['value' => $month->year], 'month' => ['value' => $month->month]],
             ], panel: 'admin', tenant: $account)),
@@ -333,39 +372,37 @@ final class TaxObligations
         );
     }
 
-    /** Only for a month with payments (not tax-exempt) from businesses seated elsewhere in the EU. */
-    private function recapitulativa(CarbonImmutable $month): ?TaxObligation
+    /** @return list<TaxObligation> */
+    private function recapitulativasDueIn(CarbonImmutable $month): array
     {
-        $hasEuBusinessPayments = Payment::query()
-            ->where('tax_exempt', false)
-            ->whereBetween('paid_on', Period::of($month->year, $month->month)->range())
-            ->whereHas('allocations.receivable', fn (Builder $query) => $query->whereHasMorph(
-                'billable',
-                [Project::class, Retainer::class, OneOffIncome::class],
-                fn (Builder $query) => $query->whereHas('client', fn (Builder $query) => $query
-                    ->where('seat', Seat::EuropeanUnion->value)
-                    ->where('is_business', true)),
-            ))
-            ->exists();
+        $recap = new EuServicesRecap;
+        $previous = $month->subMonth();
+        $rows = [];
 
-        if (! $hasEuBusinessPayments) {
-            return null;
+        foreach ($recap->basesDueIn($month) as $frequency => $base) {
+            $period = $frequency === 1 ? $previous->format('Y-m') : $previous->year.'-Q'.$previous->quarter;
+            $label = $frequency === 1 ? self::monthName($previous) : self::quarterName($previous->startOfQuarter());
+            $key = 'recapitulativa:operacoes:'.$period;
+            $dueOn = $recap->deadline($month);
+
+            $rows[] = new TaxObligation(
+                $key,
+                'recapitulativa',
+                __('Recapitulative statement'),
+                null,
+                $dueOn,
+                null,
+                __('Services to EU businesses · :period :year · documented taxable amount :base', [
+                    'period' => $label,
+                    'year' => $previous->year,
+                    'base' => Money::format($base),
+                ]),
+                $this->url(fn (Account $account): string => FiscalDocumentResource::getUrl('index', panel: 'admin', tenant: $account)),
+                $this->status($key, $dueOn),
+            );
         }
 
-        $key = 'recapitulativa:'.$month->format('Y-m');
-        $dueOn = $month->addMonth()->setDay(20);
-
-        return new TaxObligation(
-            $key,
-            'recapitulativa',
-            'Declaração recapitulativa',
-            null,
-            $dueOn,
-            null,
-            'Até dia 20 de '.self::monthName($dueOn).' · serviços a empresas da UE recebidos em '.self::monthName($month),
-            null,
-            $this->status($key, $dueOn),
-        );
+        return $rows;
     }
 
     /** The return of an income year, once the activity had started by then. */
@@ -383,11 +420,11 @@ final class TaxObligations
         return new TaxObligation(
             $key,
             'irs-modelo3',
-            'IRS (modelo 3)',
+            __('Personal income tax return (Form 3)'),
             null,
             $dueOn,
             CarbonImmutable::create($year + 1, 4, 1),
-            'Entrega de 1 de abril a 30 de junho, com o anexo SS · rendimentos de '.$year,
+            __('File April 1 through June 30 with the Social Security annex · :year income', ['year' => $year]),
             $this->url(fn (Account $account) => TaxEstimate::getUrl(['year' => $year], panel: 'admin', tenant: $account)),
             $this->status($key, $dueOn),
         );
@@ -427,11 +464,11 @@ final class TaxObligations
             $notes[] = new TaxObligation(
                 'incomplete-settings',
                 'incomplete-settings',
-                'Completa as definições fiscais',
+                __('Complete your tax settings'),
                 null,
                 null,
                 null,
-                'Indica quando e como começaste a atividade para veres a Segurança Social e o IRS.',
+                __('Enter when and how you started your activity to see Social Security and personal income tax information.'),
                 $this->url(fn (Account $account) => FinanceSettingsPage::getUrl(panel: 'admin', tenant: $account)),
                 'info',
             );
@@ -446,7 +483,7 @@ final class TaxObligations
                 $threshold['amount'],
                 null,
                 null,
-                trim(($threshold['usesReceipts'] ? 'Limite de isenção de IVA · aproximação por recebimentos. ' : '').$threshold['detail']
+                trim(($threshold['usesReceipts'] ? __('VAT exemption threshold · estimate based on payments received.').' ' : '').$threshold['detail']
                     .' '.($threshold['notice'] ?? $threshold['advisory'] ?? '')),
                 $this->territorialReviewUrl($year),
                 'info',
@@ -456,7 +493,7 @@ final class TaxObligations
                 $notes[] = new TaxObligation(
                     'vat-threshold-alert:'.$year,
                     'vat-threshold-alert',
-                    'Limiar de IVA ultrapassado',
+                    __('VAT threshold exceeded'),
                     null,
                     null,
                     null,
@@ -471,7 +508,7 @@ final class TaxObligations
                 $notes[] = new TaxObligation(
                     'vat-threshold-previous:'.($year - 1),
                     'vat-threshold-previous',
-                    'Limiar de IVA ultrapassado no ano anterior',
+                    __('VAT threshold exceeded in the previous year'),
                     $previous->subtotal(),
                     null,
                     null,
@@ -487,13 +524,37 @@ final class TaxObligations
             $notes[] = new TaxObligation(
                 'foreign-vat-warning:'.$expense->getKey(),
                 'foreign-vat-warning',
-                'Despesa de fornecedor estrangeiro com IVA: confirma',
+                __('Review expense from a foreign supplier that includes VAT'),
                 null,
                 null,
                 null,
-                trim(($expense->supplier?->name ?? '—').' · '.$expense->description.' ('.$expense->spent_on->format('d/m/Y').')')
-                    .': sem autoliquidação, porque a fatura tem IVA',
+                __(':supplier · :description (:date): no reverse charge because the invoice includes VAT', [
+                    'supplier' => $expense->supplier?->name ?? '—',
+                    'description' => $expense->description,
+                    'date' => $expense->spent_on->format(Language::resolve(app()->getLocale())->dateFormat()),
+                ]),
                 $this->url(fn (Account $account) => ExpenseResource::getUrl('edit', ['record' => $expense], panel: 'admin', tenant: $account)),
+                'info',
+            );
+        }
+
+        $review = (new EuServicesRecap)->review($this->trackedFrom()->subMonths(3), $this->today);
+        $details = array_filter([
+            $review['documents'] > 0 ? trans_choice('{1} :count document without evidence of the operation|[2,*] :count documents without evidence of the operation', $review['documents']) : null,
+            $review['editedDocuments'] > 0 ? trans_choice('{1} :count document edited after evidence was recorded|[2,*] :count documents edited after evidence was recorded', $review['editedDocuments']) : null,
+            $review['payments'] > 0 ? trans_choice('{1} :count payment to confirm|[2,*] :count payments to confirm', $review['payments']) : null,
+            $review['unknownFrequency'] > 0 ? trans_choice('{1} :count operation without a confirmed reporting frequency|[2,*] :count operations without a confirmed reporting frequency', $review['unknownFrequency']) : null,
+        ]);
+        if ($details !== []) {
+            $notes[] = new TaxObligation(
+                'recapitulativa-review',
+                'recapitulativa-review',
+                __('Recapitulative statement to review'),
+                null,
+                null,
+                null,
+                implode(' · ', $details),
+                $this->url(fn (Account $account): string => FiscalDocumentResource::getUrl('index', panel: 'admin', tenant: $account)),
                 'info',
             );
         }
@@ -555,12 +616,13 @@ final class TaxObligations
     /** "novembro". */
     private static function monthName(CarbonImmutable $month): string
     {
-        return mb_strtolower(Period::MONTHS[$month->month - 1]);
+        return Period::monthName($month->month, inSentence: true);
     }
 
     /** "jul–set" for the quarter starting in July. */
     private static function quarterName(CarbonImmutable $quarter): string
     {
-        return mb_strtolower(Period::SHORT_MONTHS[$quarter->month - 1].'–'.Period::SHORT_MONTHS[$quarter->addMonths(2)->month - 1]);
+        return Period::monthName($quarter->month, short: true, inSentence: true)
+            .'–'.Period::monthName($quarter->addMonths(2)->month, short: true, inSentence: true);
     }
 }

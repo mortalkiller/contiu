@@ -13,6 +13,8 @@ use Carbon\CarbonImmutable;
  */
 final readonly class TaxObligation
 {
+    private string $periodLabel;
+
     public function __construct(
         public string $key,
         public string $kind,
@@ -23,16 +25,20 @@ final readonly class TaxObligation
         public string $detail,
         public ?string $url,
         public string $status,
-    ) {}
-
-    /** What the obligation is about: "outubro" for a monthly one, "2026" for the IRS return, else "". */
-    public function period(): string
-    {
-        return match ($this->kind) {
+    ) {
+        $this->periodLabel = match ($this->kind) {
             'irs-modelo3' => substr($this->key, -4),
-            'ss', 'vat-reverse', 'recapitulativa' => mb_strtolower(Period::MONTHS[(int) substr($this->key, -2) - 1]),
+            'recapitulativa' => preg_match('/-Q([1-4])$/', $this->key, $parts)
+                ? __('Q:quarter', ['quarter' => $parts[1]])
+                : Period::monthName((int) substr($this->key, -2), inSentence: true),
+            'ss', 'vat-reverse' => Period::monthName((int) substr($this->key, -2), inSentence: true),
             default => '',
         };
+    }
+
+    public function period(): string
+    {
+        return $this->periodLabel;
     }
 
     /** Days until the deadline (0 on the day, negative once past); null without one. */

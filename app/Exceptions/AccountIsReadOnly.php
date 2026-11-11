@@ -12,6 +12,6 @@ class AccountIsReadOnly extends RuntimeException
 {
     public function __construct()
     {
-        parent::__construct('A conta está só de leitura. Subscreve para continuar a registar.');
+        parent::__construct(__('The account is read-only. Subscribe to continue recording transactions.'));
     }
 }

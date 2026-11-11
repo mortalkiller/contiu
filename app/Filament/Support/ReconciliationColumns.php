@@ -2,6 +2,7 @@
 
 namespace App\Filament\Support;
 
+use App\Enums\Language;
 use App\Enums\ReconciliationStatus;
 use App\Models\Expense;
 use App\Models\Payment;
@@ -42,7 +43,7 @@ final class ReconciliationColumns
     public static function paymentColumn(): TextColumn
     {
         return TextColumn::make('reconciliation')
-            ->label('Banco')
+            ->label(__('Bank'))
             ->visible(fn (): bool => self::enabled())
             ->badge()
             ->state(fn (Payment $record) => self::reconciliation()->forPayment($record)->label())
@@ -53,7 +54,7 @@ final class ReconciliationColumns
     public static function expenseColumn(): TextColumn
     {
         return TextColumn::make('reconciliation')
-            ->label('Banco')
+            ->label(__('Bank'))
             ->visible(fn (): bool => self::enabled())
             ->badge()
             ->state(fn (Expense $record) => $record->is_paid ? self::reconciliation()->forExpense($record)->label() : null)
@@ -72,24 +73,24 @@ final class ReconciliationColumns
     public static function detailsAction(): Action
     {
         return Action::make('reconciliation')
-            ->label('Ver no banco')
+            ->label(__('View in bank statement'))
             ->icon(Phosphor::Bank)
             ->visible(fn (Payment|Expense $record) => self::enabled() && ($record instanceof Payment || $record->is_paid))
-            ->modalHeading('Reconciliação com o banco')
+            ->modalHeading(__('Bank reconciliation'))
             ->modalDescription(fn (Payment|Expense $record) => $record instanceof Payment
-                ? 'Recebimento '.($record->is_split ? $record->receivableLabels() : $record->receivable?->label).' · '.$record->paid_on?->format('d/m/Y').' · '.Money::format($record->amount)
-                : 'Despesa '.$record->description.' · '.($record->paid_on ?? $record->spent_on)?->format('d/m/Y').' · '.Money::format($record->total))
+                ? __('Payment received :reference', ['reference' => $record->is_split ? $record->receivableLabels() : $record->receivable?->label]).' · '.$record->paid_on?->format(Language::resolve(app()->getLocale())->dateFormat()).' · '.Money::format($record->amount, locale: app()->getLocale())
+                : __('Expense :description', ['description' => $record->description]).' · '.($record->paid_on ?? $record->spent_on)?->format(Language::resolve(app()->getLocale())->dateFormat()).' · '.Money::format($record->total, locale: app()->getLocale()))
             ->modalContent(fn (Payment|Expense $record) => view('filament.partials.reconciliation-details', ['result' => self::for($record), 'isExpense' => $record instanceof Expense]))
             ->modalSubmitAction(false)
-            ->modalCancelActionLabel('Fechar');
+            ->modalCancelActionLabel(__('Close'));
     }
 
     /** "Banco" section for the payment and expense forms (editing an existing, paid record). */
     public static function section(): Section
     {
-        return Section::make('Banco')
+        return Section::make(__('Bank'))
             ->icon(Phosphor::Bank)
-            ->description('Se já está reconciliado com o extrato e que linhas o cobrem.')
+            ->description(__('Shows whether it is reconciled with the statement and which lines cover it.'))
             ->columnSpanFull()
             ->schema([
                 View::make('filament.partials.reconciliation-details')
@@ -111,7 +112,7 @@ final class ReconciliationColumns
     private static function filter(callable $ids): SelectFilter
     {
         return SelectFilter::make('reconciliation')
-            ->label('Banco')
+            ->label(__('Bank'))
             ->visible(fn (): bool => self::enabled())
             ->options(collect(ReconciliationStatus::cases())->mapWithKeys(fn (ReconciliationStatus $status) => [$status->value => $status->label()])->all())
             ->query(fn (Builder $query, array $data) => filled($data['value'] ?? null)

@@ -18,7 +18,7 @@ class ListExpenses extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make()->label('Nova despesa'),
+            CreateAction::make()->label(__('New expense')),
         ];
     }
 
@@ -30,16 +30,16 @@ class ListExpenses extends ListRecords
     public function getTabs(): array
     {
         return [
-            'all' => Tab::make('Todas'),
-            'unpaid' => Tab::make('Por pagar')
+            'all' => Tab::make(__('All expenses')),
+            'unpaid' => Tab::make(__('Unpaid'))
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('is_paid', false))
                 ->badge(fn () => Expense::query()->where('is_paid', false)->count() ?: null)
                 ->badgeColor('warning'),
-            'paid' => Tab::make('Pagas')
+            'paid' => Tab::make(__('Paid expenses'))
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('is_paid', true)),
-            'overhead' => Tab::make('Estrutura')
+            'overhead' => Tab::make(__('Overhead'))
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('kind', ExpenseKind::Overhead)),
-            'direct' => Tab::make('Diretas')
+            'direct' => Tab::make(__('Direct expenses'))
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('kind', ExpenseKind::Direct)),
         ];
     }

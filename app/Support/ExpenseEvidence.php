@@ -80,24 +80,24 @@ final class ExpenseEvidence
     private static function store(mixed $file, int $accountId): string
     {
         if (! $file instanceof TemporaryUploadedFile) {
-            throw ValidationException::withMessages(['data.proof_upload' => 'Seleciona um ficheiro PDF.']);
+            throw ValidationException::withMessages(['data.proof_upload' => __('Select a PDF file.')]);
         }
 
         $path = self::directory($accountId).'/'.Str::uuid().'.pdf';
         $stream = $file->readStream();
 
         if (! is_resource($stream)) {
-            throw ValidationException::withMessages(['data.proof_upload' => 'Não foi possível guardar o comprovativo.']);
+            throw ValidationException::withMessages(['data.proof_upload' => __('Could not save the supporting document.')]);
         }
 
         try {
             if (! Storage::disk(self::DISK)->put($path, $stream, 'private')) {
-                throw ValidationException::withMessages(['data.proof_upload' => 'Não foi possível guardar o comprovativo.']);
+                throw ValidationException::withMessages(['data.proof_upload' => __('Could not save the supporting document.')]);
             }
         } catch (FilesystemException $exception) {
             report($exception);
 
-            throw ValidationException::withMessages(['data.proof_upload' => 'Não foi possível guardar o comprovativo.']);
+            throw ValidationException::withMessages(['data.proof_upload' => __('Could not save the supporting document.')]);
         } finally {
             if (is_resource($stream)) {
                 fclose($stream);

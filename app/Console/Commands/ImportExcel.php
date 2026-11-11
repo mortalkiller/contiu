@@ -12,8 +12,8 @@ use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
-#[Signature('finance:import-excel {path : Caminho do ficheiro .xlsx} {--account= : Slug da conta onde importar} {--replace : Apaga os dados financeiros atuais antes de importar} {--dry-run : Mostra o que seria importado sem gravar}')]
-#[Description('Importa o Excel de controlo financeiro (Receitas, Pagamentos, Despesas, Listas)')]
+#[Signature('finance:import-excel {path : Path to the .xlsx file} {--account= : Account slug to import into} {--replace : Delete current financial data before importing} {--dry-run : Preview the import without saving}')]
+#[Description('Import the financial tracking workbook (income, payments, expenses, lists)')]
 class ImportExcel extends Command
 {
     public function handle(ImportFinanceWorkbook $import): int
@@ -21,7 +21,9 @@ class ImportExcel extends Command
         $account = Account::where('slug', (string) $this->option('account'))->first();
 
         if ($account === null) {
-            $this->error('Conta não encontrada: indique --account=<slug> (recebido: "'.$this->option('account').'").');
+            $this->error(__('Account not found: specify --account=<slug> (received: ":account").', [
+                'account' => $this->option('account'),
+            ]));
 
             return self::FAILURE;
         }
@@ -34,22 +36,22 @@ class ImportExcel extends Command
             return self::FAILURE;
         }
 
-        $this->info($result->dryRun ? 'Pré-visualização (nada foi gravado):' : 'Importação concluída:');
+        $this->info($result->dryRun ? __('Preview (nothing was saved):') : __('Import complete:'));
 
         foreach (ImportResult::LABELS as $key => $label) {
-            $this->line("  {$label}: ".($result->counts[$key] ?? 0));
+            $this->line('  '.__($label).': '.($result->counts[$key] ?? 0));
         }
 
-        $this->line('  Contratado: '.Money::format($result->contracted));
-        $this->line('  Recebido: '.Money::format($result->received));
-        $this->line('  Despesas: '.Money::format($result->expenses));
+        $this->line('  '.__('Contracted').': '.Money::format($result->contracted));
+        $this->line('  '.__('Received').': '.Money::format($result->received));
+        $this->line('  '.__('Expenses').': '.Money::format($result->expenses));
 
         foreach ($result->info as $info) {
             $this->line('<comment>ℹ '.$info.'</comment>');
         }
 
         if ($result->warnings !== []) {
-            $this->warn(count($result->warnings).' aviso(s):');
+            $this->warn(trans_choice(':count warning:|:count warnings:', count($result->warnings)));
 
             foreach ($result->warnings as $warning) {
                 $this->warn('  • '.$warning);

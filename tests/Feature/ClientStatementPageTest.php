@@ -12,6 +12,8 @@ use App\Support\Money;
 use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 
+pest()->group('ui');
+
 beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-03-10'));
     actingAsAdmin();
@@ -34,17 +36,14 @@ it('shows every movement with the running balance', function () {
         ->assertSee('a vencer');
 });
 
-it('is reachable at /extrato and listed in the client sub-navigation', function () {
-    $this->get(ClientResource::getUrl('statement', ['record' => $this->client]))->assertOk();
+it('is reachable at /extrato, from the actions of the client page instead of a sub-navigation', function () {
+    $url = ClientResource::getUrl('statement', ['record' => $this->client]);
 
-    $labels = collect(ClientResource::getRecordSubNavigation(Livewire::test(ViewClient::class, ['record' => $this->client->getRouteKey()])->instance()))
-        ->map(fn ($item) => $item->getLabel())
-        ->all();
+    $this->get($url)->assertOk();
 
-    expect($labels)->toContain('Extrato');
-});
+    $page = Livewire::test(ViewClient::class, ['record' => $this->client->getRouteKey()]);
 
-it('offers an Extrato button on the client page', function () {
-    Livewire::test(ViewClient::class, ['record' => $this->client->getRouteKey()])
-        ->assertActionVisible('statement');
+    $page->assertActionHasUrl('statement', $url);
+
+    expect(ClientResource::getRecordSubNavigation($page->instance()))->toBe([]);
 });

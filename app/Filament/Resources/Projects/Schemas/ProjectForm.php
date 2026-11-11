@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Projects\Schemas;
 
+use App\Enums\Language;
 use App\Enums\ProjectStatus;
 use App\Filament\Support\FinanceFields;
 use App\Filament\Support\MoneyInput;
@@ -31,7 +32,7 @@ class ProjectForm
         return $schema
             ->columns(3)
             ->components([
-                Section::make('Trabalho')
+                Section::make(__('Project'))
                     ->columnSpan(2)
                     ->columns(2)
                     ->schema([
@@ -41,16 +42,16 @@ class ProjectForm
                         ...static::projectFields(),
                     ]),
 
-                Section::make('Valor')
+                Section::make(__('Amount'))
                     ->columnSpan(1)
                     ->schema(static::valueFields()),
 
-                Section::make('Plano de pagamento')
-                    ->description('Uma linha por prestação. Para um pagamento único, deixa só uma linha com o valor total.')
+                Section::make(__('Payment plan'))
+                    ->description(__('Add one row per instalment. For a single payment, leave one row with the full amount.'))
                     ->columnSpanFull()
                     ->schema(static::planFields()),
 
-                Section::make('Notas')
+                Section::make(__('Notes'))
                     ->columnSpanFull()
                     ->collapsed()
                     ->schema([static::notesField()]),
@@ -60,9 +61,9 @@ class ProjectForm
     public static function codeField(): TextInput
     {
         return TextInput::make('code')
-            ->label('Código')
+            ->label(__('Code'))
             ->placeholder('ORC-2026-001')
-            ->helperText('O código do orçamento.')
+            ->helperText(__('The quote code.'))
             ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule) => $rule->where('account_id', CurrentAccount::id())) // codes repeat across accounts
             ->required();
     }
@@ -70,7 +71,7 @@ class ProjectForm
     public static function statusField(): Select
     {
         return Select::make('status')
-            ->label('Estado')
+            ->label(__('Status'))
             ->options(ProjectStatus::class)
             ->default(ProjectStatus::Approved)
             ->native(false)
@@ -83,9 +84,9 @@ class ProjectForm
         return [
             FinanceFields::clientSelect(),
             TextInput::make('business_line')
-                ->label('Linha de negócio')
+                ->label(__('Business line'))
                 ->datalist(fn () => FinanceFields::businessLines())
-                ->placeholder('Ex.: Design, Consultoria…'),
+                ->placeholder(__('E.g. Design, Consulting…')),
         ];
     }
 
@@ -94,21 +95,21 @@ class ProjectForm
     {
         return [
             TextInput::make('title')
-                ->label('Título')
+                ->label(__('Title'))
                 ->columnSpanFull()
                 ->required(),
             Textarea::make('description')
-                ->label('Descrição')
+                ->label(__('Description'))
                 ->rows(2)
                 ->columnSpanFull(),
             Select::make('category_id')
-                ->label('Categoria')
+                ->label(__('Category'))
                 ->relationship('category', 'name', fn (Builder $query) => $query->income())
                 ->native(false),
             DatePicker::make('quoted_on')
-                ->label('Data do orçamento')
+                ->label(__('Quote date'))
                 ->native(false)
-                ->displayFormat('d/m/Y')
+                ->displayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
                 ->default(today()),
         ];
     }
@@ -132,24 +133,24 @@ class ProjectForm
                 ->relationship()
                 ->orderColumn('sort')
                 ->defaultItems(1)
-                ->addActionLabel('Adicionar prestação')
+                ->addActionLabel(__('Add instalment'))
                 ->rule(fn (Get $get): Closure => static::instalmentPlanRule($get))
                 ->columns(3)
                 ->table([
-                    Repeater\TableColumn::make('Descrição'),
-                    Repeater\TableColumn::make('Valor'),
-                    Repeater\TableColumn::make('Vencimento'),
+                    Repeater\TableColumn::make(__('Description')),
+                    Repeater\TableColumn::make(__('Amount')),
+                    Repeater\TableColumn::make(__('Due date')),
                 ])
                 ->schema([
                     TextInput::make('description')
-                        ->default('Pagamento único')
+                        ->default(__('Single payment'))
                         ->required(),
                     MoneyInput::make('amount')
                         ->live(onBlur: true)
                         ->required(),
                     DatePicker::make('due_on')
                         ->native(false)
-                        ->displayFormat('d/m/Y')
+                        ->displayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
                         ->required(),
                 ]),
             TextEntry::make('plan_check')
@@ -159,9 +160,16 @@ class ProjectForm
                     $planned = static::plannedCents($get('receivables'));
                     $difference = $total - $planned;
 
-                    $text = $difference == 0
-                        ? 'As prestações somam o total do trabalho.'
-                        : 'As prestações somam '.Money::format($planned).' — '.($difference > 0 ? 'faltam ' : 'sobram ').Money::format(abs($difference)).' para o total de '.Money::format($total).'.';
+                    $amounts = [
+                        'planned' => Money::format($planned),
+                        'difference' => Money::format(abs($difference)),
+                        'total' => Money::format($total),
+                    ];
+                    $text = match (true) {
+                        $difference > 0 => __('The instalments add up to :planned — :difference below the total of :total.', $amounts),
+                        $difference < 0 => __('The instalments add up to :planned — :difference above the total of :total.', $amounts),
+                        default => __('The instalments add up to the project total.'),
+                    };
 
                     return new HtmlString('<span class="'.($difference == 0 ? 'text-success-600 dark:text-success-400' : 'text-warning-600 dark:text-warning-400').'">'.e($text).'</span>');
                 }),
@@ -198,13 +206,18 @@ class ProjectForm
             $planned = static::plannedCents($rows->all());
 
             if ($total !== $planned) {
-                $fail('As prestações somam '.Money::format($planned).', mas o total do trabalho é '.Money::format($total).'.');
+                $fail(__('The instalments add up to :planned, but the project total is :total.', [
+                    'planned' => Money::format($planned),
+                    'total' => Money::format($total),
+                ]));
             }
 
             $quotedOn = $get('quoted_on');
 
             if (filled($quotedOn) && $rows->contains(fn ($row) => filled($row['due_on'] ?? null) && Carbon::parse($row['due_on'])->lt(Carbon::parse($quotedOn)))) {
-                $fail('Nenhuma prestação pode vencer antes da data do orçamento ('.Carbon::parse($quotedOn)->format('d/m/Y').').');
+                $fail(__('No instalment can be due before the quote date (:date).', [
+                    'date' => Carbon::parse($quotedOn)->format(Language::resolve(app()->getLocale())->dateFormat()),
+                ]));
             }
         };
     }

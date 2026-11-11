@@ -60,11 +60,14 @@ class WeekAhead extends Widget
         });
 
         return [
-            'range' => $monday->translatedFormat('j').' a '.$sunday->translatedFormat('j \d\e F'),
-            'incoming' => Money::format($received + $stillComing),
-            'received' => Money::format($received),
-            'outgoing' => Money::format($paid + $unpaid),
-            'unpaid' => Money::format($unpaid),
+            'range' => __(':from to :through', [
+                'from' => $monday->locale(app()->getLocale())->translatedFormat(__('M j')),
+                'through' => $sunday->locale(app()->getLocale())->translatedFormat(__('F j')),
+            ]),
+            'incoming' => Money::format($received + $stillComing, locale: app()->getLocale()),
+            'received' => Money::format($received, locale: app()->getLocale()),
+            'outgoing' => Money::format($paid + $unpaid, locale: app()->getLocale()),
+            'unpaid' => Money::format($unpaid, locale: app()->getLocale()),
             'deadlines' => count(array_filter($week, fn (CalendarEntry $entry): bool => $entry->type === CalendarEntryType::Obligation && $entry->status !== 'done')),
             'late' => count(array_filter($before, fn (CalendarEntry $entry): bool => match ($entry->type) {
                 CalendarEntryType::Obligation => $entry->status === 'overdue',

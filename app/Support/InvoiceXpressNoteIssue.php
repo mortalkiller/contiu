@@ -62,7 +62,7 @@ final class InvoiceXpressNoteIssue
 
             if (InvoiceXpressNoteAttempt::query()->where('original_id', $input['originalId'])
                 ->where('state', '!=', InvoiceXpressNoteAttempt::Finalized)->exists()) {
-                throw InvoiceXpressNoteTerms::invalid('confirmation', 'Resolve primeiro a tentativa anterior desta fatura.');
+                throw InvoiceXpressNoteTerms::invalid('confirmation', __('Resolve the previous attempt for this invoice first.'));
             }
 
             $snapshot = $this->snapshot($input, $subdomain);
@@ -103,9 +103,14 @@ final class InvoiceXpressNoteIssue
                 }
 
                 $kind = $attempt->snapshot['input']['kind'];
+                $payload = $this->decimalPayload($attempt->snapshot['payload']);
+                if (isset($payload['items'][0]['discount'])) {
+                    $payload['items'][0]['discount'] = (float) $payload['items'][0]['discount'];
+                }
+
                 $response = $this->write($attempt, 'POST', "/{$kind}s.json", [
                     'proprietary_uid' => $attempt->proprietary_uid,
-                    $kind => [...$attempt->snapshot['payload'], 'reference' => $this->reference($attempt)],
+                    $kind => [...$payload, 'reference' => $this->reference($attempt)],
                 ]);
             } catch (InvoiceXpressException) {
                 return $attempt;
@@ -187,12 +192,12 @@ final class InvoiceXpressNoteIssue
             'quantity' => ['required', 'integer', 'between:1,1000'],
             'reason' => ['required', 'string', 'max:255', 'not_regex:/[\x00-\x1f\x7f]/u'],
         ], [
-            'originalId.*' => 'Escolhe a fatura original.',
-            'kind.*' => 'Escolhe o tipo de nota.',
-            'line.*' => 'Escolhe uma linha da fatura.',
-            'itemId.*' => 'Escolhe um artigo aprovado.',
-            'quantity.*' => 'Indica uma quantidade inteira de 1 a 1 000.',
-            'reason.*' => 'Indica o motivo da correção em até 255 caracteres numa só linha.',
+            'originalId.*' => __('Choose the original invoice.'),
+            'kind.*' => __('Choose the note type.'),
+            'line.*' => __('Choose an invoice line.'),
+            'itemId.*' => __('Choose an approved item.'),
+            'quantity.*' => __('Enter a whole quantity from 1 to 1,000.'),
+            'reason.*' => __('Enter a reason for the correction on one line, up to 255 characters.'),
         ])->validate();
 
         foreach (['originalId', 'line', 'itemId', 'quantity'] as $field) {
@@ -211,7 +216,7 @@ final class InvoiceXpressNoteIssue
         if ($original->type !== FiscalDocumentType::Invoice || $original->status !== FiscalDocumentStatus::Active
             || $original->direction !== FiscalDocumentDirection::Issued || $original->currency !== 'EUR'
             || $source?->subdomain !== $subdomain || ($source->source['provider_type'] ?? null) !== 'Invoice') {
-            throw InvoiceXpressNoteTerms::invalid('originalId', 'Escolhe uma fatura ativa emitida na ligação atual do InvoiceXpress.');
+            throw InvoiceXpressNoteTerms::invalid('originalId', __('Choose an active invoice issued through the current InvoiceXpress connection.'));
         }
 
         $providerId = $source->provider_id;
@@ -227,7 +232,7 @@ final class InvoiceXpressNoteIssue
             || InvoiceXpressIssueTerms::hundredths($invoice['taxes'] ?? null) !== $original->vat_amount
             || InvoiceXpressIssueTerms::hundredths($invoice['total'] ?? null) !== $original->total_amount
             || $clientId === null || $original->party_tax_id === null) {
-            throw InvoiceXpressNoteTerms::invalid('originalId', 'A fatura original no InvoiceXpress diverge do registo no Contiu.');
+            throw InvoiceXpressNoteTerms::invalid('originalId', __('The original InvoiceXpress invoice does not match the Contiu record.'));
         }
 
         return [
@@ -243,14 +248,14 @@ final class InvoiceXpressNoteIssue
     {
         $options = InvoiceXpressIssue::options(forNewIssue: $attempt === null);
         if ($options === null || ! in_array($input['itemId'], $options['itemIds'], true)) {
-            throw InvoiceXpressNoteTerms::invalid('itemId', 'Escolhe um artigo aprovado na configuração de emissão do InvoiceXpress.');
+            throw InvoiceXpressNoteTerms::invalid('itemId', __('Choose an item approved in the InvoiceXpress issuance settings.'));
         }
 
         $original = $this->readOriginal($input['originalId'], $subdomain);
         $lineIndex = $input['line'] - 1;
         $line = $original['lines'][$lineIndex] ?? null;
         if ($line === null) {
-            throw InvoiceXpressNoteTerms::invalid('line', 'Escolhe uma linha da fatura original.');
+            throw InvoiceXpressNoteTerms::invalid('line', __('Choose a line from the original invoice.'));
         }
         InvoiceXpressNoteTerms::originalLineIndex($original['lines'], $line);
 
@@ -268,7 +273,7 @@ final class InvoiceXpressNoteIssue
             || $tax['id'] !== $line['tax']['id'] || InvoiceXpressIssueTerms::positiveId(data_get($remoteItem, 'tax.id')) !== $tax['id']
             || data_get($remoteItem, 'tax.name') !== $tax['name']
             || InvoiceXpressIssueTerms::hundredths(data_get($remoteItem, 'tax.value')) !== $tax['basisPoints']) {
-            throw InvoiceXpressNoteTerms::invalid('itemId', 'O cliente, o artigo aprovado e o IVA têm de coincidir com a fatura original.');
+            throw InvoiceXpressNoteTerms::invalid('itemId', __('The customer, approved item and VAT must match the original invoice.'));
         }
 
         $sequenceId = $options['sequenceId'];
@@ -285,18 +290,23 @@ final class InvoiceXpressNoteIssue
             foreach ($note['lines'] as $adjustment) {
                 if ($adjustment['index'] === $lineIndex) {
                     $remaining['quantity'] -= $adjustment['quantity'];
-                    foreach ($available as $key => $amount) {
-                        $available[$key] = $amount - $adjustment['totals'][$key];
+                    foreach (['net', 'tax', 'total'] as $key) {
+                        $available[$key] -= $adjustment['totals'][$key];
                     }
                 }
             }
         }
 
         $remaining['total'] = $available['total'];
-        $totals = InvoiceXpressIssueTerms::totals($item['unitCents'], $input['quantity'], $tax['basisPoints']);
+        $discountBasisPoints = $line['discountBasisPoints'] ?? 0;
+        $totals = InvoiceXpressIssueTerms::totals($item['unitCents'], $input['quantity'], $tax['basisPoints'], $discountBasisPoints);
+        if ($input['kind'] === 'debit_note' && $totals['total'] === 0) {
+            throw InvoiceXpressNoteTerms::invalid('quantity', __('The debit note total must be positive.'));
+        }
+
         if ($input['quantity'] > $remaining['quantity'] || $totals['total'] > $available['total']
             || $totals['net'] > $available['net'] || $totals['tax'] > $available['tax']) {
-            throw InvoiceXpressNoteTerms::invalid('quantity', 'A quantidade ou o montante excede o saldo verificável desta linha para este tipo de nota.');
+            throw InvoiceXpressNoteTerms::invalid('quantity', __('The quantity or amount exceeds the verifiable balance of this line for this note type.'));
         }
 
         $date = today()->format('d/m/Y');
@@ -320,9 +330,10 @@ final class InvoiceXpressNoteIssue
                     'name' => $item['name'],
                     'description' => $item['description'],
                     'unit' => $item['unit'],
-                    'unit_price' => sprintf('%d.%02d', intdiv($item['unitCents'], 100), $item['unitCents'] % 100),
+                    'unit_price_cents' => $item['unitCents'],
                     'quantity' => $input['quantity'],
                     'tax' => ['name' => $tax['name']],
+                    ...($discountBasisPoints === 0 ? [] : ['discount_basis_points' => $discountBasisPoints]),
                 ]],
             ],
         ];
@@ -344,7 +355,7 @@ final class InvoiceXpressNoteIssue
             }
 
             if ($id === null || isset($history[$id]) || ! in_array($note['status'], InvoiceXpressNoteTerms::Issued, true)) {
-                throw InvoiceXpressNoteTerms::invalid('confirmation', 'Existe uma nota associada sem estado ou saldo verificável no InvoiceXpress.');
+                throw InvoiceXpressNoteTerms::invalid('confirmation', __('A linked note has no verifiable status or balance in InvoiceXpress.'));
             }
 
             $client = is_array($note['client'] ?? null) ? $note['client'] : [];
@@ -370,7 +381,7 @@ final class InvoiceXpressNoteIssue
             $remote = $source?->subdomain === $subdomain ? $history[$source->provider_id] ?? null : null;
             if ($remote === null || $remote['type'] !== InvoiceXpressNoteTerms::Types[$note->type->value]
                 || array_sum(array_column(array_column($remote['lines'], 'totals'), 'total')) !== $note->total_amount) {
-                throw InvoiceXpressNoteTerms::invalid('confirmation', 'Há uma nota no Contiu cujo saldo não foi confirmado no InvoiceXpress.');
+                throw InvoiceXpressNoteTerms::invalid('confirmation', __('A note in Contiu has a balance that has yet to be confirmed in InvoiceXpress.'));
             }
         }
 
@@ -474,11 +485,36 @@ final class InvoiceXpressNoteIssue
     private function stillCurrent(InvoiceXpressNoteAttempt $attempt): bool
     {
         try {
-            return $attempt->original_id !== null
-                && $attempt->snapshot === $this->snapshot($attempt->snapshot['input'], $attempt->subdomain, $attempt);
+            if ($attempt->original_id === null) {
+                return false;
+            }
+
+            $current = $this->snapshot($attempt->snapshot['input'], $attempt->subdomain, $attempt);
+            if ($attempt->snapshot === $current) {
+                return true;
+            }
+
+            $current['payload'] = $this->decimalPayload($current['payload']);
+
+            return $attempt->snapshot === $current;
         } catch (ValidationException) {
             return false;
         }
+    }
+
+    private function decimalPayload(array $payload): array
+    {
+        $item = [];
+        foreach ($payload['items'][0] as $field => $value) {
+            match ($field) {
+                'unit_price_cents' => $item['unit_price'] = sprintf('%d.%02d', intdiv($value, 100), $value % 100),
+                'discount_basis_points' => $item['discount'] = sprintf('%d.%02d', intdiv($value, 100), $value % 100),
+                default => $item[$field] = $value,
+            };
+        }
+        $payload['items'][0] = $item;
+
+        return $payload;
     }
 
     private function remoteNote(InvoiceXpressNoteAttempt $attempt): array
@@ -494,7 +530,7 @@ final class InvoiceXpressNoteIssue
 
         if (! array_is_list($documents) || array_filter($documents, fn (mixed $row): bool => ! is_array($row)
             || ! is_string($row['type'] ?? null) || ! is_string($row['status'] ?? null)) !== []) {
-            throw new InvoiceXpressException('A lista de documentos relacionados não pôde ser verificada.');
+            throw new InvoiceXpressException(__('Could not verify the list of related documents.'));
         }
 
         return $documents;
@@ -504,14 +540,14 @@ final class InvoiceXpressNoteIssue
     {
         $data = $this->client->request('GET', $path, expectedSubdomain: $subdomain)[$key] ?? null;
 
-        return is_array($data) ? $data : throw new InvoiceXpressException('O InvoiceXpress devolveu dados incompletos.');
+        return is_array($data) ? $data : throw new InvoiceXpressException(__('InvoiceXpress returned incomplete data.'));
     }
 
     private function findAttempt(int $id): InvoiceXpressNoteAttempt
     {
         $attempt = InvoiceXpressNoteAttempt::query()->lockForUpdate()->findOrFail($id);
         if ($this->client->configuration()->subdomain !== $attempt->subdomain) {
-            throw InvoiceXpressNoteTerms::invalid('confirmation', 'Repõe a ligação original ao InvoiceXpress para verificar a tentativa.');
+            throw InvoiceXpressNoteTerms::invalid('confirmation', __('Restore the original InvoiceXpress connection to verify the attempt.'));
         }
 
         return $attempt;
@@ -530,7 +566,7 @@ final class InvoiceXpressNoteIssue
     private function requireCatalogueSafety(): void
     {
         if (! InvoiceXpressIssue::canWriteDocuments()) {
-            throw InvoiceXpressNoteTerms::invalid('confirmation', 'A emissão aguarda a validação do catálogo do InvoiceXpress.');
+            throw InvoiceXpressNoteTerms::invalid('confirmation', __('Issuance is pending validation of the InvoiceXpress catalog.'));
         }
     }
 
@@ -560,6 +596,6 @@ final class InvoiceXpressNoteIssue
 
     private function invalidConfirmation(): ValidationException
     {
-        return InvoiceXpressNoteTerms::invalid('confirmation', 'Os dados mudaram ou não puderam ser verificados. Revê a pré-visualização ou a tentativa registada.');
+        return InvoiceXpressNoteTerms::invalid('confirmation', __('The details have changed or could not be verified. Review the preview or the recorded attempt.'));
     }
 }

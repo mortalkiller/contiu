@@ -4,31 +4,23 @@ namespace App\Filament\Analysis\Widgets;
 
 use App\Filament\Analysis\Concerns\ForecastsMonths;
 use App\Filament\Widgets\Concerns\CategoryDoughnut;
-use Filament\Widgets\ChartWidget;
-use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
+use MortalKiller\FilamentAppearance\Widgets\BreakdownChartWidget;
 
-class ForecastInflowsByClientChart extends ChartWidget
+class ForecastInflowsByClientChart extends BreakdownChartWidget
 {
     use CategoryDoughnut;
     use ForecastsMonths;
-    use HasSkeletonPlaceholder;
 
     protected int|string|array $columnSpan = 'full';
 
-    /** Three doughnuts share the side column on the 6-month view, two on the 3-month one. */
-    public function getMaxHeight(): ?string
-    {
-        return $this->months === 6 ? '250px' : '300px';
-    }
-
     public function getHeading(): string
     {
-        return 'Entradas previstas por cliente';
+        return __('Expected inflows by client');
     }
 
     public function getDescription(): string
     {
-        return 'Próximos '.$this->months.' meses.';
+        return __('Next :months months.', ['months' => $this->months]);
     }
 
     protected function amounts(): array

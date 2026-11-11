@@ -25,85 +25,85 @@ class ProjectsTable
         return $table
             ->headerActions([
                 ExportAction::make()
-                    ->label('Exportar Excel')
+                    ->label(__('Export to Excel'))
                     ->exports([
-                        ExcelExport::make()->fromTable()->ignoreFormatting(fn (ExportColumn $column) => method_exists($column->tableColumn, 'isMoney') && $column->tableColumn->isMoney())->except(['progress'])->withFilename(fn () => 'trabalhos-'.now()->format('Y-m-d')),
+                        ExcelExport::make()->fromTable()->ignoreFormatting(fn (ExportColumn $column) => method_exists($column->tableColumn, 'isMoney') && $column->tableColumn->isMoney())->except(['progress'])->withFilename(fn () => str(__('Projects'))->slug().'-'.now()->format('Y-m-d')),
                     ]),
             ])
             ->toolbarActions([
                 ExportBulkAction::make()
-                    ->label('Exportar seleção')
+                    ->label(__('Export selected'))
                     ->exports([
-                        ExcelExport::make()->fromTable()->ignoreFormatting(fn (ExportColumn $column) => method_exists($column->tableColumn, 'isMoney') && $column->tableColumn->isMoney())->except(['progress'])->withFilename(fn () => 'trabalhos-'.now()->format('Y-m-d')),
+                        ExcelExport::make()->fromTable()->ignoreFormatting(fn (ExportColumn $column) => method_exists($column->tableColumn, 'isMoney') && $column->tableColumn->isMoney())->except(['progress'])->withFilename(fn () => str(__('Projects'))->slug().'-'.now()->format('Y-m-d')),
                     ]),
             ])
             ->defaultSort('quoted_on', 'desc')
             ->columns([
                 TextColumn::make('code')
-                    ->label('Trabalho')
+                    ->label(__('Project'))
                     ->description(fn (Project $record) => $record->title)
                     ->weight('medium')
                     ->searchable(['code', 'title']),
                 TextColumn::make('client.name')
-                    ->label('Cliente')
+                    ->label(__('Client'))
                     ->searchable()
                     ->limit(28)
                     ->tooltip(fn (Project $record) => $record->client->name),
                 TextColumn::make('business_line')
-                    ->label('Linha')
+                    ->label(__('Line'))
                     ->badge()
                     ->color('gray')
                     ->toggleable(),
                 TextColumn::make('status')
-                    ->label('Estado')
+                    ->label(__('Status'))
                     ->badge(),
                 TextColumn::make('total')
-                    ->label('Total')
+                    ->label(__('Total'))
                     ->money('EUR', divideBy: 100)
                     ->alignEnd(),
                 ViewColumn::make('progress')
-                    ->label('Recebido')
+                    ->label(__('Received'))
                     ->view('filament.tables.columns.progress'),
                 TextColumn::make('outstanding_amount')
-                    ->label('Em aberto')
+                    ->label(__('Outstanding'))
                     ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->color(fn (float $state) => $state > 0 ? 'warning' : 'gray'),
                 TextColumn::make('payment_status')
-                    ->label('Pagamento')
+                    ->label(__('Payment'))
                     ->badge()
                     ->placeholder('—'),
                 TextColumn::make('quoted_on')
-                    ->label('Orçamento')
+                    ->label(__('Quote'))
                     ->date()
                     ->sortable()
                     ->toggleable(),
             ])
             ->filters([
                 SelectFilter::make('client')
-                    ->label('Cliente')
+                    ->label(__('Client'))
                     ->relationship('client', 'name')
                     ->preload(),
                 SelectFilter::make('status')
-                    ->label('Estado')
+                    ->label(__('Status'))
                     ->options(ProjectStatus::class)
                     ->multiple(),
                 SelectFilter::make('business_line')
-                    ->label('Linha de negócio')
+                    ->label(__('Business line'))
                     ->options(fn () => Project::query()->whereNotNull('business_line')->distinct()->orderBy('business_line')->pluck('business_line', 'business_line')->all()),
                 SelectFilter::make('year')
-                    ->label('Ano do orçamento')
+                    ->label(__('Quote year'))
                     ->options(fn () => Project::query()->whereNotNull('quoted_on')->pluck('quoted_on')->map->year->unique()->sortDesc()->mapWithKeys(fn ($year) => [$year => $year])->all())
                     ->query(fn (Builder $query, array $data) => $query->when($data['value'] ?? null, fn (Builder $query, $year) => $query->whereYear('quoted_on', $year))),
             ])
             ->recordActions([
-                RecordPaymentAction::make()->iconButton()->tooltip('Registar recebimento'),
+                RecordPaymentAction::make()->iconButton()->tooltip(__('Record payment')),
                 ActionGroup::make([
                     ViewAction::make(),
                     EditAction::make(),
                 ]),
             ])
-            ->emptyStateHeading('Sem trabalhos')
-            ->emptyStateDescription('Cria um trabalho a partir de um orçamento aprovado.');
+            ->emptyStateHeading(__('No projects'))
+            ->emptyStateDescription(__('Create a project from an approved quote.'));
     }
 }

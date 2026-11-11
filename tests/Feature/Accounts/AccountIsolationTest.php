@@ -28,6 +28,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 
+pest()->group('tenancy');
+
 /** One record of the given business model, created in the current account. */
 function oneRecordOf(string $model): Model
 {
@@ -71,7 +73,7 @@ it('keeps every business model inside its account', function (string $model) {
     ClientMessage::class,
     Setting::class,
     TaxObligationCompletion::class,
-]);
+])->group('integration');
 
 it('lets two accounts import the same bank statement', function () {
     $a = Account::factory()->create();
@@ -90,7 +92,7 @@ it('lets two accounts import the same bank statement', function () {
         ->and($again)->toBe(['created' => 0, 'skipped' => 2])
         ->and(CurrentAccount::run($a, fn () => BankTransaction::count()))->toBe(2)
         ->and(CurrentAccount::run($b, fn () => BankTransaction::count()))->toBe(2);
-});
+})->group('integration');
 
 it('allows the same project and retainer code in two accounts', function () {
     $a = Account::factory()->create();
@@ -105,7 +107,7 @@ it('allows the same project and retainer code in two accounts', function () {
 
     expect(CurrentAccount::run($a, fn () => Project::where('code', 'PRINTEE OC-202611-1')->count()))->toBe(1)
         ->and(CurrentAccount::run($b, fn () => Retainer::where('code', 'MINFRA')->count()))->toBe(1);
-});
+})->group('integration');
 
 it('checks the retainer code only against the current account in the form', function () {
     actingAsAdmin();
@@ -125,7 +127,7 @@ it('checks the retainer code only against the current account in the form', func
 
     Livewire::test(CreateRetainer::class)->fillForm($form)->call('create')->assertHasNoFormErrors();
     Livewire::test(CreateRetainer::class)->fillForm($form)->call('create')->assertHasFormErrors(['code' => 'unique']);
-});
+})->group('ui');
 
 it('numbers one-off incomes per account', function () {
     $a = Account::factory()->create();
@@ -139,7 +141,7 @@ it('numbers one-off incomes per account', function () {
     ];
 
     expect($codes)->toBe(['RA-20261014-1', 'RA-20261014-1', 'RA-20261014-2']);
-});
+})->group('integration');
 
 it('scopes every model whose table has account_id', function () {
     // Deliberately unscoped: audits are written outside any account too (logins, console);
@@ -155,7 +157,7 @@ it('scopes every model whose table has account_id', function () {
 
     $models->reject(fn (string $class) => in_array($class, $unscoped, true))
         ->each(fn (string $class) => expect(class_uses_recursive($class))->toHaveKey(BelongsToAccount::class, message: "{$class} has account_id but no BelongsToAccount"));
-});
+})->group('integration');
 
 it('stamps audits with the current account', function () {
     config(['audit.console' => true]); // auditing is off for console runs, tests included
@@ -165,4 +167,4 @@ it('stamps audits with the current account', function () {
     expect($client->audits()->latest('id')->first())
         ->toBeInstanceOf(Audit::class)
         ->account_id->toBe(test()->account->id);
-});
+})->group('integration');

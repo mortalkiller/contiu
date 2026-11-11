@@ -54,7 +54,7 @@ final class RecordCustomerRefund
                 || $note->document_date->lt($invoice->document_date) || $note->document_date->toDateString() > $paidOn
                 || ($note->party_tax_id !== null && $invoice->party_tax_id !== null
                     && $this->party($note->party_tax_id) !== $this->party($invoice->party_tax_id))) {
-                throw $this->invalid('Confirma a nota de crédito, a fatura original e a cobrança associada.');
+                throw $this->invalid(__('Confirm the credit note, original invoice and associated receivable.'));
             }
 
             $noteRefunds = CustomerRefund::query()->where('credit_note_id', $note->id);
@@ -63,7 +63,7 @@ final class RecordCustomerRefund
                 if ($refund->amount !== $amount || $refund->paid_on->toDateString() !== $paidOn
                     || $refund->invoice_id !== $invoice->id || $refund->receivable_id !== $charge->id
                     || ($bank !== null && $refund->bank_transaction_id !== null && $refund->bank_transaction_id !== $bank->id)) {
-                    throw $this->invalid('Já existe um reembolso com esta referência e outros dados.');
+                    throw $this->invalid(__('A refund with this reference and different details already exists.'));
                 }
                 if ($bank === null || $refund->bank_transaction_id === $bank->id) {
                     return $refund;
@@ -72,7 +72,7 @@ final class RecordCustomerRefund
 
             if ($bank !== null && ($bank->status !== BankTransactionStatus::Pending || $bank->amount !== -$amount
                 || $bank->booked_on->toDateString() !== $paidOn || $bank->links()->exists() || $bank->customerRefund()->exists())) {
-                throw $this->invalid('Escolhe um débito por tratar com a mesma data e o mesmo montante do reembolso.');
+                throw $this->invalid(__('Choose a pending debit with the same date and amount as the refund.'));
             }
 
             if ($refund === null) {
@@ -108,7 +108,7 @@ final class RecordCustomerRefund
             || $amount > abs($note->total_amount) - $alreadyRefunded
             || $amount > $invoice->total_amount - $invoiceCredits - (int) $invoiceRefunds->sum('amount')
             || $amount > $cash - (int) $chargeRefunds->sum('amount')) {
-            throw $this->invalid('Revê o saldo da nota, o dinheiro já recebido e as datas dos reembolsos anteriores.');
+            throw $this->invalid(__('Review the note balance, payments already received and the dates of previous refunds.'));
         }
     }
 

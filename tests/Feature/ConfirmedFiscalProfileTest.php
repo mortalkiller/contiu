@@ -10,6 +10,8 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 
+pest()->group('ui', 'fiscal');
+
 function fiscalProfileInput(string $name, string $effectiveFrom): array
 {
     return [

@@ -15,15 +15,15 @@ enum PaymentMethod: string implements HasIcon, HasLabel
     case Stripe = 'stripe';
     case Other = 'other';
 
-    public function getLabel(): string
+    public function getLabel(?string $locale = null): string
     {
         return match ($this) {
-            self::Transfer => 'Transferência',
+            self::Transfer => __('Bank transfer', [], $locale),
             self::MbWay => 'MB Way',
-            self::Card => 'Cartão',
-            self::Cash => 'Dinheiro',
+            self::Card => __('Card', [], $locale),
+            self::Cash => __('Cash', [], $locale),
             self::Stripe => 'Stripe',
-            self::Other => 'Outro',
+            self::Other => __('Other', [], $locale),
         };
     }
 

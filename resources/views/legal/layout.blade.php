@@ -3,7 +3,7 @@
     (inline CSS, no Vite), with the same brand header. Each page fills in the title and sections.
 --}}
 <!DOCTYPE html>
-<html lang="pt-PT">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -115,24 +115,24 @@
 </head>
 <body>
     <header>
-        <a href="{{ url('/') }}" aria-label="Contiu — ir para o início">
+        <a href="{{ url('/') }}" aria-label="{{ __('Contiu — go to home') }}">
             <img src="{{ asset('brand/contiu/contiu-logo-white.svg') }}" alt="Contiu">
         </a>
     </header>
 
     <main>
         <article>
-            <span class="version">Versão {{ config('contiu.terms_version') }}</span>
+            <span class="version">{{ __('Version :version', ['version' => config('contiu.terms_version')]) }}</span>
             <h1>@yield('title')</h1>
 
             @foreach ($sections as $section)
                 <h2>{{ $loop->iteration }}. {{ $section }}</h2>
-                <p class="placeholder">Texto a fornecer pelo Pedro.</p>
+                <p class="placeholder">{{ __('Text to be provided by Pedro.') }}</p>
             @endforeach
 
             <nav>
-                <a href="{{ url('/termos') }}">Termos de Serviço</a>
-                <a href="{{ url('/privacidade') }}">Política de Privacidade</a>
+                <a href="{{ url('/termos') }}">{{ __('Terms of Service') }}</a>
+                <a href="{{ url('/privacidade') }}">{{ __('Privacy Policy') }}</a>
             </nav>
         </article>
     </main>

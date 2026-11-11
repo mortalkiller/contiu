@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\Language;
 use App\Exceptions\AccountIsReadOnly;
 use App\Exceptions\InvoiceXpressException;
 use App\Models\Account;
@@ -25,7 +26,8 @@ final class InvoiceXpressImport
     /**
      * @return array{
      *     state: 'new'|'same'|'changed'|'conflict', invoice: array, source_hash: string,
-     *     current_hash: ?string, local_hash: ?string, before: ?array, after: array, suggestions: array<int, string>
+     *     current_hash: ?string, local_hash: ?string, before: ?array, after: array, suggestions: array<int, string>,
+     *     withholding: ?array{basisPoints: int, gross: int, retained: int, cash: int}
      * }
      */
     public function reviewInvoice(array $invoice, ?string $expectedSubdomain = null): array
@@ -33,7 +35,7 @@ final class InvoiceXpressImport
         $subdomain = $this->client->configuration()->subdomain;
 
         if ($expectedSubdomain !== null && $subdomain !== $expectedSubdomain) {
-            throw new InvoiceXpressException('A conta InvoiceXpress mudou. Volta a consultar os documentos.');
+            throw new InvoiceXpressException(__('The InvoiceXpress account has changed. Look up the documents again.'));
         }
 
         $mapped = $this->map($invoice);
@@ -56,9 +58,12 @@ final class InvoiceXpressImport
             'local_hash' => $before === null ? null : $this->hash($before),
             'before' => $before,
             'after' => $mapped['document'],
+            'withholding' => $mapped['source']['withholding'] ?? null,
             'suggestions' => $state === 'new'
                 ? $this->matchingCharges($mapped)->limit(8)->get()
-                    ->mapWithKeys(fn (Receivable $charge): array => [$charge->id => $charge->label.' · '.$charge->due_on->format('d/m/Y')])->all()
+                    ->mapWithKeys(fn (Receivable $charge): array => [
+                        $charge->id => $charge->label.' · '.$charge->due_on->format(Language::resolve(app()->getLocale())->dateFormat()),
+                    ])->all()
                 : [],
         ];
     }
@@ -87,7 +92,7 @@ final class InvoiceXpressImport
             $subdomain = $this->client->configuration()->subdomain;
 
             if ($expectedSubdomain !== null && $expectedSubdomain !== $subdomain) {
-                throw $this->invalid('A conta InvoiceXpress mudou. Volta a consultar os documentos.');
+                throw $this->invalid(__('The InvoiceXpress account has changed. Look up the documents again.'));
             }
 
             $latest = $this->latest($subdomain, $mapped['provider_id']);
@@ -96,12 +101,12 @@ final class InvoiceXpressImport
                 : FiscalDocument::query()->lockForUpdate()->find($latest->fiscal_document_id);
 
             if ($latest !== null && $document === null) {
-                throw $this->invalid('O documento local associado está em falta.');
+                throw $this->invalid(__('The linked local document is missing.'));
             }
 
             if ($latest?->source_hash === $mapped['source_hash'] && $document !== null) {
                 if ($receivableId !== null && (int) $document->links?->receivable_id !== $receivableId) {
-                    throw $this->invalid('O documento já foi importado. Revê a ligação no registo fiscal.');
+                    throw $this->invalid(__('The document has already been imported. Review the link in the fiscal record.'));
                 }
 
                 return $document;
@@ -109,16 +114,16 @@ final class InvoiceXpressImport
 
             if ($latest?->source_hash !== $expectedCurrentHash
                 || ($expectedLocalHash !== null && ($document === null || $expectedLocalHash !== $this->hash($this->documentValues($document, $mapped['document']))))) {
-                throw $this->invalid('Volta a consultar e confirma a versão atual do documento.');
+                throw $this->invalid(__('Look up the document again and confirm its current version.'));
             }
 
             if ($this->numberExists($mapped['document'], $document?->id)) {
-                throw $this->invalid('Já existe um documento emitido com este tipo e número no Contiu.');
+                throw $this->invalid(__('An issued document with this type and number already exists in Contiu.'));
             }
 
             if ($receivableId !== null && ($latest !== null
                 || $this->matchingCharges($mapped)->lockForUpdate()->find($receivableId) === null)) {
-                throw $this->invalid('A cobrança já não corresponde à fatura. Volta a consultar os documentos.');
+                throw $this->invalid(__('The receivable no longer matches the invoice. Look up the documents again.'));
             }
 
             $document ??= new FiscalDocument;
@@ -194,7 +199,7 @@ final class InvoiceXpressImport
             ?? $response['credit_note'] ?? $response['debit_note'] ?? $response;
 
         if (! is_array($invoice)) {
-            throw $this->invalid('O documento InvoiceXpress é inválido.');
+            throw $this->invalid(__('The InvoiceXpress document is invalid.'));
         }
 
         $providerId = $invoice['id'] ?? null;
@@ -210,11 +215,11 @@ final class InvoiceXpressImport
 
         if (! is_int($providerId) || $providerId < 1 || $type === null
             || ! in_array($status, ['final', 'sent', 'settled', 'canceled'], true)) {
-            throw $this->invalid('O tipo ou estado do documento InvoiceXpress não é suportado.');
+            throw $this->invalid(__('The InvoiceXpress document type or status is unsupported.'));
         }
 
         if (! in_array($invoice['currency'] ?? null, ['Euro', 'EUR'], true)) {
-            throw $this->invalid('A importação está disponível para documentos em euros.');
+            throw $this->invalid(__('Documents in euros can be imported.'));
         }
 
         $date = $invoice['date'] ?? null;
@@ -222,21 +227,36 @@ final class InvoiceXpressImport
             ?? $this->text($invoice['sequence_number'] ?? null, 255);
 
         if (! is_string($date) || ! preg_match('/\A[0-9]{2}\/[0-9]{2}\/[1-9][0-9]{3}\z/', $date) || $number === null) {
-            throw $this->invalid('O documento InvoiceXpress tem um número ou data inválidos.');
+            throw $this->invalid(__('The InvoiceXpress document has an invalid number or date.'));
         }
 
         $issuedOn = $this->date($date);
 
         if ($issuedOn === null) {
-            throw $this->invalid('O documento InvoiceXpress tem uma data inválida.');
+            throw $this->invalid(__('The InvoiceXpress document has an invalid date.'));
         }
 
         $net = $this->cents($invoice['before_taxes'] ?? null);
         $vat = $this->cents($invoice['taxes'] ?? null);
         $total = $this->cents($invoice['total'] ?? null);
+        $withholding = null;
+        if (in_array($providerType, ['Invoice', 'InvoiceReceipt'], true)) {
+            $basisPoints = InvoiceXpressIssueTerms::hundredths($invoice['retention'] ?? 0);
+            if ($basisPoints === null || $basisPoints > 10000 || $net < 0 || $vat < 0) {
+                throw $this->invalid(__('The InvoiceXpress document contains invalid withholding details or tax amounts.'));
+            }
+
+            $gross = $net + $vat;
+            $amounts = InvoiceXpressIssueTerms::withholdingAmounts($basisPoints, $net, $gross);
+            if ($amounts['cash'] !== $total) {
+                throw $this->invalid(__('The InvoiceXpress total does not match the net amount plus VAT minus withholding.'));
+            }
+
+            $withholding = $basisPoints === 0 ? null : $amounts;
+        }
 
         if ($providerType === 'DebitNote' && ($net < 0 || $vat < 0 || $total <= 0 || $total !== $net + $vat)) {
-            throw $this->invalid('O total da nota de débito deve ser positivo e coincidir com a soma da base e do IVA.');
+            throw $this->invalid(__('The debit note total must be positive and match the sum of the net amount and VAT.'));
         }
 
         $partyName = $this->text($invoice['client']['name'] ?? null, 255);
@@ -252,7 +272,7 @@ final class InvoiceXpressImport
             'currency' => 'EUR',
             'net_amount' => $net,
             'vat_amount' => $vat,
-            'total_amount' => $total,
+            'total_amount' => $withholding['gross'] ?? $total,
             'party_name' => $partyName,
             'party_tax_id' => $partyTaxId,
         ];
@@ -260,6 +280,7 @@ final class InvoiceXpressImport
         $source = [
             'provider_type' => $providerType,
             'document' => $document,
+            ...($withholding === null ? [] : ['withholding' => $withholding]),
         ];
 
         return [
@@ -278,6 +299,7 @@ final class InvoiceXpressImport
                 'before_taxes' => (string) $invoice['before_taxes'],
                 'taxes' => (string) $invoice['taxes'],
                 'total' => (string) $invoice['total'],
+                ...($withholding === null ? [] : ['retention' => (string) $invoice['retention']]),
                 'client' => [
                     'name' => $partyName,
                     'fiscal_id' => $partyTaxId,
@@ -328,7 +350,7 @@ final class InvoiceXpressImport
         }
 
         if (! is_string($value) || ! mb_check_encoding($value) || mb_strlen($value) > $limit || str_contains($value, "\0")) {
-            throw $this->invalid('O documento InvoiceXpress contém texto inválido.');
+            throw $this->invalid(__('The InvoiceXpress document contains invalid text.'));
         }
 
         return trim($value) === '' ? null : trim($value);
@@ -336,9 +358,13 @@ final class InvoiceXpressImport
 
     private function cents(mixed $value): int
     {
-        if ((! is_int($value) && ! is_float($value) && ! is_string($value))
+        if (is_float($value)) {
+            $value = json_encode($value);
+        }
+
+        if ((! is_int($value) && ! is_string($value))
             || ! preg_match('/\A(-?)([0-9]{1,12})(?:\.([0-9]{1,2}))?\z/', (string) $value, $parts)) {
-            throw $this->invalid('O documento InvoiceXpress contém um montante inválido.');
+            throw $this->invalid(__('The InvoiceXpress document contains an invalid amount.'));
         }
 
         $amount = (int) $parts[2] * 100 + (int) str_pad($parts[3] ?? '', 2, '0');

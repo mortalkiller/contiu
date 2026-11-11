@@ -1,5 +1,5 @@
 @extends('errors.layout')
 
 @section('code', '500')
-@section('title', 'Algo correu mal')
-@section('message', 'Aconteceu um erro inesperado. Tenta outra vez daqui a pouco; se continuar, avisa quem gere a app.')
+@section('title', __('Something went wrong'))
+@section('message', __('An unexpected error occurred. Try again in a moment. If it persists, let whoever manages the app know.'))

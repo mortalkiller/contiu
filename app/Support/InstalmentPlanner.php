@@ -15,7 +15,7 @@ final class InstalmentPlanner
     /** @return array<int, array{description: string, amount: int, due_on: string}> */
     public static function single(int $total, CarbonInterface|string $dueOn): array
     {
-        return [self::row('Pagamento único', $total, Carbon::parse($dueOn))];
+        return [self::row(__('Single payment'), $total, Carbon::parse($dueOn))];
     }
 
     /** @return array<int, array{description: string, amount: int, due_on: string}> */
@@ -25,8 +25,8 @@ final class InstalmentPlanner
         $start = Carbon::parse($firstDue);
 
         return [
-            self::row('50% adjudicação', $first, $start),
-            self::row('50% entrega', $second, $start->copy()->addMonthsNoOverflow(1)),
+            self::row(__('50% on acceptance'), $first, $start),
+            self::row(__('50% on delivery'), $second, $start->copy()->addMonthsNoOverflow(1)),
         ];
     }
 
@@ -37,7 +37,11 @@ final class InstalmentPlanner
         $start = Carbon::parse($firstDue);
 
         return array_map(
-            fn (int $amount, int $index) => self::row('Prestação '.($index + 1).'/'.$count, $amount, $start->copy()->addMonthsNoOverflow($index)),
+            fn (int $amount, int $index) => self::row(
+                __('Installment :number/:count', ['number' => $index + 1, 'count' => $count]),
+                $amount,
+                $start->copy()->addMonthsNoOverflow($index),
+            ),
             self::split($total, $count),
             array_keys(array_fill(0, $count, null)),
         );

@@ -12,8 +12,8 @@ enum FiscalDocumentDirection: string implements HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::Issued => 'Emitido',
-            self::Received => 'Recebido',
+            self::Issued => __('Issued'),
+            self::Received => __('Received'),
         };
     }
 }

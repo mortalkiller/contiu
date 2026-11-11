@@ -20,7 +20,7 @@
         <div
             role="note"
             @class([
-                'contiu-edge-to-edge rounded-xl p-4 text-sm ring-1',
+                'fap-edge-to-edge rounded-xl p-4 text-sm ring-1',
                 'bg-warning-50 text-warning-900 ring-warning-200 dark:bg-warning-400/10 dark:text-warning-200 dark:ring-warning-400/20' => ($notice['tone'] ?? 'info') === 'warning',
                 'bg-white text-gray-700 ring-gray-950/5 dark:bg-gray-900 dark:text-gray-300 dark:ring-white/10' => ($notice['tone'] ?? 'info') !== 'warning',
             ])
@@ -42,7 +42,7 @@
                         </div>
                         <div class="fi-wi-stats-overview-stat-value">{{ $stat['value'] }}</div>
                         @if (isset($stat['percent']))
-                            <span class="contiu-progress" role="img" aria-label="{{ number_format($stat['percent'], 0, ',', ' ') }}%">
+                            <span class="fap-progress" role="img" aria-label="{{ \Illuminate\Support\Number::format($stat['percent'], precision: 0, locale: app()->getLocale()) }}%">
                                 <i style="width: {{ min(100, max(0, $stat['percent'])) }}%"></i>
                             </span>
                         @endif

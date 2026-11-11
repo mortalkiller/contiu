@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\ManageCustomerAdvance;
 use App\Actions\RecordAllocatedPayment;
 use App\Enums\FiscalDocumentType;
 use App\Enums\PaymentMethod;
@@ -27,6 +28,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Symfony\Component\HttpKernel\Exception\HttpException;
+
+pest()->group('invoicexpress');
 
 beforeEach(function () {
     Http::preventStrayRequests();
@@ -158,7 +161,7 @@ it('previews and records a separate receipt for each allocation of a split trans
 
     expect(InvoiceXpressReceiptAttempt::query()->distinct()->count('note'))->toBe(2);
     expect(Http::recorded(fn (Request $request) => $request->method() === 'POST'))->toHaveCount(2);
-});
+})->group('integration');
 
 it('preserves an ambiguous intent and recovers only a unique verified related receipt without reposting', function () {
     receiptProviderSetup();
@@ -205,7 +208,7 @@ it('preserves an ambiguous intent and recovers only a unique verified related re
         ->and($resolved->fiscal_document_id)->not->toBeNull()
         ->and($service->recover($attempt->id)->fiscal_document_id)->toBe($resolved->fiscal_document_id);
     expect($posts)->toBe(1);
-});
+})->group('integration');
 
 it('requires the server allowlist on confirmation even after a valid preview', function () {
     receiptProviderSetup();
@@ -218,7 +221,7 @@ it('requires the server allowlist on confirmation even after a valid preview', f
     expect(fn () => $service->confirm($allocation->id, $preview['revision']))->toThrow(ValidationException::class);
     expect(InvoiceXpressReceiptAttempt::query()->count())->toBe(0)
         ->and(Http::recorded(fn (Request $request) => $request->method() === 'POST'))->toBeEmpty();
-});
+})->group('integration');
 
 it('blocks a withheld or unverified-retention provider invoice', function (array $retention) {
     receiptProviderSetup();
@@ -228,7 +231,21 @@ it('blocks a withheld or unverified-retention provider invoice', function (array
 
     expect(fn () => app(InvoiceXpressReceipt::class)->preview($allocation->id))->toThrow(ValidationException::class, 'retenção');
     expect(InvoiceXpressReceiptAttempt::query()->count())->toBe(0);
-})->with(['withheld' => [['retention' => '23']], 'missing' => [[]]]);
+})->with(['withheld' => [['retention' => '23']], 'missing' => [[]]])->group('integration');
+
+it('rejects a provider invoice with a sub-cent total before preparing a receipt', function () {
+    receiptProviderSetup();
+    [$allocation, , $invoice] = receiptAllocation();
+    $invoice['total'] = 100.01000000000002;
+    Http::fake([
+        '*/invoices/101.json*' => Http::response(['invoice' => $invoice]),
+        '*/sequences.json*' => Http::response(['sequences' => [receiptSeries()]]),
+        '*/related_documents.json*' => Http::response(['documents' => []]),
+    ]);
+
+    expect(fn () => app(InvoiceXpressReceipt::class)->preview($allocation->id))
+        ->toThrow(ValidationException::class, 'não coincide com o registo local');
+})->group('integration');
 
 it('blocks an external receipt without a verified allocation and rejects a stale local preview', function () {
     receiptProviderSetup();
@@ -249,7 +266,7 @@ it('blocks an external receipt without a verified allocation and rejects a stale
     $related = [receiptResponse(999, 'manual', 10.00)];
     expect(fn () => $service->preview($allocation->id))->toThrow(ValidationException::class, 'movimentos');
     expect(InvoiceXpressReceiptAttempt::query()->count())->toBe(0);
-});
+})->group('integration');
 
 it('requires the current account owner and scopes allocation IDs', function () {
     receiptProviderSetup();
@@ -263,7 +280,7 @@ it('requires the current account owner and scopes allocation IDs', function () {
     $this->actingAs($accountant);
     expect(fn () => app(InvoiceXpressReceipt::class)->preview($allocation->id))->toThrow(HttpException::class);
     Http::assertNothingSent();
-});
+})->group('integration');
 
 it('opens the page in Receitas and emits through Livewire only after explicit confirmation', function () {
     receiptProviderSetup();
@@ -300,7 +317,7 @@ it('opens the page in Receitas and emits through Livewire only after explicit co
         ->assertSee('Histórico de emissão')
         ->assertSee('ATCUD RCABC123-801');
     expect(InvoiceXpressReceiptAttempt::query()->sole()->fiscal_document_id)->not->toBeNull();
-});
+})->group('ui');
 
 it('never sends the POST if the enclosing transaction rolls back', function () {
     receiptProviderSetup();
@@ -322,7 +339,7 @@ it('never sends the POST if the enclosing transaction rolls back', function () {
 
     expect(InvoiceXpressReceiptAttempt::query()->count())->toBe(0);
     Http::assertNotSent(fn (Request $request) => $request->method() === 'POST');
-});
+})->group('integration');
 
 it('uses verified prior receipts to calculate the remaining balance and refuses a second pending intent for the same invoice', function () {
     receiptProviderSetup();
@@ -365,7 +382,7 @@ it('uses verified prior receipts to calculate the remaining balance and refuses 
     $third = $service->preview($allocations[2]->id);
     expect(fn () => $service->confirm($allocations[2]->id, $third['revision']))->toThrow(ValidationException::class, 'tentativa');
     expect($posts)->toBe(2);
-});
+})->group('integration');
 
 it('refuses to attach a receipt after the original allocation has changed', function () {
     receiptProviderSetup();
@@ -390,7 +407,7 @@ it('refuses to attach a receipt after the original allocation has changed', func
 
     expect($service->recover($attempt->id)->provider_receipt_id)->toBeNull()
         ->and(FiscalDocument::query()->where('type', FiscalDocumentType::Receipt)->count())->toBe(0);
-});
+})->group('integration');
 
 it('blocks emission when the original invoice has no uniquely registered RC series', function (array $series) {
     receiptProviderSetup();
@@ -408,7 +425,7 @@ it('blocks emission when the original invoice has no uniquely registered RC seri
     'unregistered receipt series' => fn () => [[...receiptSeries(), 'current_receipt_validation_code' => 'N/D']],
     'unmatched invoice sequence' => fn () => [[...receiptSeries(), 'current_invoice_sequence_id' => 91]],
     'ambiguous series name' => fn () => [receiptSeries(), [...receiptSeries(), 'id' => 99, 'current_invoice_sequence_id' => 91]],
-]);
+])->group('integration');
 
 it('links to local withholding reconciliation even with provider writes disabled', function () {
     receiptProviderSetup();
@@ -439,4 +456,63 @@ it('links to local withholding reconciliation even with provider writes disabled
         ->and($allocation->refresh()->amount)->toBe(9901)
         ->and(WithholdingReview::forYear(2026)->retainedTotal)->toBe(100);
     Http::assertNothingSent();
-});
+})->group('ui');
+
+it('previews and reconciles an already issued ordinary partial receipt entirely locally', function () {
+    actingAsAdmin();
+    [$allocation, $invoice] = receiptAllocation();
+    $receipt = FiscalDocument::factory()->create([
+        'type' => FiscalDocumentType::Receipt, 'document_date' => '2026-10-15',
+        'net_amount' => 9901, 'vat_amount' => 0, 'total_amount' => 9901,
+    ]);
+    expect(WithholdingReview::previewAllocation($allocation))->toMatchArray([
+        'invoice' => $invoice->number, 'cash' => 9901, 'availableGross' => 10001,
+    ]);
+    $url = WithholdingReviewPage::getUrl(['allocation' => $allocation->id, 'ordinary' => true]);
+    $this->get($url)->assertOk()->assertSee('Conciliar recibo emitido')->assertSee($receipt->number);
+    Livewire::withQueryParams(['allocation' => $allocation->id, 'ordinary' => true])->test(WithholdingReviewPage::class)
+        ->set('documentId', (string) $receipt->id)
+        ->set('accepted', true)
+        ->call('record')
+        ->assertHasNoErrors();
+
+    WithholdingReview::reconcileReceipt($receipt->id, $allocation->id, 0);
+    $duplicate = $receipt->replicate()->fill(['number' => 'RC duplicado']);
+    $duplicate->save();
+    expect(fn () => WithholdingReview::reconcileReceipt($duplicate->id, $allocation->id, 0))->toThrow(ValidationException::class)
+        ->and($receipt->fresh()->links->related_fiscal_document_id)->toBe($invoice->id)
+        ->and($allocation->receivable->outstanding)->toBe(100);
+    $this->assertDatabaseEmpty('withholding_records');
+    Http::assertNothingSent();
+})->group('ui');
+
+it('offers local reconciliation for a manually issued final invoice after an allocated signal', function () {
+    receiptProviderSetup();
+    $client = Client::factory()->create();
+    $charge = Receivable::factory()->for(Project::factory()->for($client), 'billable')->create(['amount' => 10000]);
+    $advances = app(ManageCustomerAdvance::class);
+    $signal = $advances->record($client->id, 2000, '2026-10-01', PaymentMethod::Transfer);
+    $advances->apply($signal->id, $charge->id, '2026-10-02');
+    $advance = FiscalDocument::factory()->create([
+        'type' => FiscalDocumentType::InvoiceReceipt, 'document_date' => '2026-10-01',
+        'net_amount' => 2000, 'vat_amount' => 0, 'total_amount' => 2000,
+    ]);
+    $advance->links()->create(['payment_id' => $signal->id]);
+    $invoice = FiscalDocument::factory()->create([
+        'document_date' => '2026-10-02', 'net_amount' => 8000, 'vat_amount' => 0, 'total_amount' => 8000,
+    ]);
+    $invoice->links()->create(['receivable_id' => $charge->id, 'related_fiscal_document_id' => $advance->id]);
+    $payment = Payment::factory()->for($charge)->create(['amount' => 8000, 'paid_on' => '2026-10-03']);
+    $allocation = $payment->allocations()->sole();
+
+    Livewire::test(InvoiceXpressReceiptPage::class)->assertCanSeeTableRecords([$allocation])
+        ->assertCanNotSeeTableRecords([$signal->allocations()->sole()]);
+    $service = app(InvoiceXpressReceipt::class);
+    expect(WithholdingReview::previewAllocation($allocation))->toMatchArray([
+        'invoice' => $invoice->number, 'cash' => 8000, 'availableGross' => 8000,
+    ]);
+    expect(fn () => $service->preview($allocation->id))->toThrow(ValidationException::class, 'concilia localmente');
+    expect(fn () => $service->confirm($allocation->id, 'stale'))->toThrow(ValidationException::class, 'concilia localmente');
+    $this->assertDatabaseEmpty('invoice_xpress_receipt_attempts');
+    Http::assertNothingSent();
+})->group('ui');

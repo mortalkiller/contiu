@@ -13,13 +13,12 @@ use App\Support\CurrentAccount;
 use App\Support\InvoiceXpressIssue;
 use App\Support\InvoiceXpressIssueRepository;
 use App\Support\InvoiceXpressNoteIssue;
+use Filament\Support\Components\Attributes\Unexposed;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 
 class InvoiceXpressNoteIssuePage extends InvoiceXpressSectionPage
 {
-    protected static ?string $title = 'Emitir nota de crédito ou débito';
-
     protected static ?string $slug = 'emitir-nota-invoicexpress';
 
     protected string $view = 'filament.pages.invoice-xpress-note-issue';
@@ -77,7 +76,7 @@ class InvoiceXpressNoteIssuePage extends InvoiceXpressSectionPage
         $this->reset('originalData', 'previewData', 'accepted', 'line');
         $this->resetValidation();
         $this->validate(['originalId' => ['required', 'integer', 'min:1']], [
-            'originalId.*' => 'Escolhe a fatura original.',
+            'originalId.*' => __('Choose the original invoice.'),
         ]);
 
         try {
@@ -123,10 +122,10 @@ class InvoiceXpressNoteIssuePage extends InvoiceXpressSectionPage
     {
         $this->authorizeAccount();
         $this->resetValidation();
-        $this->validate(['accepted' => 'accepted'], ['accepted.accepted' => 'Confirma que autorizas a emissão da nota.']);
+        $this->validate(['accepted' => 'accepted'], ['accepted.accepted' => __('Confirm that you authorize issuing the note.')]);
 
         if ($this->previewData === null) {
-            throw ValidationException::withMessages(['confirmation' => 'Pré-visualiza os dados antes de emitir a nota.']);
+            throw ValidationException::withMessages(['confirmation' => __('Preview the details before issuing the note.')]);
         }
 
         try {
@@ -188,5 +187,17 @@ class InvoiceXpressNoteIssuePage extends InvoiceXpressSectionPage
     private function authorizeAccount(): void
     {
         abort_unless(static::canAccess() && $this->accountId === CurrentAccount::id(), 403);
+    }
+
+    #[Unexposed]
+    public function getTitle(): string
+    {
+        return __('Issue a credit or debit note');
+    }
+
+    #[Unexposed]
+    public static function getNavigationLabel(): string
+    {
+        return __('Issue a credit or debit note');
     }
 }

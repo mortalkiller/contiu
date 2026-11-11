@@ -19,7 +19,7 @@ final class RecordAllocatedPayment
 
             if (count($amountsByReceivable) < 2 || $receivables->count() !== count($amountsByReceivable)
                 || array_sum($amountsByReceivable) !== (int) $data['amount']) {
-                throw ValidationException::withMessages(['allocations' => 'Escolhe pelo menos duas cobranças e reparte o montante total.']);
+                throw ValidationException::withMessages(['allocations' => __('Choose at least two receivables and split the total amount.')]);
             }
 
             $client = $receivables->first()->client;
@@ -29,7 +29,7 @@ final class RecordAllocatedPayment
 
                 if ($client === null || $receivable->client?->id !== $client->id || $receivable->billable instanceof OneOffIncome
                     || $amount <= 0 || $amount > $receivable->outstanding) {
-                    throw ValidationException::withMessages(['allocations' => 'As cobranças devem ser do mesmo cliente e cada parcela deve caber no saldo em aberto.']);
+                    throw ValidationException::withMessages(['allocations' => __('The receivables must belong to the same client, and each allocation must fit within the outstanding balance.')]);
                 }
             }
 

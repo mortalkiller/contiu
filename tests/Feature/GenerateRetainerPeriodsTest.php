@@ -5,6 +5,8 @@ use App\Enums\Frequency;
 use App\Models\Retainer;
 use Illuminate\Support\Carbon;
 
+pest()->group('integration');
+
 beforeEach(fn () => $this->travelTo(Carbon::parse('2026-03-10')));
 
 it('creates one receivable per month from the start date up to the horizon', function () {

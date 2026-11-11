@@ -15,12 +15,12 @@ use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Support\Components\Attributes\Unexposed;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
-use UnitEnum;
 
 class SocialSecurity extends Page
 {
@@ -28,13 +28,9 @@ class SocialSecurity extends Page
 
     protected string $view = 'filament.pages.social-security';
 
-    protected static ?string $title = 'Segurança Social';
-
     protected static ?string $slug = 'seguranca-social';
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::Bank;
-
-    protected static string|UnitEnum|null $navigationGroup = 'Impostos';
 
     protected static ?int $navigationSort = 6;
 
@@ -58,12 +54,12 @@ class SocialSecurity extends Page
     {
         return [
             Action::make('fiscalSettings')
-                ->label('Definições fiscais')
+                ->label(__('Tax settings'))
                 ->color('gray')
                 ->icon(Phosphor::Sliders)
                 ->url(FinanceSettingsPage::getUrl()),
             Action::make('portal')
-                ->label('Segurança Social Direta')
+                ->label(__('Social Security Direct'))
                 ->color('gray')
                 ->icon(Phosphor::ArrowSquareOut)
                 ->url('https://www.seg-social.pt/ptss/pssd/menu/trabalho/relacoes-trabalho/trabalhadores/trabalhadores-independentes', shouldOpenInNewTab: true),
@@ -75,12 +71,12 @@ class SocialSecurity extends Page
         $months = app(SocialSecurityService::class)->incomeMonths($this->quarter);
 
         return Action::make('recordDeclaration')
-            ->label(fn (): string => $this->declarationHistory->isEmpty() ? 'Registar valores declarados' : 'Corrigir registo da declaração')
+            ->label(fn (): string => $this->declarationHistory->isEmpty() ? __('Record declared amounts') : __('Correct recorded declaration'))
             ->visible(fn (): bool => $this->canWrite())
             ->modalDescription(fn (): string => $this->declarationHistory->isEmpty()
-                ? 'Transcreve os totais mensais da declaração já entregue na Segurança Social Direta.'
-                : 'Confirma os totais mensais da declaração corrigida na Segurança Social Direta. O registo anterior fica no histórico.')
-            ->modalSubmitActionLabel('Confirmar registo local')
+                ? __('Copy the monthly totals from the declaration you filed in Social Security Direct.')
+                : __('Confirm the monthly totals from the corrected declaration in Social Security Direct. The previous record is kept in the history.'))
+            ->modalSubmitActionLabel(__('Confirm local record'))
             ->fillForm(function () use ($months): array {
                 $record = $this->declarationHistory->first();
                 $values = ['revision' => $record?->id];
@@ -114,7 +110,7 @@ class SocialSecurity extends Page
                 }
 
                 unset($this->declarationHistory);
-                Notification::make()->success()->title('Valores declarados registados')->send();
+                Notification::make()->success()->title(__('Declared amounts recorded'))->send();
             });
     }
 
@@ -122,20 +118,20 @@ class SocialSecurity extends Page
     {
         return Action::make('recordContribution')
             ->label(fn (array $arguments): string => $this->contributionRecord($arguments) === null
-                ? 'Confirmar valor'
-                : 'Corrigir valor confirmado')
+                ? __('Confirm amount')
+                : __('Correct confirmed amount'))
             ->visible(fn (array $arguments): bool => $this->canWrite() && $this->contributionMonth($arguments) !== null)
-            ->modalHeading(fn (array $arguments): string => 'Contribuição de '.self::monthLabel($this->contributionMonth($arguments) ?? abort(404)))
+            ->modalHeading(fn (array $arguments): string => __('Contribution for :month', ['month' => self::monthLabel($this->contributionMonth($arguments) ?? abort(404))]))
             ->modalDescription(fn (array $arguments): string => $this->contributionRecord($arguments) === null
-                ? 'Regista o valor exato a pagar indicado na Segurança Social Direta para este mês de contribuição.'
-                : 'Confirma o novo valor exato para este mês de contribuição. O valor anterior fica no histórico.')
-            ->modalSubmitActionLabel('Confirmar valor localmente')
+                ? __('Record the exact amount payable shown in Social Security Direct for this contribution month.')
+                : __('Confirm the new exact amount for this contribution month. The previous amount is kept in the history.'))
+            ->modalSubmitActionLabel(__('Confirm amount locally'))
             ->fillForm(function (array $arguments): array {
                 $record = $this->contributionRecord($arguments);
 
                 return ['amount' => $this->euroInputValue($record?->amount), 'revision' => $record?->id];
             })
-            ->schema([$this->revisionField(), $this->euroField('amount', 'Valor exato a pagar')])
+            ->schema([$this->revisionField(), $this->euroField('amount', __('Exact amount payable'))])
             ->action(function (array $data, array $arguments, Action $action, SocialSecurityService $security): void {
                 abort_unless($this->canWrite(), 403);
                 $month = $this->contributionMonth($arguments) ?? abort(404);
@@ -147,7 +143,7 @@ class SocialSecurity extends Page
                 }
 
                 unset($this->contributionHistory);
-                Notification::make()->success()->title('Contribuição confirmada')->send();
+                Notification::make()->success()->title(__('Contribution confirmed'))->send();
             });
     }
 
@@ -165,12 +161,12 @@ class SocialSecurity extends Page
 
     public static function monthLabel(CarbonImmutable $month): string
     {
-        return Period::MONTHS[$month->month - 1].' '.$month->year;
+        return Period::of($month->year, $month->month)->label();
     }
 
     public static function quarterLabel(string $quarter): string
     {
-        return substr($quarter, -1).'.º trimestre de '.substr($quarter, 0, 4);
+        return __('Quarter :quarter of :year', ['quarter' => substr($quarter, -1), 'year' => substr($quarter, 0, 4)]);
     }
 
     protected function getViewData(): array
@@ -207,24 +203,24 @@ class SocialSecurity extends Page
 
         return [
             [
-                'label' => 'Total registado',
-                'value' => Money::format((int) $preparation['receipts']->sum('amount')),
-                'note' => trans_choice('{0} Sem recebimentos no trimestre|{1} 1 recebimento no trimestre|[2,*] :count recebimentos no trimestre', $preparation['receipts']->count()),
+                'label' => __('Recorded total'),
+                'value' => Money::format((int) $preparation['receipts']->sum('amount'), locale: app()->getLocale()),
+                'note' => trans_choice('{0} No payments received this quarter|{1} 1 payment received this quarter|[2,*] :count payments received this quarter', $preparation['receipts']->count()),
             ],
             [
-                'label' => 'Usado na estimativa',
-                'value' => Money::format($preparation['estimateIncome']),
-                'note' => $exempt > 0 ? Money::format($exempt).' marcados como isentos ficam de fora' : 'Sem recebimentos isentos',
+                'label' => __('Used in the estimate'),
+                'value' => Money::format($preparation['estimateIncome'], locale: app()->getLocale()),
+                'note' => $exempt > 0 ? __(':amount marked exempt is excluded', ['amount' => Money::format($exempt, locale: app()->getLocale())]) : __('No exempt payments received'),
             ],
             [
-                'label' => 'Declaração trimestral',
-                'value' => $declared ? 'Registada' : 'Por registar',
-                'note' => $declared ? 'Valores declarados guardados no Contiu' : 'Transcreve os totais da Segurança Social Direta',
+                'label' => __('Quarterly declaration'),
+                'value' => $declared ? __('Declaration recorded') : __('Awaiting recording'),
+                'note' => $declared ? __('Declared amounts saved in Contiu') : __('Copy the totals from Social Security Direct'),
                 'tone' => $declared ? 'success' : 'warning',
             ],
             [
-                'label' => 'Contribuições confirmadas',
-                'value' => $confirmed.' de '.count($months),
+                'label' => __('Confirmed contributions'),
+                'value' => __(':confirmed of :total', ['confirmed' => $confirmed, 'total' => count($months)]),
                 'percent' => count($months) > 0 ? $confirmed / count($months) * 100 : 0,
             ],
         ];
@@ -270,8 +266,8 @@ class SocialSecurity extends Page
             ->regex('/\A[0-9]{1,9}(?:[,.][0-9]{1,2})?\z/')
             ->required()
             ->validationMessages([
-                'required' => 'Introduz um valor. Usa 0 se o valor for zero.',
-                'regex' => 'Introduz um montante entre 0 e 999 999 999,99 € com até duas casas decimais.',
+                'required' => __('Enter an amount. Use 0 for a zero amount.'),
+                'regex' => __('Enter a euro amount between 0 and 999,999,999.99 with up to two decimal places.'),
             ])
             ->dehydrateStateUsing(function (string $state): int {
                 [$whole, $fraction] = array_pad(explode('.', str_replace(',', '.', $state)), 2, '');
@@ -287,8 +283,26 @@ class SocialSecurity extends Page
 
     private function notifyConflict(ValidationException $exception, Action $action): never
     {
-        Notification::make()->danger()->title('O registo não foi guardado')->body($exception->getMessage())->send();
+        Notification::make()->danger()->title(__('The record could not be saved'))->body($exception->getMessage())->send();
 
         $action->cancel();
+    }
+
+    #[Unexposed]
+    public function getTitle(): string
+    {
+        return __('Social Security');
+    }
+
+    #[Unexposed]
+    public static function getNavigationGroup(): string
+    {
+        return __('Taxes');
+    }
+
+    #[Unexposed]
+    public static function getNavigationLabel(): string
+    {
+        return __('Social Security');
     }
 }

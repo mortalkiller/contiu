@@ -9,6 +9,8 @@ use App\Models\Receivable;
 use App\Models\Supplier;
 use Illuminate\Database\QueryException;
 
+pest()->group('integration', 'fiscal');
+
 it('preserves all instalments when a fiscal document blocks deleting the project', function () {
     $project = Project::factory()->create();
     $first = Receivable::factory()->for($project, 'billable')->create(['due_on' => '2026-12-01']);

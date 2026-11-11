@@ -32,8 +32,8 @@ enum DifferenceExplanation: string implements HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::BankFee => 'Comissão bancária (cria a despesa)',
-            self::OtherIncome => 'Outra receita (cria uma receita avulsa)',
+            self::BankFee => __('Bank fee (creates an expense)'),
+            self::OtherIncome => __('Other income (creates a one-off income entry)'),
         };
     }
 

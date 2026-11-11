@@ -20,7 +20,10 @@ class SubscriptionPaymentsRelationManager extends RelationManager
 {
     protected static string $relationship = 'subscriptionPayments';
 
-    protected static ?string $title = 'Pagamentos da assinatura';
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('Subscription payments');
+    }
 
     public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
     {
@@ -37,32 +40,32 @@ class SubscriptionPaymentsRelationManager extends RelationManager
         return $table
             ->defaultSort('paid_at', 'desc')
             ->columns([
-                TextColumn::make('paid_at')->label('Data')->date(),
+                TextColumn::make('paid_at')->label(__('Date'))->date(),
                 TextColumn::make('amount')
-                    ->label('Valor')
+                    ->label(__('Amount'))
                     ->formatStateUsing(fn (int $state): string => Money::format($state))
                     ->alignEnd(),
                 TextColumn::make('period')
-                    ->label('Período')
+                    ->label(__('Period'))
                     ->state(fn (SubscriptionPayment $record): string => $record->periodLabel())
                     ->placeholder('—'),
                 TextColumn::make('address')
-                    ->label('Morada')
+                    ->label(__('Address'))
                     ->state(fn (SubscriptionPayment $record): string => $record->addressLine())
                     ->placeholder('—')
                     ->wrap(),
-                TextColumn::make('stripe_invoice_id')->label('Fatura Stripe')->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('stripe_invoice_id')->label(__('Stripe invoice'))->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('invoiced_at')
-                    ->label('Faturado')
+                    ->label(__('Invoiced'))
                     ->date()
-                    ->placeholder('Por faturar'),
+                    ->placeholder(__('To invoice')),
             ])
             ->recordActions([
                 Action::make('markInvoiced')
-                    ->label('Marcar como faturado')
+                    ->label(__('Mark as invoiced'))
                     ->icon(Phosphor::CheckCircle)
                     ->requiresConfirmation()
-                    ->modalDescription('Confirma que já emitiste a fatura deste pagamento.')
+                    ->modalDescription(__('Confirm that you have issued the invoice for this payment.'))
                     ->visible(fn (SubscriptionPayment $record): bool => $record->invoiced_at === null)
                     ->action(fn (SubscriptionPayment $record) => $record->update(['invoiced_at' => now()])),
             ]);

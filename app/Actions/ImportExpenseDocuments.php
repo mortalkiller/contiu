@@ -4,6 +4,7 @@ namespace App\Actions;
 
 use App\Enums\FiscalDocumentDirection;
 use App\Enums\FiscalDocumentType;
+use App\Enums\Language;
 use App\Exceptions\AccountIsReadOnly;
 use App\Models\Account;
 use App\Models\BankTransaction;
@@ -77,7 +78,7 @@ final class ImportExpenseDocuments
                     ->mapWithKeys(fn (Expense $expense): array => [$expense->id => $this->expenseLabel($expense)])
                     ->all(),
                 'banks' => $banks->take(self::CANDIDATE_LIMIT)->mapWithKeys(fn (BankTransaction $bank): array => [
-                    $bank->id => "#{$bank->id} · {$bank->booked_on->format('d/m/Y')} · {$bank->description}",
+                    $bank->id => "#{$bank->id} · {$bank->booked_on->format(Language::resolve(app()->getLocale())->dateFormat())} · {$bank->description}",
                 ])->all(),
                 'expense_match' => $this->matchLabel($expenses->count(), $exactExpenses->count() === 1),
                 'bank_match' => $this->matchLabel($banks->count(), $banks->count() === 1 && $banks->first()->booked_on->toDateString() === $row['document_date']),
@@ -100,7 +101,7 @@ final class ImportExpenseDocuments
         $source = $this->source($source);
 
         if (array_diff_key($choices, $rows) !== []) {
-            throw new DomainException('Há escolhas que já não pertencem a esta pré-visualização.');
+            throw new DomainException(__('Some selections no longer belong to this preview.'));
         }
 
         return DB::transaction(function () use ($source, $rows, $choices): int {
@@ -135,7 +136,7 @@ final class ImportExpenseDocuments
         $bankId = $selectedBank === '' ? null : $this->candidateId($selectedBank);
 
         if ($bankId !== null && $expenseId === null) {
-            throw new DomainException('Para associar um movimento, escolhe também uma despesa.');
+            throw new DomainException(__('Choose an expense as well to link a transaction.'));
         }
 
         $sourceKeys = $this->sourceKeys($aliases, $row);
@@ -150,7 +151,7 @@ final class ImportExpenseDocuments
             if ($matches->count() !== 1 || ! $this->sameDocument($import, $row)
                 || (int) $link?->expense_id !== ($expenseId ?? 0)
                 || ($bankId !== null && (int) $link?->expense?->bankLink?->bank_transaction_id !== $bankId)) {
-                throw new DomainException('Esta referência já foi importada com outros dados ou associações.');
+                throw new DomainException(__('This reference has already been imported with different details or links.'));
             }
 
             return false;
@@ -163,7 +164,7 @@ final class ImportExpenseDocuments
             ->where('number', $row['number'])
             ->where('origin', $origin)
             ->exists()) {
-            throw new DomainException('Já existe um documento fiscal com esta origem e referência.');
+            throw new DomainException(__('A fiscal document with this source and reference already exists.'));
         }
 
         $bank = null;
@@ -171,7 +172,7 @@ final class ImportExpenseDocuments
             $bank = $this->banks($row)->lockForUpdate()->find($bankId);
 
             if ($bank === null || $bank->links()->exists()) {
-                throw new DomainException('O movimento já não está disponível para conciliação.');
+                throw new DomainException(__('The transaction is no longer available for reconciliation.'));
             }
         }
 
@@ -180,12 +181,12 @@ final class ImportExpenseDocuments
 
             if ($expense === null || $expense->vat_amount !== $row['vat_amount']
                 || FiscalDocumentLink::query()->where('expense_id', $expenseId)->exists()) {
-                throw new DomainException('A despesa escolhida já não está disponível para esta fatura.');
+                throw new DomainException(__('The selected expense is no longer available for this invoice.'));
             }
 
             if ($bank !== null) {
                 if ($expense->bankLink()->exists()) {
-                    throw new DomainException('A despesa já está conciliada com outro movimento.');
+                    throw new DomainException(__('The expense is already reconciled with another transaction.'));
                 }
 
                 $this->applyBankTransaction->linkRecords($bank, [$expense]);
@@ -248,7 +249,7 @@ final class ImportExpenseDocuments
             $expense->description,
             $expense->supplier?->name,
             $expense->invoice_number,
-            $expense->bankLink !== null ? 'Já conciliada' : null,
+            $expense->bankLink !== null ? __('Already reconciled') : null,
         ]));
     }
 
@@ -266,7 +267,7 @@ final class ImportExpenseDocuments
     {
         $source = trim($source);
         if ($source === '' || ! mb_check_encoding($source, 'UTF-8') || mb_strlen($source) > 120 || preg_match('/\p{C}/u', $source)) {
-            throw new DomainException('Indica uma origem válida, como o NIF do fornecedor.');
+            throw new DomainException(__('Enter a valid source, such as the supplier’s tax ID.'));
         }
 
         return $source;
@@ -335,7 +336,7 @@ final class ImportExpenseDocuments
     private function candidateId(string $id): int
     {
         if (! preg_match('/\A[1-9][0-9]{0,17}\z/', $id)) {
-            throw new DomainException('Escolhe uma despesa ou movimento válido.');
+            throw new DomainException(__('Choose a valid expense or transaction.'));
         }
 
         return (int) $id;

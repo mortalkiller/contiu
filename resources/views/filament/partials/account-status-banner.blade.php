@@ -17,7 +17,7 @@
 
     @if ($banner['subscribeUrl'])
         <x-filament::button tag="a" :href="$banner['subscribeUrl']" size="sm" :color="$readOnly ? 'warning' : 'primary'">
-            Subscrever
+            {{ __('Subscribe') }}
         </x-filament::button>
     @endif
 </div>

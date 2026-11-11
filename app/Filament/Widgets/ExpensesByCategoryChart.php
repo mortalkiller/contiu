@@ -4,32 +4,31 @@ namespace App\Filament\Widgets;
 
 use App\Filament\Widgets\Concerns\CategoryDoughnut;
 use App\Filament\Widgets\Concerns\UsesDashboardPeriod;
-use Filament\Widgets\ChartWidget;
-use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
+use MortalKiller\FilamentAppearance\Widgets\BreakdownChartWidget;
 
 /**
  * Paid expenses per category in the selected period, as a doughnut.
  */
-class ExpensesByCategoryChart extends ChartWidget
+class ExpensesByCategoryChart extends BreakdownChartWidget
 {
     use CategoryDoughnut;
-    use HasSkeletonPlaceholder;
     use UsesDashboardPeriod;
 
     protected static ?int $sort = 5;
 
     protected int|string|array $columnSpan = 'full';
 
-    protected ?string $maxHeight = '320px';
+    /** What went out takes the clay accent, as in the cash flow chart. */
+    protected string $color = 'clay';
 
     public function getHeading(): string
     {
-        return 'Despesas por categoria';
+        return __('Expenses by category');
     }
 
     public function getDescription(): string
     {
-        return 'Despesas pagas em '.$this->summary()->period->label().'.';
+        return __('Expenses paid in :period.', ['period' => $this->summary()->period->label()]);
     }
 
     protected function amounts(): array

@@ -21,7 +21,7 @@ final class SliceFolder
         arsort($values);
 
         $kept = array_slice($values, 0, $max - 1, true);
-        $kept['Outras'] = array_sum(array_slice($values, $max - 1, null, true));
+        $kept[__('Other categories')] = array_sum(array_slice($values, $max - 1, null, true));
 
         return $kept;
     }

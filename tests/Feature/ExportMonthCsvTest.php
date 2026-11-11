@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\ExportMonthCsv;
 use App\Actions\RecordAllocatedPayment;
 use App\Enums\FiscalDocumentDirection;
 use App\Enums\PaymentMethod;
@@ -12,8 +13,11 @@ use App\Models\Payment;
 use App\Models\Project;
 use App\Models\Receivable;
 use App\Support\CurrentAccount;
+use App\Support\MonthReview;
+use Carbon\CarbonImmutable;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Testing\TestResponse;
 use Livewire\Livewire;
 
 it('exports only the selected account and month and escapes spreadsheet formulas', function () {
@@ -47,7 +51,7 @@ it('exports only the selected account and month and escapes spreadsheet formulas
         ->toContain('Saldo atual em aberto (EUR)', '125,09;0,00', '123,01;123,01', 'FT 2026/34', '2026-12-31')
         ->toContain("'\t@SUM(1;2)", "'=1+1", 'Por pagar', 'Falta fatura ou fatura-recibo')
         ->not->toContain('APENAS JANEIRO', 'APENAS OUTRA CONTA');
-});
+})->group('ui');
 
 it('exports one row per split receipt and preserves signed statement amounts', function () {
     actingAsAdmin();
@@ -73,7 +77,7 @@ it('exports one row per split receipt and preserves signed statement amounts', f
     expect(substr_count($csv, 'Recebimento;'.$payment->id.';'))->toBe(1)
         ->and($csv)->toContain('2027-01-01;700,03', 'REF REPARTIDA', 'Falta recibo ou fatura-recibo')
         ->toContain('2027-01-31;-50,09', 'Por tratar');
-});
+})->group('ui');
 
 it('lets a read-only owner export and refuses the export for a non-member', function () {
     $readOnly = Account::factory()->create(['billing_exempt' => false, 'trial_ends_at' => now()->subDay()]);
@@ -90,7 +94,7 @@ it('lets a read-only owner export and refuses the export for a non-member', func
     Livewire::test(MonthClose::class, ['month' => '2026-12'])
         ->call('mountAction', 'exportMonthCsv')
         ->assertForbidden();
-});
+})->group('ui');
 
 it('only exports an old expense reference as unconfirmed if it differs from the linked invoice', function () {
     actingAsAdmin();
@@ -103,4 +107,15 @@ it('only exports an old expense reference as unconfirmed if it differs from the 
     $page = Livewire::test(MonthClose::class, ['month' => '2026-12'])->callAction('exportMonthCsv');
 
     expect(substr_count(base64_decode($page->effects['download']['content']), 'FT IMPORTADA'))->toBe(1);
-});
+})->group('ui');
+
+it('retains the language in a streamed month export after the request locale is restored', function () {
+    actingAsAdmin();
+    app()->setLocale('en_US');
+    $response = app(ExportMonthCsv::class)->handle(new MonthReview(CarbonImmutable::parse('2026-12-01')));
+    app()->setLocale('pt_PT');
+
+    expect(TestResponse::fromBaseResponse($response)->streamedContent())->toContain('Current outstanding balance (EUR)')
+        ->and($response->headers->get('Content-Disposition'))->toContain('month-close-')
+        ->and(app()->getLocale())->toBe('pt_PT');
+})->group('integration');

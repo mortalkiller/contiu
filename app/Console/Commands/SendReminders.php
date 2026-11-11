@@ -10,7 +10,7 @@ use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
 #[Signature('finance:send-reminders')]
-#[Description('Avisa (no sino) os valores a receber que vencem esta semana ou ficaram vencidos')]
+#[Description('Send notifications for receivables due this week or overdue')]
 class SendReminders extends Command
 {
     public function handle(SendFinanceReminders $reminders): int
@@ -26,7 +26,7 @@ class SendReminders extends Command
             $sent += CurrentAccount::run($account, fn () => $reminders->run());
         });
 
-        $this->info('Avisos enviados: '.$sent);
+        $this->info(__('Reminders sent: :count', ['count' => $sent]));
 
         return self::SUCCESS;
     }

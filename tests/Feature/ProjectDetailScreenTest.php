@@ -45,7 +45,7 @@ it('tells the story of a project: the quote, what came in and when, and what is 
         ['title' => 'Revisão', 'meta' => 'Venceu a 01/11/2026 · há 9 dias', 'amount' => Money::format(5000), 'state' => 'late'],
         ['title' => 'Fecho do trabalho', 'meta' => 'Vence a 23/02/2027', 'amount' => Money::format(10000), 'state' => 'pending'],
     ]);
-});
+})->group('integration');
 
 it('shows the timeline, the details and a note under each figure on the project page', function () {
     Livewire::test(ViewProject::class, ['record' => $this->project->getRouteKey()])
@@ -58,7 +58,7 @@ it('shows the timeline, the details and a note under each figure on the project 
         ->assertSee('52,5% · '.Money::format(38000).' de custos diretos', escape: false)
         ->assertActionExists('recordPayment')
         ->assertActionHidden('issueInvoice');
-});
+})->group('ui');
 
 it('counts the records on each tab and lists the fiscal documents of the project', function () {
     $invoice = FiscalDocument::factory()->create(['number' => 'FT 2026/7']);
@@ -75,4 +75,4 @@ it('counts the records on each tab and lists the fiscal documents of the project
         ->loadTable()
         ->assertCanSeeTableRecords([$invoice])
         ->assertCanNotSeeTableRecords([$other]);
-});
+})->group('ui');

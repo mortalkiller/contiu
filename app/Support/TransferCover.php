@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\Language;
 use App\Models\Expense;
 use App\Models\Payment;
 
@@ -19,14 +20,23 @@ final class TransferCover
     public function label(): string
     {
         $value = $this->amount < $this->total
-            ? Money::format($this->amount).' de '.Money::format($this->total).' (em parte)'
+            ? __(':amount of :total (partial)', ['amount' => Money::format($this->amount), 'total' => Money::format($this->total)])
             : Money::format($this->amount);
 
+        $dateFormat = Language::resolve(app()->getLocale())->dateFormat();
+
         if ($this->record instanceof Payment) {
-            return 'Recebimento '.($this->record->is_split ? $this->record->receivableLabels() : $this->record->receivable?->label).' · '.$this->record->paid_on->format('d/m/Y').' · '.$value;
+            return __('Payment :label · :date · :amount', [
+                'label' => ($this->record->is_split ? $this->record->receivableLabels() : $this->record->receivable?->label) ?? '',
+                'date' => $this->record->paid_on->format($dateFormat),
+                'amount' => $value,
+            ]);
         }
 
-        return 'Despesa '.$this->record->description.' · '.($this->record->paid_on ?? $this->record->spent_on)->format('d/m/Y').' · '.$value
-            .($this->deducted ? ' (descontada)' : ' (devolvida)');
+        return __($this->deducted ? 'Expense :description · :date · :amount (deducted)' : 'Expense :description · :date · :amount (refunded)', [
+            'description' => $this->record->description,
+            'date' => ($this->record->paid_on ?? $this->record->spent_on)->format($dateFormat),
+            'amount' => $value,
+        ]);
     }
 }

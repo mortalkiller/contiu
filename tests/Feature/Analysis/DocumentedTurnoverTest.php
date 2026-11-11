@@ -20,6 +20,8 @@ use App\Support\Money;
 use Filament\Forms\Components\Select;
 use Livewire\Livewire;
 
+pest()->group('fiscal');
+
 it('opens a filtered list with just the euro documents behind the billed figure', function () {
     actingAsAdmin();
     $included = FiscalDocument::factory()->create(['document_date' => '2026-01-15']);
@@ -34,7 +36,7 @@ it('opens a filtered list with just the euro documents behind the billed figure'
     Livewire::test(ListFiscalDocuments::class)->filterTable('billed_year', 2026)
         ->assertCanSeeTableRecords([$included])
         ->assertCanNotSeeTableRecords($excluded);
-});
+})->group('ui');
 
 it('sums net issued documents by issue date and subtracts each credit note once', function () {
     FiscalDocument::factory()->count(9)->sequence(
@@ -54,7 +56,7 @@ it('sums net issued documents by issue date and subtracts each credit note once'
     expect($report->billedNet)->toBe(27001)
         ->and($report->documentCount)->toBe(5)
         ->and($report->nonEuroDocumentCount)->toBe(1);
-});
+})->group('integration');
 
 it('counts each registered payment once in its payment year, independently of documents or allocations', function () {
     $project = Project::factory()->create();
@@ -83,7 +85,7 @@ it('counts each registered payment once in its payment year, independently of do
         ->and($previousYear->received)->toBe(0)
         ->and($report->billedNet)->toBeNull()
         ->and($report->received)->toBe(65007);
-});
+})->group('integration');
 
 it('isolates both totals and the available issue years by account', function () {
     CurrentAccount::run(Account::factory()->create(), function () {
@@ -101,7 +103,7 @@ it('isolates both totals and the available issue years by account', function () 
     CurrentAccount::set(null);
 
     expect(fn () => DocumentedTurnover::forYear(2026))->toThrow(NoCurrentAccount::class);
-});
+})->group('integration');
 
 it('shows the operational figures separately and discloses unavailable territorial coverage', function () {
     actingAsAdmin();
@@ -116,7 +118,7 @@ it('shows the operational figures separately and discloses unavailable territori
         ->assertSee('Documentos noutras moedas excluídos do total em EUR (1).')
         ->assertSee('Volume de negócios em território nacional')
         ->assertSee('Cobertura indisponível');
-});
+})->group('ui');
 
 it('keeps the cash threshold warning indicative when the receipts pass the upper trigger', function () {
     actingAsAdmin();
@@ -128,7 +130,7 @@ it('keeps the cash threshold warning indicative when the receipts pass the upper
         ->assertSee('Limite de isenção de IVA · aproximação por recebimentos')
         ->assertSee('Alerta indicativo de IVA')
         ->assertDontSee('tens 15 dias úteis');
-});
+})->group('integration');
 
 it('allows a read-only owner to open the turnover figures in their account', function () {
     FiscalDocument::factory()->create(['document_date' => '2026-06-01', 'net_amount' => 5312]);
@@ -141,4 +143,4 @@ it('allows a read-only owner to open the turnover figures in their account', fun
         ->assertOk()
         ->assertSee('Faturado líquido documentado')
         ->assertSee(Money::format(5312));
-});
+})->group('ui');

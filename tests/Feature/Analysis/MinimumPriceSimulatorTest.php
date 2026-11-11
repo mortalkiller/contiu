@@ -2,9 +2,11 @@
 
 use App\Filament\Pages\MinimumPriceSimulator;
 use App\Models\Account;
+use App\Models\FiscalDocument;
 use App\Support\CurrentAccount;
 use App\Support\Money;
 use Filament\Facades\Filament;
+use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 
 it('renders the minimum turnover for each period in a read-only account', function () {
@@ -36,7 +38,7 @@ it('renders the minimum turnover for each period in a read-only account', functi
         ->assertSee(Money::format(3125));
 
     Livewire::test(MinimumPriceSimulator::class)->assertSet('result', null);
-});
+})->group('ui');
 
 it('rounds each minimum up independently from the exact calculation', function () {
     actingAsAdmin();
@@ -52,10 +54,11 @@ it('rounds each minimum up independently from the exact calculation', function (
         ->call('calculate')
         ->assertHasNoFormErrors()
         ->assertSet('result', ['annual' => 2, 'monthly' => 1, 'hourly' => 1]);
-});
+})->group('ui');
 
-it('displays the exact cents of a large hourly minimum', function () {
+it('displays the exact cents of a large hourly minimum', function (string $locale, string $expected) {
     actingAsAdmin();
+    app()->setLocale($locale);
 
     Livewire::test(MinimumPriceSimulator::class)
         ->fillForm([
@@ -67,8 +70,11 @@ it('displays the exact cents of a large hourly minimum', function () {
         ])
         ->call('calculate')
         ->assertHasNoFormErrors()
-        ->assertSee('666 666 666 656 666,67 €');
-});
+        ->assertSee($expected);
+})->with([
+    'Portuguese' => ['pt_PT', '666 666 666 656 666,67 €'],
+    'English' => ['en_US', '€666,666,666,656,666.67'],
+])->group('ui');
 
 it('rejects invalid inputs without keeping an earlier result', function (string $field, string $value) {
     actingAsAdmin();
@@ -95,7 +101,7 @@ it('rejects invalid inputs without keeping an earlier result', function (string 
     'reserve consumes all turnover' => ['reservePercent', '100'],
     'negative annual costs' => ['costs', '-0,01'],
     'malformed annual goal' => ['incomeGoal', '100abc'],
-]);
+])->group('ui');
 
 it('returns 404 for an account the owner cannot access', function () {
     $owner = ownerOf($this->account);
@@ -105,4 +111,43 @@ it('returns 404 for an account the owner cannot access', function () {
     $this->actingAs($owner)
         ->get(MinimumPriceSimulator::getUrl(panel: 'admin', tenant: $otherAccount))
         ->assertNotFound();
+})->group('integration');
+
+describe('Comparison with annual turnover', function () {
+    beforeEach(function () {
+        $this->travelTo(Carbon::parse('2026-11-10 12:00'));
+        actingAsAdmin();
+    });
+
+    it('explains the simulated minimum and compares it with this year\'s billing', function () {
+        FiscalDocument::factory()->create(['net_amount' => 375000, 'document_date' => '2026-06-01']);
+
+        $page = Livewire::test(MinimumPriceSimulator::class)
+            ->assertDontSee('Como se chega aqui')
+            ->fillForm(['incomeGoal' => '24000', 'costs' => '6000', 'billableMonths' => '10', 'hoursPerMonth' => '120', 'reservePercent' => '20'])
+            ->call('calculate')
+            ->assertSee('Em 10 meses')
+            ->assertSee('Em 120 horas por')
+            ->assertSee('Como se chega aqui')
+            ->assertSee('Comparado com o que cobras hoje');
+
+        expect($page->instance()->comparison())->toBe([
+            'year' => 2026,
+            'billed' => Money::format(375000),
+            'percent' => 10,
+            'pace' => $page->instance()->formatMinimum(1687500),
+            'reached' => false,
+        ])->and((string) $page->instance()->breakdownBar())
+            ->toContain('Rendimento', Money::format(2400000), 'Reserva', Money::format(750000), 'Custos', Money::format(600000));
+
+        $page->set('data.costs', '7000')->assertDontSee('Como se chega aqui');
+    })->group('ui');
+
+    it('leaves the comparison out when nothing was billed in euros this year', function () {
+        Livewire::test(MinimumPriceSimulator::class)
+            ->fillForm(['incomeGoal' => '24000', 'costs' => '6000', 'billableMonths' => '10', 'hoursPerMonth' => '120', 'reservePercent' => '20'])
+            ->call('calculate')
+            ->assertSee('Como se chega aqui')
+            ->assertDontSee('Comparado com o que cobras hoje');
+    })->group('ui');
 });

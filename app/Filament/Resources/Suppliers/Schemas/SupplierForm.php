@@ -15,19 +15,19 @@ class SupplierForm
             ->columns(2)
             ->components([
                 TextInput::make('name')
-                    ->label('Nome')
+                    ->label(__('Name'))
                     ->required()
                     ->columnSpanFull(),
                 TextInput::make('vat_number')
-                    ->label('NIF'),
+                    ->label(__('Tax ID')),
                 TextInput::make('website')
-                    ->label('Site')
+                    ->label(__('Website'))
                     ->url()
                     ->placeholder('https://'),
                 FinanceFields::seat()
-                    ->helperText('As compras de serviços a empresas com sede fora de Portugal pagam IVA por autoliquidação.'),
+                    ->helperText(__('VAT on services purchased from businesses based outside Portugal is accounted for under the reverse charge.')),
                 Textarea::make('notes')
-                    ->label('Notas')
+                    ->label(__('Notes'))
                     ->rows(3)
                     ->columnSpanFull(),
             ]);

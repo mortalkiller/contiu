@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Actions\ConfirmFiscalProfile;
+use App\Enums\Language;
 use App\Filament\Support\MoneyInput;
 use App\Filament\Support\TaxSettingsFields;
 use App\Models\FiscalProfile;
@@ -27,21 +28,17 @@ use Filament\Schemas\Components\EmbeddedSchema;
 use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Components\Attributes\Unexposed;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
-use UnitEnum;
 
 /**
  * Fiscal regime and cash settings used by the forecast and the tax estimate.
  */
 class FinanceSettingsPage extends Page
 {
-    protected static ?string $title = 'Definições fiscais';
-
     protected static ?string $slug = 'definicoes-fiscais';
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::Sliders;
-
-    protected static string|UnitEnum|null $navigationGroup = 'Definições';
 
     protected static ?int $navigationSort = 5;
 
@@ -65,18 +62,18 @@ class FinanceSettingsPage extends Page
 
     public function getSubheading(): string
     {
-        return 'Perfil fiscal confirmado e definições para a previsão de tesouraria e a estimativa de impostos.';
+        return __('Confirmed tax profile and settings for the cash forecast and tax estimate.');
     }
 
     protected function getHeaderActions(): array
     {
         return [
             Action::make('confirmFiscalProfile')
-                ->label('Confirmar versão do perfil fiscal')
+                ->label(__('Confirm tax profile version'))
                 ->icon(Phosphor::Plus)
                 ->hidden(fn (): bool => CurrentAccount::readOnly())
-                ->modalDescription('A versão fica no histórico. Se já houver uma versão com a mesma data, passa a valer a que foi confirmada por último.')
-                ->modalSubmitActionLabel('Confirmar versão')
+                ->modalDescription(__('The version is kept in the history. If a version already exists for the same date, the most recently confirmed version applies.'))
+                ->modalSubmitActionLabel(__('Confirm version'))
                 ->fillForm(function (): array {
                     $profile = FiscalProfile::effectiveOn(today());
 
@@ -91,25 +88,25 @@ class FinanceSettingsPage extends Page
                     ];
                 })
                 ->schema([
-                    TextInput::make('legal_name')->label('Nome fiscal')->required()->maxLength(255),
-                    TextInput::make('country_code')->label('País fiscal (código ISO)')->placeholder('PT')
+                    TextInput::make('legal_name')->label(__('Registered tax name'))->required()->maxLength(255),
+                    TextInput::make('country_code')->label(__('Tax country (ISO code)'))->placeholder('PT')
                         ->required()->regex('/\A[A-Za-z]{2}\z/'),
-                    TextInput::make('vat_number')->label('NIF / Número de IVA')->required()->maxLength(64),
-                    TextInput::make('vat_regime')->label('Enquadramento em IVA declarado')->required()->maxLength(160),
-                    DatePicker::make('activity_started_on')->label('Data de início de atividade'),
-                    Select::make('has_dependent_employment')->label('Acumulação com trabalho dependente')
-                        ->options(['yes' => 'Sim', 'no' => 'Não'])->placeholder('Por confirmar'),
-                    Textarea::make('recognised_exemptions')->label('Isenções reconhecidas')->rows(2)->maxLength(2000)
-                        ->helperText('Regista as isenções reconhecidas ou escreve «Nenhuma» se for o caso. Deixa em branco se estiver por confirmar.'),
-                    Select::make('vat_exempt')->label('Isenção de IVA (art. 53.º) para a estimativa')
-                        ->options(['yes' => 'Sim', 'no' => 'Não'])->placeholder('Por confirmar')->live(),
-                    MoneyInput::make('vat_exemption_threshold')->label('Limite anual de isenção de IVA')
+                    TextInput::make('vat_number')->label(__('Tax ID / VAT number'))->required()->maxLength(64),
+                    TextInput::make('vat_regime')->label(__('Declared VAT status'))->required()->maxLength(160),
+                    DatePicker::make('activity_started_on')->label(__('Activity start date')),
+                    Select::make('has_dependent_employment')->label(__('Concurrent employment'))
+                        ->options(['yes' => __('Yes'), 'no' => __('No')])->placeholder(__('Awaiting confirmation')),
+                    Textarea::make('recognised_exemptions')->label(__('Recognized exemptions'))->rows(2)->maxLength(2000)
+                        ->helperText(__('Enter any recognized exemptions or type “None” if applicable. Leave blank if unconfirmed.')),
+                    Select::make('vat_exempt')->label(__('VAT exemption (Article 53) for the estimate'))
+                        ->options(['yes' => __('Yes'), 'no' => __('No')])->placeholder(__('Awaiting confirmation'))->live(),
+                    MoneyInput::make('vat_exemption_threshold')->label(__('Annual VAT exemption threshold'))
                         ->minValue(0.01)->rule('decimal:0,2')
                         ->visible(fn ($get): bool => $get('vat_exempt') === 'yes'),
-                    Select::make('ss_contribution_exempt')->label('Isenção contributiva da Segurança Social para a estimativa')
-                        ->options(['yes' => 'Sim', 'no' => 'Não'])->placeholder('Por confirmar'),
-                    DatePicker::make('effective_from')->label('Em vigor desde')->required(),
-                    Toggle::make('confirmed')->label('Confirmo que estes dados fiscais estão corretos')->accepted(),
+                    Select::make('ss_contribution_exempt')->label(__('Social Security contribution exemption for the estimate'))
+                        ->options(['yes' => __('Yes'), 'no' => __('No')])->placeholder(__('Awaiting confirmation')),
+                    DatePicker::make('effective_from')->label(__('Effective from'))->required(),
+                    Toggle::make('confirmed')->label(__('I confirm that these tax details are correct'))->accepted(),
                 ])
                 ->action(function (array $data): void {
                     $actor = auth()->user();
@@ -117,7 +114,7 @@ class FinanceSettingsPage extends Page
 
                     app(ConfirmFiscalProfile::class)->handle($actor, $data);
 
-                    Notification::make()->title('Versão do perfil fiscal confirmada')->success()->send();
+                    Notification::make()->title(__('Tax profile version confirmed'))->success()->send();
                 }),
         ];
     }
@@ -137,68 +134,68 @@ class FinanceSettingsPage extends Page
             ->statePath('data')
             ->columns(['lg' => 2])
             ->components([
-                Section::make('Atividade')
-                    ->description('Quando e como começou a atividade: decide a Segurança Social do início e a redução do IRS dos primeiros anos.')
+                Section::make(__('Activity'))
+                    ->description(__('When and how you started trading determines initial Social Security contributions and the income tax reduction for the first years.'))
                     ->icon(Phosphor::Briefcase)
                     ->columns(2)
                     ->schema([
                         TaxSettingsFields::activityStartedOn()->columnSpanFull(),
                         ...TaxSettingsFields::activity(withPreviousYear: true),
                     ]),
-                Section::make('IRS')
-                    ->description('Regime simplificado: o rendimento tributável é o rendimento bruto vezes o coeficiente.')
+                Section::make(__('Personal income tax'))
+                    ->description(__('Under the simplified regime, taxable income is gross income multiplied by the coefficient.'))
                     ->icon(Phosphor::Receipt)
                     ->columns(2)
                     ->schema(TaxSettingsFields::irs(app(FinanceSettings::class))),
-                Section::make('Segurança Social')
-                    ->description('Contribuição sobre o rendimento relevante de cada trimestre.')
+                Section::make(__('Social Security'))
+                    ->description(__('Contribution based on each quarter’s relevant income.'))
                     ->icon(Phosphor::Bank)
                     ->columns(2)
                     ->schema(TaxSettingsFields::socialSecurity()),
-                Section::make('IVA')
+                Section::make(__('VAT'))
                     ->icon(Phosphor::Percent)
                     ->schema([
                         Toggle::make('payments_exempt_by_default')
-                            ->label('Recebimentos isentos por defeito')
-                            ->helperText('Os recebimentos e as avenças novos vêm marcados como isentos de impostos (não contam para a estimativa). Podes desmarcar caso a caso.'),
+                            ->label(__('Payments received are exempt by default'))
+                            ->helperText(__('New payments received and retainers are marked as tax exempt and excluded from the estimate. You can change them individually.')),
                         TaxSettingsFields::whereToFind(
                             Toggle::make('vat_exempt')
-                                ->label('Isento de IVA (art. 53.º)')
+                                ->label(__('VAT exempt (Article 53)'))
                                 ->live(),
-                            'No comprovativo de início ou de alteração de atividade, em «Enquadramento em IVA»: «Isenção artigo 53.º». No Portal das Finanças, em Declarações de Atividade.',
+                            __('On your activity registration or amendment receipt, look under “Enquadramento em IVA” for “Isenção artigo 53.º”. You can find it under “Declarações de Atividade” in the Portuguese Tax Portal.'),
                         ),
                         MoneyInput::make('vat_exemption_threshold')
-                            ->label('Limite anual de isenção de IVA (art. 53.º)')
+                            ->label(__('Annual VAT exemption threshold (Article 53)'))
                             ->minValue(0)
                             ->visible(fn ($get) => (bool) $get('vat_exempt'))
                             ->required(fn ($get) => (bool) $get('vat_exempt')),
                         // Stored as a fraction (0.23); typed as a percentage.
                         TaxSettingsFields::whereToFind(
                             TextInput::make('reverse_charge_vat_rate_percent')
-                                ->label('Taxa de IVA na autoliquidação')
-                                ->helperText('O IVA que liquidas nas compras de serviços a fornecedores com sede fora de Portugal. 23 % no continente.')
+                                ->label(__('Reverse-charge VAT rate'))
+                                ->helperText(__('VAT you account for when buying services from suppliers outside Portugal. The mainland rate is 23%.'))
                                 ->numeric()
                                 ->step(1)
                                 ->minValue(0)
                                 ->maxValue(100)
                                 ->suffix('%')
                                 ->required(),
-                            'A taxa normal da tua região: 23 % no continente, 16 % nos Açores, 22 % na Madeira (art. 18.º do CIVA).',
+                            __('Your region’s standard rate: 23% on the mainland, 16% in the Azores and 22% in Madeira (Article 18 of the Portuguese VAT Code).'),
                         ),
                     ]),
-                Section::make('Banco')
-                    ->description('A conta da atividade é a conta bancária onde recebes e pagas o que é do trabalho. O extrato importado dá o saldo e confirma que o dinheiro registado chegou lá.')
+                Section::make(__('Bank'))
+                    ->description(__('Your business account is the bank account you use for work payments. The imported statement provides the balance and verifies recorded payments.'))
                     ->icon(Phosphor::Wallet)
                     ->columnSpanFull()
                     ->schema([
                         Toggle::make('has_business_account')
-                            ->label('Tenho uma conta bancária só para a atividade')
-                            ->helperText('Desligado, o extrato bancário, a reconciliação e o saldo da conta deixam de aparecer. Os extratos já importados ficam guardados.')
+                            ->label(__('I have a dedicated business bank account'))
+                            ->helperText(__('Turning this off hides the bank statement, reconciliation and account balance. Previously imported statements are retained.'))
                             ->live(),
                         Textarea::make('account_names')
-                            ->label('Os teus nomes no extrato')
-                            ->placeholder("ANA MARIA SILVA\nPoupança")
-                            ->helperText('Quando passas dinheiro entre a conta da atividade e outra conta tua, o banco escreve um nome na descrição (o teu, ou o que deste à outra conta). Um por linha: esses movimentos ficam como "Transferência minha" e não contam como receita nem despesa.')
+                            ->label(__('Your names on the statement'))
+                            ->placeholder(__("ANA MARIA SILVA\nSavings"))
+                            ->helperText(__('When you move money between your business account and another account you own, the bank puts your name or the other account’s name in the description. Enter one name per line. These transactions are marked “Transfer between my accounts” and excluded from income and expenses.'))
                             ->visible(fn ($get): bool => (bool) $get('has_business_account'))
                             ->rows(3),
                     ]),
@@ -208,48 +205,48 @@ class FinanceSettingsPage extends Page
     public function content(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Perfil fiscal')
+            Section::make(__('Tax profile'))
                 ->schema(function (): Schema|array {
                     $profile = FiscalProfile::effectiveOn(today());
 
                     return $profile
                         ? Schema::make()->record($profile)->components(static::fiscalProfileEntries())
-                        : [TextEntry::make('emptyProfile')->hiddenLabel()->placeholder('Sem versão em vigor')];
+                        : [TextEntry::make('emptyProfile')->hiddenLabel()->placeholder(__('No effective version'))];
                 })
                 ->description(function (): string {
                     $profile = FiscalProfile::effectiveOn(today());
 
                     return match (true) {
-                        $profile === null => 'Por confirmar. A estimativa usa as definições abaixo até confirmares uma versão.',
-                        $profile->confirmed_at === null => 'Versão em vigor, por confirmar.',
-                        default => 'Confirmado a '.$profile->confirmed_at->format('d/m/Y').'.',
+                        $profile === null => __('Awaiting confirmation. The estimate uses the settings below until you confirm a version.'),
+                        $profile->confirmed_at === null => __('Effective version awaiting confirmation.'),
+                        default => __('Confirmed on :date.', ['date' => $profile->confirmed_at->format(Language::resolve(app()->getLocale())->dateFormat())]),
                     };
                 })
                 ->icon(fn (): Phosphor => FiscalProfile::effectiveOn(today())?->confirmed_at === null ? Phosphor::WarningCircle : Phosphor::CheckCircle)
                 ->iconColor(fn (): string => FiscalProfile::effectiveOn(today())?->confirmed_at === null ? 'warning' : 'success')
                 ->columns(3),
-            Section::make('Histórico do perfil fiscal')
+            Section::make(__('Tax profile history'))
                 ->collapsible()
                 ->collapsed()
                 ->schema([
                     RepeatableEntry::make('fiscalProfileHistory')
                         ->hiddenLabel()
-                        ->placeholder('Sem versões confirmadas')
+                        ->placeholder(__('No confirmed versions'))
                         ->state(fn () => FiscalProfile::query()->inEffectiveOrder()->get())
                         ->schema([
                             ...static::fiscalProfileEntries(),
-                            TextEntry::make('confirmed_at')->label('Confirmado em')->dateTime(),
+                            TextEntry::make('confirmed_at')->label(__('Confirmed on'))->dateTime(),
                         ])
                         ->columns(3),
                 ]),
-            Callout::make('Base das estimativas históricas')
-                ->description('A estimativa usa a data de início de atividade e os campos de IVA e Segurança Social confirmados na versão em vigor para o período. Sem dados confirmados? As estimativas continuam a usar as definições abaixo.')
+            Callout::make(__('Basis for historical estimates'))
+                ->description(__('The estimate uses the activity start date and the VAT and Social Security details confirmed in the version effective for the period. The estimate uses the settings below for unconfirmed details.'))
                 ->icon(Phosphor::Info),
-            Callout::make('Estimativas — confirma os valores com o teu contabilista.')
-                ->description('As regras de Segurança Social, IRS e IVA são simplificadas e servem apenas para planear.')
+            Callout::make(__('Estimates — check the amounts with your accountant.'))
+                ->description(__('The Social Security, personal income tax and VAT rules are simplified for planning purposes.'))
                 ->icon(Phosphor::WarningCircle)
                 ->status('warning'),
-            Callout::make('Mudar estas definições recalcula a estimativa de impostos e a previsão de tesouraria.')
+            Callout::make(__('Changing these settings recalculates the tax estimate and cash forecast.'))
                 ->icon(Phosphor::Info),
             Form::make([EmbeddedSchema::make('form')])
                 ->id('form')
@@ -257,11 +254,11 @@ class FinanceSettingsPage extends Page
                 ->footer([
                     Actions::make([
                         Action::make('save')
-                            ->label('Guardar')
+                            ->label(__('Save'))
                             ->submit('save')
                             // Settings have no policy: the read-only gate cannot hide the button.
                             ->disabled(fn () => CurrentAccount::readOnly())
-                            ->tooltip(fn () => CurrentAccount::readOnly() ? 'A conta está só de leitura' : null),
+                            ->tooltip(fn () => CurrentAccount::readOnly() ? __('The account is read-only') : null),
                     ])->key('formActions'),
                 ]),
         ]);
@@ -271,21 +268,21 @@ class FinanceSettingsPage extends Page
     private static function fiscalProfileEntries(): array
     {
         return [
-            TextEntry::make('effective_from')->label('Em vigor desde')->date(),
-            TextEntry::make('legal_name')->label('Nome fiscal'),
-            TextEntry::make('country_code')->label('País fiscal'),
-            TextEntry::make('vat_number')->label('NIF / Número de IVA'),
-            TextEntry::make('vat_regime')->label('Enquadramento em IVA'),
-            TextEntry::make('activity_started_on')->label('Data de início de atividade')->date()->placeholder('Por confirmar'),
-            TextEntry::make('has_dependent_employment')->label('Acumulação com trabalho dependente')
-                ->formatStateUsing(fn (bool $state): string => $state ? 'Sim' : 'Não')->placeholder('Por confirmar'),
-            TextEntry::make('vat_exempt')->label('Isenção de IVA (art. 53.º) para a estimativa')
-                ->formatStateUsing(fn (bool $state): string => $state ? 'Sim' : 'Não')->placeholder('Definições atuais'),
-            TextEntry::make('vat_exemption_threshold')->label('Limite anual de isenção de IVA')
-                ->formatStateUsing(fn (int $state): string => Money::format($state))->placeholder('Definições atuais'),
-            TextEntry::make('ss_contribution_exempt')->label('Isenção contributiva para a estimativa')
-                ->formatStateUsing(fn (bool $state): string => $state ? 'Sim' : 'Não')->placeholder('Definições atuais'),
-            TextEntry::make('recognised_exemptions')->label('Isenções reconhecidas')->placeholder('Por confirmar')->columnSpanFull(),
+            TextEntry::make('effective_from')->label(__('Effective from'))->date(),
+            TextEntry::make('legal_name')->label(__('Registered tax name')),
+            TextEntry::make('country_code')->label(__('Tax country')),
+            TextEntry::make('vat_number')->label(__('Tax ID / VAT number')),
+            TextEntry::make('vat_regime')->label(__('VAT status')),
+            TextEntry::make('activity_started_on')->label(__('Activity start date'))->date()->placeholder(__('Awaiting confirmation')),
+            TextEntry::make('has_dependent_employment')->label(__('Concurrent employment'))
+                ->formatStateUsing(fn (bool $state): string => $state ? __('Yes') : __('No'))->placeholder(__('Awaiting confirmation')),
+            TextEntry::make('vat_exempt')->label(__('VAT exemption (Article 53) for the estimate'))
+                ->formatStateUsing(fn (bool $state): string => $state ? __('Yes') : __('No'))->placeholder(__('Current settings')),
+            TextEntry::make('vat_exemption_threshold')->label(__('Annual VAT exemption threshold'))
+                ->formatStateUsing(fn (int $state): string => Money::format($state, locale: app()->getLocale()))->placeholder(__('Current settings')),
+            TextEntry::make('ss_contribution_exempt')->label(__('Contribution exemption for the estimate'))
+                ->formatStateUsing(fn (bool $state): string => $state ? __('Yes') : __('No'))->placeholder(__('Current settings')),
+            TextEntry::make('recognised_exemptions')->label(__('Recognized exemptions'))->placeholder(__('Awaiting confirmation'))->columnSpanFull(),
         ];
     }
 
@@ -308,6 +305,24 @@ class FinanceSettingsPage extends Page
                 : $settings->all()['account_names'],
         ]);
 
-        Notification::make()->title('Definições guardadas')->success()->send();
+        Notification::make()->title(__('Settings saved'))->success()->send();
+    }
+
+    #[Unexposed]
+    public function getTitle(): string
+    {
+        return __('Tax settings');
+    }
+
+    #[Unexposed]
+    public static function getNavigationGroup(): string
+    {
+        return __('Settings');
+    }
+
+    #[Unexposed]
+    public static function getNavigationLabel(): string
+    {
+        return __('Tax settings');
     }
 }

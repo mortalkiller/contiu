@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Enums\Language;
 use App\Filament\Resources\Accounts\AccountResource;
 use App\Models\SubscriptionPayment;
 use App\Support\Money;
@@ -29,7 +30,10 @@ class SubscriptionPaid extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: "Pagamento recebido: {$this->payment->account->name} (".Money::format($this->payment->amount).')',
+            subject: __('Payment received: :account (:amount)', [
+                'account' => $this->payment->account->name,
+                'amount' => Money::format($this->payment->amount),
+            ]),
         );
     }
 
@@ -41,7 +45,7 @@ class SubscriptionPaid extends Mailable implements ShouldQueue
             'account' => $account,
             'address' => $this->payment->addressLine(),
             'amount' => Money::format($this->payment->amount),
-            'paidOn' => $this->payment->paid_at->format('d/m/Y'),
+            'paidOn' => $this->payment->paid_at->format(Language::resolve(app()->getLocale())->dateFormat()),
             'period' => $this->payment->periodLabel(),
             'url' => AccountResource::getUrl('view', ['record' => $account], panel: 'admin', tenant: $account),
         ]);

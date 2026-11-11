@@ -48,23 +48,23 @@ class QuickCreateMenu extends Component implements HasActions, HasSchemas
             $this->recordPaymentAction(),
             $this->oneOffIncomeAction(),
             Action::make('newExpense')
-                ->label('Nova despesa')
+                ->label(__('New expense'))
                 ->icon(Phosphor::Receipt)
                 ->url(ExpenseResource::getUrl('create')),
             Action::make('newProject')
-                ->label('Novo trabalho')
+                ->label(__('New project'))
                 ->icon(Phosphor::Briefcase)
                 ->url(ProjectResource::getUrl('create')),
             Action::make('newRetainer')
-                ->label('Nova avença')
+                ->label(__('New retainer'))
                 ->icon(Phosphor::Repeat)
                 ->url(RetainerResource::getUrl('create')),
             Action::make('newClient')
-                ->label('Novo cliente')
+                ->label(__('New client'))
                 ->icon(Phosphor::UserPlus)
                 ->url(ClientResource::getUrl()),
         ])
-            ->label('Novo')
+            ->label(__('New'))
             ->icon(Phosphor::Plus)
             ->color('primary');
 

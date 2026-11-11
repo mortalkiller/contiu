@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Enums\Language;
 use App\Mail\Concerns\SendsAsAccount;
 use App\Support\Money;
 use App\Support\TaxObligation;
@@ -31,10 +32,11 @@ class TaxObligationsDigest extends Mailable implements ShouldQueue
     /** @param  list<TaxObligation>  $obligations */
     public function __construct(array $obligations, string $url)
     {
+        $dateFormat = Language::resolve(app()->getLocale())->dateFormat();
         $this->items = array_map(fn (TaxObligation $obligation) => [
             'title' => $obligation->title,
             'amount' => $obligation->amount === null ? null : Money::format($obligation->amount),
-            'due_on' => $obligation->dueOn?->format('d/m/Y'),
+            'due_on' => $obligation->dueOn?->format($dateFormat),
             'overdue' => $obligation->status === 'overdue',
         ], $obligations);
         $this->account = $this->accountName();
@@ -46,7 +48,9 @@ class TaxObligationsDigest extends Mailable implements ShouldQueue
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'Obrigações fiscais de '.CarbonImmutable::now()->translatedFormat('F \d\e Y'));
+        return new Envelope(subject: __('Tax obligations for :month', [
+            'month' => CarbonImmutable::now()->translatedFormat(__('F Y')),
+        ]));
     }
 
     public function content(): Content

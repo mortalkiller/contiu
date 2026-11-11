@@ -1,20 +1,20 @@
 <x-mail::message>
-# Obrigações fiscais
+# {{ __('Tax obligations') }}
 
-Estas são as obrigações por cumprir em {{ $accountName }}.
+{{ __('These are the outstanding obligations for :account.', ['account' => $accountName]) }}
 
 <x-mail::table>
-| Obrigação | Prazo | Valor |
+| {{ __('Obligation') }} | {{ __('Deadline') }} | {{ __('Value') }} |
 |:----------|:------|------:|
 @foreach ($items as $item)
-| {{ $item['title'] }} | {{ $item['due_on'] ?? '—' }}{{ $item['overdue'] ? ' (em atraso)' : '' }} | {{ $item['amount'] ?? '—' }} |
+| {{ $item['title'] }} | {{ $item['due_on'] ?? '—' }}{{ $item['overdue'] ? ' '.__('(overdue)') : '' }} | {{ $item['amount'] ?? '—' }} |
 @endforeach
 </x-mail::table>
 
 <x-mail::button :url="$url">
-Abrir painel
+{{ __('Open dashboard') }}
 </x-mail::button>
 
-Com os melhores cumprimentos,<br>
+{{ __('Kind regards,') }}<br>
 {{ $accountName }}
 </x-mail::message>

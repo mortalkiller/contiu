@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\Language;
 use App\Models\Expense;
 use App\Models\Payment;
 use App\Models\Receivable;
@@ -33,15 +34,38 @@ final class BankCandidate
 
     public function label(): string
     {
+        $dateFormat = Language::resolve(app()->getLocale())->dateFormat();
+
         return match ($this->type) {
-            'receivable' => 'Recebimento · '.$this->model->label.' ('.($this->model->client?->name ?? '—').')',
-            'partial' => 'Recebimento parcial · '.$this->model->label.' ('.($this->model->client?->name ?? '—').') — falta '.Money::format($this->model->outstanding),
-            'own_transfer' => 'Transferência minha',
-            'expense' => 'Despesa por pagar · '.$this->model->supplier->name.' · '.$this->model->description,
-            'template' => 'Despesa recorrente · '.$this->model->supplier->name.' · '.$this->model->description,
-            'supplier' => 'Criar despesa · '.$this->model->name,
-            'payment' => 'Já registado · Recebimento de '.$this->model->paid_on->format('d/m/Y').' · '.($this->model->is_split ? $this->model->receivableLabels() : $this->model->receivable?->label).' ('.($this->model->receivable?->client?->name ?? '—').')',
-            'paid' => 'Já registado · Despesa paga em '.($this->model->paid_on ?? $this->model->spent_on)->format('d/m/Y').' · '.$this->model->supplier->name.' · '.$this->model->description,
+            'receivable' => __('Payment · :label (:client)', [
+                'label' => $this->model->label,
+                'client' => $this->model->client?->name ?? '—',
+            ]),
+            'partial' => __('Partial payment · :label (:client) — :amount outstanding', [
+                'label' => $this->model->label,
+                'client' => $this->model->client?->name ?? '—',
+                'amount' => Money::format($this->model->outstanding),
+            ]),
+            'own_transfer' => __('Own transfer'),
+            'expense' => __('Unpaid expense · :supplier · :description', [
+                'supplier' => $this->model->supplier->name,
+                'description' => $this->model->description,
+            ]),
+            'template' => __('Recurring expense · :supplier · :description', [
+                'supplier' => $this->model->supplier->name,
+                'description' => $this->model->description,
+            ]),
+            'supplier' => __('Create expense · :supplier', ['supplier' => $this->model->name]),
+            'payment' => __('Already recorded · Payment on :date · :label (:client)', [
+                'date' => $this->model->paid_on->format($dateFormat),
+                'label' => ($this->model->is_split ? $this->model->receivableLabels() : $this->model->receivable?->label) ?? '',
+                'client' => $this->model->receivable?->client?->name ?? '—',
+            ]),
+            'paid' => __('Already recorded · Expense paid on :date · :supplier · :description', [
+                'date' => ($this->model->paid_on ?? $this->model->spent_on)->format($dateFormat),
+                'supplier' => $this->model->supplier->name,
+                'description' => $this->model->description,
+            ]),
         };
     }
 }

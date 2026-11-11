@@ -13,14 +13,14 @@ class ManageRecurringExpenses extends ManageRecords
 
     public function getSubheading(): ?string
     {
-        return 'Mock: a geração automática das despesas mensais fica para a implementação.';
+        return __('Mock: automatic generation of monthly expenses will be implemented later.');
     }
 
     protected function getHeaderActions(): array
     {
         return [
             CreateAction::make()
-                ->label('Nova despesa recorrente')
+                ->label(__('New recurring expense'))
                 ->modalWidth('5xl')
                 ->mutateDataUsing(fn (array $data) => ExpenseForm::normalize($data)),
         ];

@@ -10,6 +10,8 @@ use App\Models\User;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Carbon;
 
+pest()->group('integration');
+
 beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-03-10'));
     $this->user = User::factory()->create();

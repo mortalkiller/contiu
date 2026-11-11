@@ -47,41 +47,42 @@ class SendStatementEmailAction extends Action
         parent::setUp();
 
         $this
-            ->label('Enviar extrato por email')
+            ->label(__('Email statement'))
             ->icon(Phosphor::PaperPlaneTilt)
             ->color('gray')
-            ->modalHeading('Enviar extrato por email')
-            ->modalDescription('O extrato do período filtrado segue em anexo (Excel). Revê o email antes de enviar.')
+            ->modalHeading(__('Email statement'))
+            ->modalDescription(__('The Excel attachment covers the selected period. Review the email before sending.'))
             ->modalIcon(Phosphor::PaperPlaneTilt)
             ->modalWidth(Width::TwoExtraLarge)
-            ->modalSubmitActionLabel('Enviar')
+            ->modalSubmitActionLabel(__('Send'))
             // Emails to clients are a write too: none from a read-only account.
             ->disabled(fn () => CurrentAccount::readOnly() || blank($this->resolveStatement()->client->email))
             ->tooltip(fn () => match (true) {
-                CurrentAccount::readOnly() => 'A conta está só de leitura',
-                blank($this->resolveStatement()->client->email) => 'O cliente não tem email',
+                CurrentAccount::readOnly() => __('The account is read-only'),
+                blank($this->resolveStatement()->client->email) => __('The client has no email address'),
                 default => null,
             })
             ->fillForm(function (): array {
                 $statement = $this->resolveStatement();
                 $client = $statement->client;
+                $locale = $client->preferredLanguage()->locale();
 
                 return [
                     'to' => $client->email,
-                    'subject' => 'Extrato de conta — '.$client->name,
+                    'subject' => __('Account statement — :name', ['name' => $client->name], $locale),
                     'message' => implode("\n", [
-                        'Olá '.$client->name.',',
+                        __('Hello :name,', ['name' => $client->name], $locale),
                         '',
-                        'Segue em anexo o extrato da sua conta, com um saldo de '.Money::format($statement->balance()).'.',
+                        __('Your account statement is attached, with a balance of :balance.', ['balance' => Money::format($statement->balance(), $locale)], $locale),
                         '',
-                        'Qualquer dúvida, estamos ao dispor.',
+                        __('Please contact us if you have any questions.', [], $locale),
                     ]),
                 ];
             })
             ->schema([
-                TextInput::make('to')->label('Para')->email()->required(),
-                TextInput::make('subject')->label('Assunto')->required()->maxLength(200),
-                Textarea::make('message')->label('Mensagem')->rows(6)->required(),
+                TextInput::make('to')->label(__('To'))->email()->required(),
+                TextInput::make('subject')->label(__('Subject'))->required()->maxLength(200),
+                Textarea::make('message')->label(__('Message'))->rows(6)->required(),
             ])
             ->action(function (array $data): void {
                 $statement = $this->resolveStatement();
@@ -99,7 +100,7 @@ class SendStatementEmailAction extends Action
                 ]);
 
                 Notification::make()
-                    ->title('Extrato enviado para '.$data['to'])
+                    ->title(__('Statement sent to :email', ['email' => $data['to']]))
                     ->body(ClientStatementExport::filename($statement))
                     ->success()
                     ->send();

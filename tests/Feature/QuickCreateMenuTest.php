@@ -8,6 +8,8 @@ use App\Livewire\QuickCreateMenu;
 use App\Models\Receivable;
 use Livewire\Livewire;
 
+pest()->group('ui');
+
 beforeEach(fn () => actingAsAdmin());
 
 it('is in the topbar of every panel page', function () {

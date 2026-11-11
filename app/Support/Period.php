@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\Language;
 use Carbon\CarbonImmutable;
 
 /**
@@ -12,6 +13,10 @@ final class Period
     public const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
     public const SHORT_MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+    private const ENGLISH_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+    private const ENGLISH_SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
     public readonly CarbonImmutable $start;
 
@@ -48,7 +53,21 @@ final class Period
 
     public function label(): string
     {
-        return $this->month === null ? (string) $this->year : self::MONTHS[$this->month - 1].' '.$this->year;
+        return $this->month === null ? (string) $this->year : __(':month :year', ['month' => self::monthName($this->month), 'year' => $this->year]);
+    }
+
+    public static function monthName(int $month, bool $short = false, bool $inSentence = false): string
+    {
+        $language = Language::resolve(app()->getLocale());
+        $name = ($short ? self::ENGLISH_SHORT_MONTHS : self::ENGLISH_MONTHS)[$month - 1];
+
+        if ($short && $month === 5 && $language === Language::PortuguesePortugal) {
+            $name = __('May (short month)');
+        } else {
+            $name = __($name);
+        }
+
+        return $inSentence && $language === Language::PortuguesePortugal ? mb_strtolower($name) : $name;
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\Language;
 use App\Filament\Pages\Tenancy\EditAccountProfile;
 use App\Models\Account;
 use App\Support\Money;
@@ -16,12 +17,12 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Text;
 use Filament\Schemas\Schema;
+use Filament\Support\Components\Attributes\Unexposed;
 use Illuminate\Support\HtmlString;
 use InvalidArgumentException;
 use RuntimeException;
 use Stripe\Exception\ApiErrorException;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
-use UnitEnum;
 
 /**
  * "Assinatura": choose monthly or yearly (Stripe Checkout) and, once subscribed, manage the card,
@@ -34,20 +35,16 @@ use UnitEnum;
  */
 class AccountSubscription extends Page
 {
-    protected static ?string $title = 'Assinatura';
-
     protected static ?string $slug = 'assinatura';
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::CreditCard;
-
-    protected static string|UnitEnum|null $navigationGroup = 'Definições';
 
     protected static ?int $navigationSort = 1;
 
     /** Amounts as charged by the Stripe prices in config('contiu.prices'): cents, no VAT. */
     public const PLANS = [
-        'monthly' => ['label' => 'Mensal', 'amount' => 500, 'per' => 'por mês'],
-        'yearly' => ['label' => 'Anual', 'amount' => 5400, 'per' => 'por ano'],
+        'monthly' => ['label' => 'Monthly', 'amount' => 500, 'per' => 'per month'],
+        'yearly' => ['label' => 'Yearly', 'amount' => 5400, 'per' => 'per year'],
     ];
 
     /**
@@ -56,7 +53,7 @@ class AccountSubscription extends Page
      */
     private const MINIMUM_TRIAL_MINUTES = 48 * 60 + 5;
 
-    private const SUBSCRIBE_FAILURE = 'Não é possível subscrever agora';
+    private const SUBSCRIBE_FAILURE = 'Unable to subscribe right now';
 
     private ?bool $isMember = null;
 
@@ -108,6 +105,7 @@ class AccountSubscription extends Page
             'success_url' => static::getUrl(['checkout' => 'success'], panel: 'admin', tenant: $account),
             'cancel_url' => static::getUrl(panel: 'admin', tenant: $account),
             'billing_address_collection' => 'required',
+            'locale' => Language::resolve(app()->getLocale()) === Language::EnglishUnitedStates ? 'en' : 'pt',
             'customer_update' => ['address' => 'auto'],
         ];
 
@@ -125,8 +123,8 @@ class AccountSubscription extends Page
         // Back from Checkout: the subscription shows up once Stripe's webhook arrives.
         if (request()->query('checkout') === 'success') {
             Notification::make()
-                ->title('Obrigado!')
-                ->body('A assinatura fica ativa assim que a Stripe confirmar o pagamento, normalmente em segundos.')
+                ->title(__('Thank you!'))
+                ->body(__('Your subscription becomes active as soon as Stripe confirms payment, usually within seconds.'))
                 ->success()
                 ->send();
         }
@@ -134,18 +132,18 @@ class AccountSubscription extends Page
 
     public function getSubheading(): string
     {
-        return 'Pagamento com cartão, através da Stripe. Sem IVA (isento ao abrigo do art. 53.º do CIVA).';
+        return __('Pay by card through Stripe. VAT exempt under Article 53 of the Portuguese VAT Code.');
     }
 
     public function content(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Estado')
+            Section::make(__('Status'))
                 ->icon(Phosphor::Info)
                 ->schema([
                     Text::make(fn (): string => $this->statusText()),
                     Text::make(fn (): HtmlString => new HtmlString(
-                        '<span class="contiu-progress" role="img" aria-label="'.e($this->trialProgress()['label']).'"><i style="width: '.$this->trialProgress()['percent'].'%"></i></span>'
+                        '<span class="fap-progress" role="img" aria-label="'.e($this->trialProgress()['label']).'"><i style="width: '.$this->trialProgress()['percent'].'%"></i></span>'
                         .'<span class="mt-1 block text-sm text-gray-500 dark:text-gray-400">'.e($this->trialProgress()['label']).'</span>',
                     ))->visible(fn (): bool => $this->trialProgress() !== null),
                 ]),
@@ -155,8 +153,8 @@ class AccountSubscription extends Page
                     $this->planSection('monthly', $this->subscribeMonthlyAction()),
                     $this->planSection('yearly', $this->subscribeYearlyAction()),
                 ]),
-            Section::make('Gerir a assinatura')
-                ->description('Mudar o cartão, ver os recibos ou cancelar, no portal de faturação da Stripe.')
+            Section::make(__('Manage subscription'))
+                ->description(__('Change your card, view receipts or cancel in the Stripe billing portal.'))
                 ->icon(Phosphor::Wrench)
                 ->visible(fn (): bool => $this->isMember() && $this->account()->subscription('default') !== null)
                 ->schema([Actions::make([$this->manageAction()])]),
@@ -182,7 +180,7 @@ class AccountSubscription extends Page
 
         return [
             'percent' => (int) round(($total - $left) * 100 / $total),
-            'label' => trans_choice('{1} Falta 1 dia de experiência|[2,*] Faltam :count dias de experiência', max(1, $left)).' · '.($total - $left).' de '.$total.' usados',
+            'label' => trans_choice('{1} 1 trial day left|[2,*] :count trial days left', max(1, $left)).' · '.__(':used of :total used', ['used' => $total - $left, 'total' => $total]),
         ];
     }
 
@@ -199,13 +197,13 @@ class AccountSubscription extends Page
     public function manageAction(): Action
     {
         return Action::make('manage')
-            ->label('Abrir o portal da Stripe')
+            ->label(__('Open the Stripe portal'))
             ->icon(Phosphor::ArrowSquareOut)
             ->color('gray')
             ->visible(fn (): bool => $this->isMember() && $this->account()->subscription('default') !== null)
             ->action(fn () => $this->callStripe(
                 fn () => $this->redirect($this->account()->billingPortalUrl(static::getUrl())),
-                failure: 'Não é possível abrir o portal da Stripe agora',
+                failure: __('Unable to open the Stripe portal right now'),
             ));
     }
 
@@ -215,27 +213,27 @@ class AccountSubscription extends Page
         $subscription = $account->subscription('default');
 
         if ($subscription?->valid()) {
-            $plan = ($key = self::planFor($subscription->stripe_price)) ? ' '.mb_strtolower(self::PLANS[$key]['label']) : '';
+            $plan = ($key = self::planFor($subscription->stripe_price)) ? ' '.mb_strtolower(__(self::PLANS[$key]['label'])) : '';
 
             return match (true) {
-                $subscription->onGracePeriod() => "A assinatura foi cancelada: a conta continua ativa até {$subscription->ends_at->format('d/m/Y')}. Podes retomá-la no portal da Stripe.",
-                $subscription->pastDue() => 'O último pagamento falhou e a Stripe vai tentar de novo. Confirma o cartão no portal da Stripe.',
-                $subscription->onTrial() => "Assinatura{$plan}: a primeira cobrança é a {$subscription->trial_ends_at->format('d/m/Y')}.",
-                default => "Assinatura{$plan} ativa.",
+                $subscription->onGracePeriod() => __('The subscription was canceled. Your account stays active until :date. You can resume it in the Stripe portal.', ['date' => $subscription->ends_at->format(Language::resolve(app()->getLocale())->dateFormat())]),
+                $subscription->pastDue() => __('The last payment failed and Stripe will retry. Check your card in the Stripe portal.'),
+                $subscription->onTrial() => __('Subscription:plan: your first charge is on :date.', ['plan' => $plan, 'date' => $subscription->trial_ends_at->format(Language::resolve(app()->getLocale())->dateFormat())]),
+                default => __('Subscription:plan active.', ['plan' => $plan]),
             };
         }
 
         if ($account->onGenericTrial()) {
-            return "Estás na experiência até {$account->trial_ends_at->format('d/m/Y')}. Se subscreveres agora, a primeira cobrança é só nesse dia.";
+            return __('Your trial ends on :date. If you subscribe now, your first charge will be on that day.', ['date' => $account->trial_ends_at->format(Language::resolve(app()->getLocale())->dateFormat())]);
         }
 
-        return 'A experiência terminou e não há uma assinatura ativa: a conta está só de leitura. Subscreve para voltar a registar.';
+        return __('Your trial ended and you have no active subscription. The account is read-only. Subscribe to start recording again.');
     }
 
     private function subscribeAction(string $plan): Action
     {
         return Action::make('subscribe'.ucfirst($plan))
-            ->label('Subscrever '.mb_strtolower(self::PLANS[$plan]['label']))
+            ->label(__('Subscribe :plan', ['plan' => mb_strtolower(__(self::PLANS[$plan]['label']))]))
             ->icon(Phosphor::CreditCard)
             ->color($plan === 'yearly' ? 'primary' : 'gray')
             ->visible(fn (): bool => $this->isMember() && ! $this->account()->subscribed('default'))
@@ -247,12 +245,12 @@ class AccountSubscription extends Page
         $details = self::PLANS[$plan];
         $saving = 12 * self::PLANS['monthly']['amount'] - self::PLANS['yearly']['amount'];
 
-        return Section::make($details['label'])
-            ->description(Money::format($details['amount']).' '.$details['per'])
+        return Section::make(__($details['label']))
+            ->description(Money::format($details['amount'], locale: app()->getLocale()).' '.__($details['per']))
             ->schema([
                 Text::make($plan === 'yearly'
-                    ? 'Poupas '.Money::format($saving).' por ano em relação ao mensal.'
-                    : 'Cancelas quando quiseres; a conta fica ativa até ao fim do mês pago.'),
+                    ? __('Save :amount per year compared with monthly billing.', ['amount' => Money::format($saving, locale: app()->getLocale())])
+                    : __('Cancel any time. Your account stays active until the end of the month you paid for.')),
                 Actions::make([$action]),
             ]);
     }
@@ -264,7 +262,7 @@ class AccountSubscription extends Page
         if ($price === null) {
             report(new RuntimeException("Stripe price for the {$plan} plan is not configured (contiu.prices.{$plan})."));
 
-            $this->notifyFailure(self::SUBSCRIBE_FAILURE, 'Este plano ainda não está disponível. Tenta mais tarde; se continuar, contacta-nos.');
+            $this->notifyFailure(__(self::SUBSCRIBE_FAILURE), __('This plan is unavailable. Try again later, and contact us if the problem continues.'));
 
             return;
         }
@@ -284,7 +282,7 @@ class AccountSubscription extends Page
         } catch (ApiErrorException $exception) {
             report($exception);
 
-            $this->notifyFailure($failure, 'Não conseguimos falar com a Stripe. Tenta daqui a pouco; se continuar, contacta-nos.');
+            $this->notifyFailure($failure, __('We couldn’t reach Stripe. Try again shortly, and contact us if the problem continues.'));
         }
     }
 
@@ -303,5 +301,23 @@ class AccountSubscription extends Page
     {
         /** @var Account */
         return Filament::getTenant();
+    }
+
+    #[Unexposed]
+    public function getTitle(): string
+    {
+        return __('Subscription');
+    }
+
+    #[Unexposed]
+    public static function getNavigationGroup(): string
+    {
+        return __('Settings');
+    }
+
+    #[Unexposed]
+    public static function getNavigationLabel(): string
+    {
+        return __('Subscription');
     }
 }

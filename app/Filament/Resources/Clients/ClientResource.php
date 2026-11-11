@@ -6,6 +6,9 @@ use App\Filament\Resources\Clients\Pages\ClientStatementPage;
 use App\Filament\Resources\Clients\Pages\EditClient;
 use App\Filament\Resources\Clients\Pages\ListClients;
 use App\Filament\Resources\Clients\Pages\ViewClient;
+use App\Filament\Resources\Clients\RelationManagers\ClientExpensesRelationManager;
+use App\Filament\Resources\Clients\RelationManagers\ClientPaymentsRelationManager;
+use App\Filament\Resources\Clients\RelationManagers\ClientReceivablesRelationManager;
 use App\Filament\Resources\Clients\RelationManagers\ProjectsRelationManager;
 use App\Filament\Resources\Clients\RelationManagers\RetainersRelationManager;
 use App\Filament\Resources\Clients\Schemas\ClientForm;
@@ -13,7 +16,6 @@ use App\Filament\Resources\Clients\Tables\ClientsTable;
 use App\Models\Client;
 use BackedEnum;
 use Filament\Pages\Enums\SubNavigationPosition;
-use Filament\Resources\Pages\Page;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
@@ -25,19 +27,28 @@ class ClientResource extends Resource
 {
     protected static ?string $model = Client::class;
 
-    protected static ?string $modelLabel = 'cliente';
-
-    protected static ?string $pluralModelLabel = 'clientes';
-
     protected static ?string $recordTitleAttribute = 'name';
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::Users;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Contactos';
-
     protected static ?int $navigationSort = 1;
 
     protected static ?SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
+
+    public static function getModelLabel(): string
+    {
+        return __('client');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('clients');
+    }
+
+    public static function getNavigationGroup(): string|UnitEnum|null
+    {
+        return __('Contacts');
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -54,18 +65,11 @@ class ClientResource extends Resource
         return [
             ProjectsRelationManager::class,
             RetainersRelationManager::class,
+            ClientReceivablesRelationManager::class,
+            ClientPaymentsRelationManager::class,
+            ClientExpensesRelationManager::class,
             AuditsRelationManager::class,
         ];
-    }
-
-    /** Tabs on a client: Ver · Extrato · Editar. */
-    public static function getRecordSubNavigation(Page $page): array
-    {
-        return $page->generateNavigationItems([
-            ViewClient::class,
-            ClientStatementPage::class,
-            EditClient::class,
-        ]);
     }
 
     public static function getPages(): array

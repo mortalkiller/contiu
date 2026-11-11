@@ -24,7 +24,7 @@ class MonthlyCashFlowTable extends TableWidget
     public function table(Table $table): Table
     {
         return $table
-            ->heading(fn () => ($this->period()->isMonth() ? 'Cash flow diário · ' : 'Cash flow mensal · ').$this->period()->label())
+            ->heading(fn () => __(':flow · :period', ['flow' => $this->period()->isMonth() ? __('Daily cash flow') : __('Monthly cash flow'), 'period' => $this->period()->label()]))
             ->records(fn (): array => $this->rows())
             ->paginated(false)
             ->recordClasses(fn (array $record) => match (true) {
@@ -34,29 +34,29 @@ class MonthlyCashFlowTable extends TableWidget
             })
             ->columns([
                 TextColumn::make('label')
-                    ->label(fn () => $this->period()->isMonth() ? 'Dia' : 'Mês')
+                    ->label(fn () => $this->period()->isMonth() ? __('Day') : __('Month'))
                     ->weight(fn (array $record) => $record['is_total'] ? 'bold' : null),
                 TextColumn::make('received')
-                    ->label('Recebido')
+                    ->label(__('Received'))
                     ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->weight(fn (array $record) => $record['is_total'] ? 'bold' : null),
                 TextColumn::make('paid')
-                    ->label('Despesas pagas')
+                    ->label(__('Expenses paid'))
                     ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->weight(fn (array $record) => $record['is_total'] ? 'bold' : null),
-                TextColumn::make('refunded')->label('Reembolsos a clientes')
+                TextColumn::make('refunded')->label(__('Customer refunds'))
                     ->money('EUR', divideBy: 100)->alignEnd()
                     ->visible(fn (): bool => $this->summary()->refunded() > 0),
                 TextColumn::make('result')
-                    ->label('Cash flow')
+                    ->label(__('Cash flow'))
                     ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->weight(fn (array $record) => $record['is_total'] ? 'bold' : 'medium')
                     ->color(fn (float $state) => $state < 0 ? 'danger' : null),
             ])
-            ->emptyStateHeading('Sem movimentos neste período');
+            ->emptyStateHeading(__('No transactions in this period'));
     }
 
     /** @return array<string, array<string, mixed>> */
@@ -81,7 +81,7 @@ class MonthlyCashFlowTable extends TableWidget
         }
 
         $rows['total'] = [
-            'label' => 'Total',
+            'label' => __('Total'),
             'received' => round(array_sum(array_column($flow, 'received')), 2),
             'paid' => round(array_sum(array_column($flow, 'paid')), 2),
             'refunded' => array_sum(array_column($flow, 'refunded')),

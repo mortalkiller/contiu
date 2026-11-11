@@ -2,6 +2,7 @@
 
 namespace App\Actions;
 
+use App\Enums\Language;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Models\Expense;
 use App\Models\RecurringExpense;
@@ -11,6 +12,7 @@ use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Traits\Localizable;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 /**
@@ -22,6 +24,8 @@ use ToneGabes\Filament\Icons\Enums\Phosphor;
  */
 class GenerateRecurringExpenses
 {
+    use Localizable;
+
     /** @return int number of expenses created */
     public function forAll(?CarbonInterface $until = null): int
     {
@@ -96,16 +100,26 @@ class GenerateRecurringExpenses
             return;
         }
 
-        Notification::make()
-            ->title('Despesa por pagar: '.$expense->description)
-            ->body($expense->supplier->name.' — '.Money::format($expense->total).' ('.$expense->spent_on->format('d/m/Y').')')
-            ->warning()
-            ->icon(Phosphor::Receipt)
-            ->actions([
-                Action::make('open')
-                    ->label('Ver despesa')
-                    ->url(ExpenseResource::getUrl('edit', ['record' => $expense], panel: 'admin', tenant: CurrentAccount::get())),
-            ])
-            ->sendToDatabase($recipients);
+        $recipientsByLocale = $recipients->groupBy(fn ($user): string => $user->preferredLocale());
+
+        foreach ($recipientsByLocale as $locale => $users) {
+            $this->withLocale($locale, function () use ($locale, $users, $expense): void {
+                Notification::make()
+                    ->title(__('Unpaid expense: :description', ['description' => $expense->description]))
+                    ->body(__(':supplier — :amount (:date)', [
+                        'supplier' => $expense->supplier->name,
+                        'amount' => Money::format($expense->total, $locale),
+                        'date' => $expense->spent_on->format(Language::resolve($locale)->dateFormat()),
+                    ]))
+                    ->warning()
+                    ->icon(Phosphor::Receipt)
+                    ->actions([
+                        Action::make('open')
+                            ->label(__('View expense'))
+                            ->url(ExpenseResource::getUrl('edit', ['record' => $expense], panel: 'admin', tenant: CurrentAccount::get())),
+                    ])
+                    ->sendToDatabase($users);
+            });
+        }
     }
 }

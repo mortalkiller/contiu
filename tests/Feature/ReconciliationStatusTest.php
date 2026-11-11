@@ -10,6 +10,8 @@ use App\Support\Reconciliation;
 use App\Support\TransferCoverage;
 use Illuminate\Support\Carbon;
 
+pest()->group('integration', 'banking');
+
 beforeEach(fn () => $this->travelTo(Carbon::parse('2026-11-20')));
 
 function bankLine(string $date, int $amount, int $balance, string $status = 'matched'): BankTransaction

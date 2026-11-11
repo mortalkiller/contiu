@@ -14,7 +14,7 @@ class PortugueseNif implements ValidationRule
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         if (! self::isValid($value)) {
-            $fail('O NIF não é válido.');
+            $fail(__('The Portuguese tax number is invalid.'));
         }
     }
 

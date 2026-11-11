@@ -11,6 +11,11 @@ use Tests\TestCase;
 
 require_once __DIR__.'/Support/finance-workbook.php';
 require_once __DIR__.'/Support/bank-statement-workbook.php';
+require_once __DIR__.'/Support/bank-reconciliation.php';
+require_once __DIR__.'/Support/import-screen.php';
+require_once __DIR__.'/Support/invoicexpress-issue.php';
+
+pest()->group('unit')->in('Unit');
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)

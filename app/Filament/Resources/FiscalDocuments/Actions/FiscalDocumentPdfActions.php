@@ -16,7 +16,7 @@ final class FiscalDocumentPdfActions
     public static function download(): Action
     {
         return Action::make('downloadPdf')
-            ->label('Descarregar PDF')
+            ->label(__('Download PDF'))
             ->icon(Phosphor::DownloadSimple)
             ->visible(fn (FiscalDocument $record): bool => $record->currentPdf !== null && FiscalDocumentResource::canView($record))
             ->url(fn (FiscalDocument $record): string => FiscalDocumentResource::getUrl('download-pdf', ['record' => $record]));
@@ -25,7 +25,7 @@ final class FiscalDocumentPdfActions
     public static function retrieve(): Action
     {
         return Action::make('retrieveOfficialPdf')
-            ->label('Obter PDF do InvoiceXpress')
+            ->label(__('Get PDF from InvoiceXpress'))
             ->icon(Phosphor::FilePdf)
             ->authorize(fn (FiscalDocument $record): bool => FiscalDocumentResource::canEdit($record))
             ->visible(function (FiscalDocument $record): bool {
@@ -35,7 +35,7 @@ final class FiscalDocumentPdfActions
                     && once(fn (): ?string => InvoiceXpressConfig::current()?->subdomain) === $snapshot->subdomain;
             })
             ->requiresConfirmation()
-            ->modalDescription('O PDF oficial será guardado neste documento fiscal. As versões anteriores ficam guardadas.')
+            ->modalDescription(__('The official PDF will be saved to this fiscal document. Previous versions are kept.'))
             ->action(function (FiscalDocument $record): void {
                 FiscalDocumentResource::authorizeEdit($record);
 
@@ -49,11 +49,11 @@ final class FiscalDocumentPdfActions
 
                 if ($stored) {
                     $record->unsetRelation('currentPdf');
-                    Notification::make()->success()->title('PDF oficial guardado')->send();
+                    Notification::make()->success()->title(__('Official PDF saved'))->send();
                 } else {
                     Notification::make()->info()
-                        ->title('O InvoiceXpress ainda está a preparar o PDF.')
-                        ->body('Volta a pedir o PDF daqui a pouco.')
+                        ->title(__('InvoiceXpress is still preparing the PDF.'))
+                        ->body(__('Try requesting the PDF again in a moment.'))
                         ->send();
                 }
             });

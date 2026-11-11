@@ -8,6 +8,8 @@ use App\Models\RecurringExpense;
 use App\Models\Retainer;
 use Illuminate\Support\Carbon;
 
+pest()->group('integration');
+
 beforeEach(fn () => $this->travelTo(Carbon::parse('2026-03-10')));
 
 it('creates an unpaid expense on each occurrence up to today, copying the template', function () {

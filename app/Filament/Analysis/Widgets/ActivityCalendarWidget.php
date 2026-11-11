@@ -107,7 +107,7 @@ class ActivityCalendarWidget extends FullCalendarWidget
 
     public function getLocale(): string
     {
-        return 'pt';
+        return str_replace('_', '-', app()->getLocale());
     }
 
     /** @return list<string> only FullCalendar's free plugins */
@@ -124,10 +124,10 @@ class ActivityCalendarWidget extends FullCalendarWidget
             'mobileInitialView' => 'listMonth',
             'firstDay' => 1,
             'buttons' => [
-                'dayGridMonth' => ['text' => 'Mês'],
-                'dayGridWeek' => ['text' => 'Semana'],
-                'listMonth' => ['text' => 'Agenda'],
-                'multiMonthYear' => ['text' => 'Ano'],
+                'dayGridMonth' => ['text' => __('Month')],
+                'dayGridWeek' => ['text' => __('Week')],
+                'listMonth' => ['text' => __('Agenda')],
+                'multiMonthYear' => ['text' => __('Year')],
             ],
         ];
     }

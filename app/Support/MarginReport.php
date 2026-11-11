@@ -31,7 +31,10 @@ final class MarginReport
     /** @return array<string, array{label: string, invoiced: int, received: int, directCosts: int, margin: int, marginPercent: ?float}> (cents) */
     public function byBusinessLine(): array
     {
-        return $this->cache['line'] ??= $this->group(fn (?Model $billable) => filled($billable?->business_line) ? $billable->business_line : self::NO_LINE);
+        return $this->cache['line'] ??= $this->group(
+            fn (?Model $billable) => filled($billable?->business_line) ? $billable->business_line : self::NO_LINE,
+            fn (?Model $billable) => filled($billable?->business_line) ? $billable->business_line : __('No business line'),
+        );
     }
 
     /** @return array<string, array{label: string, invoiced: int, received: int, directCosts: int, margin: int, marginPercent: ?float}> (cents) */
@@ -89,7 +92,7 @@ final class MarginReport
             $rows[$group][$field] += $amount;
         };
 
-        (new PeriodSummary($this->period))->contractedReceivablesQuery()->with('billable.client')->get()
+        (new PeriodSummary($this->period))->contractedReceivablesQuery()->without('payments')->with('billable.client')->get()
             ->each(fn (Receivable $receivable) => $add($receivable->billable, 'invoiced', $receivable->amount));
 
         Payment::query()->with('allocations.receivable.billable.client')

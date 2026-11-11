@@ -16,11 +16,13 @@ class ListReceivables extends ListRecords
 
     public function getSubheading(): ?string
     {
-        $open = Receivable::query()->open()->excludingCancelled()->with('payments')->get();
+        $open = Receivable::query()->open()->excludingCancelled()->withOutstandingBalance()->get();
         $overdue = $open->filter(fn (Receivable $receivable) => $receivable->due_on->isBefore(today()));
 
-        return 'Em aberto: '.Money::format($open->sum(fn (Receivable $receivable) => $receivable->outstanding))
-            .' · Vencido: '.Money::format($overdue->sum(fn (Receivable $receivable) => $receivable->outstanding));
+        return __('Outstanding: :outstanding · Past due: :overdue', [
+            'outstanding' => Money::format($open->sum(fn (Receivable $receivable) => $receivable->projectedOutstanding()), locale: app()->getLocale()),
+            'overdue' => Money::format($overdue->sum(fn (Receivable $receivable) => $receivable->projectedOutstanding()), locale: app()->getLocale()),
+        ]);
     }
 
     protected function getHeaderWidgets(): array
@@ -42,11 +44,11 @@ class ListReceivables extends ListRecords
         $open = fn (Builder $query) => $query->open();
 
         return [
-            'overdue' => Tab::make('Vencidos')->modifyQueryUsing($overdue)->badge($count($overdue))->badgeColor('danger'),
-            'next30' => Tab::make('Próximos 30 dias')->modifyQueryUsing($next30)->badge($count($next30))->badgeColor('warning'),
-            'open' => Tab::make('Em aberto')->modifyQueryUsing($open)->badge($count($open)),
-            'paid' => Tab::make('Pagos')->modifyQueryUsing(fn (Builder $query) => $query->whereNotIn('receivables.id', Receivable::query()->open()->select('id'))),
-            'all' => Tab::make('Todos'),
+            'overdue' => Tab::make(__('Overdue receivables'))->modifyQueryUsing($overdue)->badge($count($overdue))->badgeColor('danger'),
+            'next30' => Tab::make(__('Next 30 days'))->modifyQueryUsing($next30)->badge($count($next30))->badgeColor('warning'),
+            'open' => Tab::make(__('Outstanding'))->modifyQueryUsing($open)->badge($count($open)),
+            'paid' => Tab::make(__('Paid receivables'))->modifyQueryUsing(fn (Builder $query) => $query->whereNotIn('receivables.id', Receivable::query()->open()->select('id'))),
+            'all' => Tab::make(__('All')),
         ];
     }
 }

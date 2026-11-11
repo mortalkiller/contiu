@@ -8,6 +8,8 @@ use App\Support\TaxEstimator;
 use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 
+pest()->group('fiscal');
+
 beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-11-06'));
     Payment::factory()->create(['paid_on' => '2026-03-10', 'amount' => 100000]);
@@ -18,7 +20,7 @@ beforeEach(function () {
 it('adds up the exempt payments it left out', function () {
     expect((new TaxEstimator(app(FinanceSettings::class), 2026))->exemptIncome())->toBe(22000)
         ->and((new TaxEstimator(app(FinanceSettings::class), 2025))->exemptIncome())->toBe(7000);
-});
+})->group('integration');
 
 it('says on the page how much was left out as exempt', function () {
     actingAsAdmin();
@@ -28,7 +30,7 @@ it('says on the page how much was left out as exempt', function () {
         ->set('year', 2025)
         ->assertSee('Excluídos '.Money::format(7000).' de recebimentos isentos')
         ->assertDontSee('Excluídos '.Money::format(22000));
-});
+})->group('ui');
 
 it('still says so when nothing is exempt, pointing to where to mark it', function () {
     actingAsAdmin();
@@ -37,4 +39,4 @@ it('still says so when nothing is exempt, pointing to where to mark it', functio
     Livewire::test(TaxEstimate::class)
         ->assertSee('Nenhum recebimento isento de impostos')
         ->assertSee('marca-os em Recebimentos ou na avença');
-});
+})->group('ui');

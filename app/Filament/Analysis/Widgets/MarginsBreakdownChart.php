@@ -4,25 +4,21 @@ namespace App\Filament\Analysis\Widgets;
 
 use App\Filament\Analysis\Concerns\UsesMarginPeriod;
 use App\Filament\Widgets\Concerns\CategoryDoughnut;
-use Filament\Widgets\ChartWidget;
-use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
+use MortalKiller\FilamentAppearance\Widgets\BreakdownChartWidget;
 
 /**
  * Part-to-whole of what was invoiced: direct costs, overhead (estrutura) and what is left.
  */
-class MarginsBreakdownChart extends ChartWidget
+class MarginsBreakdownChart extends BreakdownChartWidget
 {
     use CategoryDoughnut;
-    use HasSkeletonPlaceholder;
     use UsesMarginPeriod;
 
     protected int|string|array $columnSpan = 'full';
 
-    protected ?string $maxHeight = '220px';
-
     public function getHeading(): string
     {
-        return 'Para onde vai o faturado';
+        return __('Where invoiced revenue goes');
     }
 
     public function getDescription(): string
@@ -35,9 +31,9 @@ class MarginsBreakdownChart extends ChartWidget
         $totals = $this->report()->totals();
 
         return [
-            'Custos diretos' => $totals['directCosts'],
-            'Custos de estrutura' => $totals['overhead'],
-            'Resultado' => $totals['result'],
+            __('Direct costs') => $totals['directCosts'],
+            __('Overhead costs') => $totals['overhead'],
+            __('Result') => $totals['result'],
         ];
     }
 }

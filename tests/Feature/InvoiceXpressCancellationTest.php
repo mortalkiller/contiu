@@ -25,6 +25,8 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
+pest()->group('invoicexpress');
+
 class TestInvoiceXpressCancellationList extends ListFiscalDocuments
 {
     public function table(Table $table): Table
@@ -100,7 +102,7 @@ it('uses the type-specific endpoint and only imports the verified GET after requ
 })->with([
     'FT' => ['Invoice', false],
     'simplified invoice with ambiguous PUT' => ['SimplifiedInvoice', true],
-]);
+])->group('integration');
 
 it('keeps local data intact if the verification GET cannot confirm the same canceled original', function (?array $changed) {
     [$document, $source] = ixCancellationOriginal();
@@ -131,7 +133,7 @@ it('keeps local data intact if the verification GET cannot confirm the same canc
     'different number' => [['inverted_sequence_number' => 'PILOTO/8']],
     'different reference' => [['reference' => 'SERV-108']],
     'unavailable after PUT' => [null],
-]);
+])->group('integration');
 
 it('blocks cancellation before HTTP when local eligibility or the submitted confirmation changed', function (string $blocker) {
     [$document] = ixCancellationOriginal($blocker === 'invoice receipt' ? 'InvoiceReceipt' : 'Invoice');
@@ -166,7 +168,7 @@ it('blocks cancellation before HTTP when local eligibility or the submitted conf
 
     Http::assertNothingSent();
     expect($document->fresh()->status)->toBe(FiscalDocumentStatus::Active);
-})->with(['payment', 'credit', 'rectification', 'catalogue gate', 'stale confirmation', 'missing reason', 'invoice receipt']);
+})->with(['payment', 'credit', 'rectification', 'catalogue gate', 'stale confirmation', 'missing reason', 'invoice receipt'])->group('integration');
 
 it('requires the account owner and refuses records from another account', function () {
     [$document] = ixCancellationOriginal();
@@ -183,7 +185,7 @@ it('requires the account owner and refuses records from another account', functi
     expect(fn () => app(InvoiceXpressCancellation::class)->cancel($foreign->id, 'Duplicado', str_repeat('a', 64)))
         ->toThrow(ModelNotFoundException::class);
     Http::assertNothingSent();
-});
+})->group('integration');
 
 it('requires an empty related document list before sending the PUT', function (array $response) {
     [$document, $source] = ixCancellationOriginal();
@@ -201,7 +203,7 @@ it('requires an empty related document list before sending the PUT', function (a
 })->with([
     'existing receipt' => [['documents' => [['id' => 77, 'type' => 'Receipt']]]],
     'missing list' => [['results' => []]],
-]);
+])->group('integration');
 
 it('does not send a PUT for a settled original or a version different from the local invoice', function (string $case) {
     [$document, $source] = ixCancellationOriginal();
@@ -224,7 +226,7 @@ it('does not send a PUT for a settled original or a version different from the l
     Http::assertSentCount(1);
     Http::assertNotSent(fn (Request $request): bool => $request->method() === 'PUT');
     expect($document->fresh()->status)->toBe(FiscalDocumentStatus::Active);
-})->with(['settled remotely', 'changed locally', 'changed remotely']);
+})->with(['settled remotely', 'changed locally', 'changed remotely'])->group('integration');
 
 it('leaves a remotely canceled invoice for reconciliation when there is no verified before and after pair', function () {
     [$document, $source] = ixCancellationOriginal();
@@ -239,7 +241,7 @@ it('leaves a remotely canceled invoice for reconciliation when there is no verif
     Http::assertSentCount(1);
     Http::assertNotSent(fn (Request $request): bool => $request->method() === 'PUT');
     expect($document->fresh()->status)->toBe(FiscalDocumentStatus::Active);
-});
+})->group('integration');
 
 it('opens a confirmation with a reason and requires submitting it before contacting the provider', function () {
     [$document, $source] = ixCancellationOriginal();
@@ -273,4 +275,4 @@ it('opens a confirmation with a reason and requires submitting it before contact
         ->assertNotified('Fatura cancelada e confirmada no InvoiceXpress');
     expect($document->fresh()->status)->toBe(FiscalDocumentStatus::Voided);
     Http::assertSentCount(4);
-});
+})->group('ui');

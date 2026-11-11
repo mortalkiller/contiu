@@ -8,6 +8,8 @@ use App\Filament\Pages\VatReviewPage;
 use App\Filament\Pages\WithholdingReviewPage;
 use Filament\Navigation\NavigationItem;
 
+pest()->group('ui', 'fiscal');
+
 beforeEach(fn () => actingAsAdmin());
 
 it('shows the same row of tax tabs on every tax page', function (string $page) {

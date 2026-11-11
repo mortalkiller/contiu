@@ -12,8 +12,8 @@ enum FinanceReviewKind: string implements HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::Comment => 'Comentário',
-            self::EvidenceRequest => 'Pedido de comprovativo',
+            self::Comment => __('Comment'),
+            self::EvidenceRequest => __('Evidence request'),
         };
     }
 }

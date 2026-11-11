@@ -31,7 +31,7 @@ final class IrsSettlementEstimate
         $inputs = [$taxable, $deductions, $withholding, $advancePayments];
 
         if ($year !== self::YEAR || min($inputs) < 0 || max($inputs) > 99_999_999_999) {
-            throw new InvalidArgumentException('Os dados estão fora do âmbito desta estimativa de IRS.');
+            throw new InvalidArgumentException(__('The data is outside the scope of this personal income tax estimate.'));
         }
 
         $lower = 0;

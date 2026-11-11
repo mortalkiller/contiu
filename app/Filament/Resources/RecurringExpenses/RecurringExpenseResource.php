@@ -12,25 +12,36 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
-use UnitEnum;
 
 class RecurringExpenseResource extends Resource
 {
     protected static ?string $model = RecurringExpense::class;
 
-    protected static ?string $modelLabel = 'despesa recorrente';
-
-    protected static ?string $pluralModelLabel = 'despesas recorrentes';
-
-    protected static ?string $navigationLabel = 'Recorrentes';
-
     protected static ?string $recordTitleAttribute = 'description';
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::ArrowsClockwise;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Despesas';
-
     protected static ?int $navigationSort = 2;
+
+    public static function getModelLabel(): string
+    {
+        return __('recurring expense');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('recurring expenses');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return __('Recurring');
+    }
+
+    public static function getNavigationGroup(): string
+    {
+        return __('Expenses');
+    }
 
     public static function form(Schema $schema): Schema
     {

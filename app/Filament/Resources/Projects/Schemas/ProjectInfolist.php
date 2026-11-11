@@ -16,23 +16,23 @@ class ProjectInfolist
         return $schema
             ->columns(['default' => 1, 'lg' => 3])
             ->components([
-                Section::make('Linha do tempo')
+                Section::make(__('Timeline'))
                     ->columnSpan(['default' => 1, 'lg' => 2])
                     ->schema([
                         View::make('filament.projects.timeline')
                             ->viewData(fn (Project $record): array => ['events' => ProjectTimeline::events($record)]),
                     ]),
-                Section::make('Detalhes')
+                Section::make(__('Details'))
                     ->columnSpan(1)
                     ->inlineLabel()
                     ->schema([
-                        TextEntry::make('category.name')->label('Categoria')->placeholder('—'),
-                        TextEntry::make('net_amount')->label('Valor sem IVA')->money('EUR', divideBy: 100),
-                        TextEntry::make('vat_rate')->label('IVA')
-                            ->formatStateUsing(fn ($state): string => (float) $state > 0 ? round((float) $state * 100).'%' : 'Sem IVA'),
-                        TextEntry::make('direct_costs')->label('Custos diretos')->money('EUR', divideBy: 100),
-                        TextEntry::make('description')->label('Descrição')->placeholder('—')->inlineLabel(false),
-                        TextEntry::make('notes')->label('Notas')->placeholder('—')->inlineLabel(false),
+                        TextEntry::make('category.name')->label(__('Category'))->placeholder('—'),
+                        TextEntry::make('net_amount')->label(__('Amount excluding VAT'))->money('EUR', divideBy: 100),
+                        TextEntry::make('vat_rate')->label(__('VAT'))
+                            ->formatStateUsing(fn ($state): string => (float) $state > 0 ? round((float) $state * 100).'%' : __('Excluding VAT')),
+                        TextEntry::make('direct_costs')->label(__('Direct costs'))->money('EUR', divideBy: 100),
+                        TextEntry::make('description')->label(__('Description'))->placeholder('—')->inlineLabel(false),
+                        TextEntry::make('notes')->label(__('Notes'))->placeholder('—')->inlineLabel(false),
                     ]),
             ]);
     }

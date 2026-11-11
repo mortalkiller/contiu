@@ -22,7 +22,10 @@ class ProjectDocumentsRelationManager extends RelationManager
 
     protected static string $relationship = 'receivables';
 
-    protected static ?string $title = 'Documentos';
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('Documents');
+    }
 
     public static function getBadge(Model $ownerRecord, string $pageClass): ?string
     {
@@ -47,18 +50,18 @@ class ProjectDocumentsRelationManager extends RelationManager
             ->query(fn (): Builder => self::documents($this->getOwnerRecord())->with('links.receivable'))
             ->defaultSort('document_date', 'desc')
             ->columns([
-                TextColumn::make('number')->label('Documento')
+                TextColumn::make('number')->label(__('Document'))
                     ->description(fn (FiscalDocument $record): string => $record->type->getLabel()),
-                TextColumn::make('document_date')->label('Data')->date('d/m/Y')->sortable(),
-                TextColumn::make('links.receivable.description')->label('Referente a')->placeholder('—'),
-                TextColumn::make('net_amount')->label('Sem IVA')->money(fn (FiscalDocument $record): string => $record->currency, divideBy: 100)->alignEnd(),
-                TextColumn::make('total_amount')->label('Total')->money(fn (FiscalDocument $record): string => $record->currency, divideBy: 100)->alignEnd(),
-                TextColumn::make('status')->label('Estado')->badge(),
+                TextColumn::make('document_date')->label(__('Date'))->date()->sortable(),
+                TextColumn::make('links.receivable.description')->label(__('For'))->placeholder('—'),
+                TextColumn::make('net_amount')->label(__('Excluding VAT'))->money(fn (FiscalDocument $record): string => $record->currency, divideBy: 100)->alignEnd(),
+                TextColumn::make('total_amount')->label(__('Total'))->money(fn (FiscalDocument $record): string => $record->currency, divideBy: 100)->alignEnd(),
+                TextColumn::make('status')->label(__('Status'))->badge(),
             ])
             ->recordUrl(fn (FiscalDocument $record): ?string => FiscalDocumentResource::canEdit($record)
                 ? FiscalDocumentResource::getUrl('edit', ['record' => $record])
                 : null)
-            ->emptyStateHeading('Sem documentos fiscais')
-            ->emptyStateDescription('As faturas e os recibos ligados a este trabalho aparecem aqui.');
+            ->emptyStateHeading(__('No tax documents'))
+            ->emptyStateDescription(__('Invoices and receipts linked to this project appear here.'));
     }
 }

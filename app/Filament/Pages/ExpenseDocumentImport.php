@@ -14,22 +14,18 @@ use DomainException;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Support\Components\Attributes\Unexposed;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 use Livewire\WithFileUploads;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
-use UnitEnum;
 
 class ExpenseDocumentImport extends Page
 {
     use WithFileUploads;
 
     protected static ?string $slug = 'importar-faturas';
-
-    protected static ?string $title = 'Importar faturas';
-
-    protected static string|UnitEnum|null $navigationGroup = 'Despesas';
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::UploadSimple;
 
@@ -68,14 +64,14 @@ class ExpenseDocumentImport extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Junta as faturas que recebeste às despesas, sem escrever os dados à mão.';
+        return __('Attach received invoices to expenses without entering the details manually.');
     }
 
     protected function getHeaderActions(): array
     {
         return [
             Action::make('expenses')
-                ->label('Despesas')
+                ->label(__('Expenses'))
                 ->link()
                 ->color('gray')
                 ->url(fn (): string => ExpenseResource::getUrl()),
@@ -100,12 +96,12 @@ class ExpenseDocumentImport extends Page
         $known = count($this->candidates) - count($new);
 
         return [
-            ['label' => 'Faturas lidas', 'value' => (string) count($this->rows), 'note' => $known > 0
-                ? trans_choice('{1} 1 já importada ou em conflito|[2,*] :count já importadas ou em conflito', $known)
-                : 'Origem '.$this->previewSource],
-            ['label' => 'Correspondência exata', 'value' => (string) ($matches['exact'] ?? 0), 'note' => 'Mesma data, valores e número', 'tone' => 'success'],
-            ['label' => 'Por confirmar', 'value' => (string) $toConfirm, 'note' => $toConfirm > 0 ? 'Várias despesas possíveis' : 'Nenhuma', 'tone' => $toConfirm > 0 ? 'warning' : null],
-            ['label' => 'Sem candidatos', 'value' => (string) ($matches['none'] ?? 0), 'note' => 'Cria a despesa a partir da fatura'],
+            ['label' => __('Invoices read'), 'value' => (string) count($this->rows), 'note' => $known > 0
+                ? trans_choice('{1} 1 already imported or conflicting|[2,*] :count already imported or conflicting', $known)
+                : __('Source :source', ['source' => $this->previewSource])],
+            ['label' => __('Exact match'), 'value' => (string) ($matches['exact'] ?? 0), 'note' => __('Same date, amounts and number'), 'tone' => 'success'],
+            ['label' => __('Awaiting confirmation'), 'value' => (string) $toConfirm, 'note' => $toConfirm > 0 ? __('Several possible expenses') : __('None found'), 'tone' => $toConfirm > 0 ? 'warning' : null],
+            ['label' => __('No candidates'), 'value' => (string) ($matches['none'] ?? 0), 'note' => __('Create the expense from the invoice')],
         ];
     }
 
@@ -153,13 +149,13 @@ class ExpenseDocumentImport extends Page
             'source' => ['required', 'string', 'max:120'],
             'file' => ['required', 'file', 'extensions:csv', 'mimes:csv,txt', 'max:'.ExpenseDocumentCsv::MAX_KILOBYTES],
         ], [
-            'source.required' => 'Indica a origem das faturas.',
-            'source.max' => 'A origem pode ter até 120 caracteres.',
-            'file.required' => 'Escolhe um ficheiro CSV.',
-            'file.file' => 'Escolhe um ficheiro CSV válido.',
-            'file.extensions' => 'Escolhe um ficheiro com a extensão .csv.',
-            'file.mimes' => 'Escolhe um ficheiro CSV.',
-            'file.max' => 'O ficheiro CSV pode ter até 256 KB.',
+            'source.required' => __('Enter the source of the invoices.'),
+            'source.max' => __('The source can have up to 120 characters.'),
+            'file.required' => __('Choose a CSV file.'),
+            'file.file' => __('Choose a valid CSV file.'),
+            'file.extensions' => __('Choose a file with the .csv extension.'),
+            'file.mimes' => __('Choose a CSV file.'),
+            'file.max' => __('The CSV file can be up to 256 KB.'),
         ]);
 
         try {
@@ -178,8 +174,8 @@ class ExpenseDocumentImport extends Page
         $this->clearPreview();
         $this->resetValidation();
         $text = $this->validate(['qrText' => ['required', 'string', 'max:'.ExpenseDocumentQr::MAX_LENGTH]], [
-            'qrText.required' => 'Cola o conteúdo do código QR.',
-            'qrText.max' => 'O código QR é demasiado longo.',
+            'qrText.required' => __('Paste the QR code contents.'),
+            'qrText.max' => __('The QR code is too long.'),
         ])['qrText'];
 
         try {
@@ -195,9 +191,9 @@ class ExpenseDocumentImport extends Page
         $this->clearPreview();
         $this->resetValidation();
         $photo = $this->validate(['qrImage' => ['required', 'file', 'mimes:jpeg,png,webp', 'max:'.ExpenseDocumentQr::MAX_IMAGE_KILOBYTES]], [
-            'qrImage.required' => 'Tira ou escolhe uma fotografia do código QR.',
-            'qrImage.mimes' => 'Escolhe uma fotografia JPEG, PNG ou WebP.',
-            'qrImage.max' => 'A fotografia pode ter até 8 MB.',
+            'qrImage.required' => __('Take or choose a photo of the QR code.'),
+            'qrImage.mimes' => __('Choose a JPEG, PNG or WebP photo.'),
+            'qrImage.max' => __('The photo can be up to 8 MB.'),
         ])['qrImage'];
 
         try {
@@ -231,7 +227,7 @@ class ExpenseDocumentImport extends Page
 
         if ($this->previewAccountId === null || $this->previewSource === null) {
             throw ValidationException::withMessages([
-                ($this->method === 'qr' ? 'qrText' : 'file') => 'Volta a pré-visualizar o documento antes de confirmar.',
+                ($this->method === 'qr' ? 'qrText' : 'file') => __('Preview the document again before confirming.'),
             ]);
         }
 
@@ -243,12 +239,12 @@ class ExpenseDocumentImport extends Page
             'choices.*' => ['array:expense,bank'],
             'choices.*.expense' => ['nullable', 'string'],
             'choices.*.bank' => ['nullable', 'string'],
-        ], ['choices.*.array' => 'Revê as escolhas da pré-visualização.'])['choices'];
+        ], ['choices.*.array' => __('Review your selections in the preview.')])['choices'];
 
         $choices = array_filter($choices, fn (array $choice): bool => filled($choice['expense'] ?? null) || filled($choice['bank'] ?? null));
 
         if ($choices === []) {
-            throw ValidationException::withMessages(['choices' => 'Escolhe o que guardar em pelo menos uma fatura.']);
+            throw ValidationException::withMessages(['choices' => __('Choose what to save for at least one invoice.')]);
         }
 
         foreach ($choices as $index => $choice) {
@@ -259,7 +255,7 @@ class ExpenseDocumentImport extends Page
             if ($candidate === null || $candidate['state'] !== 'new'
                 || ($expense !== 'unlinked' && ! isset($candidate['expenses'][$expense]))
                 || ($bank !== '' && ($expense === 'unlinked' || ! isset($candidate['banks'][$bank])))) {
-                throw ValidationException::withMessages(['choices' => 'Revê a despesa e o movimento selecionados.']);
+                throw ValidationException::withMessages(['choices' => __('Review the selected expense and transaction.')]);
             }
         }
 
@@ -274,9 +270,8 @@ class ExpenseDocumentImport extends Page
 
         Notification::make()
             ->title(match ($created) {
-                0 => 'As faturas selecionadas já estavam importadas.',
-                1 => '1 fatura importada.',
-                default => "{$created} faturas importadas.",
+                0 => __('The selected invoices were already imported.'),
+                default => trans_choice('{1} :count invoice imported.|[2,*] :count invoices imported.', $created),
             })
             ->success()
             ->send();
@@ -285,5 +280,23 @@ class ExpenseDocumentImport extends Page
     private function clearPreview(): void
     {
         $this->reset('previewSource', 'previewAccountId', 'rows', 'candidates', 'choices');
+    }
+
+    #[Unexposed]
+    public function getTitle(): string
+    {
+        return __('Import invoices');
+    }
+
+    #[Unexposed]
+    public static function getNavigationGroup(): string
+    {
+        return __('Expenses');
+    }
+
+    #[Unexposed]
+    public static function getNavigationLabel(): string
+    {
+        return __('Import invoices');
     }
 }

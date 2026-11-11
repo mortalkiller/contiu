@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Expenses\Schemas;
 
 use App\Enums\ExpenseAttribution;
 use App\Enums\ExpenseKind;
+use App\Enums\Language;
 use App\Enums\PaymentMethod;
 use App\Filament\Support\FinanceFields;
 use App\Filament\Support\ReconciliationColumns;
@@ -29,40 +30,42 @@ class ExpenseForm
     public static function configure(Schema $schema, bool $withEvidence = false): Schema
     {
         return $schema
+            ->defaultDateDisplayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
+            ->defaultNumberLocale(fn (): string => app()->getLocale())
             ->columns(3)
             ->components([
-                Section::make('Despesa')
+                Section::make(__('Expense'))
                     ->columnSpan(2)
                     ->columns(2)
                     ->schema([
                         FinanceFields::supplierSelect()
                             ->live(),
                         Select::make('category_id')
-                            ->label('Categoria')
+                            ->label(__('Category'))
                             ->relationship('category', 'name', fn (Builder $query) => $query->expense())
                             ->native(false),
                         TextInput::make('description')
-                            ->label('Descrição')
-                            ->placeholder('ChatGPT Pro, servidor OVH…')
+                            ->label(__('Description'))
+                            ->placeholder(__('ChatGPT Pro, OVH server…'))
                             ->required(),
                         DatePicker::make('spent_on')
-                            ->label('Data')
+                            ->label(__('Date'))
                             ->native(false)
-                            ->displayFormat('d/m/Y')
+                            ->displayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
                             ->default(today())
                             ->required(),
                         // Services bought abroad are self-assessed (autoliquidação); goods are not.
                         TaxSettingsFields::whereToFind(
                             Toggle::make('is_goods')
-                                ->label('É uma compra de bens (material)?')
-                                ->helperText('Desligado, é um serviço (software, alojamento, publicidade…): sem IVA na fatura, o IVA paga-se por autoliquidação.')
+                                ->label(__('Is this a purchase of goods (physical items)?'))
+                                ->helperText(__('When off, this is a service (software, hosting, advertising…). If the invoice has no VAT, account for it under the reverse charge.'))
                                 ->visible(fn (Get $get): bool => (bool) Supplier::find($get('supplier_id'))?->seat?->isForeign())
                                 ->columnSpanFull(),
-                            'Bens são coisas físicas (um portátil, um monitor). Software, alojamento, publicidade e subscrições são serviços.',
+                            __('Goods are physical items (such as a laptop or monitor). Software, hosting, advertising and subscriptions are services.'),
                         ),
                     ]),
 
-                Section::make('Valor')
+                Section::make(__('Amount'))
                     ->columnSpan(1)
                     ->schema([
                         FinanceFields::netAmount(),
@@ -77,12 +80,12 @@ class ExpenseForm
 
     private static function evidenceSection(): Section
     {
-        return Section::make('Comprovativo e afetação')
+        return Section::make(__('Supporting document and allocation'))
             ->columnSpanFull()
             ->columns(2)
             ->schema([
                 FileUpload::make('proof_upload')
-                    ->label(fn (?Expense $record): string => $record?->hasProof() ? 'Substituir comprovativo PDF' : 'Comprovativo PDF')
+                    ->label(fn (?Expense $record): string => $record?->hasProof() ? __('Replace supporting PDF') : __('Supporting PDF'))
                     ->acceptedFileTypes(['application/pdf'])
                     ->maxSize(10240)
                     ->maxFiles(1)
@@ -91,17 +94,17 @@ class ExpenseForm
                     ->getUploadedFileUsing(null)
                     ->previewable(false),
                 TextInput::make('proof_reference')
-                    ->label('Referência do comprovativo')
+                    ->label(__('Supporting document reference'))
                     ->maxLength(255),
                 Select::make('attribution')
-                    ->label('Afetação')
+                    ->label(__('Allocation'))
                     ->options(ExpenseAttribution::class)
                     ->native(false),
                 Toggle::make('is_reviewed')
-                    ->label('Revista')
+                    ->label(__('Reviewed'))
                     ->default(false),
                 Toggle::make('remove_proof')
-                    ->label('Remover comprovativo atual')
+                    ->label(__('Remove current supporting document'))
                     ->visible(fn (?Expense $record): bool => $record?->hasProof() ?? false),
             ]);
     }
@@ -114,12 +117,12 @@ class ExpenseForm
     public static function classificationAndPayment(bool $withPaymentStatus = true): array
     {
         return [
-            Section::make('Classificação')
+            Section::make(__('Classification'))
                 ->columnSpan(2)
                 ->columns(2)
                 ->schema([
                     Radio::make('kind')
-                        ->label('Tipo de custo')
+                        ->label(__('Cost type'))
                         ->options(ExpenseKind::class)
                         ->default(ExpenseKind::Overhead)
                         ->columnSpanFull()
@@ -132,7 +135,7 @@ class ExpenseForm
                             }
                         }),
                     Select::make('project_id')
-                        ->label('Trabalho')
+                        ->label(__('Project'))
                         ->relationship('project', 'code')
                         ->searchable()
                         ->preload()
@@ -140,9 +143,9 @@ class ExpenseForm
                         ->visible(fn (Get $get) => static::kind($get('kind')) === ExpenseKind::Direct)
                         ->disabled(fn (Get $get) => filled($get('retainer_id')))
                         ->required(fn (Get $get) => static::kind($get('kind')) === ExpenseKind::Direct && blank($get('retainer_id')))
-                        ->helperText('Escolhe o trabalho ou a avença a que este custo pertence — só um dos dois.'),
+                        ->helperText(__('Choose either the project or the retainer this cost belongs to.')),
                     Select::make('retainer_id')
-                        ->label('Avença')
+                        ->label(__('Retainer'))
                         ->relationship('retainer', 'code')
                         ->searchable()
                         ->preload()
@@ -152,28 +155,28 @@ class ExpenseForm
                         ->required(fn (Get $get) => static::kind($get('kind')) === ExpenseKind::Direct && blank($get('project_id'))),
                 ]),
 
-            Section::make('Pagamento')
+            Section::make(__('Payment'))
                 ->columnSpan(1)
                 ->schema(array_values(array_filter([
                     $withPaymentStatus ? Toggle::make('is_paid')
-                        ->label('Já está paga')
+                        ->label(__('Already paid'))
                         ->default(true)
                         ->live() : null,
                     $withPaymentStatus ? DatePicker::make('paid_on')
-                        ->label('Paga em')
+                        ->label(__('Paid on'))
                         ->native(false)
-                        ->displayFormat('d/m/Y')
+                        ->displayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
                         ->default(today())
                         ->visible(fn (Get $get) => (bool) $get('is_paid')) : null,
                     ToggleButtons::make('method')
-                        ->label('Método')
+                        ->label(__('Method'))
                         ->options(PaymentMethod::class)
                         ->inline(),
                     $withPaymentStatus ? TextInput::make('invoice_number')
-                        ->label('N.º da fatura do fornecedor')
+                        ->label(__('Supplier invoice no.'))
                         ->maxLength(100) : null,
                     $withPaymentStatus ? Textarea::make('notes')
-                        ->label('Notas')
+                        ->label(__('Notes'))
                         ->rows(2) : null,
                 ]))),
             ...($withPaymentStatus ? [ReconciliationColumns::section()] : []),

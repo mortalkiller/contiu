@@ -37,7 +37,7 @@ final class DownloadFiscalDocumentPdf
         $disk = Storage::disk(FiscalDocumentPdfs::DISK);
         abort_if($path === null || ! $disk->exists($path), 404);
 
-        return $disk->download($path, 'documento-fiscal-'.$document->getKey().'.pdf', [
+        return $disk->download($path, str(__('Fiscal document'))->slug().'-'.$document->getKey().'.pdf', [
             'Content-Type' => 'application/pdf',
             'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',

@@ -20,48 +20,48 @@ class UpcomingReceivablesTable extends TableWidget
     use HasSkeletonPlaceholder;
     use UsesDashboardPeriod;
 
-    protected static ?int $sort = 7;
+    protected static ?int $sort = 6;
 
     protected int|string|array $columnSpan = 'full';
 
     public function table(Table $table): Table
     {
         return $table
-            ->heading('A receber')
-            ->description(fn () => 'Em aberto do que foi contratado em '.$this->period()->label().', do vencimento mais antigo para o mais recente.')
+            ->heading(__('To receive'))
+            ->description(fn () => __('Outstanding from work contracted in :period, from oldest to newest due date.', ['period' => $this->period()->label()]))
             ->query(fn () => $this->summary()->contractedReceivablesQuery()->open()->with(['billable.client'])->orderBy('due_on'))
             ->paginated([5, 10])
             ->defaultPaginationPageOption(5)
             ->columns([
                 TextColumn::make('due_on')
-                    ->label('Vencimento')
+                    ->label(__('Due date'))
                     ->date()
                     ->color(fn (Receivable $record) => $record->due_on->isBefore(today()) ? 'danger' : null),
                 TextColumn::make('billable.code')
-                    ->label('Referente a')
+                    ->label(__('For'))
                     // Client and instalment under the code: keeps the table inside the wide column.
                     ->description(fn (Receivable $record) => trim(($record->client?->name ?? '').' · '.$record->description, ' ·'))
                     ->wrap()
                     ->url(fn (Receivable $record) => $record->billableUrl()),
                 TextColumn::make('outstanding')
-                    ->label('Em aberto')
+                    ->label(__('Outstanding'))
                     ->money('EUR', divideBy: 100)
                     ->alignEnd()
                     ->weight('medium'),
                 TextColumn::make('status')
-                    ->label('Estado')
+                    ->label(__('Status'))
                     ->badge(),
             ])
             ->recordActions([
-                RecordPaymentAction::make()->button()->size('sm')->label('Receber'),
+                RecordPaymentAction::make()->button()->size('sm')->label(__('Receive payment')),
             ])
             ->headerActions([
                 Action::make('all')
-                    ->label('Ver tudo')
+                    ->label(__('View all'))
                     ->link()
                     ->url(ReceivableResource::getUrl()),
             ])
-            ->emptyStateHeading('Nada por receber')
-            ->emptyStateDescription('Todos os valores estão pagos.');
+            ->emptyStateHeading(__('Nothing to receive'))
+            ->emptyStateDescription(__('All amounts have been paid.'));
     }
 }

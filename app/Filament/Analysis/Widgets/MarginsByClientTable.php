@@ -10,12 +10,12 @@ class MarginsByClientTable extends MarginsTable
 
     protected function heading(): string
     {
-        return 'Por cliente';
+        return __('By client');
     }
 
     protected function groupLabel(): string
     {
-        return 'Cliente';
+        return __('Client');
     }
 
     protected function groups(): array

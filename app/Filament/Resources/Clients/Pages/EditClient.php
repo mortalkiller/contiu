@@ -3,9 +3,11 @@
 namespace App\Filament\Resources\Clients\Pages;
 
 use App\Enums\FiscalProfileViesStatus;
+use App\Exceptions\InvoiceXpressException;
 use App\Filament\Resources\Clients\ClientResource;
 use App\Models\Client;
 use App\Support\CurrentAccount;
+use App\Support\InvoiceXpressContactSync;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
@@ -33,10 +35,43 @@ class EditClient extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            $this->invoiceXpressSyncAction(),
             $this->viesVerificationAction(),
             ViewAction::make(),
             DeleteAction::make(),
         ];
+    }
+
+    private function invoiceXpressSyncAction(): Action
+    {
+        return Action::make('syncInvoiceXpressClient')
+            ->label(__('Sync with InvoiceXpress'))
+            ->visible(fn (): bool => InvoiceXpressContactSync::available() && filled($this->getRecord()->vat_number))
+            ->modalDescription(__('Fields filled in on the source record override the corresponding fields on the destination record with the same tax ID.'))
+            ->modalSubmitActionLabel(__('Sync client'))
+            ->schema([
+                Select::make('direction')->label(__('Sync direction'))->required()
+                    ->options(['pull' => __('InvoiceXpress → Contiu'), 'push' => __('Contiu → InvoiceXpress')])
+                    ->in(['pull', 'push']),
+            ])
+            ->action(function (array $data, InvoiceXpressContactSync $sync, Action $action): void {
+                $client = $this->getRecord();
+                ClientResource::authorizeEdit($client);
+
+                try {
+                    if ($data['direction'] === 'pull') {
+                        $sync->pull((string) $client->vat_number, expectedClientId: $client->id);
+                        $this->refreshFormData(['name', 'email', 'phone', 'address', 'language']);
+                    } else {
+                        $sync->push($client->id);
+                    }
+                } catch (InvoiceXpressException|ValidationException $exception) {
+                    Notification::make()->danger()->title($exception->getMessage())->send();
+                    $action->halt();
+                }
+
+                Notification::make()->success()->title(__('Client synced'))->send();
+            });
     }
 
     /** @param array<string, mixed> $data */
@@ -53,21 +88,24 @@ class EditClient extends EditRecord
     private function viesVerificationAction(): Action
     {
         return Action::make('recordViesVerification')
-            ->label('Registar verificação VIES')
+            ->label(__('Record VIES check'))
             ->visible(fn (): bool => ! CurrentAccount::readOnly() && $this->getRecord()->viesIdentity() !== null)
             ->mountUsing(function (Schema $schema): void {
                 $this->viesIdentity = $this->getRecord()->viesIdentity();
                 $schema->fill();
             })
             ->modalDescription(fn (): string => $this->viesIdentity
-                ? "Consulta no VIES o número {$this->viesIdentity['vat']} ({$this->viesIdentity['country']}) e regista o resultado."
-                : 'Guarda primeiro os dados fiscais do cliente.')
+                ? __('Check number :vat (:country) in VIES and record the result.', [
+                    'vat' => $this->viesIdentity['vat'],
+                    'country' => $this->viesIdentity['country'],
+                ])
+                : __('Save the client’s tax details first.'))
             ->schema([
                 Actions::make([
-                    Action::make('openVies')->label('Consultar VIES oficial')
+                    Action::make('openVies')->label(__('Open the official VIES website'))
                         ->url('https://ec.europa.eu/taxation_customs/vies/#/vat-validation', shouldOpenInNewTab: true),
                 ]),
-                Select::make('result')->label('Resultado da consulta')->required()
+                Select::make('result')->label(__('Check result'))->required()
                     ->options([
                         FiscalProfileViesStatus::Valid->value => FiscalProfileViesStatus::Valid->getLabel(),
                         FiscalProfileViesStatus::Invalid->value => FiscalProfileViesStatus::Invalid->getLabel(),
@@ -81,7 +119,7 @@ class EditClient extends EditRecord
 
                     if ($this->viesIdentity === null || $client->viesIdentity() !== $this->viesIdentity) {
                         throw ValidationException::withMessages([
-                            $schema->getStatePath().'.result' => 'Os dados fiscais mudaram. Fecha esta janela e volta a abrir a verificação.',
+                            $schema->getStatePath().'.result' => __('The tax details have changed. Close this window and reopen the check.'),
                         ]);
                     }
 
@@ -94,7 +132,7 @@ class EditClient extends EditRecord
                 $this->getRecord()->refresh();
                 $this->viesIdentity = null;
 
-                Notification::make()->title('Resultado da verificação registado')->success()->send();
+                Notification::make()->title(__('Check result recorded'))->success()->send();
             });
     }
 }

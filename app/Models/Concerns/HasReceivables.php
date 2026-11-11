@@ -26,7 +26,7 @@ trait HasReceivables
     {
         static::deleting(function (self $owner): void {
             if ($owner->receivables()->whereHas('payments')->exists()) {
-                throw HasPaymentsException::for($owner instanceof Retainer ? 'esta avença' : 'este trabalho');
+                throw HasPaymentsException::for($owner instanceof Retainer ? __('this retainer') : __('this project'));
             }
 
             $owner->receivables()->get()->each->delete();
@@ -58,14 +58,14 @@ trait HasReceivables
 
     protected function outstandingAmount(): Attribute
     {
-        return Attribute::get(fn (): int => (int) $this->receivables->sum(fn (Receivable $receivable) => $receivable->outstanding));
+        return Attribute::get(fn (): int => (int) $this->receivables->sum(fn (Receivable $receivable) => $receivable->projectedOutstanding()));
     }
 
     protected function overdueAmount(): Attribute
     {
         return Attribute::get(fn (): int => (int) $this->receivables
-            ->filter(fn (Receivable $receivable) => $receivable->status === ReceivableStatus::Overdue)
-            ->sum(fn (Receivable $receivable) => $receivable->outstanding));
+            ->filter(fn (Receivable $receivable) => $receivable->due_on?->isBefore(today()))
+            ->sum(fn (Receivable $receivable) => $receivable->projectedOutstanding()));
     }
 
     protected function directCosts(): Attribute

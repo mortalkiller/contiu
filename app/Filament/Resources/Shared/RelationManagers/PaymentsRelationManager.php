@@ -7,6 +7,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 
 /**
@@ -18,7 +19,10 @@ class PaymentsRelationManager extends RelationManager
 
     protected static string $relationship = 'payments';
 
-    protected static ?string $title = 'Recebimentos';
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('Payments received');
+    }
 
     public function table(Table $table): Table
     {
@@ -26,18 +30,18 @@ class PaymentsRelationManager extends RelationManager
             ->modifyQueryUsing(fn ($query) => $query->with('receivable'))
             ->defaultSort('paid_on', 'desc')
             ->columns([
-                TextColumn::make('paid_on')->label('Data')->date()->sortable(),
-                TextColumn::make('receivable.description')->label('Referente a'),
-                TextColumn::make('method')->label('Método')->badge()->color('gray'),
-                TextColumn::make('invoice_number')->label('Fatura')->placeholder('—'),
-                TextColumn::make('amount')->label('Valor')->money('EUR', divideBy: 100)->alignEnd()
-                    ->summarize(Sum::make()->label('Total')->money('EUR', divideBy: 100)),
+                TextColumn::make('paid_on')->label(__('Date'))->date()->sortable(),
+                TextColumn::make('receivable.description')->label(__('For')),
+                TextColumn::make('method')->label(__('Method'))->badge()->color('gray'),
+                TextColumn::make('invoice_number')->label(__('Invoice'))->placeholder('—'),
+                TextColumn::make('amount')->label(__('Amount'))->money('EUR', divideBy: 100)->alignEnd()
+                    ->summarize(Sum::make()->label(__('Total'))->money('EUR', divideBy: 100)),
                 ReconciliationColumns::paymentColumn(),
-                TextColumn::make('notes')->label('Notas')->placeholder('—')->limit(40)->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('notes')->label(__('Notes'))->placeholder('—')->limit(40)->toggleable(isToggledHiddenByDefault: true),
             ])
             ->recordActions([
-                ReconciliationColumns::detailsAction()->iconButton()->tooltip('Ver no banco'),
+                ReconciliationColumns::detailsAction()->iconButton()->tooltip(__('View bank transaction')),
             ])
-            ->emptyStateHeading('Ainda sem recebimentos');
+            ->emptyStateHeading(__('No payments received yet'));
     }
 }

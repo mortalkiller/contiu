@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use App\Enums\Language;
+
 /**
  * Variation of a figure against the previous period ("+12%", "−5%").
  */
@@ -33,10 +35,12 @@ final class Change
     public function label(): string
     {
         if ($this->percent === null) {
-            return 'sem valor no período anterior';
+            return __('no value in the previous period');
         }
 
-        $value = rtrim(rtrim(number_format(abs($this->percent), 1, ',', ' '), '0'), ',');
+        $isPortuguese = Language::resolve(app()->getLocale()) === Language::PortuguesePortugal;
+        $decimal = $isPortuguese ? ',' : '.';
+        $value = rtrim(rtrim(number_format(abs($this->percent), 1, $decimal, $isPortuguese ? ' ' : ','), '0'), $decimal);
 
         return ($this->percent > 0 ? '+' : ($this->percent < 0 ? '−' : '')).$value.'%';
     }

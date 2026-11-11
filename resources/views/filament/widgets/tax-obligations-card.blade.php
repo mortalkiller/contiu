@@ -1,43 +1,69 @@
 @php
     use ToneGabes\Filament\Icons\Enums\Phosphor;
 
-    $readOnlyTooltip = $readOnly ? 'A conta está só de leitura' : null;
+    $readOnlyTooltip = $readOnly ? __('The account is read-only') : null;
 @endphp
 
 <x-filament-widgets::widget>
-    <div class="contiu-edge-to-edge grid overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 md:grid-cols-[15rem_1fr] dark:bg-gray-900 dark:ring-white/10">
+    <div class="fap-edge-to-edge grid overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 md:grid-cols-[15rem_1fr] dark:bg-gray-900 dark:ring-white/10">
         {{-- Summary: the month's total and the next deadline. --}}
         <div class="flex flex-col bg-(--contiu-brand-surface) p-5 text-white">
-            <p class="text-xs">{{ $month }}</p>
+            <p class="text-xs">{{ __('Due to the authorities in :month', ['month' => $month]) }}</p>
             <p class="text-3xl font-bold tracking-tight tabular-nums">{{ $pendingTotal }}</p>
             <p class="text-xs">
                 @if ($pendingCount === 0)
-                    tudo em dia ✓
+                    {{ __('all up to date ✓') }}
                 @else
-                    a pagar{{ $pendingCount > 1 ? ' · '.$pendingCount.' tarefas' : '' }}
+                    {{ trans_choice('{1} to pay|[2,*] to pay · :count tasks', $pendingCount) }}
                 @endif
             </p>
 
             @if ($next)
-                <p class="mt-4 text-sm">Próximo: <span class="font-semibold">{{ $next }}</span></p>
+                <p class="mt-4 text-sm">{{ __('Next:') }} <span class="font-semibold">{{ $next }}</span></p>
             @endif
 
-            @if ($socialSecurity)
-                <p class="mt-auto pt-4 text-xs">{{ $socialSecurity }}</p>
-            @endif
+            <div class="mt-auto flex flex-col items-start gap-2 pt-4 text-xs">
+                @if ($socialSecurity)
+                    <p>{{ $socialSecurity }}</p>
+                @endif
+
+                <a href="{{ $calendarUrl }}" class="inline-flex items-center gap-1 font-semibold underline underline-offset-2">
+                    {{ __('View calendar') }}
+                    <x-filament::icon :icon="Phosphor::CaretRight" class="size-3" />
+                </a>
+            </div>
         </div>
 
-        <div class="px-5 pb-4 pt-1 text-sm">
+        {{-- min-w-0: a grid cell is otherwise as wide as its longest row, and pushes the card off a phone screen. --}}
+        <div class="min-w-0 px-5 pb-4 pt-1 text-sm">
+            <p class="pt-2 text-xs text-gray-500 dark:text-gray-400">
+                {{ trans_choice('{0} Nothing to do.|{1} You have 1 thing to do.|[2,*] You have :count things to do.', $taskCount) }}
+            </p>
             @if ($nothingToPay && $tasks === [])
                 <p class="flex items-center gap-2 border-b border-gray-950/5 py-3 font-medium text-success-700 dark:border-white/10 dark:text-success-400">
                     <x-filament::icon :icon="Phosphor::CheckCircle" class="size-4" />
-                    Nada a pagar este mês
+                    {{ __('Nothing to pay this month') }}
                 </p>
             @endif
 
             @foreach ($tasks as $row)
                 @include('filament.widgets.partials.tax-obligation-row', ['row' => $row, 'readOnlyTooltip' => $readOnlyTooltip])
             @endforeach
+
+            @if ($hiddenCount > 0)
+                <div class="flex justify-center border-b border-gray-950/5 py-1 dark:border-white/10">
+                    <x-filament::link
+                        tag="button"
+                        size="sm"
+                        color="gray"
+                        :icon="$showAll ? Phosphor::CaretUp : Phosphor::CaretDown"
+                        icon-position="after"
+                        wire:click="toggleAll"
+                    >
+                        {{ $showAll ? __('Show less') : __('Show :count more', ['count' => $hiddenCount]) }}
+                    </x-filament::link>
+                </div>
+            @endif
 
             @if ($limits !== [])
                 <div class="flex flex-col gap-4 pt-4 sm:flex-row sm:gap-7">
@@ -67,11 +93,11 @@
 
             @if ($upcoming !== '' || $done !== [])
                 <div class="flex flex-wrap items-center justify-between gap-2 pt-3 text-xs text-gray-400 dark:text-gray-500">
-                    <span>{{ $upcoming !== '' ? 'A seguir: '.$upcoming : '' }}</span>
+                    <span>{{ $upcoming !== '' ? __('Coming up: :upcoming', ['upcoming' => $upcoming]) : '' }}</span>
 
                     @if ($done !== [])
                         <x-filament::link tag="button" size="xs" color="gray" wire:click="toggleDone">
-                            {{ $showDone ? 'Esconder feitas' : 'Ver feitas ('.count($done).')' }}
+                            {{ $showDone ? __('Hide completed') : __('Show completed (:count)', ['count' => count($done)]) }}
                         </x-filament::link>
                     @endif
                 </div>
@@ -86,4 +112,6 @@
             @endif
         </div>
     </div>
+
+    <x-filament-actions::modals />
 </x-filament-widgets::widget>

@@ -3,34 +3,49 @@
 namespace App\Filament\Resources\Clients\Schemas;
 
 use App\Models\Client;
-use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Schema;
 use MortalKiller\FilamentPageHeader\Components\Header;
-use MortalKiller\FilamentPageHeader\Components\MetadataEntry;
-use ToneGabes\Filament\Icons\Enums\Phosphor;
+use MortalKiller\FilamentPageHeader\Enums\AvatarShape;
+use MortalKiller\FilamentPageHeader\Enums\AvatarStyle;
 
+/**
+ * Who the client is, over the page: initials, name and, right under it, one line with the tax
+ * number, the email and since when they are a client. The figures sit under the header
+ * (ClientSummary) and the page's actions at its end.
+ */
 class ClientHeader
 {
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
             Header::make()
+                // On the page itself, as in the mock: the figures under it are the card.
+                ->contained(false)
                 ->heading(fn (Client $record) => $record->name)
                 ->initials(fn (Client $record) => $record->name)
+                // A rounded square tinted with the user's palette colour.
                 ->initialsBgColor('primary')
-                ->metadata([
-                    MetadataEntry::make('vat_number')->label('NIF')->placeholder('—')->copyable()->fieldIcon(Phosphor::IdentificationCard),
-                    MetadataEntry::make('email')->label('Email')->placeholder('—')->copyable()->fieldIcon(Phosphor::Envelope),
-                    MetadataEntry::make('phone')->label('Telefone')->placeholder('—')->fieldIcon(Phosphor::Phone),
-                ])
-                ->summary([
-                    TextEntry::make('contracted_amount')->label('Contratado')->money('EUR', divideBy: 100),
-                    TextEntry::make('received_amount')->label('Recebido')->money('EUR', divideBy: 100)->color('success'),
-                    TextEntry::make('outstanding_amount')->label('Por receber')->money('EUR', divideBy: 100)
-                        ->color(fn (float $state) => $state > 0 ? 'warning' : 'gray'),
-                    TextEntry::make('overdue_amount')->label('Vencido')->money('EUR', divideBy: 100)
-                        ->color(fn (float $state) => $state > 0 ? 'danger' : 'gray'),
-                ]),
+                ->avatarShape(AvatarShape::Rounded)
+                ->avatarStyle(AvatarStyle::Soft)
+                ->description(fn (Client $record): string => static::identityLine($record), html: true),
         ]);
+    }
+
+    /**
+     * "NIF 509999990 · geral@estudio.example · Cliente desde março 2026", as HTML. The tax number
+     * is always there, in a monospaced font, with a dash while it is missing; the email only when
+     * there is one. Every value is escaped.
+     */
+    public static function identityLine(Client $client): string
+    {
+        $taxId = filled($client->vat_number)
+            ? '<span class="font-mono text-[0.8125rem]">'.e($client->vat_number).'</span>'
+            : '—';
+
+        return implode(' · ', array_filter([
+            __('Tax ID :number', ['number' => $taxId]),
+            filled($client->email) ? e($client->email) : null,
+            e(__('Client since :date', ['date' => $client->created_at->locale(app()->getLocale())->translatedFormat('F Y')])),
+        ]));
     }
 }

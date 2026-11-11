@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\Storage;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 
+pest()->group('ui', 'banking');
+
 beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-11-06'));
     Storage::fake('local');

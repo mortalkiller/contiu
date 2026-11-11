@@ -10,6 +10,7 @@ use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Schema;
+use Filament\Support\Components\Attributes\Unexposed;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 use UnitEnum;
 
@@ -18,8 +19,6 @@ use UnitEnum;
  */
 class Calendar extends Page
 {
-    protected static ?string $title = 'Calendário';
-
     protected static ?string $slug = 'calendario';
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::CalendarDots;
@@ -31,7 +30,7 @@ class Calendar extends Page
 
     public function getSubheading(): string
     {
-        return 'Tudo o que tem data: obrigações fiscais, recebimentos, valores a receber, despesas e o que ainda vai ser gerado.';
+        return __('See what’s on the calendar: tax obligations, payments received, receivables, expenses and entries yet to be generated.');
     }
 
     public function content(Schema $schema): Schema
@@ -46,5 +45,17 @@ class Calendar extends Page
                     ->schema(fn (): array => $this->getWidgetsSchemaComponents([WeekAhead::class, MonthAhead::class, UpcomingDeadlines::class])),
             ]),
         ]);
+    }
+
+    #[Unexposed]
+    public function getTitle(): string
+    {
+        return __('Calendar');
+    }
+
+    #[Unexposed]
+    public static function getNavigationLabel(): string
+    {
+        return __('Calendar');
     }
 }

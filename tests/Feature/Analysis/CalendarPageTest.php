@@ -27,7 +27,7 @@ it('opens the calendar page from the top of the menu, outside any group', functi
     $this->get(Calendar::getUrl())->assertOk()->assertSee('Calendário');
 
     expect(Calendar::getNavigationGroup())->toBeNull();
-});
+})->group('ui');
 
 it('shows only Phosphor icons on the calendar page and its toolbar', function () {
     $page = $this->get(Calendar::getUrl())->assertOk()->getContent();
@@ -35,15 +35,25 @@ it('shows only Phosphor icons on the calendar page and its toolbar', function ()
 
     expect(heroiconsOn($page))->toBe(0)
         ->and(heroiconsOn($calendar))->toBe(0);
-});
+})->group('ui');
 
 it('uses European Portuguese, Monday first and the month, list and year views', function () {
+    app()->setLocale('pt_PT');
     $widget = Livewire::test(ActivityCalendarWidget::class)->instance();
 
-    expect($widget->getLocale())->toBe('pt')
+    expect($widget->getLocale())->toBe('pt-PT')
         ->and($widget->config())->toMatchArray(['initialView' => 'dayGridMonth', 'firstDay' => 1])
         ->and($widget->getPlugins())->toEqualCanonicalizing(['interaction', 'dayGrid', 'list', 'multiMonth']);
-});
+})->group('ui');
+
+it('uses the regional English locale for the calendar controls', function () {
+    app()->setLocale('en_US');
+    $widget = Livewire::test(ActivityCalendarWidget::class)->instance();
+
+    expect($widget->getLocale())->toBe('en-US')
+        ->and($widget->config()['firstDay'])->toBe(1)
+        ->and(CalendarEntryType::Obligation->getLabel())->toBe('Tax obligations');
+})->group('ui');
 
 /** The events the widget gives FullCalendar for November 2026. */
 function novemberEvents(array $types = []): array
@@ -81,7 +91,7 @@ it('shows the account events as whole-day events with their colours', function (
         ->and(eventTitled($events, 'Recebido')['color'])->toBe('var(--primary-500)')
         ->and(collect($events)->first(fn (array $event) => str_contains($event['title'], 'Fatura 23'))['color'])->toBe('var(--info-500)')
         ->and(collect($events)->first(fn (array $event) => str_contains($event['title'], 'Fatura 20'))['color'])->toBe('var(--danger-500)');
-});
+})->group('integration');
 
 it('colours obligations by status and marks projected and done events', function () {
     $this->account->forceFill(['created_at' => '2026-10-01', 'billing_exempt' => true])->save();
@@ -99,7 +109,7 @@ it('colours obligations by status and marks projected and done events', function
         ->and($byId['ss:2026-11']['extendedProps']['tooltip'])->toContain('Pagar entre 10 e 20 de novembro')
         ->and($byId['retainer:'.$retainer->getKey().':2026-11-25'])->toMatchArray(['color' => 'var(--gray-500)'])
         ->and($byId['retainer:'.$retainer->getKey().':2026-11-25']['className'])->toContain('contiu-calendar-projected');
-});
+})->group('integration');
 
 it('shows only the types left on in the filter', function () {
     Expense::factory()->create(['spent_on' => '2026-11-12']);
@@ -108,20 +118,20 @@ it('shows only the types left on in the filter', function () {
     expect(novemberEvents())->toHaveCount(2)
         ->and(novemberEvents([CalendarEntryType::Payment->value]))->toHaveCount(1)
         ->and(novemberEvents([CalendarEntryType::Payment->value])[0]['title'])->toStartWith('Recebido');
-});
+})->group('integration');
 
 it('offers every type in the filter, all on by default', function () {
     Livewire::test(ActivityCalendarWidget::class)
         ->assertSet('filters.types', array_map(fn (CalendarEntryType $type) => $type->value, CalendarEntryType::cases()))
         ->assertSee('Obrigações fiscais')
         ->assertSee('Recorrentes previstas');
-});
+})->group('ui');
 
 it('refetches as soon as a type is ticked, not on blur', function () {
     Livewire::test(ActivityCalendarWidget::class)
         ->assertSeeHtml('wire:model.live="filters.types"')
         ->assertDontSeeHtml('wire:model.live.blur="filters.types"');
-});
+})->group('ui');
 
 it('lists the deadlines with the overdue ones first', function () {
     $this->account->forceFill(['created_at' => '2026-10-01', 'billing_exempt' => true])->save();
@@ -135,17 +145,17 @@ it('lists the deadlines with the overdue ones first', function () {
             'Segurança Social · novembro', Money::format(2000), '10 a 20 nov.', '11 dias',
             'Declaração trimestral da Segurança Social', 'até 31 jan.',
         ]);
-});
+})->group('ui');
 
 it('says when nothing is pending', function () {
     Livewire::test(UpcomingDeadlines::class)
         ->assertSee('Prazos a seguir')
         ->assertSee('Sem prazos por cumprir');
-});
+})->group('ui');
 
 it('shows the column beside the calendar on the page', function () {
     $this->get(Calendar::getUrl())->assertOk()->assertSeeLivewire(UpcomingDeadlines::class);
-});
+})->group('ui');
 
 it('offers a week view between the month and the list', function () {
     $widget = Livewire::test(ActivityCalendarWidget::class)->instance();
@@ -154,7 +164,7 @@ it('offers a week view between the month and the list', function () {
         ->and($widget->config()['buttons']['dayGridWeek'])->toBe(['text' => 'Semana']);
 
     Livewire::test(ActivityCalendarWidget::class)->assertSeeHtml('dayGridWeek');
-});
+})->group('ui');
 
 it('adds up what is still to come in and go out until the end of the month', function () {
     Receivable::factory()->create(['amount' => 40000, 'due_on' => '2026-11-15']);
@@ -169,11 +179,11 @@ it('adds up what is still to come in and go out until the end of the month', fun
         ->assertSeeInOrder(['Ainda vai entrar', Money::format(40000)])
         ->assertSeeInOrder(['Ainda vai sair', Money::format(6150)])
         ->assertSeeInOrder(['Diferença prevista', Money::format(33850)]);
-});
+})->group('ui');
 
 it('shows the rest of the month beside the calendar', function () {
     $this->get(Calendar::getUrl())->assertOk()->assertSeeLivewire(MonthAhead::class);
-});
+})->group('ui');
 
 it('sums up the current week beside the calendar: in, out, deadlines and what is late', function () {
     $this->travelTo(Carbon::parse('2026-11-10')); // Tuesday; the week is 9 to 15 November
@@ -192,4 +202,4 @@ it('sums up the current week beside the calendar: in, out, deadlines and what is
         ->assertSeeInOrder(['Em atraso de semanas anteriores', '1']);
 
     $this->get(Calendar::getUrl())->assertOk()->assertSeeLivewire(WeekAhead::class);
-});
+})->group('ui');

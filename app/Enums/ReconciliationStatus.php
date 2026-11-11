@@ -11,8 +11,8 @@ enum ReconciliationStatus: string
     public function label(): string
     {
         return match ($this) {
-            self::Reconciled => 'Reconciliado',
-            self::NotReconciled => 'Por reconciliar',
+            self::Reconciled => __('Reconciled'),
+            self::NotReconciled => __('Unreconciled'),
         };
     }
 

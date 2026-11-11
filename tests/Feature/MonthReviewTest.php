@@ -6,6 +6,8 @@ use App\Models\Receivable;
 use App\Support\MonthReview;
 use Illuminate\Support\Carbon;
 
+pest()->group('integration');
+
 beforeEach(fn () => $this->travelTo(Carbon::parse('2026-03-20')));
 
 it('lists what falls due in the month plus amounts still open from earlier months', function () {

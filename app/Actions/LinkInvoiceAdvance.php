@@ -7,11 +7,11 @@ use App\Enums\FiscalDocumentStatus;
 use App\Enums\FiscalDocumentType;
 use App\Models\Account;
 use App\Models\FiscalDocument;
-use App\Models\FiscalDocumentLink;
 use App\Models\Payment;
 use App\Models\Receivable;
 use App\Support\AccountantAccess;
 use App\Support\CurrentAccount;
+use App\Support\InvoiceXpressIssueAdvance;
 use App\Support\InvoiceXpressIssueTerms;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -41,26 +41,16 @@ final class LinkInvoiceAdvance
                 || $advance->document_date->gt($final->document_date)
                 || $nif === null || $nif !== InvoiceXpressIssueTerms::nif($advance->party_tax_id)
                 || $link?->receivable_id === null
-                || ($link->related_fiscal_document_id !== null && $link->related_fiscal_document_id !== $advanceId)
-                || FiscalDocumentLink::query()->where('related_fiscal_document_id', $advanceId)
-                    ->where('fiscal_document_id', '!=', $finalId)
-                    ->whereHas('fiscalDocument', fn ($query) => $query->where('type', FiscalDocumentType::Invoice)->where('status', FiscalDocumentStatus::Active))
-                    ->exists()) {
-                throw ValidationException::withMessages(['advance' => 'Escolhe a fatura do adiantamento deste cliente que ainda está por ligar.']);
+                || ($link->related_fiscal_document_id !== null && $link->related_fiscal_document_id !== $advanceId)) {
+                throw ValidationException::withMessages(['advance' => __('Choose the unlinked advance invoice for this client.')]);
             }
 
             $payment = Payment::query()->lockForUpdate()->find($advance->links?->payment_id);
             $charge = Receivable::query()->excludingCancelled()->lockForUpdate()->find($link->receivable_id);
-            $allocation = $payment?->allocations()->where('receivable_id', $link->receivable_id)->first();
 
             if ($payment === null || ! $payment->isAdvance() || $charge === null
-                || $charge->client?->id !== $payment->advance_client_id
-                || $nif !== InvoiceXpressIssueTerms::nif($charge->client?->vat_number)
-                || ! $payment->paid_on->isSameDay($advance->document_date)
-                || $payment->amount <= 0 || $payment->amount !== $advance->total_amount
-                || $allocation?->amount !== $payment->amount
-                || $final->total_amount < 0 || $charge->amount - $payment->amount !== $final->total_amount) {
-                throw ValidationException::withMessages(['advance' => 'Confirma o sinal afeto à cobrança e verifica se o total da fatura final já tem o adiantamento deduzido.']);
+                || ! InvoiceXpressIssueAdvance::sourceForFinal($charge, $payment, $final)->is($advance)) {
+                throw ValidationException::withMessages(['advance' => __('Confirm the deposit allocated to the receivable and the linked advance invoice.')]);
             }
 
             $link->update(['related_fiscal_document_id' => $advanceId]);

@@ -12,9 +12,9 @@ use Illuminate\Support\Number;
 final class Money
 {
     /** "1 965,50 €" from 196550 cents. */
-    public static function format(?int $cents): string
+    public static function format(?int $cents, ?string $locale = null): string
     {
-        return (string) Number::currency(($cents ?? 0) / 100, 'EUR', 'pt_PT');
+        return (string) Number::currency(($cents ?? 0) / 100, 'EUR', $locale ?? app()->getLocale());
     }
 
     /** Euros as typed or imported ("151,98", "151.98", 151.98) → 15198 cents. */

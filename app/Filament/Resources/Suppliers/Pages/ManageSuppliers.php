@@ -19,7 +19,7 @@ class ManageSuppliers extends ManageRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make()->label('Novo fornecedor'),
+            CreateAction::make()->label(__('New supplier')),
         ];
     }
 }

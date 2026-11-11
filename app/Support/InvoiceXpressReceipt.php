@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Enums\FiscalDocumentDirection;
 use App\Enums\FiscalDocumentStatus;
 use App\Enums\FiscalDocumentType;
+use App\Enums\Language;
 use App\Enums\PaymentMethod;
 use App\Exceptions\InvoiceXpressException;
 use App\Models\Account;
@@ -16,6 +17,7 @@ use App\Models\Payment;
 use App\Models\PaymentAllocation;
 use App\Models\Receivable;
 use App\Models\WithholdingRecord;
+use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -36,7 +38,7 @@ final class InvoiceXpressReceipt
         $this->requireWriteAccess();
         $allocation = PaymentAllocation::query()->findOrFail($allocationId);
         if ($this->attemptFor($allocation)->exists()) {
-            throw $this->invalid('Já existe uma tentativa para esta afetação. Consulta o histórico.');
+            throw $this->invalid(__('An attempt already exists for this allocation. Check the history.'));
         }
 
         $local = $this->local($allocation);
@@ -47,7 +49,7 @@ final class InvoiceXpressReceipt
             'paymentId' => $local['paymentId'],
             'charge' => $local['charge'],
             'invoice' => $local['invoiceNumber'],
-            'paidOn' => $local['paidOn'],
+            'paidOn' => CarbonImmutable::parse($local['paidOnIso'])->format(Language::resolve(app()->getLocale())->dateFormat()),
             'amount' => $local['amount'],
             'series' => $intent['series']['name'],
             'revision' => $this->revision($intent),
@@ -67,7 +69,7 @@ final class InvoiceXpressReceipt
                 $local = $this->local($allocation, lock: true);
                 $intent = $this->preflight($local);
                 if (! hash_equals($this->revision($intent), $revision)) {
-                    throw $this->invalid('Os dados mudaram. Volta a pré-visualizar o recibo antes de confirmar.');
+                    throw $this->invalid(__('The details have changed. Preview the receipt again before confirming.'));
                 }
 
                 $attempt = new InvoiceXpressReceiptAttempt;
@@ -95,7 +97,7 @@ final class InvoiceXpressReceipt
                 return $attempt->id;
             });
         } catch (UniqueConstraintViolationException) {
-            throw $this->invalid('Já existe uma tentativa para esta afetação ou fatura. Consulta o histórico.');
+            throw $this->invalid(__('An attempt already exists for this allocation or invoice. Check the history.'));
         }
 
         return InvoiceXpressReceiptAttempt::query()->findOrFail($id);
@@ -108,7 +110,7 @@ final class InvoiceXpressReceipt
 
             if ($attempt->provider_receipt_id === null) {
                 if ($this->client->configuration()->subdomain !== $attempt->subdomain) {
-                    throw $this->invalid('A conta InvoiceXpress mudou. Restabelece a ligação à conta da tentativa para verificar o recibo.');
+                    throw $this->invalid(__('The InvoiceXpress account has changed. Reconnect to the account used for the attempt to verify the receipt.'));
                 }
 
                 $this->resolve($attempt);
@@ -227,14 +229,14 @@ final class InvoiceXpressReceipt
         $payment = Payment::query()->when($lock, fn (Builder $query) => $query->lockForUpdate())->find($allocation->payment_id);
         if ($lock && $payment !== null && $receivable !== null) {
             $allocation = $payment->allocations()->where('receivable_id', $receivable->id)->lockForUpdate()->find($allocation->id)
-                ?? throw $this->invalid('A afetação mudou. Volta a pré-visualizar o recibo.');
+                ?? throw $this->invalid(__('The allocation has changed. Preview the receipt again.'));
         }
 
         if ($payment === null || $receivable === null || $payment->isAdvance() || $payment->method !== PaymentMethod::Transfer
             || $allocation->amount <= 0 || $allocation->amount > $payment->amount || $allocation->amount > $receivable->amount
             || $payment->paid_on->isAfter(today()) || ! $allocation->allocated_on->isSameDay($payment->paid_on)
             || (int) $payment->allocations()->sum('amount') !== $payment->amount) {
-            throw $this->invalid('A afetação deve pertencer a uma transferência registada, com data e montante válidos.');
+            throw $this->invalid(__('The allocation must belong to a recorded transfer with a valid date and amount.'));
         }
 
         $invoices = $this->issuedDocuments([FiscalDocumentType::Invoice, FiscalDocumentType::InvoiceReceipt])
@@ -243,20 +245,29 @@ final class InvoiceXpressReceipt
         $invoice = $invoices->first();
 
         if ($invoices->count() !== 1 || $invoice->type !== FiscalDocumentType::Invoice || $invoice->currency !== 'EUR'
-            || $invoice->total_amount !== $receivable->amount || $invoice->document_date->isAfter($payment->paid_on)) {
-            throw $this->invalid('A cobrança precisa de uma única fatura ativa em EUR, emitida antes ou na data do recebimento.');
+            || $invoice->document_date->isAfter($payment->paid_on)) {
+            throw $this->invalid(__('The receivable must have one active invoice in EUR, issued on or before the payment date.'));
+        }
+
+        if ($invoice->links?->related_fiscal_document_id !== null
+            || $receivable->payments()->whereNotNull('payments.advance_client_id')->exists()) {
+            throw $this->invalid(__('For payments after a deposit, reconcile an already issued receipt locally.'));
+        }
+
+        if ($invoice->total_amount !== $receivable->amount) {
+            throw $this->invalid(__('The invoice total does not match the receivable total. Reconcile an already issued receipt locally.'));
         }
 
         if (WithholdingRecord::query()->where(fn (Builder $query) => $query
             ->where('payment_allocation_id', $allocation->id)
             ->orWhere(fn (Builder $query) => $query->where('payment_id', $payment->id)->whereNull('payment_allocation_id'))
             ->orWhere('original_document_id', $invoice->id)->orWhere('fiscal_document_id', $invoice->id))->exists()) {
-            throw $this->invalid('Os recibos com retenção na fonte estão bloqueados.');
+            throw $this->invalid(__('Receipts with withholding tax are blocked.'));
         }
 
         if ($receivable->creditApplications()->effectiveAt(today()->toDateString())->exists()
             || $this->hasUntrackedLocalDocument($invoice->id, $receivable->id, $payment->id)) {
-            throw $this->invalid('Já existem recibos ou regularizações locais por reconciliar para esta cobrança.');
+            throw $this->invalid(__('This receivable already has receipts or local adjustments awaiting reconciliation.'));
         }
 
         $subdomain = $this->client->configuration()->subdomain;
@@ -270,7 +281,7 @@ final class InvoiceXpressReceipt
             || ! in_array($providerType, ['Invoice', 'SimplifiedInvoice'], true)
             || InvoiceXpressSnapshot::query()->where('subdomain', $subdomain)->where('provider_id', $snapshot->provider_id)
                 ->latest('id')->first()?->id !== $snapshot->id) {
-            throw $this->invalid('A fatura original não está identificada de forma inequívoca na conta InvoiceXpress atual.');
+            throw $this->invalid(__('The original invoice is not unambiguously identified in the current InvoiceXpress account.'));
         }
 
         return [
@@ -314,11 +325,11 @@ final class InvoiceXpressReceipt
             || $this->cents($invoice['before_taxes'] ?? null) !== $local['invoiceNet']
             || $this->cents($invoice['taxes'] ?? null) !== $local['invoiceVat']
             || ! is_int($clientId = $invoice['client']['id'] ?? null) || $clientId < 1) {
-            throw $this->invalid('A fatura no InvoiceXpress não coincide com o registo local ou não está aberta para recebimentos.');
+            throw $this->invalid(__('The InvoiceXpress invoice does not match the local record or is closed to payments.'));
         }
 
         if (! $this->withoutRetention($invoice)) {
-            throw $this->invalid('A emissão exige confirmação de que a fatura não tem retenção na fonte.');
+            throw $this->invalid(__('Issuance requires confirmation that the invoice has no withholding tax.'));
         }
 
         $series = $this->receiptSeries($invoice, $key, $local['subdomain']);
@@ -338,7 +349,7 @@ final class InvoiceXpressReceipt
             $receipt = $prior === null ? null : $this->verifiedReceipt($document, $prior);
             if ($receipt === null || isset($verified[$id]) || $receipt['number'] !== $prior->receipt_number
                 || $receipt['atcud'] !== $prior->receipt_atcud || ! $this->hasRecordedReceipt($prior)) {
-                throw $this->invalid('Existem movimentos no InvoiceXpress por reconciliar antes de emitir outro recibo.');
+                throw $this->invalid(__('Reconcile the pending InvoiceXpress transactions before issuing another receipt.'));
             }
 
             $paid += $prior->intent['local']['amount'];
@@ -346,7 +357,7 @@ final class InvoiceXpressReceipt
         }
 
         if (count($verified) !== $known->count() || $local['amount'] > $local['invoiceTotal'] - $paid) {
-            throw $this->invalid('O saldo da fatura no InvoiceXpress não está confirmado para este montante.');
+            throw $this->invalid(__('The InvoiceXpress invoice balance has not been confirmed for this amount.'));
         }
 
         ksort($verified);
@@ -359,20 +370,20 @@ final class InvoiceXpressReceipt
     {
         $invoiceSequenceId = InvoiceXpressIssueTerms::positiveId($invoice['sequence_id'] ?? null);
         if ($invoiceSequenceId === null) {
-            throw $this->invalid('A série da fatura original não está identificada no InvoiceXpress.');
+            throw $this->invalid(__('The original invoice series is not identified in InvoiceXpress.'));
         }
 
         $response = $this->client->request('GET', '/sequences.json', expectedSubdomain: $subdomain);
         $sequences = $response['sequences'] ?? null;
         if (! is_array($sequences) || ! array_is_list($sequences)) {
-            throw $this->invalid('O InvoiceXpress não devolveu uma lista válida de séries.');
+            throw $this->invalid(__('InvoiceXpress did not return a valid list of series.'));
         }
 
         $matches = [];
         $names = [];
         foreach ($sequences as $sequence) {
             if (! is_array($sequence) || ! is_string($name = $sequence['serie'] ?? null)) {
-                throw $this->invalid('O InvoiceXpress devolveu uma série inválida.');
+                throw $this->invalid(__('InvoiceXpress returned an invalid series.'));
             }
 
             $key = strtolower($name);
@@ -391,7 +402,7 @@ final class InvoiceXpressReceipt
             || ! preg_match('/\A[A-Za-z0-9][A-Za-z0-9._-]{0,34}\z/', $name)
             || ! is_string($code) || ! preg_match('/\A[A-Z0-9]{8,32}\z/', $code)
             || $this->sequenceNumber($invoice, $name) === null) {
-            throw $this->invalid('A série da fatura original precisa de uma série de recibos registada na AT e identificada sem ambiguidades.');
+            throw $this->invalid(__('The original invoice series requires a receipt series registered with the Portuguese Tax Authority and identified unambiguously.'));
         }
 
         return ['id' => $id, 'name' => $name, 'validationCode' => $code];
@@ -408,13 +419,13 @@ final class InvoiceXpressReceipt
         $documents = $response['documents'] ?? null;
 
         if (! is_array($documents) || ! array_is_list($documents)) {
-            throw $this->invalid('O InvoiceXpress não devolveu uma lista válida de documentos relacionados.');
+            throw $this->invalid(__('InvoiceXpress did not return a valid list of related documents.'));
         }
 
         foreach ($documents as $document) {
             if (! is_array($document) || ! is_int($document['id'] ?? null) || $document['id'] < 1
                 || ! is_string($document['type'] ?? null) || ! is_string($document['status'] ?? null)) {
-                throw $this->invalid('O InvoiceXpress devolveu um documento relacionado inválido.');
+                throw $this->invalid(__('InvoiceXpress returned an invalid related document.'));
             }
         }
 
@@ -503,7 +514,7 @@ final class InvoiceXpressReceipt
     private function requireWriteAccess(): void
     {
         if (! InvoiceXpressIssue::canWriteDocuments()) {
-            throw $this->invalid('A emissão de documentos está desativada para esta conta InvoiceXpress.');
+            throw $this->invalid(__('Document issuance is disabled for this InvoiceXpress account.'));
         }
     }
 
@@ -539,7 +550,11 @@ final class InvoiceXpressReceipt
 
     private function cents(mixed $value): ?int
     {
-        if ((! is_string($value) && ! is_int($value) && ! is_float($value))
+        if (is_float($value)) {
+            $value = json_encode($value);
+        }
+
+        if ((! is_string($value) && ! is_int($value))
             || ! preg_match('/\A([0-9]{1,10})(?:\.([0-9]{1,2}))?\z/', (string) $value, $parts)) {
             return null;
         }

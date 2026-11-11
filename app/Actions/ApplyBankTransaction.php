@@ -64,18 +64,18 @@ class ApplyBankTransaction
         $records = array_values($records);
 
         if ($records === []) {
-            throw new DomainException('Escolhe pelo menos um registo.');
+            throw new DomainException(__('Choose at least one record.'));
         }
 
         $onlyPayments = collect($records)->every(fn ($record) => $record instanceof Payment);
         $onlyExpenses = collect($records)->every(fn ($record) => $record instanceof Expense);
 
         if ($onlyPayments && ! $transaction->is_credit) {
-            throw new DomainException('Só uma entrada de dinheiro pode ser um recebimento.');
+            throw new DomainException(__('Only an incoming transaction can be recorded as a payment received.'));
         }
 
         if ($onlyExpenses && $transaction->is_credit) {
-            throw new DomainException('Só uma saída de dinheiro pode ser uma despesa.');
+            throw new DomainException(__('Only an outgoing transaction can be recorded as an expense.'));
         }
 
         DB::transaction(function () use ($transaction, $records, $explanation): void {
@@ -114,7 +114,7 @@ class ApplyBankTransaction
                 'receivable', 'partial' => Receivable::with('payments')->findOrFail($id),
                 'template' => RecurringExpense::findOrFail($id),
                 'supplier' => Supplier::findOrFail($id),
-                default => throw new DomainException('Escolha desconhecida.'),
+                default => throw new DomainException(__('Unknown selection.')),
             };
 
             $model instanceof Payment || $model instanceof Expense
@@ -129,7 +129,7 @@ class ApplyBankTransaction
             $remaining = $transaction->absolute_amount - $covered;
 
             if ($remaining <= 0) {
-                throw new DomainException('Os registos escolhidos já cobrem o valor da linha.');
+                throw new DomainException(__('The selected records already cover the amount on this bank statement line.'));
             }
 
             $amount = $step['model'] instanceof Receivable ? min($remaining, $step['model']->outstanding) : $remaining;
@@ -157,7 +157,7 @@ class ApplyBankTransaction
             $plan = $this->planTargets($transaction, $targets);
 
             if ($plan === []) {
-                throw new DomainException('Escolhe pelo menos um registo.');
+                throw new DomainException(__('Choose at least one record.'));
             }
 
             foreach ($plan as $step) {
@@ -177,13 +177,16 @@ class ApplyBankTransaction
     public function toReceivable(BankTransaction $transaction, Receivable $receivable): Payment
     {
         if (! $transaction->is_credit) {
-            throw new DomainException('Só uma entrada de dinheiro pode ser um recebimento.');
+            throw new DomainException(__('Only an incoming transaction can be recorded as a payment received.'));
         }
 
         $receivable->loadMissing('payments');
 
         if ($transaction->absolute_amount > $receivable->outstanding) {
-            throw new DomainException('O valor do extrato ('.Money::format($transaction->absolute_amount).') é maior do que o que falta receber ('.Money::format($receivable->outstanding).').');
+            throw new DomainException(__('The bank statement amount (:amount) exceeds the outstanding balance (:outstanding).', [
+                'amount' => Money::format($transaction->absolute_amount, app()->getLocale()),
+                'outstanding' => Money::format($receivable->outstanding, app()->getLocale()),
+            ]));
         }
 
         return DB::transaction(function () use ($transaction, $receivable): Payment {
@@ -200,7 +203,7 @@ class ApplyBankTransaction
         $this->ensureDebit($transaction);
 
         if ($expense->is_paid) {
-            throw new DomainException('Esta despesa já está paga.');
+            throw new DomainException(__('This expense has already been paid.'));
         }
 
         return DB::transaction(function () use ($transaction, $expense): Expense {
@@ -309,7 +312,7 @@ class ApplyBankTransaction
     {
         DB::transaction(function () use ($transaction): void {
             if ($this->lockedStatus($transaction) === BankTransactionStatus::Pending) {
-                throw new DomainException('Esta linha ainda está por tratar.');
+                throw new DomainException(__('This line is still pending.'));
             }
 
             foreach ($transaction->links()->with('linkable')->get() as $link) {
@@ -360,7 +363,7 @@ class ApplyBankTransaction
         $lineExceeds = ($difference > 0) === $transaction->is_credit;
 
         if (! in_array($explanation, DifferenceExplanation::optionsFor($transaction->is_credit, $lineExceeds), true)) {
-            throw new DomainException('Essa explicação não serve para esta diferença.');
+            throw new DomainException(__('That explanation does not apply to this difference.'));
         }
 
         $amount = abs($difference);
@@ -416,7 +419,7 @@ class ApplyBankTransaction
         }
 
         if ($links->exists()) {
-            throw new DomainException('Um dos registos criados está associado a um documento fiscal. Revê a ligação antes de voltar a tratar esta linha.');
+            throw new DomainException(__('One of the records created is linked to a fiscal document. Review the link before processing this line again.'));
         }
 
         $expenseId = match (true) {
@@ -427,7 +430,7 @@ class ApplyBankTransaction
         $expense = $expenseId === null ? null : Expense::query()->lockForUpdate()->find($expenseId);
 
         if ($expense?->proof_path !== null) {
-            throw new DomainException('A despesa criada tem um comprovativo. Revê o comprovativo antes de voltar a tratar esta linha.');
+            throw new DomainException(__('The expense created has supporting evidence. Review the evidence before processing this line again.'));
         }
 
         $income instanceof OneOffIncome ? $income->delete() : $record->fresh()?->delete();
@@ -442,13 +445,16 @@ class ApplyBankTransaction
     public function createOneOffIncome(BankTransaction $transaction, array $data): OneOffIncome
     {
         if (! $transaction->is_credit) {
-            throw new DomainException('Só uma entrada de dinheiro pode ser uma receita.');
+            throw new DomainException(__('Only an incoming transaction can be recorded as income.'));
         }
 
         $net = (int) $data['gross_amount'] - (int) ($data['commission'] ?? 0);
 
         if ($net !== $transaction->absolute_amount) {
-            throw new DomainException('Valor bruto menos comissão dá '.Money::format($net).', mas chegaram ao banco '.Money::format($transaction->absolute_amount).'.');
+            throw new DomainException(__('The gross amount minus commission is :net, but the bank received :received.', [
+                'net' => Money::format($net, app()->getLocale()),
+                'received' => Money::format($transaction->absolute_amount, app()->getLocale()),
+            ]));
         }
 
         return DB::transaction(function () use ($transaction, $data): OneOffIncome {
@@ -473,7 +479,7 @@ class ApplyBankTransaction
         }
 
         if (count($payouts) < 1 || count($payouts) > 50) {
-            throw new DomainException('Indica entre 1 e 50 depósitos.');
+            throw new DomainException(__('Enter between 1 and 50 deposits.'));
         }
 
         return DB::transaction(function () use ($transaction, $payouts): array {
@@ -481,7 +487,7 @@ class ApplyBankTransaction
             $this->ensurePending($transaction);
 
             if (! $transaction->is_credit) {
-                throw new DomainException('Só uma entrada de dinheiro pode ser um depósito de plataforma.');
+                throw new DomainException(__('Only an incoming transaction can be recorded as a platform payout.'));
             }
 
             $remaining = $transaction->amount;
@@ -492,14 +498,14 @@ class ApplyBankTransaction
                 $remaining -= $amounts->netEur();
 
                 if ($remaining < 0) {
-                    throw new DomainException('Há uma diferença entre o líquido dos depósitos e a entrada no banco.');
+                    throw new DomainException(__('The net payout amount differs from the amount received in the bank.'));
                 }
 
                 $records[] = $this->recordPlatformPayout($transaction, $data, $amounts);
             }
 
             if ($remaining !== 0) {
-                throw new DomainException('Há uma diferença entre o líquido dos depósitos e a entrada no banco.');
+                throw new DomainException(__('The net payout amount differs from the amount received in the bank.'));
             }
 
             $this->markMatched($transaction);
@@ -521,19 +527,19 @@ class ApplyBankTransaction
         ]);
 
         if ($metadata->fails()) {
-            throw new DomainException('Confere a plataforma, a descrição e as referências do depósito.');
+            throw new DomainException(__('Check the platform, description and payout references.'));
         }
 
         $fxReference = $amounts->fxRate === null ? null : trim($data['fx_reference'] ?? '');
 
         if ($amounts->fxRate !== null && ($fxReference === '' || ! in_array($data['fx_confirmed'] ?? null, [true, 1, '1'], true))) {
-            throw new DomainException('Indica a referência e confirma a conversão para euros.');
+            throw new DomainException(__('Enter the reference and confirm the conversion to euros.'));
         }
 
         $platform = Supplier::find($data['platform_id']);
 
         if ($platform === null) {
-            throw new DomainException('Escolhe uma plataforma desta conta.');
+            throw new DomainException(__('Choose a platform from this account.'));
         }
 
         $document = null;
@@ -546,7 +552,7 @@ class ApplyBankTransaction
                 ->find($data['commission_document_id']);
 
             if ($document === null || $amounts->commissionEur === 0) {
-                throw new DomainException('Escolhe um documento recebido e ativo para comprovar a comissão.');
+                throw new DomainException(__('Choose an active received document as evidence of the commission.'));
             }
         }
 
@@ -607,7 +613,7 @@ class ApplyBankTransaction
         $receivable = Receivable::query()->lockForUpdate()->findOrFail($receivable->id);
 
         if ($amount > $receivable->outstanding) {
-            throw new DomainException('O montante excede o que falta receber nesta cobrança.');
+            throw new DomainException(__('The amount exceeds the outstanding balance on this receivable.'));
         }
 
         $payment = Payment::create([
@@ -627,7 +633,7 @@ class ApplyBankTransaction
     private function attach(BankTransaction $transaction, Payment|Expense $record): Payment|Expense
     {
         if ($record->bankLink()->exists()) {
-            throw new DomainException('Este registo já está ligado a outra linha do extrato.');
+            throw new DomainException(__('This record is already linked to another bank statement line.'));
         }
 
         $markedPaid = $record instanceof Expense && ! $record->is_paid;
@@ -663,7 +669,7 @@ class ApplyBankTransaction
     private function ensurePending(BankTransaction $transaction): void
     {
         if ($this->lockedStatus($transaction) !== BankTransactionStatus::Pending) {
-            throw new DomainException('Esta linha do extrato já foi tratada.');
+            throw new DomainException(__('This bank statement line has already been processed.'));
         }
     }
 
@@ -678,7 +684,7 @@ class ApplyBankTransaction
     private function ensureDebit(BankTransaction $transaction): void
     {
         if ($transaction->is_credit) {
-            throw new DomainException('Só uma saída de dinheiro pode ser uma despesa.');
+            throw new DomainException(__('Only an outgoing transaction can be recorded as an expense.'));
         }
     }
 }

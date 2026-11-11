@@ -40,19 +40,19 @@ final class RecordDebitNoteCharge
                 || ! $this->activeEuroDocument($original) || $link?->related_fiscal_document_id !== $originalId
                 || $note->document_date->lt($original->document_date)
                 || in_array($party, ['', '999999990'], true) || $party !== $this->taxId($original->party_tax_id)) {
-                throw ValidationException::withMessages(['due_on' => 'Revê os dados e a ligação da nota de débito à fatura original.']);
+                throw ValidationException::withMessages(['due_on' => __('Review the details and the link from the debit note to the original invoice.')]);
             }
 
             Validator::make(['due_on' => $dueOn], [
                 'due_on' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.$note->document_date->toDateString()],
             ], [
-                'due_on.after_or_equal' => 'O vencimento deve ser igual ou posterior à data da nota de débito.',
+                'due_on.after_or_equal' => __('The due date must be on or after the debit note date.'),
             ])->validate();
 
             $originalCharge = Receivable::query()->excludingCancelled()->find($original->links?->receivable_id);
             $billable = $originalCharge?->billable;
             if ($billable === null || $party !== $this->taxId($originalCharge->client?->vat_number)) {
-                throw ValidationException::withMessages(['due_on' => 'A fatura original deve estar ligada a um valor a receber ativo do mesmo cliente.']);
+                throw ValidationException::withMessages(['due_on' => __('The original invoice must be linked to an active receivable for the same client.')]);
             }
 
             if ($link->receivable_id !== null) {
@@ -60,7 +60,7 @@ final class RecordDebitNoteCharge
 
                 if ($charge === null || $charge->is($originalCharge) || $charge->amount !== $expectedTotal
                     || $charge->due_on->toDateString() !== $dueOn || ! $billable->is($charge->billable)) {
-                    throw ValidationException::withMessages(['due_on' => 'A nota já está ligada a um valor a receber. Revê essa ligação.']);
+                    throw ValidationException::withMessages(['due_on' => __('The note is already linked to a receivable. Review that link.')]);
                 }
 
                 return $charge;

@@ -2,20 +2,27 @@
 
 namespace App\Providers;
 
+use App\Enums\Language;
 use App\Exceptions\AccountIsReadOnly;
 use App\Filament\Support\PhosphorIconAliases;
+use App\Http\Middleware\ApplyUserLanguage;
 use App\Models\Account;
 use App\Policies\AuditPolicy;
 use App\Support\AccountMemberAccess;
 use App\Support\CurrentAccount;
+use App\Support\FinanceSettings;
 use App\Support\ReadOnlyAccountAccess;
+use Filament\Forms\Components\FileUpload;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Schema;
 use Filament\Support\Facades\FilamentIcon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Cashier\Cashier;
+use Mortalkiller\FilamentCompleteUserProfile\Http\Middleware\SetUserLocale;
 use pxlrbt\FilamentExcel\Actions\ExportAction;
 use pxlrbt\FilamentExcel\Actions\ExportBulkAction;
 use Tapp\FilamentAuditing\Filament\Actions\RestoreAuditAction;
@@ -33,7 +40,11 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->scoped(CurrentAccount::class);
+        $this->app->scoped(FinanceSettings::class);
         $this->app->scoped(AccountMemberAccess::class);
+
+        // The profile package registers this middleware on the panel's authenticated routes.
+        $this->app->bind(SetUserLocale::class, ApplyUserLanguage::class);
 
         // Its routes are registered in routes/stripe.php, where the webhook fails closed.
         Cashier::ignoreRoutes();
@@ -44,6 +55,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->app['translator']->determineLocalesUsing(fn (array $locales): array => array_merge(...array_map(
+            fn (string $locale): array => match ($locale) {
+                'pt_PT' => ['pt_PT', 'pt'],
+                'en_US' => ['en_US', 'en'],
+                default => [$locale],
+            },
+            $locales,
+        )));
+        $this->detectLazyLoading();
         $this->registerPhosphorIcons();
         $this->configureFormatting();
         $this->configureBilling();
@@ -52,6 +72,15 @@ class AppServiceProvider extends ServiceProvider
 
         // tapp's Audit model lives in vendor, so Laravel cannot discover its Shield-generated policy.
         Gate::policy(Audit::class, AuditPolicy::class);
+    }
+
+    private function detectLazyLoading(): void
+    {
+        if ($this->app->isLocal()) {
+            Model::handleLazyLoadingViolationUsing(function (Model $model, string $relation): void {
+                Log::warning(sprintf('Possible N+1: %s::%s was lazy loaded.', $model::class, $relation));
+            });
+        }
     }
 
     /**
@@ -93,21 +122,22 @@ class AppServiceProvider extends ServiceProvider
         });
     }
 
-    /**
-     * Money and dates as used in Portugal: "1 965,50 €" and "28/08/2026".
-     * The app locale stays "pt" (Filament translations); ICU "pt" would format money the Brazilian way.
-     */
     private function configureFormatting(): void
     {
+        $dateFormat = fn (): string => Language::resolve(app()->getLocale())->dateFormat();
+
         Table::configureUsing(fn (Table $table) => $table
-            ->defaultNumberLocale('pt_PT')
-            ->defaultDateDisplayFormat('d/m/Y')
-            ->defaultDateTimeDisplayFormat('d/m/Y H:i'));
+            ->defaultNumberLocale(fn (): string => app()->getLocale())
+            ->defaultDateDisplayFormat($dateFormat)
+            ->defaultDateTimeDisplayFormat(fn (): string => $dateFormat().' H:i'));
 
         Schema::configureUsing(fn (Schema $schema) => $schema
-            ->defaultNumberLocale('pt_PT')
-            ->defaultDateDisplayFormat('d/m/Y')
-            ->defaultDateTimeDisplayFormat('d/m/Y H:i'));
+            ->defaultNumberLocale(fn (): string => app()->getLocale())
+            ->defaultDateDisplayFormat($dateFormat)
+            ->defaultDateTimeDisplayFormat(fn (): string => $dateFormat().' H:i'));
+
+        FileUpload::configureUsing(fn (FileUpload $upload) => $upload
+            ->placeholder(fn (): string => __('Drag and drop your files or <span class="filepond--label-action">browse</span>')));
     }
 
     /**

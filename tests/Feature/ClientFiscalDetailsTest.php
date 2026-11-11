@@ -4,9 +4,14 @@ use App\Filament\Resources\Clients\Pages\EditClient;
 use App\Filament\Resources\Clients\Pages\ListClients;
 use App\Models\Account;
 use App\Models\Client;
+use App\Models\Project;
+use App\Models\Receivable;
 use App\Support\CurrentAccount;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
+
+pest()->group('ui');
 
 it('saves client fiscal details from the create form without changing legacy classification', function () {
     actingAsAdmin();
@@ -131,3 +136,26 @@ it('cannot open a client in another account to record a VIES result', function (
     Livewire::test(EditClient::class, ['record' => $client->getRouteKey()])
         ->assertNotFound();
 });
+
+it('loads the client list balances in one receivables query', function () {
+    actingAsAdmin();
+    $clients = Client::factory()->count(3)->create();
+
+    foreach ($clients as $index => $client) {
+        $project = Project::factory()->for($client)->create();
+        Receivable::factory()->for($project, 'billable')->create(['amount' => 10000 + $index]);
+    }
+
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+
+    try {
+        Livewire::test(ListClients::class)->assertCanSeeTableRecords($clients);
+
+        $receivableQueries = collect(DB::getQueryLog())->filter(fn (array $query): bool => str_starts_with($query['query'], 'select "receivables".*,'));
+
+        expect($receivableQueries)->toHaveCount(1);
+    } finally {
+        DB::disableQueryLog();
+    }
+})->group('performance');

@@ -22,21 +22,21 @@ class MonthPaymentsTable extends TableWidget
     public function table(Table $table): Table
     {
         return $table
-            ->heading('Recebimentos do mês')
+            ->heading(__('Payments received this month'))
             ->query(fn () => $this->review()->paymentsQuery())
             ->paginated(false)
             ->columns([
-                TextColumn::make('paid_on')->label('Data')->date(),
+                TextColumn::make('paid_on')->label(__('Date'))->date(),
                 TextColumn::make('reference')
-                    ->label('Referente a')
+                    ->label(__('For'))
                     ->state(fn (Payment $record): string => $record->receivableLabels())
                     ->wrap(),
-                TextColumn::make('amount')->label('Valor recebido')->money('EUR', divideBy: 100)->alignEnd(),
+                TextColumn::make('amount')->label(__('Received amount'))->money('EUR', divideBy: 100)->alignEnd(),
                 FiscalDocumentColumn::make(),
                 ReconciliationColumns::paymentColumn(),
             ])
             ->recordActions([ReconciliationColumns::detailsAction()])
-            ->emptyStateHeading('Sem recebimentos neste mês')
+            ->emptyStateHeading(__('No payments received this month'))
             ->emptyStateIcon(Phosphor::CheckCircle);
     }
 }

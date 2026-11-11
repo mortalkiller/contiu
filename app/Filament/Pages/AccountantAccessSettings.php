@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\Language;
 use App\Models\User;
 use App\Support\AccountantAccess;
 use App\Support\CurrentAccount;
@@ -9,13 +10,13 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
 use Filament\Pages\Page;
+use Filament\Support\Components\Attributes\Unexposed;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Validation\ValidationException;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
-use UnitEnum;
 
 class AccountantAccessSettings extends Page implements HasTable
 {
@@ -24,10 +25,6 @@ class AccountantAccessSettings extends Page implements HasTable
     protected string $view = 'filament.pages.accountant-review';
 
     protected static ?string $slug = 'acesso-de-contabilistas';
-
-    protected static ?string $title = 'Acesso de contabilistas';
-
-    protected static string|UnitEnum|null $navigationGroup = 'Definições';
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::Users;
 
@@ -42,10 +39,10 @@ class AccountantAccessSettings extends Page implements HasTable
     {
         return [
             Action::make('grant')
-                ->label('Conceder acesso')
-                ->modalDescription('Indica o email de um utilizador registado e com email confirmado.')
+                ->label(__('Grant access'))
+                ->modalDescription(__('Enter the email address of a registered user who has verified their email.'))
                 ->visible(fn (): bool => static::canAccess() && CurrentAccount::get()?->hasAccess())
-                ->schema([TextInput::make('email')->label('Email')->email()->required()->maxLength(255)])
+                ->schema([TextInput::make('email')->label(__('Email'))->email()->required()->maxLength(255)])
                 ->action(function (array $data): void {
                     try {
                         app(AccountantAccess::class)->grant($data['email']);
@@ -65,22 +62,40 @@ class AccountantAccessSettings extends Page implements HasTable
         return $table
             ->query(CurrentAccount::get()->users()->wherePivot('role', AccountantAccess::ROLE)->getQuery()->select('users.*'))
             ->columns([
-                TextColumn::make('name')->label('Nome')->searchable(),
-                TextColumn::make('email')->label('Email')->searchable(),
+                TextColumn::make('name')->label(__('Name'))->searchable(),
+                TextColumn::make('email')->label(__('Email'))->searchable(),
                 TextColumn::make('access_since')
-                    ->label('Acesso desde')
+                    ->label(__('Access since'))
                     ->state(fn (User $record) => CurrentAccount::get()->users()->whereKey($record->getKey())->first()?->pivot->created_at)
-                    ->date('d/m/Y')
+                    ->date(fn (): string => Language::resolve(app()->getLocale())->dateFormat())
                     ->placeholder('—'),
             ])
             ->defaultSort('name')
-            ->emptyStateHeading('Nenhum contabilista com acesso')
+            ->emptyStateHeading(__('No accountants have access'))
             ->recordActions([
                 Action::make('revoke')
-                    ->label('Revogar acesso')
+                    ->label(__('Revoke access'))
                     ->color('danger')
                     ->requiresConfirmation()
                     ->action(fn (User $record) => app(AccountantAccess::class)->revoke((int) $record->getKey())),
             ]);
+    }
+
+    #[Unexposed]
+    public function getTitle(): string
+    {
+        return __('Accountant access');
+    }
+
+    #[Unexposed]
+    public static function getNavigationGroup(): string
+    {
+        return __('Settings');
+    }
+
+    #[Unexposed]
+    public static function getNavigationLabel(): string
+    {
+        return __('Accountant access');
     }
 }

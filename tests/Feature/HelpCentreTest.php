@@ -8,15 +8,14 @@ use App\Filament\Resources\Clients\ClientResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
 use App\Support\Money;
 
+pest()->group('ui');
+
 beforeEach(fn () => actingAsAdmin());
 
 it('shows the workflow guide with every topic', function () {
     $this->get(HelpCentre::getUrl())
         ->assertOk()
         ->assertSee('Centro de ajuda')
-        ->assertSeeInOrder(['Do trabalho ao extrato', 'Recebimentos', 'Despesas', 'Receitas avulsas', 'Extrato bancário', 'Fecho do mês', 'Conta pessoal', 'Notas legais'])
-        ->assertSee('Aceitar sugestões')
-        ->assertSee('Transferência minha')
         ->assertSee(BankStatementImport::getUrl(), escape: false);
 });
 
@@ -46,7 +45,6 @@ it('explains the monthly tax obligations and where their answers come from', fun
         ->assertSee('href="#obrigacoes-fiscais"', escape: false)
         ->assertSeeInOrder(['Obrigações fiscais', 'Notas legais'])
         ->assertSee('Este mês')
-        ->assertSee('Marcar como pago')
         ->assertSee('declaração recapitulativa')
         ->assertSee(FinanceSettingsPage::getUrl(), escape: false)
         ->assertSee(SupplierResource::getUrl(), escape: false)

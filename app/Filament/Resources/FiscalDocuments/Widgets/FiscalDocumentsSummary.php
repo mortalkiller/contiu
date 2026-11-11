@@ -5,6 +5,7 @@ namespace App\Filament\Resources\FiscalDocuments\Widgets;
 use App\Enums\FiscalDocumentDirection;
 use App\Enums\FiscalDocumentStatus;
 use App\Enums\FiscalDocumentType;
+use App\Enums\Language;
 use App\Filament\Pages\InvoiceXpressImport;
 use App\Filament\Resources\Receivables\ReceivableResource;
 use App\Models\CreditApplication;
@@ -46,20 +47,20 @@ class FiscalDocumentsSummary extends StatsOverviewWidget
         $unappliedCredits = $this->unappliedCreditNotes();
 
         return [
-            Stat::make("Faturado em {$year}, sem IVA", $turnover->billedNet === null ? '—' : Money::format($turnover->billedNet))
+            Stat::make(__('Billed in :year, excluding VAT', ['year' => $year]), $turnover->billedNet === null ? '—' : Money::format($turnover->billedNet, locale: app()->getLocale()))
                 ->description($turnover->nonEuroDocumentCount > 0
-                    ? trans_choice('{1} 1 documento noutra moeda fora da soma|[2,*] :count documentos noutras moedas fora da soma', $turnover->nonEuroDocumentCount)
-                    : 'As notas de crédito reduzem o total')
+                    ? trans_choice('{1} 1 document in another currency excluded from the total|[2,*] :count documents in other currencies excluded from the total', $turnover->nonEuroDocumentCount)
+                    : __('Credit notes reduce the total'))
                 ->color($turnover->nonEuroDocumentCount > 0 ? 'warning' : 'primary')
                 ->chart($this->billedByMonth())
                 ->icon(Phosphor::Invoice),
-            Stat::make('Cobranças sem documento', (string) $undocumented)
-                ->description($undocumented === 0 ? 'Tudo o que venceu tem fatura' : 'Já venceram ou foram pagas · emitir fatura')
+            Stat::make(__('Charges without a document'), (string) $undocumented)
+                ->description($undocumented === 0 ? __('All due charges have an invoice') : __('Due or paid · issue invoice'))
                 ->color($undocumented === 0 ? 'success' : 'warning')
                 ->url($undocumented === 0 ? null : ReceivableResource::getUrl())
                 ->icon(Phosphor::FileDashed),
-            Stat::make('Notas de crédito por aplicar', (string) $unappliedCredits)
-                ->description($unappliedCredits === 0 ? 'Tudo aplicado' : 'Aplica-as na fatura original')
+            Stat::make(__('Unapplied credit notes'), (string) $unappliedCredits)
+                ->description($unappliedCredits === 0 ? __('All applied') : __('Apply them to the original invoice'))
                 ->color($unappliedCredits === 0 ? 'success' : 'warning')
                 ->icon(Phosphor::ArrowUUpLeft),
             $this->invoiceXpressStat(),
@@ -124,11 +125,11 @@ class FiscalDocumentsSummary extends StatsOverviewWidget
         $connected = InvoiceXpressConfig::current() !== null;
         $lastImport = InvoiceXpressSnapshot::query()->latest()->value('created_at');
 
-        return Stat::make('InvoiceXpress', $connected ? 'Ligado' : 'Por ligar')
+        return Stat::make('InvoiceXpress', $connected ? __('Connected') : __('Not connected'))
             ->description(match (true) {
-                ! $connected => 'Liga a conta para importar e emitir faturas',
-                $lastImport === null => 'Ainda sem documentos importados',
-                default => 'Última importação a '.$lastImport->format('d/m/Y'),
+                ! $connected => __('Connect the account to import and issue invoices'),
+                $lastImport === null => __('No documents imported yet'),
+                default => __('Last imported on :date', ['date' => $lastImport->format(Language::resolve(app()->getLocale())->dateFormat())]),
             })
             ->url(InvoiceXpressImport::canAccess() ? InvoiceXpressImport::getUrl() : null)
             ->icon(Phosphor::PlugsConnected);

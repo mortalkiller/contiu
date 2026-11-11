@@ -18,25 +18,25 @@ class SuppliersTable
             ->defaultSort('name')
             ->columns([
                 TextColumn::make('name')
-                    ->label('Nome')
+                    ->label(__('Name'))
                     ->weight('medium')
                     ->searchable(),
                 TextColumn::make('vat_number')
-                    ->label('NIF')
+                    ->label(__('Tax ID'))
                     ->placeholder('—')
                     ->searchable(),
                 TextColumn::make('website')
-                    ->label('Site')
+                    ->label(__('Website'))
                     ->placeholder('—')
                     ->url(fn (Supplier $record) => $record->website, shouldOpenInNewTab: true)
                     ->formatStateUsing(fn (?string $state) => $state ? preg_replace('#^https?://(www\.)?#', '', $state) : null)
                     ->color('primary'),
                 TextColumn::make('seat')
-                    ->label('Sede')
+                    ->label(__('Location'))
                     ->badge()
                     ->color('gray'),
                 TextColumn::make('usual_category')
-                    ->label('Categoria habitual')
+                    ->label(__('Usual category'))
                     ->state(fn (Supplier $record): ?string => $record->expenses
                         ->countBy(fn (Expense $expense): string => $expense->category?->name ?? '')
                         ->forget('')
@@ -45,16 +45,16 @@ class SuppliersTable
                         ->first())
                     ->placeholder('—'),
                 TextColumn::make('expenses_count')
-                    ->label('Despesas')
+                    ->label(__('Expenses'))
                     ->numeric()
                     ->alignCenter(),
                 TextColumn::make('total_spent')
-                    ->label('Total gasto')
+                    ->label(__('Total spent'))
                     ->state(fn (Supplier $record) => $record->expenses->sum(fn (Expense $expense) => $expense->total))
                     ->money('EUR', divideBy: 100)
                     ->alignEnd(),
                 TextColumn::make('unpaid')
-                    ->label('Por pagar')
+                    ->label(__('To pay'))
                     ->state(fn (Supplier $record): ?int => $record->expenses->reject(fn (Expense $expense): bool => (bool) $expense->is_paid)->sum(fn (Expense $expense) => $expense->total) ?: null)
                     ->money('EUR', divideBy: 100)
                     ->placeholder('—')
@@ -62,9 +62,9 @@ class SuppliersTable
                     ->weight('semibold')
                     ->alignEnd(),
                 TextColumn::make('last_expense_on')
-                    ->label('Última despesa')
+                    ->label(__('Last expense'))
                     ->state(fn (Supplier $record) => $record->expenses->max('spent_on'))
-                    ->date('d/m/Y')
+                    ->date()
                     ->placeholder('—'),
             ])
             ->recordActions([
@@ -74,7 +74,7 @@ class SuppliersTable
                         ->visible(fn (Supplier $record) => $record->expenses_count === 0),
                 ]),
             ])
-            ->emptyStateHeading('Sem fornecedores')
-            ->emptyStateDescription('Os fornecedores também podem ser criados diretamente ao registar uma despesa.');
+            ->emptyStateHeading(__('No suppliers'))
+            ->emptyStateDescription(__('You can also create suppliers when recording an expense.'));
     }
 }

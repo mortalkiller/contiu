@@ -35,7 +35,7 @@ final class DownloadExpenseEvidence
         $disk = Storage::disk(ExpenseEvidence::DISK);
         abort_if($path === null || ! $disk->exists($path), 404);
 
-        return $disk->download($path, 'comprovativo-despesa-'.$expense->getKey().'.pdf', [
+        return $disk->download($path, __('expense-evidence').'-'.$expense->getKey().'.pdf', [
             'Content-Type' => 'application/pdf',
             'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',

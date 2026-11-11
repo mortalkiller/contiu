@@ -20,9 +20,27 @@ class AuditResource extends TappAuditResource
 {
     protected static string|BackedEnum|null $navigationIcon = Phosphor::ClockCounterClockwise;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Definições';
-
     protected static ?int $navigationSort = 20;
+
+    public static function getModelLabel(): string
+    {
+        return __('audit');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('audits');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return __('Audits');
+    }
+
+    public static function getNavigationGroup(): string|UnitEnum|null
+    {
+        return __('Settings');
+    }
 
     public static function isScopedToTenant(): bool
     {

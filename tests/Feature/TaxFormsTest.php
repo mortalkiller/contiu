@@ -1,18 +1,20 @@
 <?php
 
 use App\Enums\Seat;
-use App\Filament\Support\FinanceFields;
 use App\Filament\Resources\Clients\Pages\EditClient;
 use App\Filament\Resources\Clients\Pages\ListClients;
 use App\Filament\Resources\Expenses\Pages\CreateExpense;
 use App\Filament\Resources\Expenses\Pages\EditExpense;
 use App\Filament\Resources\Suppliers\Pages\ManageSuppliers;
+use App\Filament\Support\FinanceFields;
 use App\Models\Client;
 use App\Models\Expense;
 use App\Models\Supplier;
 use Filament\Actions\Testing\TestAction;
 use Filament\Forms\Components\Select;
 use Livewire\Livewire;
+
+pest()->group('ui', 'fiscal');
 
 beforeEach(fn () => actingAsAdmin());
 

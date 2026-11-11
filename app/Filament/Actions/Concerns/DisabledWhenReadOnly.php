@@ -28,6 +28,6 @@ trait DisabledWhenReadOnly
 
     public function getTooltip(): string|Htmlable|null
     {
-        return CurrentAccount::readOnly() ? 'A conta está só de leitura' : parent::getTooltip();
+        return CurrentAccount::readOnly() ? __('The account is read-only') : parent::getTooltip();
     }
 }

@@ -18,6 +18,8 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
+pest()->group('fiscal');
+
 function historicalProfileInput(array $overrides = []): array
 {
     return [
@@ -74,7 +76,7 @@ it('uses only explicit profile fields and discloses fallback before, between and
             'confirmed_fields' => [],
         ]);
     });
-});
+})->group('integration');
 
 it('applies the confirmed contribution exemption month by month and preserves a confirmed false', function () {
     $actor = actingAsAdmin();
@@ -91,7 +93,7 @@ it('applies the confirmed contribution exemption month by month and preserves a 
         ->and($estimate->ssContributionForMonth(CarbonImmutable::parse('2025-06-01')))->toBe(0)
         ->and($estimate->quarters()[0])->toMatchArray(['chargedMonths' => 1, 'total' => 2000, 'status' => 'exempt'])
         ->and($estimate->ssYearTotal())->toBe(2000);
-});
+})->group('integration');
 
 it('calculates VAT amounts within each period and uses the annual receipt proxy for exemption progress', function () {
     FiscalProfile::factory()->create([
@@ -113,7 +115,7 @@ it('calculates VAT amounts within each period and uses the annual receipt proxy 
     expect($periods[0])->toMatchArray(['exempt' => true, 'thresholdPercent' => 40.0, 'collected' => null, 'paid' => null, 'balance' => null])
         ->and($periods[1])->toMatchArray(['exempt' => false, 'thresholdPercent' => null, 'collected' => 2300, 'paid' => 1150, 'balance' => 1150])
         ->and($estimate->vatPaid())->toBe(3450);
-});
+})->group('integration');
 
 it('uses today for the ongoing annual summary and still resolves a scheduled VAT change on its date', function () {
     $this->travelTo(CarbonImmutable::parse('2025-06-30'));
@@ -124,7 +126,7 @@ it('uses today for the ongoing annual summary and still resolves a scheduled VAT
 
     expect($estimate->vatExempt())->toBeFalse()
         ->and($estimate->vatExempt(CarbonImmutable::parse('2025-07-01')))->toBeTrue();
-});
+})->group('integration');
 
 it('uses a confirmed activity start for the calculation period and keeps the annual employment input separate', function () {
     $settings = app(FinanceSettings::class);
@@ -139,7 +141,7 @@ it('uses a confirmed activity start for the calculation period and keeps the ann
         ->and((new TaxEstimator($settings, 2025))->irsCoefficientReduction())->toBe(0.5)
         ->and((new TaxEstimator($settings, 2026))->irsCoefficientReductionBlocker())->toBe('dependent_income')
         ->and((new TaxEstimator($settings, 2025))->ssMonthStatus(CarbonImmutable::parse('2025-09-01')))->toBe('first_enrolment');
-});
+})->group('integration');
 
 it('persists explicitly confirmed estimate settings from the profile form without changing current settings', function () {
     $this->travelTo(CarbonImmutable::parse('2025-05-01'));
@@ -161,7 +163,7 @@ it('persists explicitly confirmed estimate settings from the profile form withou
         ->and($profile->vat_exemption_threshold)->toBe(1234567)
         ->and($profile->ss_contribution_exempt)->toBeFalse()
         ->and(app(FinanceSettings::class)->vatExempt())->toBeFalse();
-});
+})->group('ui');
 
 it('rejects invalid historical inputs without creating a version', function (array $overrides) {
     $actor = actingAsAdmin();
@@ -174,7 +176,7 @@ it('rejects invalid historical inputs without creating a version', function (arr
     'threshold without confirmed exemption' => [['vat_exemption_threshold' => 10000]],
     'fraction of a cent' => [['vat_exempt' => 'yes', 'vat_exemption_threshold' => 100.25]],
     'unrecognised contribution exemption' => [['ss_contribution_exempt' => 'unknown']],
-]);
+])->group('integration');
 
 it('rejects historical setting confirmation by a read-only owner', function () {
     $this->account->update(['billing_exempt' => false, 'trial_ends_at' => now()->subDay()]);
@@ -185,4 +187,4 @@ it('rejects historical setting confirmation by a read-only owner', function () {
     expect(fn () => app(ConfirmFiscalProfile::class)->handle($owner, historicalProfileInput(['vat_exempt' => 'yes'])))
         ->toThrow(fn (HttpException $exception) => expect($exception->getStatusCode())->toBe(403));
     expect(FiscalProfile::query()->count())->toBe(0);
-});
+})->group('integration');

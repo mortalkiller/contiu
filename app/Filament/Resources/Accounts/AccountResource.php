@@ -34,20 +34,29 @@ class AccountResource extends Resource
 
     protected static ?string $slug = 'contas';
 
-    protected static ?string $modelLabel = 'conta';
-
-    protected static ?string $pluralModelLabel = 'contas';
-
     protected static ?string $recordTitleAttribute = 'name';
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::Buildings;
-
-    protected static string|UnitEnum|null $navigationGroup = 'Definições';
 
     protected static ?int $navigationSort = 4;
 
     /** Accounts are the tenants themselves: the list spans all of them. */
     protected static bool $isScopedToTenant = false;
+
+    public static function getModelLabel(): string
+    {
+        return __('account');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('accounts');
+    }
+
+    public static function getNavigationGroup(): string|UnitEnum|null
+    {
+        return __('Settings');
+    }
 
     /** Every account's name, NIF, owner and payments: super admins only (no policy, no Shield permission). */
     public static function canAccess(): bool
@@ -92,18 +101,18 @@ class AccountResource extends Resource
                 ->columns(['md' => 3])
                 ->columnSpanFull()
                 ->schema([
-                    TextEntry::make('name')->label('Nome'),
-                    TextEntry::make('nif')->label('NIF')->placeholder('—'),
+                    TextEntry::make('name')->label(__('Name')),
+                    TextEntry::make('nif')->label(__('Tax ID'))->placeholder('—'),
                     TextEntry::make('owner_email')
-                        ->label('Email do dono')
+                        ->label(__('Owner email'))
                         ->state(fn (Account $record): ?string => static::ownerEmail($record))
                         ->placeholder('—'),
                     TextEntry::make('billing_state')
-                        ->label('Estado')
+                        ->label(__('Status'))
                         ->state(fn (Account $record): string => AccountStatus::label($record))
                         ->badge()
-                        ->color(fn (string $state): string => static::stateColor($state)),
-                    TextEntry::make('created_at')->label('Registo')->date(),
+                        ->color(fn (Account $record): string => static::stateColor($record)),
+                    TextEntry::make('created_at')->label(__('Registration date'))->date(),
                 ]),
         ]);
     }
@@ -115,24 +124,24 @@ class AccountResource extends Resource
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('name')
-                    ->label('Nome')
+                    ->label(__('Name'))
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('nif')
-                    ->label('NIF')
+                    ->label(__('Tax ID'))
                     ->searchable()
                     ->placeholder('—'),
                 TextColumn::make('owner_email')
-                    ->label('Email do dono')
+                    ->label(__('Owner email'))
                     ->state(fn (Account $record): ?string => static::ownerEmail($record))
                     ->placeholder('—'),
                 TextColumn::make('billing_state')
-                    ->label('Estado')
+                    ->label(__('Status'))
                     ->state(fn (Account $record): string => AccountStatus::label($record))
                     ->badge()
-                    ->color(fn (string $state): string => static::stateColor($state)),
+                    ->color(fn (Account $record): string => static::stateColor($record)),
                 TextColumn::make('created_at')
-                    ->label('Registo')
+                    ->label(__('Registration date'))
                     ->date()
                     ->sortable(),
             ])
@@ -140,7 +149,7 @@ class AccountResource extends Resource
                 ViewAction::make(),
                 // Filament takes the tenant from the URL, so this simply opens that account.
                 Action::make('enter')
-                    ->label('Entrar na conta')
+                    ->label(__('Enter account'))
                     ->icon(Phosphor::SignIn)
                     ->url(fn (Account $record): string => Dashboard::getUrl(tenant: $record)),
             ]);
@@ -167,13 +176,13 @@ class AccountResource extends Resource
         return $record->users->first(fn (User $user) => $user->pivot->role === 'owner')?->email;
     }
 
-    private static function stateColor(string $state): string
+    private static function stateColor(Account $record): string
     {
         return match (true) {
-            $state === 'Só leitura' => 'warning',
-            $state === 'Isenta' => 'gray',
-            str_starts_with($state, 'Experiência') => 'info',
-            default => 'success',
+            $record->billing_exempt => 'gray',
+            $record->subscription('default')?->valid() => 'success',
+            $record->onGenericTrial() => 'info',
+            default => 'warning',
         };
     }
 }

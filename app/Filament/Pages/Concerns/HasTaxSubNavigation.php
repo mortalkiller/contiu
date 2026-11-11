@@ -22,12 +22,12 @@ trait HasTaxSubNavigation
     public static function taxPages(): array
     {
         return [
-            TaxEstimate::class => 'Estimativa',
-            SocialSecurity::class => 'Segurança Social',
-            VatReviewPage::class => 'Revisão de IVA',
-            WithholdingReviewPage::class => 'Retenções na fonte',
-            IrsScenarioPage::class => 'Cenário de IRS',
-            AnnualFiscalReview::class => 'Resumo anual',
+            TaxEstimate::class => __('Estimate'),
+            SocialSecurity::class => __('Social Security'),
+            VatReviewPage::class => __('VAT review'),
+            WithholdingReviewPage::class => __('Withholding taxes'),
+            IrsScenarioPage::class => __('Personal income tax scenario'),
+            AnnualFiscalReview::class => __('Annual summary'),
         ];
     }
 

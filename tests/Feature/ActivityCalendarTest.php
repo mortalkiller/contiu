@@ -20,6 +20,8 @@ use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 
+pest()->group('integration');
+
 beforeEach(function () {
     $this->travelTo(Carbon::parse('2026-11-09'));
     $this->account->forceFill(['created_at' => '2026-01-01', 'billing_exempt' => true])->save();

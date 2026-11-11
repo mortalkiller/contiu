@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Widgets\CashFlowChart;
+use App\Filament\Widgets\CompanyAccountCard;
 use App\Filament\Widgets\CompanyAccountStats;
 use App\Filament\Widgets\ExpensesByCategoryChart;
 use App\Filament\Widgets\FinanceStatsOverview;
@@ -12,34 +13,31 @@ use App\Filament\Widgets\MonthlyCashFlowTable;
 use App\Filament\Widgets\PeriodSummaryTable;
 use App\Filament\Widgets\TaxObligationsCard;
 use App\Filament\Widgets\UpcomingReceivablesTable;
+use App\Support\FinanceSettings;
+use App\Support\PendingWork;
 use App\Support\Period;
 use App\Support\PeriodSummary;
 use BackedEnum;
+use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
+use Filament\Actions\SelectAction;
 use Filament\Facades\Filament;
-use Filament\Forms\Components\Select;
 use Filament\Pages\Dashboard as BaseDashboard;
-use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
-use Filament\Schemas\Components\Actions;
+use Filament\Pages\Dashboard\Concerns\HasFilters;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Filament\Support\Enums\Alignment;
-use Filament\Support\Enums\VerticalAlignment;
+use Filament\Support\Components\Attributes\Unexposed;
 use Illuminate\Support\Str;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 class Dashboard extends BaseDashboard
 {
-    use HasFiltersForm;
-
-    protected static ?string $title = 'Painel';
+    use HasFilters;
 
     /** First in the menu, as "Hoje"; the page and the browser tab keep the "Painel" title. */
-    protected static ?string $navigationLabel = 'Hoje';
-
     protected static string|BackedEnum|null $navigationIcon = Phosphor::House;
 
     protected static ?int $navigationSort = -3;
@@ -56,9 +54,9 @@ class Dashboard extends BaseDashboard
         $hour = now()->hour;
 
         $greeting = match (true) {
-            $hour >= 6 && $hour < 12 => 'Bom dia',
-            $hour >= 12 && $hour < 20 => 'Boa tarde',
-            default => 'Boa noite',
+            $hour >= 6 && $hour < 12 => __('Good morning'),
+            $hour >= 12 && $hour < 20 => __('Good afternoon'),
+            default => __('Good evening'),
         };
 
         $firstName = Str::before(trim((string) auth()->user()?->name), ' ');
@@ -66,88 +64,137 @@ class Dashboard extends BaseDashboard
         return filled($firstName) ? $greeting.', '.$firstName : $greeting;
     }
 
-    public function filtersForm(Schema $schema): Schema
+    /**
+     * In the menu: how many things need doing ("Por tratar"), red when one of them is already
+     * late and amber otherwise. Worked out once per request, for the count and its colour.
+     *
+     * @return array{count: int, overdue: bool}
+     */
+    private static function pendingSummary(): array
     {
-        return $schema->components([
-            Section::make()
-                ->columnSpanFull()
-                ->columns(['md' => 4])
-                ->schema([
-                    Select::make('year')
-                        ->label('Ano')
-                        ->options(PeriodSummary::availableYears())
-                        ->default(today()->year)
-                        ->selectablePlaceholder(false)
-                        ->native(false),
-                    Select::make('month')
-                        ->label('Mês')
-                        ->placeholder('Ano inteiro')
-                        ->options(collect(Period::MONTHS)->mapWithKeys(fn (string $name, int $index) => [$index + 1 => $name])->all())
-                        ->native(false),
-                    Actions::make([
-                        Action::make('monthClose')
-                            ->label('Fecho do mês')
-                            ->icon(Phosphor::CalendarCheck)
-                            ->url(fn () => MonthClose::getUrl(['month' => $this->monthCloseMonth()])),
-                    ])
-                        ->columnSpan(['md' => 2])
-                        ->alignment(Alignment::End)
-                        ->verticalAlignment(VerticalAlignment::End),
-                ]),
-        ]);
+        return once(fn (): array => (new PendingWork(app(FinanceSettings::class), CarbonImmutable::today()))->summary());
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        $count = static::pendingSummary()['count'];
+
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return static::pendingSummary()['overdue'] ? 'danger' : 'warning';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return static::pendingSummary()['overdue'] ? __('Things to do, some of them late') : __('Things to do');
+    }
+
+    /** The date appears before the dashboard widgets load. */
+    public function getSubheading(): string
+    {
+        return Str::ucfirst(CarbonImmutable::today()->locale(app()->getLocale())->translatedFormat(__('l, F j'))).'.';
+    }
+
+    /** A fresh visit shows the whole current year; a year and month in the URL are kept. */
+    public function mount(): void
+    {
+        $this->filters = [
+            'year' => (int) ($this->filters['year'] ?? today()->year),
+            'month' => filled($this->filters['month'] ?? null) ? (int) $this->filters['month'] : null,
+        ];
+    }
+
+    /**
+     * The period sits in the page header, next to the heading: the year, the month ("Ano inteiro"
+     * when none is chosen) and the way into the month close. The two selects write straight to
+     * the page filters, which every widget follows.
+     */
+    protected function getHeaderActions(): array
+    {
+        return [
+            SelectAction::make('filters.year')
+                ->label(__('Year'))
+                ->options(PeriodSummary::availableYears()),
+            SelectAction::make('filters.month')
+                ->label(__('Month'))
+                ->placeholder(__('Full year'))
+                ->options(collect(range(1, 12))->mapWithKeys(fn (int $month): array => [$month => Period::monthName($month)])->all()),
+            Action::make('monthClose')
+                ->label(__('Month close'))
+                ->icon(Phosphor::CalendarCheck)
+                ->url(fn (): string => MonthClose::getUrl(['month' => $this->monthCloseMonth()])),
+        ];
     }
 
     /**
      * The monthly cash flow chart makes no sense for a single month, so it gives way to a
-     * comparison with the month before.
+     * comparison with the month before. The company account shows here as one section
+     * (CompanyAccountCard); its stat cards and the month-by-month table belong to other screens.
      */
     public function getWidgets(): array
     {
-        $hidden = filled($this->filters['month'] ?? null) ? CashFlowChart::class : MonthComparisonChart::class;
+        $hidden = [
+            filled($this->filters['month'] ?? null) ? CashFlowChart::class : MonthComparisonChart::class,
+            CompanyAccountStats::class,
+            MonthlyCashFlowTable::class,
+        ];
 
-        return array_values(array_filter(Filament::getWidgets(), fn ($widget) => $widget !== $hidden));
+        return array_values(array_filter(Filament::getWidgets(), fn ($widget) => ! in_array($widget, $hidden, true)));
     }
 
-    /** Wide column: the charts and tables that need room. */
-    public const MAIN_COLUMN = [CashFlowChart::class, MonthComparisonChart::class, MonthlyCashFlowTable::class, UpcomingReceivablesTable::class];
-
-    /** Narrow column: the doughnuts and the period summary. */
-    public const SIDE_COLUMN = [IncomeByCategoryChart::class, ExpensesByCategoryChart::class, PeriodSummaryTable::class];
-
     /**
-     * The month's tax obligations ("Este mês") open the page, above the period filters: they are what
-     * needs doing now, whatever period the rest of the dashboard shows.
+     * "Por tratar" opens the page, under the heading and its period: it is what needs doing now,
+     * whatever period the rest of the dashboard shows.
      */
     public function content(Schema $schema): Schema
     {
         return $schema->components([
             Grid::make(1)->schema(fn (): array => $this->getWidgetsSchemaComponents($this->onlyWidgets([TaxObligationsCard::class]))),
-            $this->getFiltersFormContentComponent(),
             $this->getWidgetsContentComponent(),
         ]);
     }
 
     /**
-     * Stats on top, then two stacked columns instead of one grid: in a grid every row takes the
-     * height of its tallest widget, which left short widgets in tall, half-empty cards.
+     * The four figures, then two rows of two (the cash flow next to the company account, when the
+     * account has one, and the two doughnuts), then what is still to receive and, under it, the
+     * period summary, each across the page.
      */
     public function getWidgetsContentComponent(): Component
     {
-        $only = fn (array $classes): array => $this->onlyWidgets($classes);
+        $companyAccount = CompanyAccountCard::canView() ? [CompanyAccountCard::class] : [];
+        // Side by side, the sections of a row take the height of the tallest (filament-appearance).
+        $sameHeight = ['class' => 'fap-equal-height'];
 
         return Group::make([
             Grid::make(1)
                 ->extraAttributes(['class' => 'contiu-dashboard-stats'])
-                ->schema(fn (): array => $this->getWidgetsSchemaComponents($only([FinanceStatsOverview::class, CompanyAccountStats::class]))),
-            Grid::make(['default' => 1, 'xl' => 3])->schema([
-                Grid::make(1)
-                    ->columnSpan(['default' => 1, 'xl' => 2])
-                    ->schema(fn (): array => $this->getWidgetsSchemaComponents($only(self::MAIN_COLUMN))),
-                Grid::make(1)
-                    ->columnSpan(1)
-                    ->schema(fn (): array => $this->getWidgetsSchemaComponents($only(self::SIDE_COLUMN))),
+                ->schema(fn (): array => $this->getWidgetsSchemaComponents($this->onlyWidgets([FinanceStatsOverview::class]))),
+            Grid::make(['default' => 1, 'xl' => 3])->extraAttributes($sameHeight)->schema([
+                $this->column([CashFlowChart::class, MonthComparisonChart::class], $companyAccount === [] ? 3 : 2),
+                $this->column($companyAccount, 1),
             ]),
+            Grid::make(['default' => 1, 'md' => 2])->extraAttributes($sameHeight)->schema([
+                $this->column([IncomeByCategoryChart::class], 1),
+                $this->column([ExpensesByCategoryChart::class], 1),
+            ]),
+            Grid::make(1)->schema(fn (): array => $this->getWidgetsSchemaComponents($this->onlyWidgets([UpcomingReceivablesTable::class, PeriodSummaryTable::class]))),
         ]);
+    }
+
+    /**
+     * One cell of a row: the widgets of $classes that this page shows, stacked.
+     *
+     * @param  array<class-string>  $classes
+     */
+    private function column(array $classes, int $span): Grid
+    {
+        return Grid::make(1)
+            ->columnSpan(['default' => 1, 'xl' => $span])
+            ->visible(fn (): bool => $this->onlyWidgets($classes) !== [])
+            ->schema(fn (): array => $this->getWidgetsSchemaComponents($this->onlyWidgets($classes)));
     }
 
     /**
@@ -171,5 +218,17 @@ class Dashboard extends BaseDashboard
         $month = filled($this->filters['month'] ?? null) ? (int) $this->filters['month'] : ($year === today()->year ? today()->month : 12);
 
         return sprintf('%04d-%02d', $year, $month);
+    }
+
+    #[Unexposed]
+    public function getTitle(): string
+    {
+        return __('Dashboard');
+    }
+
+    #[Unexposed]
+    public static function getNavigationLabel(): string
+    {
+        return __('Today');
     }
 }

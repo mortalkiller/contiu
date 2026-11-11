@@ -25,6 +25,12 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
+pest()->group('invoicexpress');
+
+beforeEach(function () {
+    Http::preventStrayRequests();
+});
+
 function invoiceXpressFixture(array $overrides = []): array
 {
     return array_replace([
@@ -42,10 +48,6 @@ function invoiceXpressFixture(array $overrides = []): array
     ], $overrides);
 }
 
-beforeEach(function () {
-    Http::preventStrayRequests();
-});
-
 it('stores encrypted tenant credentials and validates the provider host before a request', function () {
     $config = InvoiceXpressConfig::store('Contiu-Test', 'fake-key+private');
     expect($config->subdomain)->toBe('contiu-test')
@@ -59,7 +61,7 @@ it('stores encrypted tenant credentials and validates the provider host before a
 
     CurrentAccount::run(Account::factory()->create(), fn () => expect(InvoiceXpressConfig::current())->toBeNull());
     Http::assertNothingSent();
-});
+})->group('integration');
 
 it('requests one bounded page using documented repeated filters and query authentication', function () {
     InvoiceXpressConfig::store('contiu-test', 'fake+key&encoded');
@@ -87,7 +89,7 @@ it('requests one bounded page using documented repeated filters and query authen
     expect(fn () => app(InvoiceXpressClient::class)->listInvoices('2020-01-01', '2026-11-30'))->toThrow(ValidationException::class);
     expect(fn () => app(InvoiceXpressClient::class)->listInvoices('2026-11-01', '2026-11-30', 26))->toThrow(ValidationException::class);
     Http::assertSentCount(1);
-});
+})->group('integration');
 
 it('provides the shared JSON client contract for an idempotent E5 request using a fake', function () {
     config(['services.invoicexpress.catalog_safe_accounts' => ['contiu-test']]);
@@ -103,7 +105,7 @@ it('provides the shared JSON client contract for an idempotent E5 request using 
     Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
         && $request->hasHeader('Content-Type', 'application/json')
         && $request['proprietary_uid'] === 'stable-test-id');
-});
+})->group('integration');
 
 it('blocks writes through the shared transport for every account without catalogue validation', function (string $method, string $path) {
     InvoiceXpressConfig::store('contiu-test', 'fake-key');
@@ -118,7 +120,7 @@ it('blocks writes through the shared transport for every account without catalog
     ['POST', 'invoices.json'],
     ['POST', 'documents/7345/partial_payments.json'],
     ['PUT', 'credit_notes/7345/change-state.json'],
-]);
+])->group('integration');
 
 it('records an imported debit note as a positive billing correction, independently of cash', function () {
     InvoiceXpressConfig::store('contiu-test', 'fake-key');
@@ -137,7 +139,7 @@ it('records an imported debit note as a positive billing correction, independent
         ->and(DocumentedTurnover::forYear(2026)->billedNet)->toBe(12001)
         ->and(DocumentedTurnover::forYear(2026)->received)->toBe(0);
     Http::assertNothingSent();
-});
+})->group('integration');
 
 it('rejects debit note totals that would subtract from documented billing or cannot be reconciled', function (array $amounts) {
     InvoiceXpressConfig::store('contiu-test', 'fake-key');
@@ -148,7 +150,7 @@ it('rejects debit note totals that would subtract from documented billing or can
 })->with([
     [['before_taxes' => -100, 'taxes' => -23, 'total' => -123]],
     [['before_taxes' => 100, 'taxes' => 23, 'total' => 130]],
-]);
+])->group('integration');
 
 it('returns only local failures for redirected, rejected or invalid provider responses', function (int $status, string $body, ?int $exposedStatus) {
     InvoiceXpressConfig::store('contiu-test', 'fake-private-key');
@@ -170,7 +172,7 @@ it('returns only local failures for redirected, rejected or invalid provider res
     'invalid credential' => [401, 'private content fake-private-key', 401],
     'request limit' => [429, 'private content fake-private-key', 429],
     'HTML success' => [200, '<p>private content fake-private-key</p>', null],
-]);
+])->group('integration');
 
 it('registers a final invoice once and requires the previous source hash to apply a correction', function () {
     InvoiceXpressConfig::store('contiu-test', 'fake-key');
@@ -203,7 +205,7 @@ it('registers a final invoice once and requires the previous source hash to appl
         ->and(InvoiceXpressSnapshot::query()->first()->toJson())->not->toContain('do-not-store');
     expect(fn () => $import->confirmInvoice($invoice, $review['source_hash']))->toThrow(ValidationException::class);
     Http::assertNothingSent();
-});
+})->group('integration');
 
 it('isolates the remote identity by tenant and blocks local number collisions', function () {
     InvoiceXpressConfig::store('contiu-test', 'fake-key');
@@ -220,9 +222,9 @@ it('isolates the remote identity by tenant and blocks local number collisions', 
         expect($import->reviewInvoice($collision)['state'])->toBe('conflict');
         expect(fn () => $import->confirmInvoice($collision))->toThrow(ValidationException::class);
     });
-});
+})->group('integration');
 
-it('rejects drafts and unsupported currencies without creating a fiscal record', function (array $changes) {
+it('rejects invalid provider documents without creating a fiscal record', function (array $changes) {
     InvoiceXpressConfig::store('contiu-test', 'fake-key');
     expect(fn () => app(InvoiceXpressImport::class)->confirmInvoice(invoiceXpressFixture($changes)))->toThrow(ValidationException::class);
     expect(FiscalDocument::query()->count())->toBe(0);
@@ -230,7 +232,41 @@ it('rejects drafts and unsupported currencies without creating a fiscal record',
     'draft' => [['status' => 'draft']],
     'foreign totals' => [['currency' => 'USD']],
     'invalid date' => [['date' => '31/02/2026']],
-]);
+    'sub-cent numeric amount' => [['total' => 123.01000000000002]],
+    'withholding cash differs by one cent' => [['retention' => '11.5', 'total' => 111.52]],
+    'missing withholding for a net total' => [['total' => 111.51]],
+])->group('integration');
+
+it('reviews and imports the gross of a final invoice receipt with withholding without recording a payment', function () {
+    actingAsAdmin();
+    InvoiceXpressConfig::store('contiu-test', 'fake-key');
+    $invoice = invoiceXpressFixture([
+        'type' => 'InvoiceReceipt', 'status' => 'settled', 'inverted_sequence_number' => 'FR/10',
+        'before_taxes' => 291.34, 'taxes' => 67.01, 'retention' => 11.5, 'total' => 324.85,
+    ]);
+    Http::fake(['https://contiu-test.app.invoicexpress.com/*' => Http::response([
+        'invoices' => [$invoice],
+        'pagination' => ['current_page' => 1, 'total_pages' => 1],
+    ])]);
+    $import = app(InvoiceXpressImport::class);
+    $review = $import->reviewInvoice($invoice);
+    expect($review['after']['total_amount'])->toBe(35835)
+        ->and($review['withholding'])->toBe(['basisPoints' => 1150, 'gross' => 35835, 'retained' => 3350, 'cash' => 32485]);
+
+    $page = Livewire::test(InvoiceXpressPage::class)
+        ->set('from', '2026-11-01')->set('to', '2026-11-30')->call('preview')
+        ->assertSee('Bruto')->assertSee('358,35')
+        ->assertSee('Retenção')->assertSee('33,50')
+        ->assertSee('Líquido')->assertSee('324,85');
+    $row = $page->get('rows')[0];
+    $page->callAction('importDocument', arguments: ['index' => 0, 'review' => $row['review_key']])->assertHasNoActionErrors();
+
+    expect(FiscalDocument::sole()->total_amount)->toBe(35835)
+        ->and(InvoiceXpressSnapshot::sole()->source['withholding'])->toBe($review['withholding'])
+        ->and($import->reviewInvoice($invoice)['state'])->toBe('same');
+    $this->assertDatabaseEmpty('payments');
+    $this->assertDatabaseEmpty('withholding_records');
+})->group('ui');
 
 it('previews only the requested period and waits for individual confirmation', function () {
     actingAsAdmin();
@@ -252,7 +288,7 @@ it('previews only the requested period and waits for individual confirmation', f
     $page->callAction('importDocument', arguments: ['index' => 0, 'review' => $page->get('rows')[0]['review_key']])->assertHasNoActionErrors();
     expect(FiscalDocument::query()->sole()->number)->toBe('FT/10');
     Http::assertSentCount(1);
-});
+})->group('ui');
 
 it('drops the original connection exception and refuses a different configured subdomain', function () {
     InvoiceXpressConfig::store('contiu-test', 'fake-private-key');
@@ -272,7 +308,7 @@ it('drops the original connection exception and refuses a different configured s
     expect(fn () => $client->request('GET', '/invoices.json', expectedSubdomain: 'previous-account'))
         ->toThrow(InvoiceXpressException::class);
     Http::assertNothingSent();
-});
+})->group('integration');
 
 it('refuses a stale correction when another tab edits the fiscal record or changes the provider account', function () {
     InvoiceXpressConfig::store('contiu-test', 'fake-key');
@@ -290,7 +326,7 @@ it('refuses a stale correction when another tab edits the fiscal record or chang
     expect(fn () => $import->confirmInvoice(invoiceXpressFixture(), expectedSubdomain: 'contiu-test'))
         ->toThrow(ValidationException::class);
     expect(FiscalDocument::query()->count())->toBe(1);
-});
+})->group('integration');
 
 it('does not apply a modal for an invoice after the preview has switched to another page', function () {
     actingAsAdmin();
@@ -317,7 +353,7 @@ it('does not apply a modal for an invoice after the preview has switched to anot
 
     expect(FiscalDocument::query()->count())->toBe(0);
     Http::assertSentCount(2);
-});
+})->group('ui');
 
 it('lets the tenant owner configure the connection without returning the key to the page', function () {
     $owner = ownerOf($this->account);
@@ -341,7 +377,7 @@ it('lets the tenant owner configure the connection without returning the key to 
         ->assertSchemaStateSet(['subdomain' => 'contiu-test', 'api_key' => null])
         ->assertDontSee('fake-private-key');
     Http::assertNothingSent();
-});
+})->group('ui');
 
 it('previews a cancellation as a correction before changing the stored document', function () {
     actingAsAdmin();
@@ -366,7 +402,7 @@ it('previews a cancellation as a correction before changing the stored document'
     expect($document->fresh()->status->value)->toBe('voided')
         ->and(InvoiceXpressSnapshot::query()->count())->toBe(2);
     Http::assertSentCount(1);
-});
+})->group('ui');
 
 it('refuses credential and fiscal changes in an expired account', function () {
     InvoiceXpressConfig::store('contiu-test', 'fake-key');
@@ -380,7 +416,7 @@ it('refuses credential and fiscal changes in an expired account', function () {
     expect(InvoiceXpressConfig::current()->subdomain)->toBe('contiu-test')
         ->and(FiscalDocument::query()->count())->toBe(0);
     Http::assertNothingSent();
-});
+})->group('integration');
 
 it('reuses the final invoice registered by issuance between the import preview and confirmation', function () {
     actingAsAdmin();
@@ -408,7 +444,7 @@ it('reuses the final invoice registered by issuance between the import preview a
     expect(FiscalDocument::query()->sole()->id)->toBe($document->id)
         ->and(InvoiceXpressSnapshot::query()->sole()->fiscal_document_id)->toBe($document->id);
     Http::assertSentCount(1);
-});
+})->group('ui');
 
 it('suggests a charge by fiscal identity, total and due date and only links it on explicit confirmation', function () {
     $this->travelTo(Carbon::parse('2026-11-09'));
@@ -436,7 +472,7 @@ it('suggests a charge by fiscal identity, total and due date and only links it o
         ->assertHasNoActionErrors();
 
     expect(FiscalDocument::query()->sole()->links->receivable_id)->toBe($charge->id);
-});
+})->group('ui');
 
 it('rejects another tenant or a stale charge choice and imports without a link by default', function () {
     InvoiceXpressConfig::store('contiu-test', 'fake-key');
@@ -452,7 +488,7 @@ it('rejects another tenant or a stale charge choice and imports without a link b
     expect(fn () => $import->confirmInvoice($invoice, receivableId: $charge->id))->toThrow(ValidationException::class);
     expect(FiscalDocument::query()->count())->toBe(0)
         ->and($import->confirmInvoice($invoice)->links)->toBeNull();
-});
+})->group('integration');
 
 it('keeps ambiguous matches for review and excludes charges already covered by an invoice-receipt', function () {
     InvoiceXpressConfig::store('contiu-test', 'fake-key');
@@ -470,4 +506,42 @@ it('keeps ambiguous matches for review and excludes charges already covered by a
 
     expect(array_keys($suggestions))->toBe([$charges[1]->id, $charges[2]->id])
         ->and($import->confirmInvoice($invoice)->links)->toBeNull();
+})->group('integration');
+
+describe('Import preview summary', function () {
+    beforeEach(function () {
+        Http::preventStrayRequests();
+        $this->travelTo(now()->setDate(2026, 11, 10));
+    });
+
+    it('counts the InvoiceXpress documents under review by what there is to do with each', function () {
+        actingAsAdmin();
+        InvoiceXpressConfig::store('contiu-test', 'fake-key');
+        $invoice = fn (array $overrides): array => $overrides + [
+            'status' => 'final', 'type' => 'Invoice', 'date' => '02/11/2026', 'currency' => 'Euro',
+            'before_taxes' => 100, 'taxes' => 23, 'total' => 123,
+            'client' => ['id' => 93, 'name' => 'Cliente A', 'fiscal_id' => '501234560'],
+        ];
+        Http::fake(['https://contiu-test.app.invoicexpress.com/*' => Http::response([
+            'invoices' => [
+                $invoice(['id' => 7345, 'sequence_number' => '10/FT', 'inverted_sequence_number' => 'FT/10']),
+                $invoice(['id' => 7346, 'sequence_number' => '11/FT', 'inverted_sequence_number' => 'FT/11']),
+            ],
+            'pagination' => ['total_entries' => 2, 'per_page' => 20, 'current_page' => 1, 'total_pages' => 1],
+        ])]);
+
+        $page = Livewire::test(InvoiceXpressPage::class)
+            ->assertSee('Traz os documentos emitidos e liga-os às cobranças do Contiu.')
+            ->assertDontSee('Documentos encontrados')
+            ->set('from', '2026-11-01')
+            ->set('to', '2026-11-30')
+            ->call('preview');
+
+        expect(importScreenText($page))->toContain('Documentos encontrados 2 Página 1 de 1 Já registados 0 Sem diferenças Por importar 2 Com conflito 0 Nenhum');
+
+        $page->callAction('importDocument', arguments: ['index' => 0, 'review' => $page->get('rows')[0]['review_key']]);
+
+        expect(importScreenText($page))->toContain('Já registados 1 Sem diferenças Por importar 1 Com conflito 0');
+        expect(FiscalDocument::query()->count())->toBe(1);
+    })->group('ui');
 });

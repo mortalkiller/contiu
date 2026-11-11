@@ -158,7 +158,7 @@ final class SocialSecurity
         }
 
         if (count($amounts) !== count($ordered)) {
-            throw ValidationException::withMessages(['amounts' => 'Indica apenas os valores dos três meses deste trimestre.']);
+            throw ValidationException::withMessages(['amounts' => __('Enter amounts for the three months of this quarter only.')]);
         }
 
         return DB::transaction(function () use ($accountId, $quarter, $ordered, $expectedRevision): SocialSecurityDeclaration {
@@ -180,7 +180,7 @@ final class SocialSecurity
         $months = array_map(fn (CarbonImmutable $date): string => $date->format('Y-m'), $this->contributionMonths($quarter));
 
         if (! in_array($month, $months, true)) {
-            throw ValidationException::withMessages(['month' => 'Escolhe um mês de contribuição associado a este trimestre.']);
+            throw ValidationException::withMessages(['month' => __('Choose a contribution month associated with this quarter.')]);
         }
 
         $this->validateAmount($amount, 'amount');
@@ -217,7 +217,7 @@ final class SocialSecurity
     private function requireClosedQuarter(string $quarter): CarbonImmutable
     {
         return $this->closedQuarter($quarter)
-            ?? throw ValidationException::withMessages(['quarter' => 'Escolhe um trimestre encerrado.']);
+            ?? throw ValidationException::withMessages(['quarter' => __('Choose a closed quarter.')]);
     }
 
     /** @return list<CarbonImmutable> */
@@ -234,7 +234,7 @@ final class SocialSecurity
     private function validateAmount(mixed $amount, string $field): int
     {
         if (! is_int($amount) || $amount < 0 || $amount > self::MAX_AMOUNT) {
-            throw ValidationException::withMessages([$field => 'Indica um montante entre 0 e 999 999 999,99 €.']);
+            throw ValidationException::withMessages([$field => __('Enter an amount between €0 and €999,999,999.99.')]);
         }
 
         return $amount;
@@ -243,7 +243,7 @@ final class SocialSecurity
     private function checkRevision(?int $expected, ?int $current): void
     {
         if ($expected !== $current) {
-            throw ValidationException::withMessages(['revision' => 'O registo foi alterado entretanto. Abre-o novamente para rever os valores.']);
+            throw ValidationException::withMessages(['revision' => __('The record has changed. Open it again to review the amounts.')]);
         }
     }
 }

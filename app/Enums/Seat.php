@@ -14,9 +14,9 @@ enum Seat: string implements HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::Portugal => 'Portugal',
-            self::EuropeanUnion => 'Outro país da UE',
-            self::OutsideEu => 'Fora da UE',
+            self::Portugal => __('Portugal'),
+            self::EuropeanUnion => __('Other EU country'),
+            self::OutsideEu => __('Outside the EU'),
         };
     }
 

@@ -11,6 +11,6 @@ class NoCurrentAccount extends RuntimeException
 {
     public function __construct()
     {
-        parent::__construct('Não há conta atual definida; a consulta foi bloqueada para não expor dados de outras contas.');
+        parent::__construct(__('No current account is set; the query was blocked to protect other accounts’ data.'));
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Shared\RelationManagers;
 
+use App\Enums\Language;
 use App\Filament\Actions\RecordPaymentAction;
 use App\Filament\Support\MoneyInput;
 use App\Models\Project;
@@ -30,7 +31,7 @@ class ReceivablesRelationManager extends RelationManager
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
-        return $ownerRecord instanceof Project ? 'Plano de pagamento' : 'Períodos';
+        return $ownerRecord instanceof Project ? __('Payment plan') : __('Periods');
     }
 
     public function isReadOnly(): bool
@@ -41,9 +42,9 @@ class ReceivablesRelationManager extends RelationManager
     public function form(Schema $schema): Schema
     {
         return $schema->components([
-            TextInput::make('description')->label('Descrição')->required(),
-            MoneyInput::make('amount')->label('Valor')->required(),
-            DatePicker::make('due_on')->label('Vencimento')->native(false)->displayFormat('d/m/Y')->required(),
+            TextInput::make('description')->label(__('Description'))->required(),
+            MoneyInput::make('amount')->label(__('Amount'))->required(),
+            DatePicker::make('due_on')->label(__('Due date'))->native(false)->displayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat())->required(),
         ])->columns(3);
     }
 
@@ -55,23 +56,23 @@ class ReceivablesRelationManager extends RelationManager
             ->defaultSort('due_on')
             ->paginated([12, 24, 'all'])
             ->columns([
-                TextColumn::make('description')->label('Descrição'),
-                TextColumn::make('due_on')->label('Vencimento')->date()->sortable(),
-                TextColumn::make('amount')->label('Valor')->money('EUR', divideBy: 100)->alignEnd()
-                    ->summarize(Sum::make()->label('Total')->money('EUR', divideBy: 100)),
-                TextColumn::make('received')->label('Recebido')->money('EUR', divideBy: 100)->alignEnd(),
-                TextColumn::make('outstanding')->label('Em aberto')->money('EUR', divideBy: 100)->alignEnd()
+                TextColumn::make('description')->label(__('Description')),
+                TextColumn::make('due_on')->label(__('Due date'))->date()->sortable(),
+                TextColumn::make('amount')->label(__('Amount'))->money('EUR', divideBy: 100)->alignEnd()
+                    ->summarize(Sum::make()->label(__('Total'))->money('EUR', divideBy: 100)),
+                TextColumn::make('received')->label(__('Received'))->money('EUR', divideBy: 100)->alignEnd(),
+                TextColumn::make('outstanding')->label(__('Outstanding'))->money('EUR', divideBy: 100)->alignEnd()
                     ->color(fn (float $state) => $state > 0 ? 'warning' : 'gray'),
-                TextColumn::make('status')->label('Estado')->badge(),
-                TextColumn::make('payments.invoice_number')->label('Fatura')->placeholder('—')->listWithLineBreaks()->toggleable(),
+                TextColumn::make('status')->label(__('Status'))->badge(),
+                TextColumn::make('payments.invoice_number')->label(__('Invoice'))->placeholder('—')->listWithLineBreaks()->toggleable(),
             ])
             ->headerActions([
-                CreateAction::make()->label('Adicionar')->modalHeading('Novo valor a receber'),
+                CreateAction::make()->label(__('Add'))->modalHeading(__('New receivable')),
             ])
             ->recordActions([
                 RecordPaymentAction::make()
                     ->iconButton()
-                    ->tooltip('Registar recebimento')
+                    ->tooltip(__('Record payment'))
                     ->visible(fn (Receivable $record) => $record->outstanding > 0),
                 EditAction::make()->iconButton(),
                 DeleteAction::make()->iconButton()->visible(fn (Receivable $record) => $record->payments->isEmpty()),
