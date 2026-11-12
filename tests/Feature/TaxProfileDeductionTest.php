@@ -155,6 +155,22 @@ it('proposes the sole trader rate only for a purely commercial or industrial act
         ->and(deduce(['work_kind' => 'listed', 'commercial_only' => 'yes'])->settings()['ss_rate'])->toBe(0.214);
 });
 
+it('proposes the sole trader rate for a commercial service that is not on the table (SS003, SSC09)', function () {
+    $deduction = deduce(['work_kind' => 'other', 'commercial_only' => 'yes', 'activity_started_on' => '2024-03-10']);
+
+    expect($deduction->settings()['ss_rate'])->toBe(0.252)
+        ->and(collect($deduction->cards())->firstWhere('key', 'social_security')['value'])->toContain('70%')
+        ->and(deduce(['work_kind' => 'other', 'commercial_only' => 'no'])->settings()['ss_rate'])->toBe(0.214);
+});
+
+it('warns that the IRS Jovem cap also counts the salary (JOV005, IRS09)', function () {
+    $young = ['irs_jovem' => 'yes', 'irs_jovem_year_number' => 2, 'birth_date' => '1997-05-14'];
+    $reason = fn (array $answers): string => collect(deduce($answers)->cards())->firstWhere('key', 'irs')['reason'];
+
+    expect($reason(withJob($young)))->toContain('O teto anual de '.Money::format(2954215).' também conta com o teu salário')
+        ->and($reason($young))->not->toContain('também conta com o teu salário');
+});
+
 it('applies IRS Jovem by year number up to 35 (JOV004, JOV005)', function (string $birth, int $number, ?float $percent) {
     $deduction = deduce(['birth_date' => $birth, 'irs_jovem' => 'yes', 'irs_jovem_year_number' => $number]);
 

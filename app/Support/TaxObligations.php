@@ -303,6 +303,7 @@ final class TaxObligations
             $detail = match (true) {
                 $confirmed === 0 => __('No contribution due · confirmed amount'),
                 $status === 'exempt' => __('Exempt (Art. 157)'),
+                ! $organised && $this->estimator()->ssPaymentToConfirm($month) => __('To confirm in Social Security Direct · on the excess over 4 IAS the contribution is €5 only after rounding'),
                 $status === 'charged' => __('No contribution due · under €5 on the excess over 4 IAS'),
                 default => __('Exempt (first enrollment)'),
             };

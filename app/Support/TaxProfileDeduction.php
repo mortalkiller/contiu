@@ -220,11 +220,13 @@ final class TaxProfileDeduction
 
     /**
      * 25.2 % for a sole trader whose activity is only commercial or industrial, 21.4 % otherwise
-     * (SS002, SS003). Never from the activity code alone: the user says it and confirms it.
+     * (SS002, SS003). Never from the activity code alone: the user says it and confirms it. A
+     * service can be commercial or industrial too (building, transport); an occupation of the
+     * art. 151.º table cannot.
      */
     public function ssRate(): float
     {
-        return $this->answer('work_kind') === 'goods' && $this->yes('commercial_only') === true ? self::SS_RATE_SOLE_TRADER : self::SS_RATE;
+        return in_array($this->answer('work_kind'), ['goods', 'other'], true) && $this->yes('commercial_only') === true ? self::SS_RATE_SOLE_TRADER : self::SS_RATE;
     }
 
     /** SIM001–SIM003. Null until the work is said. */
@@ -588,6 +590,10 @@ final class TaxProfileDeduction
 
         if ($this->irsJovemPercent() !== null) {
             $sentences[] = __('Before that, IRS Jovem exempts :percent of the income.', ['percent' => $this->percent($this->irsJovemPercent())]);
+
+            if (in_array('employment', $this->situation(), true)) {
+                $sentences[] = __('Its yearly cap of :cap also counts your salary, so the exempt part of your receipts may be smaller.', ['cap' => Money::format(TaxEstimator::IRS_JOVEM_IAS_CAP * YearlyParameter::ias($this->year()))]);
+            }
         }
 
         $year = $this->year();

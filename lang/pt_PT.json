@@ -3932,5 +3932,8 @@
     "Optional. Only if your activity declaration has more than one CAE.": "Opcional. Só se a tua declaração de atividade tiver mais de um CAE.",
     "Only if your activity declaration has more than one CAE.": "Só se a tua declaração de atividade tiver mais de um CAE.",
     "The main CAE does not go among the secondary ones.": "O CAE principal não entra nos secundários.",
-    "Tax Authority portal": "Portal das Finanças"
+    "Tax Authority portal": "Portal das Finanças",
+    "To confirm in Social Security Direct · on the excess over 4 IAS the contribution is €5 only after rounding": "A confirmar na Segurança Social Direta · sobre o excedente a 4 IAS a contribuição só chega a 5 € depois de arredondada",
+    "Its yearly cap of :cap also counts your salary, so the exempt part of your receipts may be smaller.": "O teto anual de :cap também conta com o teu salário, por isso a parte isenta dos teus recibos pode ser menor.",
+    "The IRS Jovem cap is one per person and also counts your salary of :year. If the two together go over it, the exempt part of your receipts is smaller than shown here: how it is split has not been confirmed. Check it with your accountant.": "O teto do IRS Jovem é um só por pessoa e também conta com o teu salário de :year. Se os dois juntos o passarem, a parte isenta dos teus recibos é menor do que a mostrada aqui: a forma de a repartir não está confirmada. Confirma com o teu contabilista."
 }

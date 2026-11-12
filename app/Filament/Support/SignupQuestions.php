@@ -217,8 +217,9 @@ final class SignupQuestions
     /**
      * "O que fazes?" as a small tree (ActivityCatalogue): the kind of activity, then the occupation
      * of the art. 151.º table (which gives the IRS coefficient) and the CAE, both searched in lists
-     * the kind puts in order. Selling goods, restaurants and lodging have no occupation; they ask
-     * whether the activity is only commercial (the sole trader's rate). Then the turnover expected
+     * the kind puts in order. Selling goods, restaurants and lodging have no occupation. They, and
+     * a service that is not on the table, are asked whether the activity is only commercial or
+     * industrial (the sole trader's rate, SS003). Then the turnover expected
      * until the end of the year and the VAT.
      *
      * @return array<int, Component>
@@ -232,6 +233,11 @@ final class SignupQuestions
         $sellsGoods = fn (Get $get): bool => ActivityCatalogue::sellsGoods($get('activity_kind'));
         $services = "!! \$get('activity_kind') && ! {$goods}";
         $providesServices = fn (Get $get): bool => filled($get('activity_kind')) && ! $sellsGoods($get);
+        // A service off the art. 151.º table (building, transport…) may also be commercial (SS003).
+        $otherOccupation = ActivityCatalogue::OTHER_OCCUPATION;
+        $mayBeCommercial = "{$goods} || (!! \$get('activity_kind') && \$get('occupation') === '{$otherOccupation}')";
+        $mayBeCommercialOnServer = fn (Get $get): bool => ActivityCatalogue::workKind($get('activity_kind'), $get('occupation') === null ? null : (string) $get('occupation')) !== 'listed'
+            && filled($get('activity_kind'));
 
         return [
             Radio::make('activity_kind')
@@ -256,7 +262,7 @@ final class SignupQuestions
                 self::when(self::yesNo('commercial_only')
                     ->label(__('Is your activity only commercial or industrial?'))
                     ->belowLabel(__('Then, as a sole trader, the Social Security rate is 25.2%. In Social Security Direct, under “Forma de atividade (taxa)”.'))
-                    ->required(), $goods, $sellsGoods),
+                    ->required(), $mayBeCommercial, $mayBeCommercialOnServer),
                 self::when(CaeSelect::main('cae', kind: fn (Get $get): ?string => $get('activity_kind'))
                     ->label(__('Your CAE'))
                     ->belowLabel(__('Optional. Search by number or name; those of your kind of activity come first. It does not change the coefficient.')),

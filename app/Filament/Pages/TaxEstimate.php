@@ -398,6 +398,9 @@ class TaxEstimate extends Page
                         ])
                         : '')
                 : __('IRS Jovem does not apply in :year (age or year of eligibility).', ['year' => $estimator->year])) : null,
+            $estimator->irsJovemCapSharedWithSalary()
+                ? $line('irs_jovem_cap', __('The IRS Jovem cap is one per person and also counts your salary of :year. If the two together go over it, the exempt part of your receipts is smaller than shown here: how it is split has not been confirmed. Check it with your accountant.', ['year' => $estimator->year]))
+                : null,
             $line('irs_coefficient', __('Coefficient :coefficient', ['coefficient' => self::decimal($estimator->effectiveIrsCoefficient())])
                 .match (true) {
                     $reduction > 0 => __(' (:base reduced by :percent — :year)', [

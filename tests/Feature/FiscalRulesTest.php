@@ -139,6 +139,27 @@ it('still asks for the declaration when the excess contribution is under €5 (S
         ->and($rows['ss:2026-05']->detail)->toContain('menos de 5 €');
 });
 
+it('leaves an excess contribution that is €5 only after rounding to be confirmed (SS042, SSC06)', function () {
+    // 9 308,05 € in the first quarter: 2 171,88 € a month, 23,36 € above 4 IAS, 4,99904 € at 21,4 %.
+    rulesPaid('2026-02-10', 930805);
+
+    $settings = ['ss_contribution_exempt' => true, 'ss_exemption_reason' => 'accumulation', 'vat_exempt' => true];
+    $rows = rulesByKey(rulesObligations('2026-05-11', $settings, since: '2026-04-01')->thisMonth());
+
+    expect(rulesEstimator(2026, $settings)->ssMonth(CarbonImmutable::parse('2026-04-01')))->toBe(['status' => 'charged', 'base' => 2336, 'contribution' => 0, 'toConfirm' => true])
+        ->and($rows)->toHaveKey('ss-declaration:2026-Q1')
+        ->and($rows['ss:2026-05'])->toMatchObject(['status' => 'exempt', 'amount' => null])
+        ->and($rows['ss:2026-05']->detail)->toContain('A confirmar na Segurança Social Direta');
+});
+
+it('flags the IRS Jovem cap as shared in a year with a salary (JOV005, IRS09)', function () {
+    $young = ['irs_jovem' => true, 'irs_jovem_year' => ['year' => 2026, 'number' => 2], 'birth_date' => '1997-05-14'];
+
+    expect(rulesEstimator(2026, [...$young, 'dependent_income_years' => [2026]])->irsJovemCapSharedWithSalary())->toBeTrue()
+        ->and(rulesEstimator(2026, [...$young, 'dependent_income_years' => [2025]])->irsJovemCapSharedWithSalary())->toBeFalse()
+        ->and(rulesEstimator(2026, ['irs_jovem' => false, 'dependent_income_years' => [2026]])->irsJovemCapSharedWithSalary())->toBeFalse();
+});
+
 it('caps the base at 12 IAS and applies the chosen adjustment (SS032, SS033)', function () {
     rulesPaid('2026-02-10', 300000);
 

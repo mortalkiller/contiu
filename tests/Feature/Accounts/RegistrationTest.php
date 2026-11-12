@@ -639,6 +639,17 @@ it('works out the coefficient from the occupation and keeps the CAE', function (
     'selling products' => ['goods', null, 0.15],
 ])->group('integration');
 
+it('asks whether the activity is only commercial for a service off the table, never for one on it (SS003)', function (string $kind, string $occupation, float $rate) {
+    registrationWizard(['activity_kind' => $kind, 'occupation' => $occupation, 'commercial_only' => 'yes'])
+        ->call('register')
+        ->assertHasNoFormErrors();
+
+    expect(registeredSettings()->ssRate())->toBe($rate);
+})->with([
+    'a service not on the table' => ['other_services', 'other', 0.252],
+    'programmer, on the table' => ['technology', '1332', 0.214],
+])->group('integration');
+
 it('keeps the secondary CAEs and shows how many on the tax card', function () {
     registrationWizard(['secondary_caes' => ['63100', '58210']])
         ->goToWizardStep(5)

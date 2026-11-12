@@ -247,7 +247,7 @@ final class TaxEstimator
      * Status, base and contribution of a month (cents). The base comes from the quarter declared in
      * the month's quarter (the quarter before), the caps from the IAS of the month's year.
      *
-     * @return array{status: string, base: int, contribution: int}
+     * @return array{status: string, base: int, contribution: int, toConfirm?: true}
      */
     public function ssMonth(CarbonImmutable $month): array
     {
@@ -256,7 +256,17 @@ final class TaxEstimator
         return $this->ssMonths[$month->format('Y-m')] ??= $this->computeSsMonth($month);
     }
 
-    /** @return array{status: string, base: int, contribution: int} */
+    /**
+     * What is paid in a month is on the excess over 4 IAS and falls under 5 € before rounding but
+     * reaches 5 € after it. Which of the two decides is not confirmed (SS042, SSC06), so no amount
+     * is shown: the user confirms it in Segurança Social Direta.
+     */
+    public function ssPaymentToConfirm(CarbonImmutable $month): bool
+    {
+        return $this->ssMonth($month->startOfMonth()->subMonth())['toConfirm'] ?? false;
+    }
+
+    /** @return array{status: string, base: int, contribution: int, toConfirm?: true} */
     private function computeSsMonth(CarbonImmutable $month): array
     {
         $startsOn = $this->ssObligationStartsOn($month);
@@ -274,6 +284,12 @@ final class TaxEstimator
 
             $base = min($excess, $cap);
             $contribution = Money::share($base, $this->settings->ssRate());
+            $exact = $base * $this->settings->ssRate();
+
+            // Under 5 € before rounding, 5 € after: which one counts is not confirmed (SS042, SSC06).
+            if ($exact < self::SS_MINIMUM_EXCESS_CONTRIBUTION && $contribution >= self::SS_MINIMUM_EXCESS_CONTRIBUTION) {
+                return ['status' => 'charged', 'base' => $base, 'contribution' => 0, 'toConfirm' => true];
+            }
 
             return ['status' => 'charged', 'base' => $base, 'contribution' => $contribution < self::SS_MINIMUM_EXCESS_CONTRIBUTION ? 0 : $contribution];
         }
@@ -350,6 +366,16 @@ final class TaxEstimator
     public function irsJovemExempt(): int
     {
         return min(Money::share($this->income(), $this->irsJovemPercent()), self::IRS_JOVEM_IAS_CAP * $this->ias());
+    }
+
+    /**
+     * The 55 IAS are one cap per person, for salary and self-employed income together (JOV005,
+     * IRS09). In a year with a salary the exempt amount above may be too high: the salary is not
+     * known here and how the cap is split between the two is not confirmed.
+     */
+    public function irsJovemCapSharedWithSalary(): bool
+    {
+        return $this->irsJovemPercent() > 0 && in_array($this->year, $this->settings->dependentIncomeYears(), true);
     }
 
     /**
