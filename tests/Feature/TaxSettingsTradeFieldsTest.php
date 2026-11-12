@@ -8,7 +8,7 @@ use Livewire\Livewire;
 pest()->group('fiscal', 'ui');
 
 /*
- * The activity code and "I sell or transport goods" on the tax settings page: the second is what
+ * The activity codes (main and secondary) and "I sell or transport goods" on the tax settings page: the second is what
  * offers transport guides.
  */
 
@@ -45,6 +45,39 @@ it('refuses a CAE longer than 64 characters', function () {
         ->assertHasFormErrors(['cae' => 'max']);
 
     expect(app(FinanceSettings::class)->cae())->toBeNull();
+});
+
+it('saves the secondary CAEs from the settings page', function () {
+    actingAsAdmin();
+
+    Livewire::test(FinanceSettingsPage::class)
+        ->assertSchemaStateSet(['secondary_caes' => []])
+        ->fillForm(['cae' => '62100', 'secondary_caes' => ['63100', '58210']])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect(app(FinanceSettings::class)->secondaryCaes())->toBe(['63100', '58210']);
+
+    Livewire::test(FinanceSettingsPage::class)
+        ->fillForm(['secondary_caes' => ['62100']])
+        ->call('save')
+        ->assertHasFormErrors(['secondary_caes']);
+});
+
+it('keeps a main CAE saved before CAE-Rev.4 but refuses a new one off the list', function () {
+    actingAsAdmin();
+    app(FinanceSettings::class)->set(['cae' => '62010']);
+
+    Livewire::test(FinanceSettingsPage::class)
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect(app(FinanceSettings::class)->cae())->toBe('62010');
+
+    Livewire::test(FinanceSettingsPage::class)
+        ->fillForm(['cae' => '12345'])
+        ->call('save')
+        ->assertHasFormErrors(['cae']);
 });
 
 it('leaves the CAE and the goods answer alone when a form does not ask them', function () {

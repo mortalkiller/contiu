@@ -559,9 +559,24 @@
         }
     }
 
+    /* The institution: Segurança Social Direta in blue, the Portal das Finanças in green. */
+    & .contiu-signup-seal-entity {
+        display: flex;
+        align-items: center;
+        gap: 0.875rem;
+        min-width: 0;
+        font-size: 0.75rem;
+        line-height: 1rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--gray-500);
+    }
+
     & .contiu-signup-seal-medal {
         display: grid;
         place-items: center;
+        flex: none;
         width: 3.25rem;
         height: 3.25rem;
         border-radius: 50%;
@@ -573,6 +588,11 @@
             width: 1.5rem;
             height: 1.5rem;
         }
+    }
+
+    & .contiu-signup-seal-entity[data-entity='social-security'] .contiu-signup-seal-medal {
+        background: var(--info-50);
+        color: var(--info-700);
     }
 
     & .contiu-signup-seal[data-tone='todo'] .contiu-signup-seal-medal {
@@ -777,6 +797,15 @@
         background: color-mix(in oklab, var(--primary-500) 20%, transparent);
         color: var(--primary-300);
         box-shadow: 0 0 0 5px var(--gray-950), 0 0 0 6px rgb(255 255 255 / 0.15);
+    }
+
+    & .contiu-signup-seal-entity {
+        color: var(--gray-400);
+    }
+
+    & .contiu-signup-seal-entity[data-entity='social-security'] .contiu-signup-seal-medal {
+        background: color-mix(in oklab, var(--info-500) 20%, transparent);
+        color: var(--info-300);
     }
 
     & .contiu-signup-seal[data-tone='todo'] .contiu-signup-seal-medal {

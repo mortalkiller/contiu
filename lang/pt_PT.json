@@ -3927,5 +3927,10 @@
     "Your tax card": "O teu cartão fiscal",
     "Tax card of :name": "Cartão fiscal de :name",
     "It comes from your answers. Each seal says why.": "Saiu das tuas respostas. Cada selo diz porquê.",
-    "Review the answers": "Rever as respostas"
+    "Review the answers": "Rever as respostas",
+    "Secondary CAEs": "CAE secundários",
+    "Optional. Only if your activity declaration has more than one CAE.": "Opcional. Só se a tua declaração de atividade tiver mais de um CAE.",
+    "Only if your activity declaration has more than one CAE.": "Só se a tua declaração de atividade tiver mais de um CAE.",
+    "The main CAE does not go among the secondary ones.": "O CAE principal não entra nos secundários.",
+    "Tax Authority portal": "Portal das Finanças"
 }

@@ -257,18 +257,14 @@ final class SignupQuestions
                     ->label(__('Is your activity only commercial or industrial?'))
                     ->belowLabel(__('Then, as a sole trader, the Social Security rate is 25.2%. In Social Security Direct, under “Forma de atividade (taxa)”.'))
                     ->required(), $goods, $sellsGoods),
-                self::when(Select::make('cae')
+                self::when(CaeSelect::main('cae', kind: fn (Get $get): ?string => $get('activity_kind'))
                     ->label(__('Your CAE'))
-                    ->belowLabel(__('Optional. Search by number or name; those of your kind of activity come first. It does not change the coefficient.'))
-                    ->searchable()
-                    ->options(fn (Get $get): array => ActivityCatalogue::searchCae('', $get('activity_kind'), limit: 30))
-                    ->getSearchResultsUsing(fn (string $search, Get $get): array => ActivityCatalogue::searchCae($search, $get('activity_kind')))
-                    ->getOptionLabelUsing(fn (?string $value): ?string => ActivityCatalogue::caeLabel($value))
-                    ->rule(fn (): Closure => function (string $attribute, mixed $value, Closure $fail): void {
-                        if (filled($value) && ! ActivityCatalogue::caeExists((string) $value)) {
-                            $fail(__('Choose a CAE from the list.'));
-                        }
-                    }), '!! $get(\'activity_kind\')', fn (Get $get): bool => filled($get('activity_kind'))),
+                    ->belowLabel(__('Optional. Search by number or name; those of your kind of activity come first. It does not change the coefficient.')),
+                    '!! $get(\'activity_kind\')', fn (Get $get): bool => filled($get('activity_kind'))),
+                self::when(CaeSelect::secondary('secondary_caes', 'cae', kind: fn (Get $get): ?string => $get('activity_kind'))
+                    ->label(__('Secondary CAEs'))
+                    ->belowLabel(__('Optional. Only if your activity declaration has more than one CAE.')),
+                    '!! $get(\'activity_kind\')', fn (Get $get): bool => filled($get('activity_kind'))),
             ])->extraAttributes(['class' => 'contiu-signup-lines']),
             Group::make([
                 Text::make(__('How much do you expect to invoice in :year?', ['year' => $year]))->extraAttributes(['class' => 'contiu-signup-question']),
@@ -348,9 +344,10 @@ final class SignupQuestions
         $situation = $deduction->situation();
         $occupation = isset($state['occupation']) ? (string) $state['occupation'] : null;
         $profession = trim((string) (ActivityCatalogue::occupationLabel($occupation) ?? $state['profession'] ?? ''));
+        $secondary = count(ActivityCatalogue::secondaryCaes($state['secondary_caes'] ?? [], $state['cae'] ?? null));
         $codes = implode(' · ', array_filter([
             $occupation === ActivityCatalogue::OTHER_OCCUPATION ? ActivityCatalogue::RESIDUAL_OCCUPATION : $occupation,
-            filled($state['cae'] ?? null) ? (string) $state['cae'] : null,
+            filled($state['cae'] ?? null) ? (string) $state['cae'].($secondary > 0 ? ' +'.$secondary : '') : null,
         ]));
 
         return [

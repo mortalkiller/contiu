@@ -3,6 +3,7 @@
 namespace App\Filament\Support;
 
 use App\Enums\Language;
+use App\Support\ActivityCatalogue;
 use App\Support\FinanceSettings;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Field;
@@ -156,9 +157,13 @@ final class TaxSettingsFields
     public static function trade(): array
     {
         return [
-            TextInput::make('cae')
+            CaeSelect::main('cae', keepsStored: true)
                 ->label(__('Main CAE'))
-                ->maxLength(64)
+                ->rule('max:64')
+                ->columnSpanFull(),
+            CaeSelect::secondary('secondary_caes', 'cae')
+                ->label(__('Secondary CAEs'))
+                ->helperText(__('Only if your activity declaration has more than one CAE.'))
                 ->columnSpanFull(),
             Toggle::make('sells_goods')
                 ->label(__('I sell or transport goods'))
@@ -271,6 +276,7 @@ final class TaxSettingsFields
         return [
             'activity_started_on' => $settings->activityStartedOn()?->toDateString(),
             'cae' => $settings->cae(),
+            'secondary_caes' => $settings->secondaryCaes(),
             'sells_goods' => $settings->sellsGoods(),
             'activity_start_kind' => $settings->activityStartKind(),
             'previous_activity_ended_on' => $settings->previousActivityEndedOn()?->toDateString(),
@@ -330,6 +336,10 @@ final class TaxSettingsFields
 
         if (array_key_exists('cae', $data)) {
             $values['cae'] = blank($data['cae']) ? null : trim((string) $data['cae']);
+        }
+
+        if (array_key_exists('secondary_caes', $data)) {
+            $values['secondary_caes'] = ActivityCatalogue::secondaryCaes($data['secondary_caes'], $values['cae'] ?? $data['cae'] ?? null);
         }
 
         if (array_key_exists('sells_goods', $data)) {

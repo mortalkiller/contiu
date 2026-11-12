@@ -159,6 +159,21 @@ final class ActivityCatalogue
         return self::caeLabel($code) !== null;
     }
 
+    /**
+     * The secondary CAEs to store: trimmed, without repeats nor the main one.
+     *
+     * @return list<string>
+     */
+    public static function secondaryCaes(mixed $codes, mixed $main): array
+    {
+        return collect((array) $codes)
+            ->map(fn (mixed $code): string => trim((string) $code))
+            ->filter(fn (string $code): bool => $code !== '' && $code !== trim((string) $main))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     /** @return array<string, string> code => name */
     public static function occupations(): array
     {

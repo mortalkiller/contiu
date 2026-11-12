@@ -15,6 +15,7 @@ final class FinanceSettings
     public const DEFAULTS = [
         'activity_started_on' => null,
         'cae' => null, // the main activity code, as registered with the tax authority
+        'secondary_caes' => [], // the other activity codes of the declaration of activity
         // Sells or moves goods: turns on transport guides and the transport details of an invoice.
         'sells_goods' => false,
         'vat_exempt' => false,
@@ -128,6 +129,12 @@ final class FinanceSettings
     public function cae(): ?string
     {
         return $this->all()['cae'];
+    }
+
+    /** @return list<string> */
+    public function secondaryCaes(): array
+    {
+        return array_values(array_map('strval', (array) $this->all()['secondary_caes']));
     }
 
     public function sellsGoods(): bool

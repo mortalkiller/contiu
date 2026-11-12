@@ -90,6 +90,7 @@ final class TaxProfileDeduction
             'vat_exempt' => (bool) $this->vatExempt(),
             'vat_exemption_threshold' => YearlyParameter::vatExemptionLimit($this->year()),
             'cae' => filled($this->answer('cae')) ? (string) $this->answer('cae') : null,
+            'secondary_caes' => ActivityCatalogue::secondaryCaes($this->answer('secondary_caes') ?? [], $this->answer('cae')),
         ];
 
         if ($this->path() === 'organised') {

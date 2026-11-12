@@ -8,10 +8,14 @@
     use App\Support\TaxProfileDeduction;
     use ToneGabes\Filament\Icons\Enums\Phosphor;
 
-    $sealIcons = [
-        'social_security' => Phosphor::ShieldCheck,
-        'irs' => Phosphor::Percent,
-        'vat' => Phosphor::Receipt,
+    /*
+     * Who each seal answers to, where the user confirms it: Segurança Social Direta, or the Portal
+     * das Finanças for IRS and VAT. Generic icons, not the institutions' own logos.
+     */
+    $sealEntities = [
+        'social_security' => [Phosphor::HandHeart, __('Social Security Direct')],
+        'irs' => [Phosphor::Bank, __('Tax Authority portal')],
+        'vat' => [Phosphor::Bank, __('Tax Authority portal')],
     ];
 @endphp
 
@@ -80,9 +84,15 @@
                     data-tone="todo"
                 @endif
             >
-                <span class="contiu-signup-seal-medal">
-                    <x-filament::icon :icon="$sealIcons[$card['key']] ?? Phosphor::SealCheck" />
-                </span>
+                @php([$entityIcon, $entityName] = $sealEntities[$card['key']] ?? [Phosphor::SealCheck, null])
+                <div class="contiu-signup-seal-entity" data-entity="{{ $card['key'] === 'social_security' ? 'social-security' : 'finance' }}">
+                    <span class="contiu-signup-seal-medal">
+                        <x-filament::icon :icon="$entityIcon" />
+                    </span>
+                    @if ($entityName)
+                        <span>{{ $entityName }}</span>
+                    @endif
+                </div>
                 <span class="contiu-signup-result-kicker">{{ $card['title'] }}</span>
                 <p class="contiu-signup-result-value">{{ $card['value'] }}</p>
                 <p class="contiu-signup-result-why">{{ $card['reason'] }}</p>

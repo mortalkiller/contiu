@@ -639,6 +639,27 @@ it('works out the coefficient from the occupation and keeps the CAE', function (
     'selling products' => ['goods', null, 0.15],
 ])->group('integration');
 
+it('keeps the secondary CAEs and shows how many on the tax card', function () {
+    registrationWizard(['secondary_caes' => ['63100', '58210']])
+        ->goToWizardStep(5)
+        ->assertSee('1332 · 62100 +2');
+
+    registrationWizard(['secondary_caes' => ['63100', '58210']])
+        ->call('register')
+        ->assertHasNoFormErrors();
+
+    expect(registeredSettings()->secondaryCaes())->toBe(['63100', '58210']);
+})->group('integration');
+
+it('refuses a secondary CAE that is the main one or not on the list', function (array $secondary) {
+    registrationWizard(['secondary_caes' => $secondary])
+        ->call('register')
+        ->assertHasFormErrors(['secondary_caes']);
+})->with([
+    'the main CAE again' => [['62100']],
+    'not on the list' => [['12345']],
+])->group('integration');
+
 it('refuses a CAE that is not on the list and someone under 18', function () {
     registrationWizard(['cae' => '12345', 'birth_date' => now()->subYears(17)->toDateString()])
         ->call('register')
