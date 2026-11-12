@@ -1,0 +1,453 @@
+/*
+ * Sign-in pages (filament.pages.auth.auth-layout), as in the "Autenticação" mocks: the form on
+ * the left, Contiu's showcase in the palette's navigation colour on the right. Only the form
+ * shows on a phone. Everything here is scoped to .contiu-auth.
+ */
+.contiu-auth {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    min-height: 100dvh;
+    background: white;
+
+    /* Left half: logo, page, legal links. */
+    & .contiu-auth-form {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+        padding: 2.5rem 4rem;
+    }
+
+    & .contiu-auth-logo {
+        align-self: flex-start;
+
+        & img {
+            display: block;
+            height: 2.25rem;
+            width: auto;
+        }
+    }
+
+    & .contiu-auth-logo-dark {
+        display: none !important;
+    }
+
+    & .contiu-auth-main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        width: 100%;
+        max-width: 25rem;
+        margin: 0 auto;
+        outline: none;
+    }
+
+    & .contiu-auth-page {
+        display: flex;
+        flex-direction: column;
+        gap: 1.75rem;
+    }
+
+    & .contiu-auth-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        align-self: flex-start;
+        font-size: 0.875rem;
+        color: var(--gray-500);
+
+        & .fi-icon {
+            width: 1rem;
+            height: 1rem;
+        }
+
+        &:hover {
+            color: var(--gray-950);
+        }
+    }
+
+    & .contiu-auth-title {
+        margin: 0;
+        font-size: 2rem;
+        line-height: 2.5rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        text-wrap: balance;
+        color: var(--gray-950);
+    }
+
+    & .contiu-auth-lede {
+        margin: 0.5rem 0 0;
+        font-size: 1rem;
+        line-height: 1.5rem;
+        color: var(--gray-600);
+
+        & b {
+            font-weight: 600;
+            color: var(--gray-950);
+        }
+    }
+
+    /* Bigger fields and a full-width button, as in the mocks. */
+    & .fi-input-wrp {
+        border-radius: 0.75rem;
+    }
+
+    & .fi-input {
+        padding-block: 0.6875rem;
+        font-size: 1rem;
+    }
+
+    & .fi-sc-actions .fi-btn,
+    & .fi-form-actions .fi-btn {
+        min-height: 3rem;
+        border-radius: 0.75rem;
+        font-size: 1rem;
+    }
+
+    & .contiu-auth-closing {
+        margin: 0;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        text-align: center;
+        color: var(--gray-600);
+    }
+
+    & .contiu-auth-inline-form {
+        display: inline;
+    }
+
+    & .contiu-auth-tips {
+        padding: 1rem 1.125rem;
+        border-radius: 0.75rem;
+        background: var(--gray-50);
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        color: var(--gray-600);
+
+        & p {
+            margin: 0 0 0.375rem;
+            font-weight: 600;
+            color: var(--gray-950);
+        }
+
+        & ul {
+            margin: 0;
+            padding-left: 1.125rem;
+            list-style: disc;
+        }
+    }
+
+    & .contiu-auth-mailbox {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 0.75rem;
+        align-items: center;
+        padding: 0.875rem 1rem;
+        border: 1px solid var(--gray-200);
+        border-radius: 0.75rem;
+        background: var(--gray-50);
+        font-size: 0.875rem;
+    }
+
+    & .contiu-auth-mailbox-from {
+        font-weight: 600;
+        color: var(--gray-950);
+    }
+
+    & .contiu-auth-mailbox-subject {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--gray-600);
+    }
+
+    & .contiu-auth-mailbox-time {
+        font-size: 0.8125rem;
+        color: var(--gray-400);
+    }
+
+    /* New password: strength bar and rules. */
+    & .contiu-auth-password-rules {
+        display: flex;
+        flex-direction: column;
+        gap: 0.625rem;
+    }
+
+    & .contiu-auth-strength {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.25rem;
+
+        & i {
+            height: 0.25rem;
+            border-radius: 0.125rem;
+            background: var(--gray-200);
+        }
+
+        &[data-level='1'] i:nth-child(-n + 1) {
+            background: var(--danger-500);
+        }
+
+        &[data-level='2'] i:nth-child(-n + 2) {
+            background: var(--warning-500);
+        }
+
+        &[data-level='3'] i:nth-child(-n + 3),
+        &[data-level='4'] i {
+            background: var(--success-500);
+        }
+    }
+
+    & .contiu-auth-strength-label {
+        margin: 0;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        color: var(--gray-600);
+    }
+
+    & .contiu-auth-rules {
+        display: flex;
+        flex-direction: column;
+        gap: 0.375rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        color: var(--gray-600);
+
+        & li {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        & .fi-icon {
+            width: 1rem;
+            height: 1rem;
+            color: var(--gray-300);
+        }
+
+        & li[data-ok='true'] .fi-icon {
+            color: var(--success-600);
+        }
+    }
+
+    & .contiu-auth-foot {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.375rem 1.125rem;
+        font-size: 0.8125rem;
+        line-height: 1.125rem;
+        color: var(--gray-400);
+
+        & a:hover {
+            color: var(--gray-600);
+        }
+    }
+
+    /* Right half: the showcase. */
+    & .contiu-auth-show {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 2.5rem;
+        padding: 4rem 4.5rem;
+        overflow: hidden;
+        background: var(--fap-navigation);
+        color: var(--fap-navigation-text);
+
+        &::before {
+            content: '';
+            position: absolute;
+            top: -8.75rem;
+            right: -8.75rem;
+            width: 26.25rem;
+            height: 26.25rem;
+            border-radius: 50%;
+            background: var(--primary-400);
+            opacity: 0.22;
+        }
+
+        &::after {
+            content: '';
+            position: absolute;
+            bottom: -11.25rem;
+            left: -7.5rem;
+            width: 23.75rem;
+            height: 23.75rem;
+            border: 2.75rem solid var(--primary-400);
+            border-radius: 50%;
+            opacity: 0.12;
+        }
+
+        & > * {
+            position: relative;
+        }
+    }
+
+    & .contiu-auth-kicker {
+        margin: 0 0 0.75rem;
+        font-size: 0.8125rem;
+        line-height: 1.125rem;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--fap-navigation-text-muted, currentColor);
+    }
+
+    & .contiu-auth-show-title {
+        max-width: 32.5rem;
+        margin: 0;
+        font-size: 2.25rem;
+        line-height: 2.75rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        text-wrap: balance;
+    }
+
+    & .contiu-auth-illustration {
+        display: block;
+        align-self: center;
+        width: 100%;
+        max-width: 22.5rem;
+        height: auto;
+        max-height: 27.5rem;
+        object-fit: contain;
+    }
+
+    & .contiu-auth-points {
+        display: flex;
+        flex-direction: column;
+        gap: 0.625rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        font-size: 0.9375rem;
+        line-height: 1.375rem;
+
+        & li {
+            display: flex;
+            align-items: center;
+            gap: 0.625rem;
+        }
+
+        & .fi-icon {
+            flex: none;
+            width: 1rem;
+            height: 1rem;
+            color: var(--primary-400);
+        }
+    }
+}
+
+.dark .contiu-auth {
+    background: var(--gray-950);
+
+    & .contiu-auth-logo-light {
+        display: none !important;
+    }
+
+    & .contiu-auth-logo-dark {
+        display: block !important;
+    }
+
+    & .contiu-auth-title,
+    & .contiu-auth-lede b,
+    & .contiu-auth-tips p,
+    & .contiu-auth-mailbox-from {
+        color: white;
+    }
+
+    & .contiu-auth-back:hover {
+        color: white;
+    }
+
+    & .contiu-auth-lede,
+    & .contiu-auth-closing,
+    & .contiu-auth-tips,
+    & .contiu-auth-mailbox-subject,
+    & .contiu-auth-strength-label,
+    & .contiu-auth-rules {
+        color: var(--gray-400);
+    }
+
+    & .contiu-auth-tips,
+    & .contiu-auth-mailbox {
+        border-color: rgb(255 255 255 / 0.1);
+        background: rgb(255 255 255 / 0.05);
+    }
+
+    & .contiu-auth-strength i {
+        background: rgb(255 255 255 / 0.1);
+    }
+}
+
+@media (max-width: 900px) {
+    .contiu-auth {
+        grid-template-columns: minmax(0, 1fr);
+
+        & .contiu-auth-show {
+            display: none;
+        }
+
+        & .contiu-auth-form {
+            padding: 1.5rem 1.25rem;
+        }
+
+        & .contiu-auth-title {
+            font-size: 1.75rem;
+            line-height: 2.125rem;
+        }
+    }
+}
+
+/* "Email confirmed": the button into Contiu and the automatic redirect. */
+.contiu-auth {
+    & .contiu-auth-confirmed {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+
+        & .fi-btn {
+            width: 100%;
+            min-height: 3rem;
+            border-radius: 0.75rem;
+            font-size: 1rem;
+        }
+    }
+
+    & .contiu-auth-redirect {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        margin: 0;
+        font-size: 0.875rem;
+        color: var(--gray-500);
+    }
+
+    & .contiu-auth-spinner {
+        width: 1rem;
+        height: 1rem;
+        border: 2px solid var(--gray-200);
+        border-top-color: var(--primary-600);
+        border-radius: 50%;
+        animation: contiu-auth-spin 0.8s linear infinite;
+    }
+}
+
+@keyframes contiu-auth-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .contiu-auth .contiu-auth-spinner {
+        animation: none;
+    }
+}

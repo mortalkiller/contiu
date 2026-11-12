@@ -1002,3 +1002,252 @@
         }
     }
 }
+
+/*
+ * "Conta criada" (EmailVerificationPrompt right after the sign-up): the side panel with every step
+ * done, then the tax card with its stamp, the email to confirm, what is agreed and the first steps.
+ */
+.contiu-signup-done {
+    display: grid;
+    grid-template-columns: var(--contiu-signup-side-width) minmax(0, 1fr);
+
+    & .contiu-signup-main {
+        max-width: calc(55rem + 8rem);
+    }
+
+    & .contiu-signup-done-top {
+        display: grid;
+        grid-template-columns: 27.5rem minmax(0, 1fr);
+        gap: 1.75rem;
+        align-items: center;
+    }
+
+    & .contiu-signup-done-card {
+        position: relative;
+    }
+
+    & .contiu-signup-done-stamp {
+        position: absolute;
+        right: 1.5rem;
+        bottom: -0.875rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        height: 1.75rem;
+        padding: 0 0.75rem;
+        border-radius: 999px;
+        background: var(--primary-300);
+        color: var(--primary-950);
+        font-size: 0.75rem;
+        font-weight: 600;
+
+        & .fi-icon {
+            width: 0.875rem;
+            height: 0.875rem;
+        }
+    }
+
+    & .contiu-signup-done-mail {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-start;
+        padding: 1.25rem;
+        border: 1.5px solid var(--primary-600);
+        border-radius: 1rem;
+
+        & h2 {
+            margin: 0;
+            font-size: 1.0625rem;
+            line-height: 1.5rem;
+            font-weight: 600;
+            color: var(--gray-950);
+        }
+
+        & p {
+            margin: 0.25rem 0 0;
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+            color: var(--gray-600);
+        }
+
+        & b {
+            color: var(--gray-950);
+        }
+    }
+
+    & .contiu-signup-done-mark {
+        display: grid;
+        flex: none;
+        place-items: center;
+        width: 2.75rem;
+        height: 2.75rem;
+        border-radius: 0.75rem;
+        background: var(--primary-50);
+        color: var(--primary-700);
+
+        & .fi-icon {
+            width: 1.375rem;
+            height: 1.375rem;
+        }
+    }
+
+    & .contiu-signup-done-mail-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem 0.75rem;
+        margin-top: 0.75rem;
+
+        & span {
+            font-size: 0.8125rem;
+            color: var(--gray-500);
+        }
+    }
+
+    & .contiu-signup-done-block {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+
+        & h2 {
+            margin: 0;
+        }
+    }
+
+    & .contiu-signup-done-deal {
+        display: flex;
+        flex-direction: column;
+        margin: 0;
+        padding: 0.25rem 1.25rem;
+        border: 1px solid var(--gray-200);
+        border-radius: 0.875rem;
+
+        & > div {
+            display: grid;
+            grid-template-columns: 11.25rem minmax(0, 1fr);
+            gap: 1rem;
+            padding: 0.875rem 0;
+            font-size: 0.9375rem;
+            line-height: 1.375rem;
+        }
+
+        & > div + div {
+            border-top: 1px solid var(--gray-200);
+        }
+
+        & dt {
+            color: var(--gray-500);
+        }
+
+        & dd {
+            margin: 0;
+            color: var(--gray-950);
+        }
+
+        & small {
+            display: block;
+            font-size: 0.8125rem;
+            line-height: 1.125rem;
+            color: var(--gray-500);
+        }
+    }
+
+    & .contiu-signup-done-next {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.75rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        counter-reset: contiu-next;
+
+        & li {
+            display: flex;
+            flex-direction: column;
+            gap: 0.375rem;
+            padding: 1rem;
+            border-radius: 0.875rem;
+            background: var(--gray-50);
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+            color: var(--gray-600);
+        }
+
+        & b {
+            font-weight: 600;
+            color: var(--gray-950);
+        }
+
+        &[data-numbered] li::before {
+            content: counter(contiu-next);
+            counter-increment: contiu-next;
+            display: grid;
+            place-items: center;
+            width: 1.625rem;
+            height: 1.625rem;
+            border-radius: 50%;
+            background: white;
+            color: var(--primary-700);
+            font-size: 0.8125rem;
+            font-weight: 600;
+        }
+    }
+}
+
+.dark .contiu-signup-done {
+    & .contiu-signup-done-mail h2,
+    & .contiu-signup-done-mail b,
+    & .contiu-signup-done-deal dd,
+    & .contiu-signup-done-next b {
+        color: white;
+    }
+
+    & .contiu-signup-done-mail p,
+    & .contiu-signup-done-next li {
+        color: var(--gray-400);
+    }
+
+    & .contiu-signup-done-mail {
+        border-color: var(--primary-500);
+    }
+
+    & .contiu-signup-done-mark {
+        background: color-mix(in oklab, var(--primary-500) 15%, transparent);
+        color: var(--primary-300);
+    }
+
+    & .contiu-signup-done-deal,
+    & .contiu-signup-done-deal > div + div {
+        border-color: rgb(255 255 255 / 0.1);
+    }
+
+    & .contiu-signup-done-next li {
+        background: rgb(255 255 255 / 0.05);
+    }
+
+    & .contiu-signup-done-next[data-numbered] li::before {
+        background: rgb(255 255 255 / 0.1);
+        color: var(--primary-300);
+    }
+}
+
+@media (max-width: 1100px) {
+    .contiu-signup-done .contiu-signup-done-top {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 900px) {
+    .contiu-signup-done {
+        grid-template-columns: minmax(0, 1fr);
+
+        & .contiu-signup-done-next {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        & .contiu-signup-done-deal > div {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 0.25rem;
+        }
+    }
+}

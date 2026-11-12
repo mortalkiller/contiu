@@ -40,12 +40,12 @@ return [
                 'sent' => 'Foi enviado um novo código de verificação.',
             ],
             'email' => [
-                'subject' => 'O seu código de verificação do :app',
-                'heading' => 'Confirme a sua identidade',
-                'intro' => 'Foi pedido um código de verificação para a sua conta :app. Introduza o código abaixo para continuar.',
+                'subject' => 'O teu código de verificação do :app',
+                'heading' => 'Confirma que és tu',
+                'intro' => 'Pediste um código de verificação para a tua conta :app. Usa o código abaixo para continuares.',
                 'expiry' => 'Este código expira dentro de :minutes minuto.|Este código expira dentro de :minutes minutos.',
-                'warning' => 'Nunca partilhe este código. A nossa equipa nunca lhe irá pedir este código.',
-                'ignore' => 'Se não pediu este código, pode ignorar este e-mail em segurança.',
+                'warning' => 'Nunca partilhes este código. A nossa equipa nunca to vai pedir.',
+                'ignore' => 'Se não pediste este código, podes ignorar este email.',
                 'footer' => 'Mensagem de segurança de :app.',
             ],
         ],
@@ -124,7 +124,7 @@ return [
         ],
         'security' => [
             'label' => 'Segurança',
-            'description' => 'Gerir a sua palavra-passe e a segurança da conta.',
+            'description' => 'A tua palavra-passe e a verificação em dois passos.',
         ],
         'sessions' => [
             'label' => 'Sessões',

@@ -577,6 +577,147 @@ class RegisterAccount extends Register
         );
     }
 
+    /**
+     * Keeps what the "Conta criada" screen shows (EmailVerificationPrompt) for this session: the
+     * tax card, what is agreed and the first steps. It is built from the answers here, the one
+     * place that still has them all.
+     */
+    protected function afterRegister(): void
+    {
+        session()->put(EmailVerificationPrompt::ACCOUNT_CREATED_SESSION_KEY, [
+            'user' => $this->form->getRecord()?->getKey(),
+            ...$this->accountCreatedData(),
+        ]);
+    }
+
+    /**
+     * The "Conta criada" screen, as in the RegConcluido mocks: with the activity open, the tax card
+     * from the profile step; on hold, a card with what Contiu already knows. Then what is agreed
+     * (free days, first charge, accountant, what is still to confirm) and the first steps.
+     *
+     * @return array<string, mixed>
+     */
+    private function accountCreatedData(): array
+    {
+        $path = $this->deduction()->path();
+        $waiting = $path === 'waiting';
+        $name = trim((string) ($this->data['name'] ?? ''));
+        $nif = (string) ($this->data['nif'] ?? '');
+        $accountant = ($this->data['accountant'] ?? null) === 'contiu' ? $this->accountantPlan() : null;
+        $accountantPrice = $accountant !== null ? AccountantService::priceWithVat($accountant) : 0;
+        $plan = (string) ($this->data['plan'] ?? '');
+        $chargedOn = $this->trialEndsOn();
+        $profile = $this->profileData();
+
+        $card = [
+            ...Arr::only($profile, ['name', 'initials', 'logo', 'regime', 'role', 'facts']),
+            ...match ($path) {
+                'waiting' => [
+                    'regime' => __('Activity not opened'),
+                    'role' => $accountant !== null ? __('Account on hold · with a certified accountant') : __('Account on hold'),
+                    'facts' => array_values(array_filter([
+                        $nif !== '' ? ['label' => __('Tax ID'), 'value' => $nif] : null,
+                        ['label' => __('Free until'), 'value' => $chargedOn],
+                        ['label' => __('Taxes'), 'value' => __('When you open')],
+                    ])),
+                ],
+                'organised' => ['regime' => __('Organised accounting')],
+                default => [],
+            },
+        ];
+
+        $charge = null;
+
+        if (self::takesPayment() && isset(AccountSubscription::PLANS[$plan])) {
+            $planPrice = AccountSubscription::priceWithVat($plan);
+            $charge = [
+                'label' => __('First charge'),
+                'value' => __(':date · :amount', ['date' => $chargedOn, 'amount' => Money::format($planPrice + $accountantPrice)]),
+                'note' => implode(' ', array_filter([
+                    $accountant !== null
+                        ? __(':plan plan :amount and accountant :accountant a month, VAT included.', ['plan' => __(AccountSubscription::PLANS[$plan]['label']), 'amount' => Money::format($planPrice), 'accountant' => Money::format($accountantPrice)])
+                        : __(':plan plan :amount, VAT included.', ['plan' => __(AccountSubscription::PLANS[$plan]['label']), 'amount' => Money::format($planPrice)]),
+                    $waiting ? __('Even if you have not opened your activity yet.') : null,
+                    __('We email you 3 days before.'),
+                ])),
+            ];
+        }
+
+        $exemptionToConfirm = ! $waiting && ($profile['canConfirmExemption'] ?? false) && ! ($this->data['exemption_confirmed'] ?? false);
+
+        return [
+            'firstName' => (string) strtok($name, ' '),
+            'email' => (string) ($this->data['email'] ?? ''),
+            'waiting' => $waiting,
+            'card' => $card,
+            'lede' => $waiting
+                ? __('The :days free days started today, with what you can already use. Your tax card is completed when you open your activity.', ['days' => config('contiu.trial_days')])
+                : __('This is your tax card. The :days free days started today, with everything included. All that is left is to confirm your email.', ['days' => config('contiu.trial_days')]),
+            'deal' => array_values(array_filter([
+                [
+                    'label' => __('Free days'),
+                    'value' => __('Until :date', ['date' => $chargedOn]),
+                    'note' => match (true) {
+                        $waiting => __('Clients and suppliers, jobs and quotes, expenses.'),
+                        $accountant !== null => __('You use everything, the accountant included. You paid nothing today.'),
+                        default => __('You use everything. You paid nothing today.'),
+                    },
+                ],
+                $charge,
+                $accountant !== null ? [
+                    'label' => __('Certified accountant'),
+                    'value' => __('We introduce the accountant by email'),
+                    'note' => $waiting
+                        ? __('They help you open your activity and handle the returns from then on.')
+                        : __('A certified accountant from a Contiu partner joins your account, with accountant access.'),
+                ] : null,
+                $exemptionToConfirm ? [
+                    'label' => __('Tax profile'),
+                    'value' => __('Social Security exemption to confirm'),
+                    'note' => __('When you see it in Social Security Direct, mark “I have confirmed” in Tax settings.'),
+                ] : null,
+                self::takesPayment() ? [
+                    'label' => __('Subscription invoice'),
+                    'value' => __('In the name of :name · Tax ID :nif', ['name' => $name, 'nif' => $nif]),
+                    'note' => __('It arrives by email with each charge.'),
+                ] : null,
+            ])),
+            'next' => $waiting ? [
+                'title' => __('When you open your activity with the Tax Authority'),
+                'numbered' => true,
+                'items' => [
+                    [__('Open the activity'), $accountant !== null ? __('On the Tax Authority portal. Your Contiu accountant helps you fill in the declaration.') : __('On the Tax Authority portal.')],
+                    [__('Press “I have opened my activity”'), __('In the Contiu dashboard, right at the start.')],
+                    [__('Answer in two minutes'), __('Your situation and what you do. You see your tax card and start invoicing.')],
+                ],
+            ] : [
+                'title' => __('First steps, once you are in'),
+                'numbered' => false,
+                'items' => [
+                    [__('Add your first client'), __('Ready for the first invoice.')],
+                    [__('Issue your first invoice'), __('With the withholding and the VAT already right.')],
+                    [__('Say whether you have an account just for the activity'), __('Optional. It links the movements to the invoices.')],
+                ],
+            ],
+            'side' => [
+                'logo' => asset('brand/contiu/contiu-logo-white.svg'),
+                'steps' => array_map(fn (string $step, int $position): array => [
+                    'label' => __(self::STEP_LABELS[$step]),
+                    'number' => $position + 1,
+                    'state' => 'done',
+                ], $this->stepNames(), array_keys($this->stepNames())),
+                'panel' => ['title' => __('Your account'), 'empty' => null, 'items' => array_values(array_filter([
+                    ['label' => __('Name'), 'value' => $name, 'new' => false],
+                    ['label' => __('Email'), 'value' => (string) ($this->data['email'] ?? ''), 'new' => false],
+                    isset(AccountSubscription::PLANS[$plan]) ? ['label' => __('Plan'), 'value' => __(AccountSubscription::PLANS[$plan]['label']), 'new' => false] : null,
+                    $accountant !== null ? ['label' => __('Accountant'), 'value' => __(':amount a month', ['amount' => Money::format($accountantPrice)]), 'new' => false] : null,
+                    ['label' => __('Free until'), 'value' => $chargedOn, 'new' => true],
+                ]))],
+                'foot' => __('You change the plan, the accountant or the payment details whenever you like, in Subscription.'),
+            ],
+        ];
+    }
+
     /** The day the free trial ends, as the date format of the language. */
     private function trialEndsOn(): string
     {

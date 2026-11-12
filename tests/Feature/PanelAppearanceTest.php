@@ -22,7 +22,7 @@ it('shows the black logo on the light login page, white in dark mode', function 
         ->assertOk()
         ->assertSee('brand/contiu/contiu-logo-black.svg', escape: false)
         ->assertSee('brand/contiu/contiu-logo-white.svg', escape: false)
-        ->assertSee('height: 2.5rem', escape: false)
+        ->assertSee('contiu-auth-logo-dark', escape: false)
         ->assertSee('id="fsl-page-loader"', escape: false);
 });
 
@@ -48,10 +48,10 @@ it('renders the Contiu page loader with its inline symbol on the dashboard', fun
         ->assertSee('id="fsl-page-loader"', escape: false)
         ->assertSee('role="status"', escape: false)
         ->assertSee('A carregar…')
-        ->assertSee('class="fsl-loader-piece"', escape: false);
+        ->assertSee('class="contiu-loader-c"', escape: false);
 
     $html = $response->getContent();
 
-    expect(substr_count($html, 'class="fsl-loader-piece"'))->toBe(4)
+    expect(substr_count($html, 'class="contiu-loader-c"'))->toBe(1)
         ->and($html)->not->toContain('&lt;path class=');
 });

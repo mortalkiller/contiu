@@ -3,6 +3,8 @@
 @import '../../../../vendor/saade/filament-fullcalendar/resources/css/filament-fullcalendar.css';
 @import './partials/project-detail.css';
 @import './partials/signup.css';
+@import './partials/auth.css';
+@import './partials/loader.css';
 
 @source '../../../../app/Filament/**/*';
 @source '../../../../resources/views/filament/**/*';

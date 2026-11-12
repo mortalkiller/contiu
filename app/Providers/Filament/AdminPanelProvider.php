@@ -6,7 +6,11 @@ use App\Enums\Language;
 use App\Filament\Pages\AccountantReview;
 use App\Filament\Pages\AccountSubscription;
 use App\Filament\Pages\Auth\EditUserProfile;
+use App\Filament\Pages\Auth\EmailVerificationPrompt;
+use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\Auth\RegisterAccount;
+use App\Filament\Pages\Auth\RequestPasswordReset;
+use App\Filament\Pages\Auth\ResetPassword;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\HelpCentre;
 use App\Filament\Pages\Tenancy\EditAccountProfile;
@@ -53,6 +57,7 @@ use MortalKiller\FilamentAppearance\Schemas\Components\PalettePicker;
 use Mortalkiller\FilamentCompleteUserProfile\AccountSection;
 use Mortalkiller\FilamentCompleteUserProfile\CompleteUserProfilePlugin;
 use Mortalkiller\FilamentCompleteUserProfile\Features\Profile;
+use Mortalkiller\FilamentCompleteUserProfile\Features\Security;
 use MortalKiller\FilamentPageHeader\Components\Header;
 use MortalKiller\FilamentPageHeader\Enums\BreadcrumbPosition;
 use MortalKiller\FilamentPageHeader\PageHeaderPlugin;
@@ -80,16 +85,17 @@ class AdminPanelProvider extends PanelProvider
             // outside an account (/profile) have no tenant, and Filament's menu needs one.
             ->tenantMenu(fn (): bool => Filament::getTenant() !== null && static::canSwitchAccounts())
             ->viteTheme('resources/css/filament/admin/theme.css')
-            ->login()
+            // The sign-in pages share the split layout of the "Autenticação" mocks.
+            ->login(Login::class)
             // Self-service sign-up: the wizard creates the user and their account, and nothing
             // in the panel opens until the email is confirmed. Off (no route, no link on the login
             // page) until CONTIU_REGISTRATION_OPEN is set.
             ->registration(config('contiu.registration_open') ? RegisterAccount::class : null)
-            ->emailVerification()
-            ->passwordReset()
+            ->emailVerification(EmailVerificationPrompt::class)
+            ->passwordReset(RequestPasswordReset::class, ResetPassword::class)
             ->brandName(config('app.name'))
             // Larger on the sign-in and sign-up pages, where the logo stands alone.
-            ->brandLogoHeight(fn () => AppearancePlugin::isOnSimplePage() ? '2.5rem' : '1.6rem')
+            ->brandLogoHeight(fn () => AppearancePlugin::isOnSimplePage() ? '2.5rem' : '2rem')
             ->colors([
                 'primary' => BrandPalette::primary(),
                 'gray' => BrandPalette::gray(),
@@ -220,6 +226,12 @@ class AdminPanelProvider extends PanelProvider
                             Select::make('language')->label(__('Language'))->options(Language::options())
                                 ->required()->in(array_keys(Language::options())),
                         ]))
+                    // "Segurança": the password and two-step verification, with an authenticator
+                    // app (and recovery codes) or codes by email. Filament asks for the code at
+                    // sign-in (Login keeps its challenge).
+                    ->security(fn (Security $security): Security => $security
+                        ->appAuthentication()
+                        ->emailAuthentication())
                     // After "Segurança" (30): light/dark mode and the colour palette.
                     ->section(
                         AccountSection::make('appearance')

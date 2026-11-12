@@ -173,5 +173,5 @@ it('keeps the palette logo on the profile page, which is not a sign-in page', fu
         ->assertOk()
         ->assertSee('brand/contiu/contiu-logo-white.svg', escape: false)
         ->assertDontSee('brand/contiu/contiu-logo-black.svg', escape: false)
-        ->assertSee('height: 1.6rem', escape: false);
+        ->assertSee('height: 2rem', escape: false);
 });

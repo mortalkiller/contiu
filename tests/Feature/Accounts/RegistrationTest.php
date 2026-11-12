@@ -2,6 +2,7 @@
 
 use App\Actions\CreateAccount;
 use App\Actions\StartSignupSubscription;
+use App\Filament\Pages\Auth\EmailVerificationPrompt;
 use App\Filament\Pages\Auth\RegisterAccount;
 use App\Filament\Pages\Dashboard;
 use App\Mail\AccountantServiceRequested;
@@ -472,9 +473,12 @@ it('blocks the panel until the email is verified', function () {
         ->assertRedirect(Filament::getEmailVerificationPromptUrl());
     $this->get(Filament::getEmailVerificationPromptUrl())->assertOk();
 
-    // The link in the email confirms it and opens the account.
+    // The link in the email confirms it; "Email confirmado" then opens the account.
     $this->get(Filament::getVerifyEmailUrl($user))
-        ->assertRedirect(Dashboard::getUrl(tenant: $this->account));
+        ->assertRedirect(Filament::getEmailVerificationPromptUrl());
+    $this->get(Filament::getEmailVerificationPromptUrl())
+        ->assertSee('Email confirmado')
+        ->assertSee(Dashboard::getUrl(tenant: $this->account), escape: false);
 
     expect($user->fresh()->hasVerifiedEmail())->toBeTrue();
     $this->get(Dashboard::getUrl(tenant: $this->account))->assertOk();
@@ -517,7 +521,8 @@ it('shows the email confirmation prompt and email in European Portuguese', funct
     $this->get(Filament::getEmailVerificationPromptUrl())
         ->assertOk()
         ->assertSee('Confirma o teu email')
-        ->assertSee('Não recebeste o email?')
+        ->assertSee('Não chegou?')
+        ->assertSee('Enviar outra vez')
         ->assertDontSee('Verifique');
 
     $notification = new VerifyEmail;
@@ -749,3 +754,34 @@ it('adds the accountant to what will be charged on the payment step', function (
         ->assertSee(Money::format(9642))
         ->assertSee('mais '.Money::format(3000).' por mês pelo contabilista');
 })->group('ui');
+
+it('opens on “Conta criada” with the tax card and what is agreed, right after signing up', function () {
+    registrationWizard(['accountant' => 'contiu'])->call('register')->assertHasNoFormErrors();
+
+    $this->actingAs(User::firstWhere('email', 'rita@example.pt'));
+
+    Livewire::test(EmailVerificationPrompt::class)
+        ->assertSee('A tua conta está pronta, Rita')
+        ->assertSee('Rita Silva')
+        ->assertSee('501964843')
+        ->assertSee('O que fica combinado')
+        ->assertSee('Até 22/11/2026')
+        ->assertSee('Apresentamos-te o contabilista por email')
+        ->assertSee('Primeiros passos, quando entrares')
+        ->assertSee('Confirma o teu email para entrares');
+})->group('integration');
+
+it('opens on “Conta criada” with what to do when the activity is opened, for an account on hold', function () {
+    Livewire::test(RegisterAccount::class)
+        ->fillForm(waitingRegistrationData())
+        ->call('register')
+        ->assertHasNoFormErrors();
+
+    $this->actingAs(User::firstWhere('email', 'rita@example.pt'));
+
+    Livewire::test(EmailVerificationPrompt::class)
+        ->assertSee('Conta criada · à espera da atividade')
+        ->assertSee('Atividade por abrir')
+        ->assertSee('Quando abrires atividade nas Finanças')
+        ->assertDontSee('Primeiros passos, quando entrares');
+})->group('integration');

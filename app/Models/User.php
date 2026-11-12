@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\Language;
 use App\Support\AccountantAccess;
 use Database\Factories\UserFactory;
+use Filament\Auth\MultiFactor\Email\Contracts\HasEmailAuthentication;
 use Filament\Auth\Notifications\VerifyEmail;
 use Filament\Facades\Filament;
 use Filament\Models\Contracts\FilamentUser;
@@ -22,18 +23,23 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use MortalKiller\FilamentAppearance\Concerns\HasPalette;
+use Mortalkiller\FilamentCompleteUserProfile\Concerns\InteractsWithEmailAuthentication;
+use Mortalkiller\FilamentCompleteUserProfile\Concerns\InteractsWithMultiFactorAuthentication;
+use Mortalkiller\FilamentCompleteUserProfile\Contracts\HasMultiFactorAuthentication;
 use Spatie\Permission\Traits\HasRoles;
 
 /**
  * Must verify the email before opening the panel (->emailVerification()). Users from before the
- * public sign-up were marked verified by the accounts migration.
+ * public sign-up were marked verified by the accounts migration. Two-step verification (an
+ * authenticator app or codes by email) is kept by mortalkiller/filament-complete-user-profile, in
+ * the users table, and asked for by Filament's own sign-in challenge.
  */
 #[Fillable(['name', 'email', 'password', 'language'])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable implements FilamentUser, HasDefaultTenant, HasLocalePreference, HasTenants, MustVerifyEmail
+class User extends Authenticatable implements FilamentUser, HasDefaultTenant, HasEmailAuthentication, HasLocalePreference, HasMultiFactorAuthentication, HasTenants, MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, HasPalette, HasRoles, Notifiable;
+    use HasFactory, HasPalette, HasRoles, InteractsWithEmailAuthentication, InteractsWithMultiFactorAuthentication, Notifiable;
 
     protected $attributes = ['language' => 'pt-PT'];
 

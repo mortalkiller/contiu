@@ -1,0 +1,156 @@
+<?php
+
+namespace App\Filament\Pages\Auth;
+
+use App\Filament\Pages\Auth\Concerns\UsesContiuAuthLayout;
+use Filament\Actions\Action;
+use Filament\Auth\Pages\EmailVerification\EmailVerificationPrompt as BaseEmailVerificationPrompt;
+use Filament\Facades\Filament;
+use Filament\Schemas\Components\Actions;
+use Filament\Schemas\Components\View;
+use Filament\Schemas\Schema;
+use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\HtmlString;
+use Livewire\Attributes\Locked;
+
+/**
+ * The email confirmation, in three moments:
+ *
+ * - right after the sign-up, "Conta criada" (RegConcluido mocks): the tax card, what is agreed,
+ *   the first steps and the email to confirm, in the sign-up layout;
+ * - "Confirm your email", in the auth layout, when the user comes back later without confirming;
+ * - "Email confirmed", after the link (EmailVerificationResponse), which goes on to the panel by
+ *   itself after a few seconds.
+ */
+class EmailVerificationPrompt extends BaseEmailVerificationPrompt
+{
+    use UsesContiuAuthLayout;
+
+    /** What RegisterAccount leaves for the "Conta criada" screen, for this session. */
+    public const ACCOUNT_CREATED_SESSION_KEY = 'contiu.account_created';
+
+    /** Flashed by EmailVerificationResponse once the link is opened. */
+    public const CONFIRMED_SESSION_KEY = 'contiu.email_confirmed';
+
+    protected string $view = 'filament.pages.auth.auth-page';
+
+    protected static string $layout = 'filament.pages.auth.auth-layout';
+
+    #[Locked]
+    public bool $isConfirmed = false;
+
+    /** Where "Email confirmed" goes next. */
+    #[Locked]
+    public ?string $nextUrl = null;
+
+    /** @var array<string, mixed>|null */
+    #[Locked]
+    public ?array $accountCreated = null;
+
+    public function mount(): void
+    {
+        if (Filament::auth()->check() && session()->get(self::CONFIRMED_SESSION_KEY)) {
+            $this->isConfirmed = true;
+            $this->nextUrl = session()->pull('url.intended', Filament::getUrl());
+            $this->accountCreated = session()->pull(self::ACCOUNT_CREATED_SESSION_KEY);
+
+            return;
+        }
+
+        parent::mount();
+
+        $accountCreated = session()->get(self::ACCOUNT_CREATED_SESSION_KEY);
+
+        if (is_array($accountCreated) && ($accountCreated['user'] ?? null) === Filament::auth()->id()) {
+            $this->accountCreated = $accountCreated;
+        }
+    }
+
+    public function getView(): string
+    {
+        return $this->showsAccountCreated() ? 'filament.pages.auth.account-created' : parent::getView();
+    }
+
+    public function getLayout(): string
+    {
+        return $this->showsAccountCreated() ? 'filament.pages.auth.signup-layout' : parent::getLayout();
+    }
+
+    public function getTitle(): string|Htmlable
+    {
+        return match (true) {
+            $this->isConfirmed => __('Email confirmed'),
+            $this->showsAccountCreated() => __('Account created'),
+            default => __('Confirm your email'),
+        };
+    }
+
+    public function getHeading(): string|Htmlable|null
+    {
+        return $this->getTitle();
+    }
+
+    public function getSubheading(): string|Htmlable|null
+    {
+        if ($this->isConfirmed) {
+            $name = (string) strtok((string) Filament::auth()->user()?->name, ' ');
+
+            return $this->accountCreated !== null
+                ? __('Thank you, :name. Your account is active and your :days free days are already counting.', ['name' => $name, 'days' => config('contiu.trial_days')])
+                : __('Thank you, :name. Your email is confirmed.', ['name' => $name]);
+        }
+
+        return new HtmlString(__('We sent a link to :email. Open it on this device or another to activate your account.', [
+            'email' => '<b>'.e($this->getVerifiable()->getEmailForVerification()).'</b>',
+        ]));
+    }
+
+    public function content(Schema $schema): Schema
+    {
+        if ($this->isConfirmed) {
+            return $schema->components([
+                View::make('filament.pages.auth.partials.auth-confirmed')
+                    ->viewData(['nextUrl' => $this->nextUrl]),
+            ]);
+        }
+
+        return $schema->components([
+            View::make('filament.pages.auth.partials.auth-mailbox'),
+            Actions::make([$this->resendNotificationAction])->fullWidth(),
+            View::make('filament.pages.auth.partials.auth-tips')
+                ->viewData(['tips' => [
+                    __('Look in spam or promotions.'),
+                    __('Still nothing after a few minutes? Send it again.'),
+                ]]),
+        ]);
+    }
+
+    public function resendNotificationAction(): Action
+    {
+        return parent::resendNotificationAction()
+            ->button()
+            ->color('gray')
+            ->size($this->showsAccountCreated() ? 'sm' : 'lg')
+            ->label(__('Send again'));
+    }
+
+    protected function getClosingLine(): string|Htmlable|null
+    {
+        if ($this->isConfirmed) {
+            return null;
+        }
+
+        return new HtmlString(Blade::render(<<<'BLADE'
+            <form method="post" action="{{ filament()->getLogoutUrl() }}" class="contiu-auth-inline-form">
+                @csrf
+                <x-filament::link tag="button" type="submit">{{ __('Sign out') }}</x-filament::link>
+            </form>
+            BLADE));
+    }
+
+    private function showsAccountCreated(): bool
+    {
+        return ! $this->isConfirmed && $this->accountCreated !== null;
+    }
+}

@@ -7,6 +7,7 @@ use App\Exceptions\AccountIsReadOnly;
 use App\Filament\Support\PhosphorIconAliases;
 use App\Filament\Support\TableEmptyState;
 use App\Http\Middleware\ApplyUserLanguage;
+use App\Http\Responses\EmailVerificationResponse;
 use App\Models\Account;
 use App\Policies\AuditPolicy;
 use App\Support\AccountMemberAccess;
@@ -14,6 +15,7 @@ use App\Support\CurrentAccount;
 use App\Support\FinanceSettings;
 use App\Support\Invoicing\Invoicing;
 use App\Support\ReadOnlyAccountAccess;
+use Filament\Auth\Http\Responses\Contracts\EmailVerificationResponse as EmailVerificationResponseContract;
 use Filament\Forms\Components\FileUpload;
 use Filament\Notifications\Notification;
 use Filament\Pages\BasePage as Page;
@@ -49,6 +51,9 @@ class AppServiceProvider extends ServiceProvider
 
         // The profile package registers this middleware on the panel's authenticated routes.
         $this->app->bind(SetUserLocale::class, ApplyUserLanguage::class);
+
+        // "Email confirmed" after the confirmation link, before the panel.
+        $this->app->bind(EmailVerificationResponseContract::class, EmailVerificationResponse::class);
 
         // Its routes are registered in routes/stripe.php, where the webhook fails closed.
         Cashier::ignoreRoutes();

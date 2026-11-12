@@ -30,6 +30,6 @@ it('opens sign-up when the switch is on', function () {
     $this->get('/register')->assertOk()->assertSee('Criar conta');
 
     $this->get('/login')->assertOk()
-        ->assertSee(__('filament-panels::auth/pages/login.actions.register.label'))
+        ->assertSee('Começa com 14 dias grátis')
         ->assertSee(url('/register'), escape: false);
 })->group('registration-open');

@@ -1,0 +1,31 @@
+/*
+ * Page loader (mortalkiller/filament-skeleton-loading) with the Contiu symbol: the C turns inside
+ * the disc. The C takes the loader's background, light or dark, to read as the logo's cut-out.
+ */
+#fsl-page-loader .contiu-loader-c {
+    fill: #ffffff;
+    transform-box: view-box;
+    transform-origin: var(--contiu-loader-cx) var(--contiu-loader-cy);
+    animation: contiu-loader-turn 1.6s cubic-bezier(0.6, 0.1, 0.4, 0.9) infinite;
+    animation-play-state: paused;
+}
+
+.dark #fsl-page-loader .contiu-loader-c {
+    fill: #0a0a0a;
+}
+
+#fsl-page-loader.is-visible .contiu-loader-c {
+    animation-play-state: running;
+}
+
+@keyframes contiu-loader-turn {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #fsl-page-loader .contiu-loader-c {
+        animation: none;
+    }
+}

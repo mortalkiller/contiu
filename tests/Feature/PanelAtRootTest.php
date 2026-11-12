@@ -10,7 +10,7 @@ it('sends a guest from the root straight to the login', function () {
 })->group('ui');
 
 it('shows the login page at /login', function () {
-    $this->get('/login')->assertOk()->assertSee('Iniciar sessão');
+    $this->get('/login')->assertOk()->assertSee('Entra na Contiu');
 })->group('ui');
 
 it('sends a logged-in user from the root to their account\'s dashboard', function () {
