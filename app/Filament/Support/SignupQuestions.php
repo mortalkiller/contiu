@@ -333,9 +333,9 @@ final class SignupQuestions
     }
 
     /**
-     * What the tax profile screen (signup-profile) shows: who, the year in one sentence, the three
-     * values with their reasons and the dates. $stepNames gives the wizard position of each step,
-     * for "Alterar".
+     * What the tax profile screen (signup-profile) shows: a tax card (who, the regime and the key
+     * codes), the year in one sentence, one seal per tax with its reason and the dates. $stepNames
+     * gives the wizard position of each step, for "Alterar".
      *
      * @param  array<string, mixed>  $state
      * @param  list<string>  $stepNames
@@ -346,25 +346,31 @@ final class SignupQuestions
         $name = trim((string) ($state['name'] ?? ''));
         $startedOn = $deduction->settings()['activity_started_on'] ?? null;
         $situation = $deduction->situation();
-        $profession = trim((string) (ActivityCatalogue::occupationLabel(isset($state['occupation']) ? (string) $state['occupation'] : null) ?? $state['profession'] ?? ''));
+        $occupation = isset($state['occupation']) ? (string) $state['occupation'] : null;
+        $profession = trim((string) (ActivityCatalogue::occupationLabel($occupation) ?? $state['profession'] ?? ''));
+        $codes = implode(' · ', array_filter([
+            $occupation === ActivityCatalogue::OTHER_OCCUPATION ? ActivityCatalogue::RESIDUAL_OCCUPATION : $occupation,
+            filled($state['cae'] ?? null) ? (string) $state['cae'] : null,
+        ]));
 
         return [
             'eyebrow' => $eyebrow,
             'name' => $name,
             'initials' => Str::upper(collect(preg_split('/\s+/', $name) ?: [])->filter()->map(fn (string $part): string => Str::substr($part, 0, 1))->take(2)->implode('')),
-            'subtitle' => implode(' · ', array_filter([
+            'logo' => asset('brand/contiu/contiu-logo-white.svg'),
+            'regime' => ($state['accounting_regime'] ?? null) === 'unknown' ? __('Simplified regime (probable)') : __('Simplified regime'),
+            'role' => implode(' · ', array_filter([
                 $profession !== '' ? $profession : null,
-                $startedOn ? __('self-employed since :month', ['month' => Carbon::parse($startedOn)->locale(app()->getLocale())->translatedFormat(__('F Y'))]) : null,
-            ])),
-            'chips' => array_values(array_filter([
-                ($state['accounting_regime'] ?? null) === 'unknown' ? __('Simplified regime (probable)') : __('Simplified regime'),
-                filled($state['nif'] ?? null) ? __('Tax ID :nif', ['nif' => $state['nif']]) : null,
                 match (true) {
                     in_array('employment', $situation, true) => __('Also employed'),
                     in_array('pension', $situation, true) => __('With a pension'),
                     default => __('Only self-employed'),
                 },
-                $deduction->irsJovemPercent() !== null ? __('IRS Jovem · year :number', ['number' => (int) ($state['irs_jovem_year_number'] ?? 0)]) : null,
+            ])),
+            'facts' => array_values(array_filter([
+                filled($state['nif'] ?? null) ? ['label' => __('Tax ID'), 'value' => (string) $state['nif']] : null,
+                $startedOn ? ['label' => __('Since'), 'value' => Carbon::parse($startedOn)->format('m/Y')] : null,
+                $codes !== '' ? ['label' => filled($state['cae'] ?? null) ? __('Occupation · CAE') : __('Occupation'), 'value' => $codes] : null,
             ])),
             'summary' => $deduction->summary(),
             'regimeNote' => $deduction->regimeNote(),

@@ -439,7 +439,7 @@ class RegisterAccount extends Register
         return SignupQuestions::profileViewData(
             $this->deduction(),
             $this->data ?? [],
-            eyebrow: __('Step :number of :total', ['number' => (int) array_search('profile', $names, true) + 1, 'total' => count($names)]).' · '.__('Your tax profile'),
+            eyebrow: __('Step :number of :total', ['number' => (int) array_search('profile', $names, true) + 1, 'total' => count($names)]),
             stepNames: $names,
         );
     }

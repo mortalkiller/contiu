@@ -259,8 +259,10 @@ it('says where to find each fiscal answer', function () {
 it('sums up the tax answers before creating the account', function () {
     registrationWizard()
         ->goToWizardStep(5)
-        ->assertSee('Passo 5 de 5 · O teu perfil fiscal')
-        ->assertSee('1332 · Programadores informáticos · por conta própria desde março de 2026')
+        ->assertSee('Passo 5 de 5')
+        ->assertSee('O teu cartão fiscal')
+        ->assertSee('1332 · Programadores informáticos · Também com emprego')
+        ->assertSee('03/2026')
         ->assertSee('Em 2026 não pagas Segurança Social nem cobras IVA.')
         ->assertSee('Não pagas, por agora')
         ->assertSee('Provável · confirma')

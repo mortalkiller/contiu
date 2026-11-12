@@ -1,92 +1,130 @@
 {{--
-    Sign-up tax profile (RegisterAccount, TaxProfileDeduction): who, the year in one sentence, the
-    three values with their reason, and the dates that matter. "Alterar" goes back to the step that
-    answers it; "Já confirmei" confirms the Social Security exemption.
+    Sign-up tax profile (RegisterAccount, OpenActivity; data from SignupQuestions::profileViewData):
+    a tax card with who and the key codes, the year in one sentence, one seal per tax with its
+    reason, and the dates that matter as a timeline. "Alterar" goes back to the step that answers
+    it; "Já confirmei" confirms the Social Security exemption.
 --}}
 @php
     use App\Support\TaxProfileDeduction;
-    use Illuminate\Support\HtmlString;
     use ToneGabes\Filament\Icons\Enums\Phosphor;
+
+    $sealIcons = [
+        'social_security' => Phosphor::ShieldCheck,
+        'irs' => Phosphor::Percent,
+        'vat' => Phosphor::Receipt,
+    ];
 @endphp
 
 <div class="contiu-signup-profile">
-    <div class="contiu-signup-id">
-        <div class="contiu-signup-avatar" aria-hidden="true">{{ $initials }}</div>
-        <div>
-            <p class="contiu-signup-eyebrow">{{ $eyebrow }}</p>
-            <h1 class="contiu-signup-title">{{ $name }}</h1>
-            @if (filled($subtitle))
-                <p class="contiu-signup-lede">{{ $subtitle }}</p>
+    <div>
+        <p class="contiu-signup-eyebrow">{{ $eyebrow }}</p>
+        <h1 class="contiu-signup-title">{{ __('Your tax card') }}</h1>
+    </div>
+
+    <div class="contiu-signup-card-row">
+        <div class="contiu-signup-card" role="img" aria-label="{{ __('Tax card of :name', ['name' => $name]) }}">
+            <div class="contiu-signup-card-top">
+                <img src="{{ $logo }}" alt="">
+                <span>{{ $regime }}</span>
+            </div>
+            <div class="contiu-signup-card-who">
+                <span class="contiu-signup-avatar" aria-hidden="true">{{ $initials }}</span>
+                <div>
+                    <p class="contiu-signup-card-name">{{ $name }}</p>
+                    @if (filled($role))
+                        <p class="contiu-signup-card-role">{{ $role }}</p>
+                    @endif
+                </div>
+            </div>
+            @if ($facts !== [])
+                <dl class="contiu-signup-card-facts">
+                    @foreach ($facts as $fact)
+                        <div><dt>{{ $fact['label'] }}</dt><dd>{{ $fact['value'] }}</dd></div>
+                    @endforeach
+                </dl>
             @endif
         </div>
-    </div>
 
-    <div class="contiu-signup-chips">
-        @foreach ($chips as $chip)
-            <x-filament::badge color="gray">{{ $chip }}</x-filament::badge>
-        @endforeach
+        <div class="contiu-signup-card-intro">
+            <p class="contiu-signup-about">{{ $summary }}</p>
+            <p class="contiu-signup-lede">{{ __('It comes from your answers. Each seal says why.') }}</p>
+            @isset ($stepIndexes['activity'])
+                <x-filament::button color="gray" size="sm" type="button" :icon="Phosphor::PencilSimple" x-on:click="goToStep(getSteps()[{{ (int) $stepIndexes['activity'] }}])">
+                    {{ __('Review the answers') }}
+                </x-filament::button>
+            @endisset
+        </div>
     </div>
-
-    <p class="contiu-signup-about">{{ $summary }}</p>
 
     @if ($regimeNote)
         <x-filament::callout color="warning" :icon="Phosphor::WarningCircle" :description="$regimeNote" />
     @endif
 
-    <div class="contiu-signup-results">
+    <div class="contiu-signup-seals">
         @foreach ($cards as $card)
-            <section class="contiu-signup-result" @if ($card['key'] === 'social_security') data-wide="true" @endif>
-                <div class="contiu-signup-result-head">
-                    <span class="contiu-signup-result-kicker">{{ $card['title'] }}</span>
-                    <span class="contiu-signup-result-actions">
-                        @if ($card['key'] === 'social_security' && $canConfirmExemption)
-                            <x-filament::badge color="warning" x-show="! $wire.data?.exemption_confirmed">{{ __('Probable · confirm') }}</x-filament::badge>
-                            <x-filament::badge color="success" x-show="$wire.data?.exemption_confirmed" x-cloak>{{ __('Confirmed') }}</x-filament::badge>
-                        @elseif ($card['status'] === TaxProfileDeduction::PROBABLE)
-                            <x-filament::badge color="warning">{{ __('Probable · confirm') }}</x-filament::badge>
-                        @else
-                            <x-filament::badge color="primary">{{ __('Deduced') }}</x-filament::badge>
-                        @endif
-
-                        @isset ($stepIndexes[$card['step']])
-                            <x-filament::link tag="button" type="button" size="sm" color="gray" x-on:click="goToStep(getSteps()[{{ (int) $stepIndexes[$card['step']] }}])">
-                                {{ __('Change answer') }}
-                            </x-filament::link>
-                        @endisset
-                    </span>
-                </div>
+            @php
+                $confirmsHere = $card['key'] === 'social_security' && $canConfirmExemption;
+                $probable = $card['status'] === TaxProfileDeduction::PROBABLE;
+            @endphp
+            {{--
+                Keyed by what it shows, so a new answer replaces the seal instead of patching it. The
+                Social Security seal's data-tone follows "Já confirmei"; the CSS shows the parts
+                marked data-when for that tone.
+            --}}
+            <section
+                wire:key="seal-{{ $card['key'] }}-{{ $confirmsHere ? 'confirm' : $card['status'] }}"
+                class="contiu-signup-seal"
+                @if ($confirmsHere)
+                    x-bind:data-tone="$wire.data?.exemption_confirmed ? 'confirmed' : 'todo'"
+                @elseif ($probable)
+                    data-tone="todo"
+                @endif
+            >
+                <span class="contiu-signup-seal-medal">
+                    <x-filament::icon :icon="$sealIcons[$card['key']] ?? Phosphor::SealCheck" />
+                </span>
+                <span class="contiu-signup-result-kicker">{{ $card['title'] }}</span>
                 <p class="contiu-signup-result-value">{{ $card['value'] }}</p>
                 <p class="contiu-signup-result-why">{{ $card['reason'] }}</p>
 
                 @if ($card['confirm'])
-                    <x-filament::callout
-                        color="warning"
-                        :icon="Phosphor::WarningCircle"
-                        :description="new HtmlString('<b>'.e(__('To confirm:')).'</b> '.e($card['confirm']))"
-                    >
-                        @if ($card['key'] === 'social_security' && $canConfirmExemption)
-                            <x-slot name="controls">
-                                <x-filament::button color="gray" size="sm" type="button" x-show="! $wire.data?.exemption_confirmed" x-on:click="$wire.$set('data.exemption_confirmed', true, false)">
-                                    {{ __('I have confirmed') }}
-                                </x-filament::button>
-                                <x-filament::badge color="success" x-show="$wire.data?.exemption_confirmed" x-cloak>
-                                    {{ __('Confirmed') }}
-                                </x-filament::badge>
-                            </x-slot>
+                    <div class="contiu-signup-seal-confirm" @if ($confirmsHere) data-when="todo" @endif>
+                        <p><b>{{ __('To confirm:') }}</b> {{ $card['confirm'] }}</p>
+                        @if ($confirmsHere)
+                            <x-filament::button color="gray" size="sm" type="button" x-on:click="$wire.$set('data.exemption_confirmed', true, false)">
+                                {{ __('I have confirmed') }}
+                            </x-filament::button>
                         @endif
-                    </x-filament::callout>
+                    </div>
                 @endif
+
+                <div class="contiu-signup-seal-foot">
+                    @if ($confirmsHere)
+                        <x-filament::badge color="warning" data-when="todo">{{ __('Probable · confirm') }}</x-filament::badge>
+                        <x-filament::badge color="success" data-when="confirmed">{{ __('Confirmed') }}</x-filament::badge>
+                    @elseif ($probable)
+                        <x-filament::badge color="warning">{{ __('Probable · confirm') }}</x-filament::badge>
+                    @else
+                        <x-filament::badge color="primary">{{ __('Deduced') }}</x-filament::badge>
+                    @endif
+
+                    @isset ($stepIndexes[$card['step']])
+                        <x-filament::link tag="button" type="button" size="sm" color="gray" x-on:click="goToStep(getSteps()[{{ (int) $stepIndexes[$card['step']] }}])">
+                            {{ __('Change answer') }}
+                        </x-filament::link>
+                    @endisset
+                </div>
             </section>
         @endforeach
     </div>
 
     <div class="contiu-signup-block">
         <p class="contiu-signup-question">{{ __('Your dates') }}</p>
-        <div class="contiu-signup-dates">
+        <ol class="contiu-signup-timeline">
             @foreach ($dates as $date)
-                <div><span>{{ $date['when'] }}</span><span>{{ $date['what'] }}</span></div>
+                <li><b>{{ $date['when'] }}</b><span>{{ $date['what'] }}</span></li>
             @endforeach
-        </div>
+        </ol>
     </div>
 
     <p class="contiu-signup-hint">{{ __('It is an estimate made from your answers, to help you plan: it does not replace a certified accountant.') }}</p>

@@ -3920,5 +3920,12 @@
     "What kind of activity?": "Que tipo de atividade?",
     "It orders the lists below. Selling products and restaurants do not ask for an occupation.": "Ordena as listas abaixo. Venda de produtos e restauração não pedem profissão.",
     "As on the table of Article 151, the code of your activity declaration. Not on it? Choose the last option (1519). On the table the coefficient is 0.75; off it, 0.35.": "Como na tabela do art. 151.º, o código da tua declaração de atividade. Não está lá? Escolhe a última opção (1519). Na tabela o coeficiente é 0,75; fora dela, 0,35.",
-    "Optional. Search by number or name; those of your kind of activity come first. It does not change the coefficient.": "Opcional. Pesquisa pelo número ou pelo nome; os do teu tipo de atividade aparecem primeiro. Não muda o coeficiente."
+    "Optional. Search by number or name; those of your kind of activity come first. It does not change the coefficient.": "Opcional. Pesquisa pelo número ou pelo nome; os do teu tipo de atividade aparecem primeiro. Não muda o coeficiente.",
+    "Since": "Desde",
+    "Occupation": "Profissão",
+    "Occupation · CAE": "Profissão · CAE",
+    "Your tax card": "O teu cartão fiscal",
+    "Tax card of :name": "Cartão fiscal de :name",
+    "It comes from your answers. Each seal says why.": "Saiu das tuas respostas. Cada selo diz porquê.",
+    "Review the answers": "Rever as respostas"
 }
