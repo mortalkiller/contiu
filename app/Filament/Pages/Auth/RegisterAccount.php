@@ -710,7 +710,7 @@ class RegisterAccount extends Register
                 'panel' => ['title' => __('Your account'), 'empty' => null, 'items' => array_values(array_filter([
                     ['label' => __('Name'), 'value' => $name, 'new' => false],
                     ['label' => __('Email'), 'value' => (string) ($this->data['email'] ?? ''), 'new' => false],
-                    isset(AccountSubscription::PLANS[$plan]) ? ['label' => __('Plan'), 'value' => __(AccountSubscription::PLANS[$plan]['label']), 'new' => false] : null,
+                    self::takesPayment() && isset(AccountSubscription::PLANS[$plan]) ? ['label' => __('Plan'), 'value' => __(AccountSubscription::PLANS[$plan]['label']), 'new' => false] : null,
                     $accountant !== null ? ['label' => __('Accountant'), 'value' => __(':amount a month', ['amount' => Money::format($accountantPrice)]), 'new' => false] : null,
                     ['label' => __('Free until'), 'value' => $chargedOn, 'new' => true],
                 ]))],

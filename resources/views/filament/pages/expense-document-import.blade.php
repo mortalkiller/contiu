@@ -104,7 +104,7 @@
             <x-filament::section :heading="__('Preview of the invoices')">
                 @if ($canConfirm && $hasNewRows)
                     <x-slot name="afterHeader">
-                        <x-filament::button type="submit" form="expense-document-confirm" size="sm" :disabled="$chosenCount === 0"
+                        <x-filament::button type="submit" form-id="expense-document-confirm" size="sm" :disabled="$chosenCount === 0"
                             wire:loading.attr="disabled" wire:target="file,qrImage,preview,previewQr,previewQrImage,confirm">
                             {{ trans_choice('{0} Import invoices|{1} Import 1 invoice|[2,*] Import :count invoices', $chosenCount) }}
                         </x-filament::button>

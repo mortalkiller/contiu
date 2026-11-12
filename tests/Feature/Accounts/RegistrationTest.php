@@ -777,7 +777,8 @@ it('opens on “Conta criada” with the tax card and what is agreed, right afte
         ->assertSee('Até 22/11/2026')
         ->assertSee('Apresentamos-te o contabilista por email')
         ->assertSee('Primeiros passos, quando entrares')
-        ->assertSee('Confirma o teu email para entrares');
+        ->assertSee('Confirma o teu email para entrares')
+        ->assertDontSee('Anual');
 })->group('integration');
 
 it('opens on “Conta criada” with what to do when the activity is opened, for an account on hold', function () {

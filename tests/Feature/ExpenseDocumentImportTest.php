@@ -92,6 +92,8 @@ it('reads a QR image and confirms the received invoice using the existing reconc
         ->assertHasNoErrors()
         ->assertSee('Pagamento Demo')
         ->assertDontSee('Despesa de outro fornecedor')
+        // The import button sits outside the form: it must name it, or clicking it does nothing.
+        ->assertSeeHtml('form="expense-document-confirm"')
         ->set('choices.0.expense', (string) $expense->id)
         ->set('choices.0.bank', (string) $bank->id)
         ->call('confirm')
