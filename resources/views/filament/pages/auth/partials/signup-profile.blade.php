@@ -10,12 +10,13 @@
 
     /*
      * Who each seal answers to, where the user confirms it: Segurança Social Direta, or the Portal
-     * das Finanças for IRS and VAT. Generic icons, not the institutions' own logos.
+     * das Finanças (Autoridade Tributária) for IRS and VAT. The institutions' own logos, from their
+     * websites, in public/brand/entidades.
      */
     $sealEntities = [
-        'social_security' => [Phosphor::HandHeart, __('Social Security Direct')],
-        'irs' => [Phosphor::Bank, __('Tax Authority portal')],
-        'vat' => [Phosphor::Bank, __('Tax Authority portal')],
+        'social_security' => [asset('brand/entidades/seguranca-social-direta.svg'), __('Social Security Direct')],
+        'irs' => [asset('brand/entidades/autoridade-tributaria.png'), __('Tax Authority portal')],
+        'vat' => [asset('brand/entidades/autoridade-tributaria.png'), __('Tax Authority portal')],
     ];
 @endphp
 
@@ -84,15 +85,12 @@
                     data-tone="todo"
                 @endif
             >
-                @php([$entityIcon, $entityName] = $sealEntities[$card['key']] ?? [Phosphor::SealCheck, null])
-                <div class="contiu-signup-seal-entity" data-entity="{{ $card['key'] === 'social_security' ? 'social-security' : 'finance' }}">
-                    <span class="contiu-signup-seal-medal">
-                        <x-filament::icon :icon="$entityIcon" />
+                @isset ($sealEntities[$card['key']])
+                    @php([$entityLogo, $entityName] = $sealEntities[$card['key']])
+                    <span class="contiu-signup-seal-logo">
+                        <img src="{{ $entityLogo }}" alt="{{ $entityName }}">
                     </span>
-                    @if ($entityName)
-                        <span>{{ $entityName }}</span>
-                    @endif
-                </div>
+                @endisset
                 <span class="contiu-signup-result-kicker">{{ $card['title'] }}</span>
                 <p class="contiu-signup-result-value">{{ $card['value'] }}</p>
                 <p class="contiu-signup-result-why">{{ $card['reason'] }}</p>

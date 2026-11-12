@@ -97,6 +97,8 @@ class RegisterAccount extends Register
                 ->hiddenHeader()
                 ->alpineSubmitHandler(self::takesPayment() ? "\$dispatch('contiu-signup-pay')" : '$wire.register()')
                 ->contained(false)
+                // Filament scrolls to the step in the header, which is hidden here: back to the top instead.
+                ->extraAlpineAttributes(['x-init' => "\$watch('step', () => window.scrollTo({ top: 0, behavior: 'smooth' }))"])
                 ->extraAttributes(['class' => 'contiu-signup-wizard']),
         ]);
     }
