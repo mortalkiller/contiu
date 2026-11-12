@@ -56,8 +56,9 @@ function registrationData(array $overrides = []): array
         'birth_date' => '1997-04-12',
         'irs_jovem' => 'yes',
         'irs_jovem_year_number' => 2,
-        'work_kind' => 'listed',
-        'profession' => '1332 · Programadores informáticos',
+        'activity_kind' => 'technology',
+        'occupation' => '1332',
+        'cae' => '62100',
         'expected_turnover' => 12000,
         'vat_answer' => 'exempt',
         'terms' => true,
@@ -328,7 +329,7 @@ it('creates an account on hold, without fiscal questions, when the activity is n
 
 it('creates an account with organised accounting, asking only the VAT', function () {
     Livewire::test(RegisterAccount::class)
-        ->fillForm(registrationData(['accounting_regime' => 'organised', 'organised_vat_answer' => 'exempt', 'situation' => null, 'work_kind' => null]))
+        ->fillForm(registrationData(['accounting_regime' => 'organised', 'organised_vat_answer' => 'exempt', 'situation' => null, 'activity_kind' => null]))
         ->assertSee('Passo 3 de 3')
         ->assertSee('Entras sem a parte dos impostos')
         ->call('register')
@@ -620,3 +621,34 @@ it('removes the Stripe customer when the account cannot be saved after subscribi
 
     expect(Account::where('nif', '501964843')->exists())->toBeFalse();
 })->group('integration');
+
+it('works out the coefficient from the occupation and keeps the CAE', function (string $kind, ?string $occupation, float $coefficient) {
+    registrationWizard(['activity_kind' => $kind, 'occupation' => $occupation, 'commercial_only' => 'no', 'cae' => '62100'])
+        ->call('register')
+        ->assertHasNoFormErrors();
+
+    $settings = registeredSettings();
+
+    expect($settings->irsCoefficient())->toBe($coefficient)
+        ->and($settings->cae())->toBe('62100');
+})->with([
+    'programmer, on the table' => ['technology', '1332', 0.75],
+    'a service not on the table' => ['other_services', 'other', 0.35],
+    'selling products' => ['goods', null, 0.15],
+])->group('integration');
+
+it('refuses a CAE that is not on the list and someone under 18', function () {
+    registrationWizard(['cae' => '12345', 'birth_date' => now()->subYears(17)->toDateString()])
+        ->call('register')
+        ->assertHasFormErrors(['cae', 'birth_date' => 'before_or_equal']);
+})->group('integration');
+
+it('keeps “Only self-employed” apart from a job or a pension in the browser', function () {
+    $html = Livewire::test(RegisterAccount::class)->html();
+
+    expect($html)->toContain("x-bind:disabled=\"(() => { const chosen = \$wire.get('data.situation') ?? []; return \$el.value === 'self_only'")
+        // Selling goods or food is the only case that asks whether the activity is only commercial.
+        ->and($html)->toContain("['goods', 'food_lodging'].includes(\$get('activity_kind'))")
+        // The CGA note shows only once the CGA is chosen.
+        ->and($html)->toContain("x-bind:class=\"{ 'fi-hidden': ! (\$get('employment_scheme') === 'cga') }\"");
+})->group('ui');

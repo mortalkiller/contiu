@@ -29,6 +29,7 @@ use Filament\Schemas\Components\View;
 use Filament\Schemas\Components\Wizard;
 use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\GridDirection;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
@@ -225,6 +226,7 @@ class RegisterAccount extends Register
                     ->required()
                     ->in(array_keys(AccountSubscription::PLANS))
                     ->columns(2)
+                    ->gridDirection(GridDirection::Row)
                     ->extraAttributes(['class' => 'fap-radio-cards']),
                 Group::make([
                     Text::make(__('Payment details'))->extraAttributes(['class' => 'contiu-signup-question']),

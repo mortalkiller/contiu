@@ -29,7 +29,8 @@ function openActivityAnswers(array $overrides = []): array
         'accounting_regime' => 'simplified',
         'situation' => ['self_only'],
         'birth_date' => '1985-02-01',
-        'work_kind' => 'listed',
+        'activity_kind' => 'design',
+        'occupation' => '1336',
         'expected_turnover' => 4000,
         'vat_answer' => 'unknown',
         ...$overrides,
@@ -92,7 +93,7 @@ it('only asks the VAT with organised accounting', function () {
     app(FinanceSettings::class)->set(['activity_opened' => false]);
 
     Livewire::test(OpenActivity::class)
-        ->fillForm(openActivityAnswers(['accounting_regime' => 'organised', 'organised_vat_answer' => 'normal', 'situation' => null, 'work_kind' => null]))
+        ->fillForm(openActivityAnswers(['accounting_regime' => 'organised', 'organised_vat_answer' => 'normal', 'situation' => null, 'activity_kind' => null]))
         ->call('save')
         ->assertHasNoFormErrors();
 

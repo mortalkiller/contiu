@@ -27,7 +27,7 @@ class CreateAccount
         'ss_rate', 'ss_exemption_reason', 'account_names', 'has_business_account',
         'activity_start_kind', 'previous_activity_ended_on', 'ss_enrolled_from', 'dependent_income_years',
         'irs_coefficient', 'irs_jovem', 'birth_date', 'irs_jovem_year', 'ss_contribution_exempt',
-        'reverse_charge_vat_rate', 'activity_opened', 'accounting_regime', 'sells_goods',
+        'reverse_charge_vat_rate', 'activity_opened', 'accounting_regime', 'sells_goods', 'cae',
     ];
 
     public function __construct(private SeedAccountDefaults $seedDefaults) {}

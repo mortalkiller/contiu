@@ -287,12 +287,23 @@
                 background: var(--primary-50);
                 box-shadow: inset 0 0 0 1px var(--primary-600);
             }
+
+            /* A card that does not go with the ones chosen ("Only self-employed" with a job). */
+            &:has(.fi-checkbox-input:disabled) {
+                opacity: 0.45;
+                cursor: not-allowed;
+            }
         }
     }
 
     & .fi-fo-radio.fap-radio-cards > .fi-fo-radio-label {
         padding: 1rem 1.125rem;
         border-radius: 0.875rem;
+    }
+
+    /* The cards of a row share its height; the text stays at the top instead of spreading. */
+    & .fi-fo-radio.fap-radio-cards .fi-fo-radio-label-text {
+        align-content: start;
     }
 
     & .contiu-signup-foot {

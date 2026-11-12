@@ -3,6 +3,7 @@
 namespace App\Filament\Support;
 
 use App\Enums\Language;
+use App\Support\ActivityCatalogue;
 use App\Support\Money;
 use App\Support\TaxProfileDeduction;
 use App\Support\YearlyParameter;
@@ -11,12 +12,14 @@ use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Radio;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Support\Enums\GridDirection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
@@ -31,10 +34,14 @@ final class SignupQuestions
     /** Situation cards: several can apply, except "only self-employed". */
     public const SITUATIONS = ['employment', 'pension', 'self_only'];
 
+    /** The youngest age that can open an activity on its own. */
+    public const MINIMUM_AGE = 18;
+
     /** "Já abriste atividade nas Finanças?" as two cards. */
     public static function activityOpened(): Radio
     {
         return Radio::make('activity_opened')
+            ->label(__('Have you opened your activity with the Tax Authority?'))
             ->hiddenLabel()
             ->options(['yes' => __('Yes, I have'), 'no' => __('Not yet')])
             ->descriptions([
@@ -44,6 +51,7 @@ final class SignupQuestions
             ->default('yes')
             ->required()
             ->columns(2)
+            ->gridDirection(GridDirection::Row)
             ->extraAttributes(['class' => 'fap-radio-cards']);
     }
 
@@ -124,6 +132,14 @@ final class SignupQuestions
                 ])
                 ->required()
                 ->columns(3)
+                ->gridDirection(GridDirection::Row)
+                // In the browser, "Only self-employed" and the other two disable each other, so the
+                // rule below never has to speak.
+                ->extraInputAttributes(fn (CheckboxList $component): array => [
+                    // The state path is letters and dots only: safe between single quotes in the attribute.
+                    'x-bind:disabled' => '(() => { const chosen = $wire.get(\''.$component->getStatePath().'\') ?? []; '
+                        .'return $el.value === \'self_only\' ? chosen.some((value) => value !== \'self_only\') : chosen.includes(\'self_only\') })()',
+                ])
                 ->rule(fn (): Closure => function (string $attribute, mixed $value, Closure $fail): void {
                     if (in_array('self_only', (array) $value, true) && count((array) $value) > 1) {
                         $fail(__('“Only self-employed” does not go with a job or a pension.'));
@@ -142,7 +158,7 @@ final class SignupQuestions
                         ->required(), $hasJob, $hasJobOnServer),
                     self::when(self::choice('employment_scheme', ['ss' => __('Social Security'), 'cga' => __('CGA')])
                         ->label(__('Where do your salary contributions go?'))
-                        ->belowLabel(__('With the CGA, the exemption has to be requested from Social Security.'))
+                        ->belowLabel(Text::make(__('With the CGA, the exemption has to be requested from Social Security.'))->visibleJs("\$get('employment_scheme') === 'cga'"))
                         ->default('ss')
                         ->required(), $hasJob, $hasJobOnServer),
                 ])->extraAttributes(['class' => 'contiu-signup-lines']),
@@ -153,19 +169,43 @@ final class SignupQuestions
                 Text::make(__('And your age?'))->extraAttributes(['class' => 'contiu-signup-question']),
                 Text::make(__('Up to 35 you can have IRS Jovem.'))->extraAttributes(['class' => 'contiu-signup-hint']),
                 Group::make([
+                    // Only an adult opens an activity on their own: the calendar ends 18 years ago.
                     self::date('birth_date')
                         ->label(__('Date of birth'))
-                        ->maxDate(today())
+                        ->belowLabel(__('The calendar only goes up to :age years ago.', ['age' => self::MINIMUM_AGE]))
+                        ->maxDate(today()->subYears(self::MINIMUM_AGE))
+                        ->defaultFocusedDate(today()->subYears(30))
+                        ->validationMessages(['before_or_equal' => __('You must be at least :age years old.', ['age' => self::MINIMUM_AGE])])
                         ->required(),
                     self::when(self::yesNo('irs_jovem')
                         ->label(__('Did you ask for IRS Jovem on your last IRS return?'))
                         ->required(), $young, $isYoung),
+                    self::when(TextInput::make('first_work_income_year')
+                        ->label(__('In which year did you first have work income?'))
+                        ->belowLabel(__('A salary or self-employed income, not counting the years you were your parents’ dependant.'))
+                        ->integer()
+                        ->minValue($year - 50)
+                        ->maxValue($year)
+                        ->extraInputAttributes(['inputmode' => 'numeric'])
+                        ->inlineLabel()
+                        ->afterStateUpdatedJs(self::irsJovemYearJs($year)), $irsJovem, $hasIrsJovem),
+                    self::when(TextInput::make('years_without_work_income')
+                        ->label(__('Since then, how many years without work income?'))
+                        ->belowLabel(__('Or as a dependant. Those years do not count.'))
+                        ->integer()
+                        ->minValue(0)
+                        ->maxValue(50)
+                        ->default(0)
+                        ->extraInputAttributes(['inputmode' => 'numeric'])
+                        ->inlineLabel()
+                        ->afterStateUpdatedJs(self::irsJovemYearJs($year)), $irsJovem, $hasIrsJovem),
                     self::when(TextInput::make('irs_jovem_year_number')
                         ->label(__('In :year, your year number is', ['year' => $year]))
-                        ->belowLabel(__('Count the years with work income.'))
+                        ->belowLabel(__('Worked out from the two answers above. Check it on your last IRS return.'))
                         ->integer()
                         ->minValue(1)
                         ->maxValue(10)
+                        ->validationMessages(['max' => __('IRS Jovem lasts 10 years: if yours are over, answer No above.')])
                         ->extraInputAttributes(['inputmode' => 'numeric'])
                         ->inlineLabel()
                         ->required(), $irsJovem, $hasIrsJovem),
@@ -175,47 +215,61 @@ final class SignupQuestions
     }
 
     /**
-     * "O que fazes?": the kind of work (coefficient), whether a sale of goods is only commercial
-     * (the sole trader's rate), the turnover expected until the end of the year and the VAT.
+     * "O que fazes?" as a small tree (ActivityCatalogue): the kind of activity, then the occupation
+     * of the art. 151.º table (which gives the IRS coefficient) and the CAE, both searched in lists
+     * the kind puts in order. Selling goods, restaurants and lodging have no occupation; they ask
+     * whether the activity is only commercial (the sole trader's rate). Then the turnover expected
+     * until the end of the year and the VAT.
      *
      * @return array<int, Component>
      */
     public static function work(): array
     {
         $year = (int) now()->year;
-        $goods = "\$get('work_kind') === 'goods'";
-        $sellsGoods = fn (Get $get): bool => $get('work_kind') === 'goods';
+        // Single quotes only: the expression goes inside an HTML attribute.
+        $goodsKinds = "['".implode("', '", array_keys(array_filter(ActivityCatalogue::KINDS, fn (array $kind): bool => $kind['goods'])))."']";
+        $goods = "{$goodsKinds}.includes(\$get('activity_kind'))";
+        $sellsGoods = fn (Get $get): bool => ActivityCatalogue::sellsGoods($get('activity_kind'));
+        $services = "!! \$get('activity_kind') && ! {$goods}";
+        $providesServices = fn (Get $get): bool => filled($get('activity_kind')) && ! $sellsGoods($get);
 
         return [
-            Radio::make('work_kind')
-                ->label(__('What do you do?'))
-                ->hiddenLabel()
-                ->options([
-                    'listed' => __('An occupation on the list'),
-                    'other' => __('Other services'),
-                    'goods' => __('I sell products'),
-                ])
-                ->descriptions([
-                    'listed' => __('Programmer, designer, consultant, architect…'),
-                    'other' => __('Services that are not on the list.'),
-                    'goods' => __('Shop, crafts, restaurants, lodging…'),
-                ])
+            Radio::make('activity_kind')
+                ->label(__('What kind of activity?'))
+                ->belowLabel(__('It orders the lists below. Selling products and restaurants do not ask for an occupation.'))
+                ->options(ActivityCatalogue::kindOptions())
+                ->descriptions(ActivityCatalogue::kindDescriptions())
+                // The occupations and CAE below are ordered by it: the server answers.
+                ->live()
                 ->required()
                 ->columns(3)
+                // Row by row, so the cards of a row line up at the same height.
+                ->gridDirection(GridDirection::Row)
                 ->extraAttributes(['class' => 'fap-radio-cards']),
-            TextInput::make('profession')
-                ->label(__('Your occupation'))
-                ->helperText(__('As in your activity declaration, with its code if you have it. Optional.'))
-                ->placeholder(__('1332 · Computer programmers'))
-                ->maxLength(120),
             Group::make([
+                self::when(Select::make('occupation')
+                    ->label(__('Your occupation'))
+                    ->belowLabel(__('As on the table of Article 151, the code of your activity declaration. Not on it? Choose the last option (1519). On the table the coefficient is 0.75; off it, 0.35.'))
+                    ->options(fn (Get $get): array => ActivityCatalogue::occupationOptions($get('activity_kind')))
+                    ->searchable()
+                    ->required(), $services, $providesServices),
                 self::when(self::yesNo('commercial_only')
                     ->label(__('Is your activity only commercial or industrial?'))
                     ->belowLabel(__('Then, as a sole trader, the Social Security rate is 25.2%. In Social Security Direct, under “Forma de atividade (taxa)”.'))
                     ->required(), $goods, $sellsGoods),
-            ])
-                ->visibleJs($goods)
-                ->extraAttributes(['class' => 'contiu-signup-lines']),
+                self::when(Select::make('cae')
+                    ->label(__('Your CAE'))
+                    ->belowLabel(__('Optional. Search by number or name; those of your kind of activity come first. It does not change the coefficient.'))
+                    ->searchable()
+                    ->options(fn (Get $get): array => ActivityCatalogue::searchCae('', $get('activity_kind'), limit: 30))
+                    ->getSearchResultsUsing(fn (string $search, Get $get): array => ActivityCatalogue::searchCae($search, $get('activity_kind')))
+                    ->getOptionLabelUsing(fn (?string $value): ?string => ActivityCatalogue::caeLabel($value))
+                    ->rule(fn (): Closure => function (string $attribute, mixed $value, Closure $fail): void {
+                        if (filled($value) && ! ActivityCatalogue::caeExists((string) $value)) {
+                            $fail(__('Choose a CAE from the list.'));
+                        }
+                    }), '!! $get(\'activity_kind\')', fn (Get $get): bool => filled($get('activity_kind'))),
+            ])->extraAttributes(['class' => 'contiu-signup-lines']),
             Group::make([
                 Text::make(__('How much do you expect to invoice in :year?', ['year' => $year]))->extraAttributes(['class' => 'contiu-signup-question']),
                 Text::make(__('Until the end of the year, only what you invoice in Portugal. It is for VAT.'))->extraAttributes(['class' => 'contiu-signup-hint']),
@@ -268,6 +322,13 @@ final class SignupQuestions
             $answers['expected_turnover'] = Money::toCents($state['expected_turnover'] ?? null);
         }
 
+        // The coefficient's kind of work and the occupation's name come from the activity tree.
+        if (array_key_exists('activity_kind', $state)) {
+            $occupation = isset($state['occupation']) ? (string) $state['occupation'] : null;
+            $answers['work_kind'] = ActivityCatalogue::workKind($state['activity_kind'], $occupation);
+            $answers['profession'] = ActivityCatalogue::sellsGoods($state['activity_kind']) ? null : ActivityCatalogue::occupationLabel($occupation);
+        }
+
         return $answers;
     }
 
@@ -285,7 +346,7 @@ final class SignupQuestions
         $name = trim((string) ($state['name'] ?? ''));
         $startedOn = $deduction->settings()['activity_started_on'] ?? null;
         $situation = $deduction->situation();
-        $profession = trim((string) ($state['profession'] ?? ''));
+        $profession = trim((string) (ActivityCatalogue::occupationLabel(isset($state['occupation']) ? (string) $state['occupation'] : null) ?? $state['profession'] ?? ''));
 
         return [
             'eyebrow' => $eyebrow,
@@ -312,6 +373,22 @@ final class SignupQuestions
             'dates' => $deduction->dates(),
             'canConfirmExemption' => $deduction->ssExemptionReason() !== null,
         ];
+    }
+
+    /**
+     * Fills the IRS Jovem year number in the browser (JOV004, JOV006): the years since the first one
+     * with work income, this one included, less the years without it or as a dependant. It stays
+     * editable: the IRS return has the exact number.
+     */
+    private static function irsJovemYearJs(int $year): string
+    {
+        return <<<JS
+            const first = parseInt(\$get('first_work_income_year'), 10);
+            const gaps = parseInt(\$get('years_without_work_income'), 10) || 0;
+            if (first > 0 && first <= {$year} && {$year} - first + 1 - gaps >= 1) {
+                \$set('irs_jovem_year_number', {$year} - first + 1 - gaps);
+            }
+            JS;
     }
 
     /**

@@ -1,0 +1,472 @@
+{
+ "source": "Portaria n.º 1011/2001, de 21 de agosto (tabela de atividades do artigo 151.º do CIRS), com as alterações das Portarias n.º 256/2004 e 23/2022 e da Lei n.º 53-A/2006, texto consolidado do Portal das Finanças",
+ "sections": {
+  "1": "Arquitectos, engenheiros e técnicos similares",
+  "2": "Artistas plásticos e assimilados, actores e músicos",
+  "3": "Artistas tauromáquicos",
+  "4": "Economistas, contabilistas, actuários e técnicos similares",
+  "5": "Enfermeiros, parteiras e outros técnicos paramédicos",
+  "6": "Juristas e solicitadores",
+  "7": "Médicos e dentistas",
+  "8": "Professores e técnicos similares",
+  "9": "Profissionais dependentes de nomeação oficial",
+  "10": "Psicólogos e sociólogos",
+  "11": "Químicos",
+  "12": "Sacerdotes",
+  "13": "Outras pessoas exercendo profissões liberais, técnicos e assimilados",
+  "14": "Veterinários",
+  "15": "Outras actividades exclusivamente de prestação de serviços"
+ },
+ "activities": [
+  {
+   "code": "1000",
+   "name": "Agentes técnicos de engenharia e arquitectura",
+   "section": 1
+  },
+  {
+   "code": "1001",
+   "name": "Arquitectos",
+   "section": 1
+  },
+  {
+   "code": "1002",
+   "name": "Desenhadores",
+   "section": 1
+  },
+  {
+   "code": "1003",
+   "name": "Engenheiros",
+   "section": 1
+  },
+  {
+   "code": "1004",
+   "name": "Engenheiros técnicos",
+   "section": 1
+  },
+  {
+   "code": "1005",
+   "name": "Geólogos",
+   "section": 1
+  },
+  {
+   "code": "1006",
+   "name": "Topógrafos",
+   "section": 1
+  },
+  {
+   "code": "2010",
+   "name": "Artistas de teatro, bailado, cinema, rádio e televisão",
+   "section": 2
+  },
+  {
+   "code": "2011",
+   "name": "Artistas de circo",
+   "section": 2
+  },
+  {
+   "code": "2019",
+   "name": "Cantores",
+   "section": 2
+  },
+  {
+   "code": "2012",
+   "name": "Escultores",
+   "section": 2
+  },
+  {
+   "code": "2013",
+   "name": "Músicos",
+   "section": 2
+  },
+  {
+   "code": "2014",
+   "name": "Pintores",
+   "section": 2
+  },
+  {
+   "code": "2015",
+   "name": "Outros artistas",
+   "section": 2
+  },
+  {
+   "code": "2016",
+   "name": "Mediador cultural e artístico",
+   "section": 2
+  },
+  {
+   "code": "2017",
+   "name": "Técnico de apoio à atividade cultural e artística",
+   "section": 2
+  },
+  {
+   "code": "3010",
+   "name": "Toureiros",
+   "section": 3
+  },
+  {
+   "code": "3019",
+   "name": "Outros artistas tauromáquicos",
+   "section": 3
+  },
+  {
+   "code": "4010",
+   "name": "Actuários",
+   "section": 4
+  },
+  {
+   "code": "4011",
+   "name": "Auditores",
+   "section": 4
+  },
+  {
+   "code": "4012",
+   "name": "Consultores fiscais",
+   "section": 4
+  },
+  {
+   "code": "4013",
+   "name": "Contabilistas",
+   "section": 4
+  },
+  {
+   "code": "4014",
+   "name": "Economistas",
+   "section": 4
+  },
+  {
+   "code": "4015",
+   "name": "Técnicos oficiais de contas",
+   "section": 4
+  },
+  {
+   "code": "4016",
+   "name": "Técnicos similares",
+   "section": 4
+  },
+  {
+   "code": "5010",
+   "name": "Enfermeiros",
+   "section": 5
+  },
+  {
+   "code": "5012",
+   "name": "Fisioterapeutas",
+   "section": 5
+  },
+  {
+   "code": "5013",
+   "name": "Nutricionistas",
+   "section": 5
+  },
+  {
+   "code": "5014",
+   "name": "Parteiras",
+   "section": 5
+  },
+  {
+   "code": "5015",
+   "name": "Terapeutas da fala",
+   "section": 5
+  },
+  {
+   "code": "5016",
+   "name": "Terapeutas ocupacionais",
+   "section": 5
+  },
+  {
+   "code": "5019",
+   "name": "Outros técnicos paramédicos",
+   "section": 5
+  },
+  {
+   "code": "6010",
+   "name": "Advogados",
+   "section": 6
+  },
+  {
+   "code": "6011",
+   "name": "Jurisconsultos",
+   "section": 6
+  },
+  {
+   "code": "6012",
+   "name": "Solicitadores",
+   "section": 6
+  },
+  {
+   "code": "7010",
+   "name": "Dentistas",
+   "section": 7
+  },
+  {
+   "code": "7011",
+   "name": "Médicos analistas",
+   "section": 7
+  },
+  {
+   "code": "7012",
+   "name": "Médicos cirurgiões",
+   "section": 7
+  },
+  {
+   "code": "7013",
+   "name": "Médicos de bordo em navios",
+   "section": 7
+  },
+  {
+   "code": "7014",
+   "name": "Médicos de clínica geral",
+   "section": 7
+  },
+  {
+   "code": "7015",
+   "name": "Médicos dentistas",
+   "section": 7
+  },
+  {
+   "code": "7016",
+   "name": "Médicos estomatologistas",
+   "section": 7
+  },
+  {
+   "code": "7017",
+   "name": "Médicos fisiatras",
+   "section": 7
+  },
+  {
+   "code": "7018",
+   "name": "Médicos gastroenterologistas",
+   "section": 7
+  },
+  {
+   "code": "7019",
+   "name": "Médicos oftalmologistas",
+   "section": 7
+  },
+  {
+   "code": "7020",
+   "name": "Médicos ortopedistas",
+   "section": 7
+  },
+  {
+   "code": "7021",
+   "name": "Médicos otorrinolaringologistas",
+   "section": 7
+  },
+  {
+   "code": "7022",
+   "name": "Médicos pediatras",
+   "section": 7
+  },
+  {
+   "code": "7023",
+   "name": "Médicos radiologistas",
+   "section": 7
+  },
+  {
+   "code": "7024",
+   "name": "Médicos de outras especialidades",
+   "section": 7
+  },
+  {
+   "code": "8010",
+   "name": "Explicadores",
+   "section": 8
+  },
+  {
+   "code": "8011",
+   "name": "Formadores",
+   "section": 8
+  },
+  {
+   "code": "8012",
+   "name": "Professores",
+   "section": 8
+  },
+  {
+   "code": "8013",
+   "name": "Professores ou educadores artísticos",
+   "section": 8
+  },
+  {
+   "code": "9010",
+   "name": "Revisores oficiais de contas",
+   "section": 9
+  },
+  {
+   "code": "9011",
+   "name": "Notários",
+   "section": 9
+  },
+  {
+   "code": "1010",
+   "name": "Psicólogos",
+   "section": 10
+  },
+  {
+   "code": "1011",
+   "name": "Sociólogos",
+   "section": 10
+  },
+  {
+   "code": "1110",
+   "name": "Analistas",
+   "section": 11
+  },
+  {
+   "code": "1210",
+   "name": "Sacerdotes de qualquer religião",
+   "section": 12
+  },
+  {
+   "code": "1310",
+   "name": "Administradores de bens",
+   "section": 13
+  },
+  {
+   "code": "1311",
+   "name": "Ajudantes familiares",
+   "section": 13
+  },
+  {
+   "code": "1312",
+   "name": "Amas",
+   "section": 13
+  },
+  {
+   "code": "1313",
+   "name": "Analistas de sistemas",
+   "section": 13
+  },
+  {
+   "code": "1314",
+   "name": "Arqueólogos",
+   "section": 13
+  },
+  {
+   "code": "1315",
+   "name": "Assistentes sociais",
+   "section": 13
+  },
+  {
+   "code": "1316",
+   "name": "Astrólogos",
+   "section": 13
+  },
+  {
+   "code": "1317",
+   "name": "Parapsicólogos",
+   "section": 13
+  },
+  {
+   "code": "1318",
+   "name": "Biólogos",
+   "section": 13
+  },
+  {
+   "code": "1319",
+   "name": "Comissionistas",
+   "section": 13
+  },
+  {
+   "code": "1320",
+   "name": "Consultores",
+   "section": 13
+  },
+  {
+   "code": "1321",
+   "name": "Dactilógrafos",
+   "section": 13
+  },
+  {
+   "code": "1322",
+   "name": "Decoradores",
+   "section": 13
+  },
+  {
+   "code": "1323",
+   "name": "Desportistas",
+   "section": 13
+  },
+  {
+   "code": "1324",
+   "name": "Engomadores",
+   "section": 13
+  },
+  {
+   "code": "1325",
+   "name": "Esteticistas, manicuras e pedicuras",
+   "section": 13
+  },
+  {
+   "code": "1326",
+   "name": "Guias-intérpretes",
+   "section": 13
+  },
+  {
+   "code": "1327",
+   "name": "Jornalistas e repórteres",
+   "section": 13
+  },
+  {
+   "code": "1328",
+   "name": "Louvados",
+   "section": 13
+  },
+  {
+   "code": "1329",
+   "name": "Massagistas",
+   "section": 13
+  },
+  {
+   "code": "1330",
+   "name": "Mediadores imobiliários",
+   "section": 13
+  },
+  {
+   "code": "1331",
+   "name": "Peritos-avaliadores",
+   "section": 13
+  },
+  {
+   "code": "1332",
+   "name": "Programadores informáticos",
+   "section": 13
+  },
+  {
+   "code": "1333",
+   "name": "Publicitários",
+   "section": 13
+  },
+  {
+   "code": "1334",
+   "name": "Tradutores",
+   "section": 13
+  },
+  {
+   "code": "1335",
+   "name": "Farmacêuticos",
+   "section": 13
+  },
+  {
+   "code": "1336",
+   "name": "Designers",
+   "section": 13
+  },
+  {
+   "code": "1337",
+   "name": "Conservador-restaurador",
+   "section": 13
+  },
+  {
+   "code": "1410",
+   "name": "Veterinários",
+   "section": 14
+  },
+  {
+   "code": "1519",
+   "name": "Outros prestadores de serviços",
+   "section": 15
+  }
+ ]
+}

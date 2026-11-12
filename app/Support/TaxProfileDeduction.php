@@ -89,6 +89,7 @@ final class TaxProfileDeduction
             'ss_enrolled_from' => $restart ? $this->date('ss_enrolled_from')?->toDateString() : null,
             'vat_exempt' => (bool) $this->vatExempt(),
             'vat_exemption_threshold' => YearlyParameter::vatExemptionLimit($this->year()),
+            'cae' => filled($this->answer('cae')) ? (string) $this->answer('cae') : null,
         ];
 
         if ($this->path() === 'organised') {
