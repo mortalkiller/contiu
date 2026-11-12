@@ -36,6 +36,16 @@ return [
     ],
 
     /*
+     * The certified-accountant service (App\Support\AccountantService), monthly: 30 € with VAT in
+     * the simplified regime, 50 € with organised accounting. The Stripe prices are without VAT
+     * (24,39 € and 40,65 €), the stripe_tax_rate adding it as for the plans.
+     */
+    'accountant_prices' => [
+        'simplified' => env('STRIPE_PRICE_ACCOUNTANT_SIMPLIFIED'),
+        'organised' => env('STRIPE_PRICE_ACCOUNTANT_ORGANISED'),
+    ],
+
+    /*
      * Fiscal values that change every year, keyed by the year they apply to. Read them through
      * App\Support\YearlyParameter. Sources: docs/fiscal/memoria-fiscal-ti-eni-portugal-2026.md
      * (rule IDs in brackets). Amounts in cents.

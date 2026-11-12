@@ -368,6 +368,108 @@
         &[data-tone='later'] {
             color: var(--gray-600);
         }
+
+        & li:has(.contiu-signup-list-check) {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.625rem;
+        }
+    }
+
+    & .contiu-signup-list-check {
+        flex: none;
+        width: 1.125rem;
+        height: 1.125rem;
+        margin-top: 0.125rem;
+        color: var(--primary-600);
+    }
+
+    /* Payment with the certified accountant: what is charged today and on the first charge. */
+    & .contiu-signup-charges {
+        display: flex;
+        flex-direction: column;
+        margin-top: 0.875rem;
+        padding: 0.25rem 1.25rem;
+        border: 1px solid var(--gray-200);
+        border-radius: 0.875rem;
+
+        & > div {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            padding-block: 0.875rem;
+            font-size: 0.9375rem;
+            line-height: 1.375rem;
+            color: var(--gray-950);
+        }
+
+        & > div + div {
+            border-top: 1px solid var(--gray-200);
+        }
+
+        & small {
+            display: block;
+            font-size: 0.8125rem;
+            line-height: 1.125rem;
+            color: var(--gray-600);
+        }
+
+        & b {
+            font-weight: 600;
+            white-space: nowrap;
+        }
+    }
+
+    & .contiu-signup-charges-total {
+        font-weight: 600;
+    }
+
+    /* Certified accountant: what it includes (a list) and how it works (three numbered cards). */
+    & .contiu-signup-stack > .contiu-signup-block {
+        display: flex;
+        flex-direction: column;
+        gap: 0.875rem;
+    }
+
+    & .contiu-signup-howto {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.75rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        counter-reset: contiu-howto;
+
+        & li {
+            display: flex;
+            flex-direction: column;
+            gap: 0.375rem;
+            padding: 1rem;
+            border-radius: 0.875rem;
+            background: var(--gray-50);
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+            color: var(--gray-600);
+            counter-increment: contiu-howto;
+        }
+
+        & li::before {
+            content: counter(contiu-howto);
+            display: grid;
+            place-items: center;
+            width: 1.625rem;
+            height: 1.625rem;
+            border-radius: 50%;
+            background: white;
+            color: var(--primary-700);
+            font-size: 0.8125rem;
+            font-weight: 600;
+        }
+
+        & b {
+            font-weight: 600;
+            color: var(--gray-950);
+        }
     }
 
     /* Tax profile, as a tax card with one seal per tax (the "P5" mock). */
@@ -774,6 +876,37 @@
         border-color: transparent;
     }
 
+    & .contiu-signup-howto li {
+        background: rgb(255 255 255 / 0.05);
+        color: var(--gray-400);
+    }
+
+    & .contiu-signup-howto li::before {
+        background: var(--gray-950);
+        color: var(--primary-300);
+    }
+
+    & .contiu-signup-howto b {
+        color: white;
+    }
+
+    & .contiu-signup-charges,
+    & .contiu-signup-charges > div + div {
+        border-color: rgb(255 255 255 / 0.1);
+    }
+
+    & .contiu-signup-charges > div {
+        color: white;
+    }
+
+    & .contiu-signup-charges small {
+        color: var(--gray-400);
+    }
+
+    & .contiu-signup-list-check {
+        color: var(--primary-400);
+    }
+
     & .contiu-signup-card {
         box-shadow: 0 0 0 1px rgb(255 255 255 / 0.1);
     }
@@ -846,7 +979,8 @@
 
         & .contiu-signup-cols,
         & .contiu-signup-card-row,
-        & .contiu-signup-seals {
+        & .contiu-signup-seals,
+        & .contiu-signup-howto {
             grid-template-columns: minmax(0, 1fr);
         }
 

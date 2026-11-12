@@ -3,6 +3,7 @@
 namespace App\Support\MailPreviews;
 
 use App\Filament\Pages\AccountSubscription;
+use App\Mail\AccountantServiceRequested;
 use App\Mail\ClientStatementEmail;
 use App\Mail\PaymentReminder;
 use App\Mail\SubscriptionPaid;
@@ -44,6 +45,7 @@ final class MailPreviewRegistry
             'payment-reminder' => 'Payment reminder (to a client)',
             'client-statement' => 'Account statement (to a client)',
             'subscription-paid' => 'Subscription paid (to super admins)',
+            'accountant-service-requested' => 'Certified accountant requested (to super admins)',
         ];
     }
 
@@ -96,6 +98,7 @@ final class MailPreviewRegistry
                 'payment-reminder' => $this->mailable($template, $locale, $account, new PaymentReminder($client = $this->client(), __('Payment reminder — :name', ['name' => $client->name]), __('Hello :name,', ['name' => $client->name])."\n\n".__('Please find below the amounts still open.'))),
                 'client-statement' => $this->mailable($template, $locale, $account, new ClientStatementEmail(new ClientStatement($client = $this->client()), __('Account statement — :name', ['name' => $client->name]), __('Hello :name,', ['name' => $client->name])."\n\n".__('Your account statement is attached.'))),
                 'subscription-paid' => $this->mailable($template, $locale, $account, new SubscriptionPaid($this->subscriptionPayment($account))),
+                'accountant-service-requested' => $this->mailable($template, $locale, $account, new AccountantServiceRequested($account->forceFill(['accountant_service' => $account->accountant_service ?? 'simplified']))),
                 default => throw new InvalidArgumentException("Unknown mail preview [{$template}]."),
             });
         } finally {

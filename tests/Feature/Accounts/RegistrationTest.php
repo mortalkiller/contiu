@@ -4,6 +4,7 @@ use App\Actions\CreateAccount;
 use App\Actions\StartSignupSubscription;
 use App\Filament\Pages\Auth\RegisterAccount;
 use App\Filament\Pages\Dashboard;
+use App\Mail\AccountantServiceRequested;
 use App\Models\Account;
 use App\Models\Category;
 use App\Models\FiscalProfile;
@@ -16,6 +17,7 @@ use Filament\Auth\Notifications\VerifyEmail;
 use Filament\Facades\Filament;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 
@@ -259,7 +261,7 @@ it('says where to find each fiscal answer', function () {
 it('sums up the tax answers before creating the account', function () {
     registrationWizard()
         ->goToWizardStep(5)
-        ->assertSee('Passo 5 de 5')
+        ->assertSee('Passo 5 de 6')
         ->assertSee('O teu cartão fiscal')
         ->assertSee('1332 · Programadores informáticos · Também com emprego')
         ->assertSee('03/2026')
@@ -312,7 +314,7 @@ it('stores no VAT limit when the account is not VAT exempt', function () {
 it('creates an account on hold, without fiscal questions, when the activity is not opened yet', function () {
     Livewire::test(RegisterAccount::class)
         ->fillForm(waitingRegistrationData())
-        ->assertSee('Passo 3 de 3')
+        ->assertSee('Passo 3 de 4')
         ->assertSee('Guardamos a conta à espera')
         ->assertSee('Os 14 dias grátis começam hoje, com o que já podes usar.')
         ->assertDontSee('Como é o teu 2026?')
@@ -332,7 +334,7 @@ it('creates an account on hold, without fiscal questions, when the activity is n
 it('creates an account with organised accounting, asking only the VAT', function () {
     Livewire::test(RegisterAccount::class)
         ->fillForm(registrationData(['accounting_regime' => 'organised', 'organised_vat_answer' => 'exempt', 'situation' => null, 'activity_kind' => null]))
-        ->assertSee('Passo 3 de 3')
+        ->assertSee('Passo 3 de 4')
         ->assertSee('Entras sem a parte dos impostos')
         ->call('register')
         ->assertHasNoFormErrors();
@@ -355,12 +357,12 @@ it('counts the steps of each path, with and without the payment step', function 
         ->assertSee($payment ? 'Começa com 14 dias grátis' : 'Criar conta')
         ->assertDontSee($payment ? 'Criar conta</span>' : 'Começa com 14 dias grátis', escape: false);
 })->with([
-    'activity open, no payment' => [false, ['activity_opened' => 'yes'], 'Passo 1 de 5'],
-    'on hold, no payment' => [false, ['activity_opened' => 'no'], 'Passo 1 de 3'],
-    'organised, no payment' => [false, ['activity_opened' => 'yes', 'accounting_regime' => 'organised'], 'Passo 1 de 3'],
-    'activity open, with payment' => [true, ['activity_opened' => 'yes'], 'Passo 6 de 6'],
-    'on hold, with payment' => [true, ['activity_opened' => 'no'], 'Passo 4 de 4'],
-    'organised, with payment' => [true, ['activity_opened' => 'yes', 'accounting_regime' => 'organised'], 'Passo 4 de 4'],
+    'activity open, no payment' => [false, ['activity_opened' => 'yes'], 'Passo 1 de 6'],
+    'on hold, no payment' => [false, ['activity_opened' => 'no'], 'Passo 1 de 4'],
+    'organised, no payment' => [false, ['activity_opened' => 'yes', 'accounting_regime' => 'organised'], 'Passo 1 de 4'],
+    'activity open, with payment' => [true, ['activity_opened' => 'yes'], 'Passo 7 de 7'],
+    'on hold, with payment' => [true, ['activity_opened' => 'no'], 'Passo 5 de 5'],
+    'organised, with payment' => [true, ['activity_opened' => 'yes', 'accounting_regime' => 'organised'], 'Passo 5 de 5'],
 ])->group('integration');
 
 it('starts the trial without a card and never calls Stripe while the payment step is off', function () {
@@ -391,11 +393,12 @@ it('subscribes the new account to the chosen plan with the card from Stripe', fu
     $this->mock(StartSignupSubscription::class)
         ->shouldReceive('handle')
         ->once()
-        ->withArgs(fn (Account $account, string $plan, string $paymentMethod, array $address): bool => $account->nif === '501964843'
+        ->withArgs(fn (Account $account, string $plan, string $paymentMethod, array $address, ?string $accountant): bool => $account->nif === '501964843'
             && $account->trial_ends_at->toDateString() === '2026-11-22'
             && $plan === 'monthly'
             && $paymentMethod === 'pm_card_visa'
-            && $address === ['line1' => 'Rua do Porto 15, 2.º', 'postal_code' => '4050-123', 'city' => 'Porto']);
+            && $address === ['line1' => 'Rua do Porto 15, 2.º', 'postal_code' => '4050-123', 'city' => 'Porto']
+            && $accountant === 'simplified');
 
     registrationWizard([
         'plan' => 'monthly',
@@ -583,8 +586,8 @@ it('records the optional consent to news by email, off by default', function (?b
 it('says what will be charged, VAT included, before starting the trial', function () {
     config(['contiu.signup_payment' => true]);
 
-    registrationWizard()
-        ->goToWizardStep(6)
+    registrationWizard(['accountant' => 'none'])
+        ->goToWizardStep(7)
         ->assertSee('autorizas a cobrança do plano escolhido a 22/11/2026')
         ->assertSee(Money::format(6642))
         ->assertSee(Money::format(615))
@@ -685,4 +688,64 @@ it('keeps “Only self-employed” apart from a job or a pension in the browser'
         ->and($html)->toContain("['goods', 'food_lodging'].includes(\$get('activity_kind'))")
         // The CGA note shows only once the CGA is chosen.
         ->and($html)->toContain("x-bind:class=\"{ 'fi-hidden': ! (\$get('employment_scheme') === 'cga') }\"");
+})->group('ui');
+
+it('asks about Contiu’s certified accountant on every path, Yes by default, and tells the super admins', function (string $path, string $title, string $plan, int $price) {
+    Mail::fake();
+    $admin = superAdminOf(Account::factory()->create());
+
+    $data = match ($path) {
+        'waiting' => waitingRegistrationData(),
+        'organised' => registrationData(['accounting_regime' => 'organised', 'organised_vat_answer' => 'exempt', 'situation' => null, 'activity_kind' => null]),
+        default => registrationData(),
+    };
+
+    Livewire::test(RegisterAccount::class)
+        ->fillForm($data)
+        ->assertSee($title)
+        ->assertSee(Money::format($price).' por mês, IVA incluído')
+        ->assertFormSet(['accountant' => 'contiu'])
+        ->call('register')
+        ->assertHasNoFormErrors();
+
+    $account = Account::firstWhere('nif', '501964843');
+
+    expect($account->accountant_service)->toBe($plan)
+        ->and($account->accountant_service_requested_at)->not->toBeNull();
+    Mail::assertQueued(AccountantServiceRequested::class, fn (AccountantServiceRequested $mail): bool => $mail->hasTo($admin->email));
+})->with([
+    'simplified regime' => ['simplified', 'Queres que um contabilista certificado trate das tuas declarações?', 'simplified', 3000],
+    'activity not opened yet' => ['waiting', 'Ajuda a abrir a atividade nas Finanças', 'simplified', 3000],
+    'organised accounting' => ['organised', 'Com contabilidade organizada, precisas de um contabilista certificado', 'organised', 5000],
+])->group('integration');
+
+it('records no accountant when the user handles it or already has one', function (array $answers) {
+    Mail::fake();
+
+    registrationWizard($answers)
+        ->call('register')
+        ->assertHasNoFormErrors();
+
+    expect(Account::firstWhere('nif', '501964843')->accountant_service)->toBeNull();
+    Mail::assertNothingQueued();
+})->with([
+    'handles it' => [['accountant' => 'none']],
+    'has their own, organised accounting' => [['accounting_regime' => 'organised', 'organised_vat_answer' => 'exempt', 'situation' => null, 'activity_kind' => null, 'accountant' => 'own']],
+])->group('integration');
+
+it('refuses an answer about the accountant that is not one of the path’s', function () {
+    registrationWizard(['accountant' => 'own'])
+        ->call('register')
+        ->assertHasFormErrors(['accountant' => 'in']);
+})->group('integration');
+
+it('adds the accountant to what will be charged on the payment step', function () {
+    config(['contiu.signup_payment' => true]);
+
+    registrationWizard()
+        ->goToWizardStep(7)
+        ->assertSee('O que vais pagar')
+        // The yearly plan (66,42 €) and the accountant (30,00 €) on the first charge.
+        ->assertSee(Money::format(9642))
+        ->assertSee('mais '.Money::format(3000).' por mês pelo contabilista');
 })->group('ui');

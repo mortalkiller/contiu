@@ -11,6 +11,7 @@ use App\Filament\Support\SignupQuestions;
 use App\Models\Account;
 use App\Models\User;
 use App\Rules\PortugueseNif;
+use App\Support\AccountantService;
 use App\Support\CurrentAccount;
 use App\Support\Money;
 use App\Support\TaxProfileDeduction;
@@ -52,8 +53,9 @@ use Throwable;
  *   "Já abri atividade" on the dashboard, OpenActivity);
  * - organised accounting: account, activity, no taxes (only the VAT).
  *
- * With contiu.signup_payment on, each path ends with the plan and the card (Stripe's Payment
- * Element). The user and the account are created together (CreateAccount: owner, trial, fiscal
+ * Every path then asks about Contiu's certified accountant (AccountantService), an extra
+ * monthly service; organised accounting needs one, so it asks whose. With contiu.signup_payment
+ * on, each path ends with the plan and the card (Stripe's Payment Element). The user and the account are created together (CreateAccount: owner, trial, fiscal
  * settings, base categories); Filament then sends the verification email.
  */
 class RegisterAccount extends Register
@@ -71,6 +73,7 @@ class RegisterAccount extends Register
         'profile' => 'Tax profile',
         'waiting' => 'Account on hold',
         'organised' => 'No taxes',
+        'accountant' => 'Accountant',
         'payment' => 'Payment',
     ];
 
@@ -122,7 +125,7 @@ class RegisterAccount extends Register
             default => ['account', 'activity', 'situation', 'work', 'profile'],
         };
 
-        return self::takesPayment() ? [...$steps, 'payment'] : $steps;
+        return self::takesPayment() ? [...$steps, 'accountant', 'payment'] : [...$steps, 'accountant'];
     }
 
     /** What the answers given so far lead to. */
@@ -212,6 +215,26 @@ class RegisterAccount extends Register
                     ->viewData(fn (): array => ['notice' => $this->trialNotice(waiting: false)]),
             ]),
 
+            $this->step('accountant', [
+                Radio::make('accountant')
+                    ->label(__('Certified accountant'))
+                    ->hiddenLabel()
+                    ->options(fn (): array => $this->accountantOptions())
+                    ->descriptions(fn (): array => $this->accountantDescriptions())
+                    ->default('contiu')
+                    ->required()
+                    ->in(fn (): array => array_keys($this->accountantOptions()))
+                    ->columns(2)
+                    ->gridDirection(GridDirection::Row)
+                    ->extraAttributes(['class' => 'fap-radio-cards']),
+                // Whoever already has one says No: the invitation is in Subscription, at no cost.
+                Text::make(__('Already have an accountant? Invite them to your Contiu in Subscription and accountants, at no extra cost.'))
+                    ->visible(fn (): bool => $this->deduction()->path() !== 'organised')
+                    ->extraAttributes(['class' => 'contiu-signup-hint']),
+                View::make('filament.pages.auth.partials.signup-accountant')
+                    ->viewData(fn (): array => $this->accountantData()),
+            ]),
+
             $this->step('payment', [
                 Radio::make('plan')
                     ->label(__('Plan'))
@@ -230,6 +253,9 @@ class RegisterAccount extends Register
                     ->columns(2)
                     ->gridDirection(GridDirection::Row)
                     ->extraAttributes(['class' => 'fap-radio-cards']),
+                View::make('filament.pages.auth.partials.signup-charges')
+                    ->visible(fn (): bool => $this->accountantPlan() !== null)
+                    ->viewData(fn (): array => $this->chargesData()),
                 Group::make([
                     Text::make(__('Payment details'))->extraAttributes(['class' => 'contiu-signup-question']),
                     View::make('filament.pages.auth.partials.signup-payment-element')
@@ -306,18 +332,117 @@ class RegisterAccount extends Register
      */
     private function renewalNotice(): string
     {
-        return __('By pressing “:button”, you authorise the charge of the chosen plan on :date (:yearly a year or :monthly a month, VAT included) and then at each renewal, until you cancel in Subscription. We email you 3 days before the first charge.', [
+        $replacements = [
             'button' => __('Start :days free days', ['days' => config('contiu.trial_days')]),
             'date' => $this->trialEndsOn(),
             'yearly' => Money::format(AccountSubscription::priceWithVat('yearly')),
             'monthly' => Money::format(AccountSubscription::priceWithVat('monthly')),
+        ];
+
+        if (($accountant = $this->accountantPlan()) !== null) {
+            return __('By pressing “:button”, you authorise the charge of the chosen plan and of the certified accountant on :date (:yearly a year or :monthly a month, plus :accountant a month for the accountant, VAT included) and then at each renewal, until you cancel in Subscription. We email you 3 days before the first charge.', [
+                ...$replacements,
+                'accountant' => Money::format(AccountantService::priceWithVat($accountant)),
+            ]);
+        }
+
+        return __('By pressing “:button”, you authorise the charge of the chosen plan on :date (:yearly a year or :monthly a month, VAT included) and then at each renewal, until you cancel in Subscription. We email you 3 days before the first charge.', $replacements);
+    }
+
+    /**
+     * The certified-accountant service the answers chose (AccountantService plan), or null when the
+     * account does not want Contiu's: organised accounting has its own price.
+     */
+    public function accountantPlan(): ?string
+    {
+        if (($this->data['accountant'] ?? null) !== 'contiu') {
+            return null;
+        }
+
+        return AccountantService::planFor($this->deduction()->path() === 'organised' ? 'organised' : null);
+    }
+
+    /** @return array<string, string> */
+    private function accountantOptions(): array
+    {
+        return $this->deduction()->path() === 'organised'
+            ? ['contiu' => __('I want Contiu’s accountant'), 'own' => __('I already have an accountant')]
+            : ['contiu' => __('Yes, I want Contiu’s'), 'none' => __('No, I will handle it')];
+    }
+
+    /** @return array<string, string> */
+    private function accountantDescriptions(): array
+    {
+        $plan = AccountantService::planFor($this->deduction()->path() === 'organised' ? 'organised' : null);
+        $price = __(':amount a month, VAT included (:net + VAT). Only after the :days free days.', [
+            'amount' => Money::format(AccountantService::priceWithVat($plan)),
+            'net' => Money::format(AccountantService::PLANS[$plan]['amount']),
+            'days' => config('contiu.trial_days'),
         ]);
+
+        return $plan === 'organised'
+            ? ['contiu' => $price, 'own' => __('Invite them to your Contiu in Subscription and accountants: they see your invoices and expenses, at no extra cost.')]
+            : ['contiu' => $price, 'none' => __('Contiu reminds you of every deadline. You can add the accountant later, in Subscription.')];
+    }
+
+    /**
+     * What Contiu's certified accountant does, by path: organised accounting adds the accounts and
+     * the IES; an account on hold, the help to open the activity.
+     *
+     * @return array<string, mixed>
+     */
+    private function accountantData(): array
+    {
+        $path = $this->deduction()->path();
+
+        return [
+            'includesTitle' => __('What Contiu’s accountant includes'),
+            'includes' => array_values(array_filter([
+                __('A certified accountant just for you, who knows your activity'),
+                $path === 'waiting' ? __('Help to open your activity with the Tax Authority') : null,
+                __('The periodic VAT returns'),
+                __('The Social Security quarterly declaration'),
+                __('The IRS return, with the activity annex'),
+                $path === 'organised' ? __('The organised accounts and the yearly accounting and tax information return (IES)') : null,
+                __('Support all year round: ask them whatever you need'),
+            ])),
+            'steps' => [
+                [__('You choose now'), __('You pay nothing in the :days free days, not even for the accountant.', ['days' => config('contiu.trial_days')])],
+                [__('We introduce the accountant'), __('A certified accountant from a Contiu partner joins your account, with accountant access.')],
+                [__('They handle it with you'), __('From :date it is charged with your subscription. Cancel whenever you like, in Subscription.', ['date' => $this->trialEndsOn()])],
+            ],
+            'notice' => $path === 'organised'
+                ? __('If no accountant is registered for you with the Tax Authority yet, they handle the appointment. Until then, Contiu works as today: invoices, expenses and cash.')
+                : null,
+        ];
+    }
+
+    /**
+     * "O que vais pagar" on the payment step when the accountant is chosen: today, the plan (as
+     * chosen in the browser), the accountant and the total of the first charge.
+     *
+     * @return array<string, mixed>
+     */
+    private function chargesData(): array
+    {
+        $accountant = AccountantService::priceWithVat((string) $this->accountantPlan());
+
+        return [
+            'chargedOn' => $this->trialEndsOn(),
+            'accountant' => $accountant,
+            'accountantNet' => AccountantService::PLANS[(string) $this->accountantPlan()]['amount'],
+            'plans' => collect(AccountSubscription::PLANS)->map(fn (array $plan, string $key): array => [
+                'label' => __($plan['label']),
+                'amount' => AccountSubscription::priceWithVat($key),
+                'renews' => $key === 'yearly' ? __('Then once a year') : __('Then every month'),
+            ])->all(),
+        ];
     }
 
     /** The terms go on the last step of every path. */
     private function isLastStep(string $name): bool
     {
-        return self::takesPayment() ? $name === 'payment' : in_array($name, ['profile', 'waiting', 'organised'], true);
+        return $name === (self::takesPayment() ? 'payment' : 'accountant');
     }
 
     private function termsField(): Checkbox
@@ -389,12 +514,15 @@ class RegisterAccount extends Register
     {
         $chargedOn = $this->trialEndsOn();
 
-        return ['title' => __('Your plan'), 'empty' => null, 'plans' => collect(AccountSubscription::PLANS)->map(fn (array $plan, string $key): array => [
+        $accountant = ($plan = $this->accountantPlan()) !== null ? AccountantService::priceWithVat($plan) : 0;
+
+        return ['title' => __('Your plan'), 'empty' => null, 'plans' => collect(AccountSubscription::PLANS)->map(fn (array $plan, string $key): array => array_values(array_filter([
             ['label' => __('Plan'), 'value' => __($plan['label']), 'new' => false],
             ['label' => __('Today'), 'value' => Money::format(0), 'new' => true],
-            ['label' => __('On :date', ['date' => $chargedOn]), 'value' => Money::format(AccountSubscription::priceWithVat($key)), 'new' => false],
+            ['label' => __('On :date', ['date' => $chargedOn]), 'value' => Money::format(AccountSubscription::priceWithVat($key) + $accountant), 'new' => false],
+            $accountant > 0 ? ['label' => __('Accountant'), 'value' => __(':amount a month', ['amount' => Money::format($accountant)]), 'new' => true] : null,
             ['label' => __('Renews'), 'value' => $key === 'yearly' ? __('Every year') : __('Every month'), 'new' => false],
-        ])->all(), 'items' => []];
+        ])))->all(), 'items' => []];
     }
 
     /** @return array{eyebrow: string, title: string, lede: ?string, hidden: bool} */
@@ -412,6 +540,9 @@ class RegisterAccount extends Register
             'profile' => ['', null],
             'waiting' => [__('We keep your account on hold'), __('You have not opened your activity yet, so we ask nothing about taxes. When you do, press “I have opened my activity” and answer the rest in two minutes.')],
             'organised' => [__('You come in without the tax part'), __('Contiu does not work out taxes with organised accounting yet. Everything else works, and we let you know when that part is ready.')],
+            'accountant' => $this->deduction()->path() === 'organised'
+                ? [__('With organised accounting, you need a certified accountant'), __('They keep the accounts and sign the returns. You can have Contiu’s or bring your own.')]
+                : [__('Do you want a certified accountant to handle your returns?'), __('Contiu tells you what to pay and when. If you would rather someone did it for you, add Contiu’s certified accountant to your subscription.')],
             'payment' => [__('Start with :days free days', ['days' => config('contiu.trial_days')]), __('You pay nothing today. The first charge is on :date and you can cancel before then.', ['date' => $this->trialEndsOn()])],
         };
 
@@ -519,6 +650,12 @@ class RegisterAccount extends Register
                 CurrentAccount::run($account, fn () => app(ConfirmFiscalProfile::class)->handle($user, $confirmation));
             }
 
+            // Contiu's certified accountant: recorded for the partner to be introduced; with the
+            // payment step, also its own Stripe subscription (startSubscription).
+            if (($data['accountant'] ?? null) === 'contiu') {
+                AccountantService::request($account, AccountantService::planFor($deduction->path() === 'organised' ? 'organised' : null));
+            }
+
             if (self::takesPayment()) {
                 $this->startSubscription($account, $data, $stripeCustomer);
             }
@@ -535,7 +672,7 @@ class RegisterAccount extends Register
                 'line1' => $data['billing_address'],
                 'postal_code' => $data['billing_postal_code'],
                 'city' => $data['billing_city'],
-            ]);
+            ], accountant: $account->accountant_service);
         } catch (ApiErrorException $exception) {
             report($exception);
 

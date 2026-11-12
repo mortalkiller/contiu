@@ -29,6 +29,7 @@ class Account extends Model
         return [
             'trial_ends_at' => 'datetime',
             'billing_exempt' => 'boolean',
+            'accountant_service_requested_at' => 'datetime',
         ];
     }
 

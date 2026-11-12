@@ -4,6 +4,7 @@ namespace App\Actions;
 
 use App\Filament\Pages\AccountSubscription;
 use App\Models\Account;
+use App\Support\AccountantService;
 use Laravel\Cashier\Cashier;
 use Laravel\Cashier\Subscription;
 use RuntimeException;
@@ -21,7 +22,9 @@ use Throwable;
  *    would lose its answers.
  * 2. handle(): with the confirmed payment method, the customer (billing address for the invoices)
  *    and the subscription to the chosen plan, VAT added (Account::taxRates()), its first charge on
- *    the day the trial ends. Cashier's webhooks keep it up to date from then on.
+ *    the day the trial ends. With Contiu's certified accountant chosen, a second subscription to
+ *    the service (AccountantService::TYPE), monthly, also from the end of the trial: a yearly plan
+ *    and a monthly service cannot share one. Cashier's webhooks keep them up to date.
  * 3. undo(): when the account could not be saved after all, the customer and its subscription are
  *    removed from Stripe, so no one is charged for an account that does not exist.
  */
@@ -35,17 +38,30 @@ class StartSignupSubscription
         ])->client_secret;
     }
 
-    /** @param array{line1: string, postal_code: string, city: string} $address */
-    public function handle(Account $account, string $plan, string $paymentMethod, array $address): Subscription
+    /**
+     * @param  array{line1: string, postal_code: string, city: string}  $address
+     * @param  ?string  $accountant  the AccountantService plan, when the account wants Contiu's accountant
+     */
+    public function handle(Account $account, string $plan, string $paymentMethod, array $address, ?string $accountant = null): Subscription
     {
         $price = AccountSubscription::priceFor($plan)
             ?? throw new RuntimeException("Stripe price for the {$plan} plan is not configured (contiu.prices.{$plan}).");
+        $accountantPrice = $accountant === null ? null : (AccountantService::stripePrice($accountant)
+            ?? throw new RuntimeException("Stripe price for the {$accountant} accountant service is not configured (contiu.accountant_prices.{$accountant})."));
 
         $account->createOrGetStripeCustomer(['address' => [...$address, 'country' => 'PT']]);
 
-        return $account->newSubscription('default', $price)
+        $subscription = $account->newSubscription('default', $price)
             ->trialUntil($account->trial_ends_at)
             ->create($paymentMethod);
+
+        if ($accountantPrice !== null) {
+            $account->newSubscription(AccountantService::TYPE, $accountantPrice)
+                ->trialUntil($account->trial_ends_at)
+                ->create($paymentMethod);
+        }
+
+        return $subscription;
     }
 
     public function undo(?string $customerId): void

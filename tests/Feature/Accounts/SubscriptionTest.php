@@ -7,11 +7,15 @@ use App\Filament\Resources\Accounts\Pages\ListAccounts;
 use App\Filament\Resources\Accounts\Pages\ViewAccount;
 use App\Filament\Resources\Accounts\RelationManagers\SubscriptionPaymentsRelationManager;
 use App\Filament\Widgets\AccountantAccessWidget;
+use App\Mail\AccountantServiceRequested;
 use App\Mail\SubscriptionPaid;
 use App\Models\Account;
 use App\Models\SubscriptionPayment;
 use App\Models\User;
+use App\Support\AccountantService;
 use App\Support\AccountStatus;
+use App\Support\CurrentAccount;
+use App\Support\FinanceSettings;
 use App\Support\Money;
 use Filament\Facades\Filament;
 use Illuminate\Support\Carbon;
@@ -491,4 +495,75 @@ it('adds the VAT tax rate to every new subscription, as the prices are without V
     config(['contiu.stripe_tax_rate' => null]);
 
     expect($this->account->taxRates())->toBe([]);
+});
+
+it('asks for Contiu’s certified accountant without a Stripe price, tells the super admins and cancels the request', function () {
+    Mail::fake();
+    $admin = superAdminOf(Account::factory()->create());
+    openAccountAs($this->account, plainOwnerOf($this->account));
+
+    Livewire::test(AccountSubscription::class)
+        ->assertSee('Contabilista certificado')
+        ->assertSee(Money::format(3000).' por mês, IVA incluído')
+        ->assertActionHidden('subscribeAccountant')
+        ->callAction('requestAccountant')
+        ->assertNotified('Pedido enviado');
+
+    expect($this->account->refresh())
+        ->accountant_service->toBe('simplified')
+        ->and($this->account->accountant_service_requested_at)->not->toBeNull();
+    Mail::assertQueued(AccountantServiceRequested::class, fn (AccountantServiceRequested $mail): bool => $mail->hasTo($admin->email));
+
+    Livewire::test(AccountSubscription::class)
+        ->assertSee('Pedido a 10/11/2026')
+        ->assertActionHidden('requestAccountant')
+        ->assertActionHidden('subscribeAccountant')
+        ->callAction('cancelAccountant');
+
+    expect($this->account->refresh()->accountant_service)->toBeNull();
+})->group('ui');
+
+it('charges the organised accounting price and offers to pay a request once the Stripe price exists', function () {
+    config(['contiu.accountant_prices.organised' => 'price_accountant_organised']);
+    CurrentAccount::run($this->account, fn () => app(FinanceSettings::class)->set(['accounting_regime' => 'organised']));
+    openAccountAs($this->account, plainOwnerOf($this->account));
+
+    Livewire::test(AccountSubscription::class)
+        ->assertSee(Money::format(5000).' por mês, IVA incluído');
+
+    $this->account->forceFill(['accountant_service' => 'organised', 'accountant_service_requested_at' => now()])->save();
+
+    Livewire::test(AccountSubscription::class)
+        ->assertSee('Subscreve para começar o serviço.')
+        ->assertActionVisible('subscribeAccountant')
+        ->assertActionVisible('cancelAccountant');
+})->group('ui');
+
+it('shows the accountant subscription apart from the plan', function () {
+    openAccountAs($this->account, plainOwnerOf($this->account));
+    $this->account->forceFill(['accountant_service' => 'simplified'])->save();
+    $this->account->subscriptions()->create([
+        'type' => AccountantService::TYPE,
+        'stripe_id' => 'sub_accountant',
+        'stripe_status' => 'active',
+        'stripe_price' => 'price_accountant_simplified',
+        'quantity' => 1,
+    ]);
+
+    Livewire::test(AccountSubscription::class)
+        ->assertSee('Ativo: '.Money::format(3000).' por mês.')
+        ->assertActionHidden('requestAccountant')
+        ->assertActionVisible('cancelAccountant')
+        // The plan is still to choose: the accountant's subscription is not the account's.
+        ->assertActionVisible('subscribeMonthly');
+
+    expect($this->account->refresh()->hasAccess())->toBe($this->account->onGenericTrial());
+})->group('ui');
+
+it('prices the accountant with VAT, by accounting regime', function () {
+    expect(AccountantService::priceWithVat('simplified'))->toBe(3000)
+        ->and(AccountantService::priceWithVat('organised'))->toBe(5000)
+        ->and(AccountantService::planFor('organised'))->toBe('organised')
+        ->and(AccountantService::planFor('simplified'))->toBe('simplified')
+        ->and(AccountantService::planFor(null))->toBe('simplified');
 });

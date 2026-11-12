@@ -6,6 +6,8 @@ use App\Enums\Language;
 use App\Filament\Pages\Tenancy\EditAccountProfile;
 use App\Filament\Widgets\AccountantAccessWidget;
 use App\Models\Account;
+use App\Support\AccountantService;
+use App\Support\FinanceSettings;
 use App\Support\Money;
 use BackedEnum;
 use Closure;
@@ -30,7 +32,8 @@ use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 /**
  * "Assinatura": choose monthly or yearly (Stripe Checkout) and, once subscribed, manage the card,
- * receipts and cancellation in Stripe's billing portal. Cashier's webhooks create and update the
+ * receipts and cancellation in Stripe's billing portal. Contiu's certified accountant
+ * (AccountantService) is asked for, paid and cancelled here too. Cashier's webhooks create and update the
  * subscription; nothing here writes it.
  *
  * Open to the account's owners (and super admins) whatever its state — a read-only account must
@@ -111,6 +114,23 @@ class AccountSubscription extends Page
             throw new InvalidArgumentException("Unknown plan [{$plan}].");
         }
 
+        return self::checkoutOptionsFor($account);
+    }
+
+    /**
+     * Stripe Checkout for the certified-accountant service (AccountantService), for an account
+     * without a card on file yet: the same options as a plan's.
+     *
+     * @return array<string, mixed>
+     */
+    public static function accountantCheckoutOptions(Account $account): array
+    {
+        return self::checkoutOptionsFor($account);
+    }
+
+    /** @return array<string, mixed> */
+    private static function checkoutOptionsFor(Account $account): array
+    {
         $options = [
             'success_url' => static::getUrl(['checkout' => 'success'], panel: 'admin', tenant: $account),
             'cancel_url' => static::getUrl(panel: 'admin', tenant: $account),
@@ -182,8 +202,148 @@ class AccountSubscription extends Page
                 $this->planSection('monthly', $this->subscribeMonthlyAction())->visible($plansVisible),
                 $this->planSection('yearly', $this->subscribeYearlyAction())->visible($plansVisible),
             ]),
+            $this->accountantSection(),
             Livewire::make(AccountantAccessWidget::class)->visible(fn (): bool => AccountantAccessWidget::canView()),
         ]);
+    }
+
+    /**
+     * Contiu's certified accountant (AccountantService), an extra monthly service: its state, and
+     * asking for it, starting its payment or cancelling it.
+     */
+    private function accountantSection(): Section
+    {
+        return Section::make(__('Certified accountant'))
+            ->afterHeader([
+                Text::make(fn (): string => $this->accountantBadge()[0])->badge()->color(fn (): string => $this->accountantBadge()[1]),
+            ])
+            ->schema([
+                Text::make(fn (): string => $this->accountantStatusText()),
+                Actions::make([$this->requestAccountantAction(), $this->subscribeAccountantAction(), $this->cancelAccountantAction()]),
+            ]);
+    }
+
+    /** @return array{0: string, 1: string} the service's state in a word, and its colour */
+    private function accountantBadge(): array
+    {
+        $subscription = AccountantService::subscription($this->account());
+
+        return match (true) {
+            $subscription?->onGracePeriod() => [__('Canceled'), 'warning'],
+            $subscription !== null => [__('Active'), 'success'],
+            $this->account()->accountant_service !== null => [__('Requested'), 'info'],
+            default => [__('Optional'), 'gray'],
+        };
+    }
+
+    public function accountantStatusText(): string
+    {
+        $account = $this->account();
+        $subscription = AccountantService::subscription($account);
+        $format = Language::resolve(app()->getLocale())->dateFormat();
+        $plan = $account->accountant_service ?? $this->accountantPlan();
+        $amount = Money::format(AccountantService::priceWithVat($plan));
+
+        return match (true) {
+            $subscription?->onGracePeriod() => __('Canceled. The service ends on :date.', ['date' => $subscription->ends_at->format($format)]),
+            (bool) $subscription?->onTrial() => __('Active: :amount a month. The first charge is on :date.', ['amount' => $amount, 'date' => $subscription->trial_ends_at->format($format)]),
+            $subscription !== null => __('Active: :amount a month.', ['amount' => $amount]),
+            $account->accountant_service !== null => __('Requested on :date. We will introduce you to your certified accountant.', ['date' => $account->accountant_service_requested_at?->format($format) ?? '—'])
+                .(AccountantService::stripePrice($plan) !== null ? ' '.__('Subscribe to start the service.') : ''),
+            default => __('A certified accountant from a Contiu partner handles your VAT, Social Security and IRS returns, with access to your Contiu: :amount a month, VAT included.', ['amount' => $amount]),
+        };
+    }
+
+    public function requestAccountantAction(): Action
+    {
+        return Action::make('requestAccountant')
+            ->label(__('I want Contiu’s accountant'))
+            ->visible(fn (): bool => $this->isMember() && $this->account()->accountant_service === null && AccountantService::subscription($this->account()) === null)
+            ->action(function (): void {
+                AccountantService::request($this->account(), $this->accountantPlan());
+
+                if (AccountantService::stripePrice($this->accountantPlan()) !== null) {
+                    $this->startAccountant();
+
+                    return;
+                }
+
+                Notification::make()->title(__('Request sent'))->body(__('We will introduce you to your certified accountant.'))->success()->send();
+            });
+    }
+
+    public function subscribeAccountantAction(): Action
+    {
+        return Action::make('subscribeAccountant')
+            ->label(__('Subscribe to the accountant'))
+            ->visible(fn (): bool => $this->isMember()
+                && $this->account()->accountant_service !== null
+                && AccountantService::subscription($this->account()) === null
+                && AccountantService::stripePrice($this->account()->accountant_service) !== null)
+            ->action(fn () => $this->startAccountant());
+    }
+
+    public function cancelAccountantAction(): Action
+    {
+        return Action::make('cancelAccountant')
+            ->label(__('Cancel the accountant'))
+            ->color('danger')
+            ->outlined()
+            ->requiresConfirmation()
+            ->modalDescription(__('The accountant stops handling your returns at the end of the period already paid. You can ask again whenever you like.'))
+            ->visible(function (): bool {
+                $subscription = AccountantService::subscription($this->account());
+
+                return $this->isMember() && ($subscription !== null ? ! $subscription->onGracePeriod() : $this->account()->accountant_service !== null);
+            })
+            ->action(function (): void {
+                $account = $this->account();
+
+                if (($subscription = AccountantService::subscription($account)) !== null) {
+                    $this->callStripe(fn () => $subscription->cancel(), failure: __('Unable to cancel right now'));
+                }
+
+                AccountantService::withdraw($account);
+            });
+    }
+
+    /** The service for the account's accounting regime (Tax settings). */
+    private function accountantPlan(): string
+    {
+        return AccountantService::planFor(app(FinanceSettings::class)->accountingRegime());
+    }
+
+    /**
+     * The service's Stripe subscription: straight away with the card already on file (from the
+     * end of the trial, while it runs), else through Stripe Checkout.
+     */
+    private function startAccountant(): void
+    {
+        $account = $this->account();
+        $plan = $account->accountant_service ?? $this->accountantPlan();
+        $price = AccountantService::stripePrice($plan);
+
+        if ($price === null) {
+            return;
+        }
+
+        $this->callStripe(function () use ($account, $price): void {
+            $builder = $account->newSubscription(AccountantService::TYPE, $price);
+
+            if (! $account->hasDefaultPaymentMethod()) {
+                $this->redirect($builder->checkout(self::accountantCheckoutOptions($account))->url);
+
+                return;
+            }
+
+            if ($account->trial_ends_at?->isFuture()) {
+                $builder->trialUntil($account->trial_ends_at);
+            }
+
+            $builder->create();
+
+            Notification::make()->title(__('Certified accountant subscribed'))->body(__('We will introduce you to your certified accountant.'))->success()->send();
+        }, failure: self::SUBSCRIBE_FAILURE);
     }
 
     /** @return array{0: string, 1: string} the state in a word, and its colour */
