@@ -196,3 +196,118 @@ it('only follows a PDF link to InvoiceXpress itself', function () {
     expect(fn () => Invoicing::provider()->pdf('invoices', '9001'))->toThrow(InvoicingProviderException::class);
     Http::assertSentCount(1);
 });
+
+it('saves the draft of a quote, a pro forma and a transport guide under their own resource and series', function (FiscalDocumentType $type, string $resource, string $key, string $remoteType, string $sequenceId) {
+    $document = draftDocument(['type' => $type, 'document_date' => '2026-11-12', ...transportOf($type)]);
+    fakeInvoiceXpress(["POST /{$resource}.json" => invoiceXpressDocument(['type' => $remoteType], $key)]);
+
+    $remote = Invoicing::provider()->saveDraft($document, new RemoteReferences(client: '77'));
+
+    expect($remote->type)->toBe($type)
+        ->and($remote->remoteType)->toBe($resource)
+        ->and($remote->state)->toBe(RemoteDocumentState::Draft)
+        ->and($remote->number)->toBeNull();
+
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
+        && str_ends_with((string) parse_url($request->url(), PHP_URL_PATH), "/{$resource}.json")
+        && array_keys($request->data()) === ['proprietary_uid', $key]
+        && $request->data()[$key]['sequence_id'] === $sequenceId
+        && $request->data()[$key]['date'] === '12/11/2026'
+        && ! array_key_exists('mb_reference', $request->data()[$key]));
+})->with('estimates and guides');
+
+it('updates the draft of a quote, a pro forma and a transport guide where InvoiceXpress keeps it', function (FiscalDocumentType $type, string $resource, string $key, string $remoteType) {
+    fakeInvoiceXpress([
+        "PUT /{$resource}/9001.json" => [],
+        "GET /{$resource}/9001.json" => invoiceXpressDocument(['type' => $remoteType], $key),
+    ]);
+
+    $remote = Invoicing::provider()->saveDraft(draftDocument(['type' => $type, ...transportOf($type)]), new RemoteReferences(document: '9001', client: '77'));
+
+    expect($remote->remoteId)->toBe('9001')->and($remote->type)->toBe($type);
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT' && array_key_exists($key, $request->data()));
+    Http::assertNotSent(fn (Request $request): bool => $request->method() === 'POST');
+})->with('estimates and guides');
+
+it('issues a quote, a pro forma and a transport guide through their own change of state', function (FiscalDocumentType $type, string $resource, string $key, string $remoteType, string $sequenceId, string $prefix) {
+    fakeInvoiceXpress([
+        "PUT /{$resource}/9001/change-state.json" => [],
+        "GET /{$resource}/9001.json" => invoiceXpressDocument(['type' => $remoteType, 'status' => 'final', 'inverted_sequence_number' => '2026/4', 'atcud' => 'JFX4K2Q9-4'], $key),
+    ]);
+
+    $remote = Invoicing::provider()->issue(draftDocument(['type' => $type, ...transportOf($type)]), '9001');
+
+    expect($remote->isIssued())->toBeTrue()
+        ->and($remote->number)->toBe("{$prefix} 2026/4")
+        ->and($remote->series)->toBe('2026')
+        ->and($remote->atcud)->toBe('JFX4K2Q9-4');
+
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT'
+        && str_ends_with((string) parse_url($request->url(), PHP_URL_PATH), "/{$resource}/9001/change-state.json")
+        && $request->data() === [$key => ['state' => 'finalized']]);
+})->with('estimates and guides');
+
+it('cancels and discards a quote, a pro forma and a transport guide through their own change of state', function (FiscalDocumentType $type, string $resource, string $key, string $remoteType) {
+    fakeInvoiceXpress([
+        "PUT /{$resource}/9001/change-state.json" => [],
+        "GET /{$resource}/9001.json" => invoiceXpressDocument(['type' => $remoteType, 'status' => 'canceled'], $key),
+    ]);
+    $document = draftDocument(['type' => $type, ...transportOf($type)]);
+
+    expect(Invoicing::provider()->cancel($document, '9001', 'Pedido em duplicado')->state)->toBe(RemoteDocumentState::Canceled);
+    Invoicing::provider()->discard($document, '9001');
+
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT' && $request->data() === [$key => ['state' => 'canceled', 'message' => 'Pedido em duplicado']]);
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT' && $request->data() === [$key => ['state' => 'deleted']]);
+})->with('estimates and guides');
+
+it('sends where the goods of a transport guide load and unload, when and in which vehicle', function () {
+    $document = draftDocument(['type' => FiscalDocumentType::TransportGuide, ...transportOf(FiscalDocumentType::TransportGuide)]);
+    fakeInvoiceXpress(['POST /transports.json' => invoiceXpressDocument(['type' => 'Transport'], 'transport')]);
+
+    Invoicing::provider()->saveDraft($document, new RemoteReferences(client: '77'));
+
+    Http::assertSent(function (Request $request): bool {
+        $transport = $request->data()['transport'] ?? null;
+
+        return is_array($transport)
+            && $transport['loaded_at'] === '13/11/2026 09:30:00'
+            && $transport['license_plate'] === 'AA-12-BC'
+            && $transport['address_from'] === ['detail' => 'Rua do Armazém, 12', 'city' => 'Porto', 'postal_code' => '4000-123', 'country' => 'Portugal']
+            && $transport['address_to'] === ['detail' => 'Avenida da Liberdade, 200', 'city' => 'Lisboa', 'postal_code' => '1250-147', 'country' => 'Portugal'];
+    });
+});
+
+it('leaves the vehicle out of a transport guide that has no number plate', function () {
+    $transport = transportOf(FiscalDocumentType::TransportGuide)['transport'];
+    unset($transport['plate']);
+    $document = draftDocument(['type' => FiscalDocumentType::TransportGuide, 'transport' => $transport]);
+    fakeInvoiceXpress(['POST /transports.json' => invoiceXpressDocument(['type' => 'Transport'], 'transport')]);
+
+    Invoicing::provider()->saveDraft($document, new RemoteReferences(client: '77'));
+
+    Http::assertSent(fn (Request $request): bool => is_array($request->data()['transport'] ?? null)
+        && ! array_key_exists('license_plate', $request->data()['transport'])
+        && $request->data()['transport']['loaded_at'] === '13/11/2026 09:30:00');
+});
+
+dataset('estimates and guides', [
+    'a quote' => [FiscalDocumentType::Quote, 'quotes', 'quote', 'Quote', '11', 'OR'],
+    'a pro forma' => [FiscalDocumentType::ProForma, 'proformas', 'proforma', 'Proforma', '12', 'PF'],
+    'a transport guide' => [FiscalDocumentType::TransportGuide, 'transports', 'transport', 'Transport', '13', 'GT'],
+]);
+
+/**
+ * The transport details a guide carries, as the draft form saves them.
+ *
+ * @return array{transport?: array<string, mixed>}
+ */
+function transportOf(FiscalDocumentType $type): array
+{
+    return $type !== FiscalDocumentType::TransportGuide ? [] : ['transport' => [
+        'load' => ['address' => 'Rua do Armazém, 12', 'postal_code' => '4000-123', 'city' => 'Porto'],
+        'unload' => ['address' => 'Avenida da Liberdade, 200', 'postal_code' => '1250-147', 'city' => 'Lisboa'],
+        'starts_at' => '2026-11-13 09:30:00',
+        'plate' => 'AA-12-BC',
+    ]];
+}

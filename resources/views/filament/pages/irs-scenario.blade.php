@@ -77,7 +77,13 @@
                         </div>
                         <p class="mt-3 text-sm text-gray-600 dark:text-gray-400">
                             {{ __('Uses the values entered for each scenario and applies the minimum payment and refund thresholds.') }}
+                            {{ __('General rates of the fiscal residence: :residence.', ['residence' => $result['settlementResidence']]) }}
                         </p>
+                    </x-filament::section>
+                @elseif (($result['settlementToConfirm'] ?? null) !== null)
+                    <x-filament::section :heading="__('2026 personal income tax estimate')">
+                        <p class="text-sm font-medium">{{ __('To confirm') }}</p>
+                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">{{ $result['settlementToConfirm'] }}</p>
                     </x-filament::section>
                 @endif
             </div>

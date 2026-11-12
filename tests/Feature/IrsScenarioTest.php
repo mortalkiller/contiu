@@ -207,3 +207,33 @@ describe('Annual scenario summary', function () {
             ->assertSee('Retido na fonte em 2026');
     })->group('ui');
 });
+
+it('starts the fiscal residence from the VAT region and estimates Madeira at its own rates (RA002)', function () {
+    actingAsAdmin();
+    app(FinanceSettings::class)->set(['vat_region' => 'PT-MA']);
+
+    Livewire::test(IrsScenarioPage::class)
+        ->assertSet('data.residence', 'PT-MA')
+        ->fillForm([
+            'year' => '2026', 'monthlyNet' => '500', 'months' => '6', 'estimateSettlement' => true,
+            'baselineTaxable' => '43090', 'baselineDeductions' => '0', 'baselineTaxWithholding' => '0', 'baselineAdvancePayments' => '0',
+            'combinedTaxable' => '43090', 'combinedDeductions' => '0', 'combinedTaxWithholding' => '0', 'combinedAdvancePayments' => '0',
+        ])
+        ->call('compare')
+        ->assertHasNoFormErrors()
+        ->assertSet('result.settlement.baseline.grossTax', 746017)
+        ->assertSee('Taxas gerais da residência fiscal: Madeira.');
+})->group('ui');
+
+it('shows the Azores settlement as to confirm, with no figure and no required inputs (RA001)', function () {
+    actingAsAdmin();
+
+    Livewire::test(IrsScenarioPage::class)
+        ->assertSet('data.residence', 'PT')
+        ->fillForm(['year' => '2026', 'monthlyNet' => '500', 'months' => '6', 'residence' => 'PT-AC', 'estimateSettlement' => true])
+        ->call('compare')
+        ->assertHasNoFormErrors()
+        ->assertSet('result.settlement', null)
+        ->assertSee('Os Açores reduzem em 30% as taxas nacionais de IRS')
+        ->assertDontSee('IRS estimado a pagar');
+})->group('ui');

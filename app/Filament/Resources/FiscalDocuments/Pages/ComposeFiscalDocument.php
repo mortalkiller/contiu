@@ -4,6 +4,7 @@ namespace App\Filament\Resources\FiscalDocuments\Pages;
 
 use App\Actions\IssueFiscalDocument;
 use App\Actions\SaveFiscalDocumentDraft;
+use App\Actions\SendFiscalDocumentByEmail;
 use App\Enums\FiscalDocumentDirection;
 use App\Enums\FiscalDocumentStatus;
 use App\Enums\FiscalDocumentType;
@@ -11,12 +12,14 @@ use App\Exceptions\InvoicingProviderException;
 use App\Filament\Resources\FiscalDocuments\FiscalDocumentPresenter;
 use App\Filament\Resources\FiscalDocuments\FiscalDocumentResource;
 use App\Filament\Resources\FiscalDocuments\Schemas\FiscalDocumentDraftForm;
+use App\Models\Client;
 use App\Models\FiscalDocument;
 use App\Models\Receivable;
 use App\Support\FinanceSettings;
 use App\Support\Invoicing\Invoicing;
 use App\Support\Invoicing\InvoicingRecords;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Toggle;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
@@ -105,7 +108,7 @@ class ComposeFiscalDocument extends Page
             Form::make([EmbeddedSchema::make('form')])
                 ->id('form')
                 ->livewireSubmitHandler('saveDraft')
-                ->footer([Actions::make($this->formActions())->alignEnd()->sticky()]),
+                ->footer([Actions::make($this->formActions())->key('form-actions')->alignEnd()->sticky()]),
         ]);
     }
 
@@ -164,8 +167,12 @@ class ComposeFiscalDocument extends Page
         $this->redirect(FiscalDocumentResource::getUrl('draft', ['record' => $document]));
     }
 
-    /** Saves what is on screen and then issues it: what the user sees is what becomes official. */
-    public function issue(): void
+    /**
+     * Saves what is on screen and then issues it: what the user sees is what becomes official.
+     * Asked to, it then emails the issued document to the client; an email that cannot go yet
+     * leaves the document issued and says so.
+     */
+    public function issue(bool $sendByEmail = false): void
     {
         $document = $this->persist();
 
@@ -193,6 +200,10 @@ class ComposeFiscalDocument extends Page
             Notification::make()->warning()->title(__('Issued, with something left to do'))->body($warning)->persistent()->send();
         }
 
+        if ($sendByEmail) {
+            $this->sendIssued($issued);
+        }
+
         $this->redirect(FiscalDocumentResource::getUrl('view', ['record' => $issued]));
     }
 
@@ -211,7 +222,13 @@ class ComposeFiscalDocument extends Page
                 ->modalHeading(__('Issue :type', ['type' => $label]))
                 ->modalDescription(__('Once issued, the document cannot be changed: it can only be cancelled or corrected with a credit note.'))
                 ->modalSubmitActionLabel(__('Issue'))
-                ->action(fn () => $this->issue()),
+                ->schema(fn (): array => $this->clientEmail() === null ? [] : [
+                    Toggle::make('send_by_email')
+                        ->label(__('Send to the client by email'))
+                        ->helperText(fn (): string => __('With the PDF attached, to :email.', ['email' => $this->clientEmail()]))
+                        ->default(false),
+                ])
+                ->action(fn (array $data) => $this->issue((bool) ($data['send_by_email'] ?? false))),
             Action::make('saveDraft')
                 ->label(__('Save draft'))
                 ->color('gray')
@@ -225,6 +242,39 @@ class ComposeFiscalDocument extends Page
                     ? FiscalDocumentResource::getUrl()
                     : FiscalDocumentResource::getUrl('view', ['record' => $this->originalId])),
         ];
+    }
+
+    /** Emails the document just issued to its client, saying what kept it from going. */
+    private function sendIssued(FiscalDocument $document): void
+    {
+        $email = $document->client?->email;
+
+        if (blank($email)) {
+            return;
+        }
+
+        try {
+            app(SendFiscalDocumentByEmail::class)->handle($document, $email);
+        } catch (ValidationException $exception) {
+            Notification::make()->warning()->title(__('Issued, but not sent by email'))
+                ->body(collect($exception->errors())->flatten()->first().' '.__('You can send it from the document page.'))
+                ->persistent()->send();
+
+            return;
+        }
+
+        Notification::make()->success()->title(__('Sent to :email', ['email' => $email]))->send();
+    }
+
+    /** The email of the client the document on screen is for, when it has one. */
+    private function clientEmail(): ?string
+    {
+        $clientId = $this->original()?->client_id ?? ($this->type() !== FiscalDocumentType::SimplifiedInvoice || ($this->data['consumer'] ?? null) === 'identified'
+            ? ($this->data['client_id'] ?? null)
+            : null);
+        $email = blank($clientId) ? null : Client::query()->whereKey($clientId)->value('email');
+
+        return filled($email) ? (string) $email : null;
     }
 
     /** Beside the form: who issues, which number comes next and how VAT is treated. */

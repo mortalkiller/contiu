@@ -259,7 +259,8 @@ final class SignupQuestions
                     ->options(fn (Get $get): array => ActivityCatalogue::occupationOptions($get('activity_kind')))
                     ->searchable()
                     ->required(), $services, $providesServices),
-                self::when(self::yesNo('commercial_only')
+                // SS003: a mixed activity keeps 21.4 % as a proposal, to confirm with the ISS.
+                self::when(self::choice('commercial_only', ['yes' => __('Yes'), 'no' => __('No'), 'mixed' => __('Mixed / not sure')])
                     ->label(__('Is your activity only commercial or industrial?'))
                     ->belowLabel(__('Then, as a sole trader, the Social Security rate is 25.2%. In Social Security Direct, under “Forma de atividade (taxa)”.'))
                     ->required(), $mayBeCommercial, $mayBeCommercialOnServer),

@@ -29,17 +29,17 @@ class EditFiscalDocument extends EditRecord
 
     protected function mutateFormDataBeforeFill(array $data): array
     {
-        return FiscalDocumentForm::withLinkData($data, $this->getRecord());
+        return FiscalDocumentForm::withLines(FiscalDocumentForm::withLinkData($data, $this->getRecord()), $this->getRecord());
     }
 
     protected function handleRecordUpdate(Model $record, array $data): FiscalDocument
     {
-        return $this->record = app(FiscalDocumentPdfs::class)->saveManual($data, $record);
+        return $this->record = app(FiscalDocumentPdfs::class)->saveManual(FiscalDocumentForm::data($data), $record);
     }
 
     protected function afterSave(): void
     {
         $this->form->model($this->getRecord());
-        $this->refreshFormData(['pdf_upload']);
+        $this->refreshFormData(['pdf_upload', 'net_amount', 'vat_amount', 'total_amount']);
     }
 }

@@ -8,6 +8,7 @@ use App\Actions\StartSignupSubscription;
 use App\Enums\Language;
 use App\Filament\Pages\AccountSubscription;
 use App\Filament\Support\SignupQuestions;
+use App\Http\Middleware\ApplyGuestLanguage;
 use App\Models\Account;
 use App\Models\User;
 use App\Rules\PortugueseNif;
@@ -774,6 +775,8 @@ class RegisterAccount extends Register
                 'terms_accepted_at' => now(),
                 'terms_version' => config('contiu.terms_version'),
                 'marketing_opt_in_at' => ($data['marketing'] ?? false) ? now() : null,
+                // The language picked on the sign-in pages, if any (ApplyGuestLanguage).
+                'language' => Language::tryFrom((string) session(ApplyGuestLanguage::SESSION_KEY))?->value ?? Language::PortuguesePortugal->value,
             ])->save();
 
             $deduction = TaxProfileDeduction::from(SignupQuestions::answers($data, turnoverInEuros: false));

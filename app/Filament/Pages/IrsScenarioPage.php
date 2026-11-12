@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\PortugueseVatRegion;
 use App\Filament\Pages\Concerns\HasTaxSubNavigation;
 use App\Models\FiscalDocument;
 use App\Models\Payment;
@@ -15,9 +16,11 @@ use App\Support\TaxEstimator;
 use App\Support\TerritorialTurnover;
 use App\Support\WithholdingReview;
 use BackedEnum;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
@@ -36,6 +39,9 @@ class IrsScenarioPage extends Page
     protected static string|BackedEnum|null $navigationIcon = Phosphor::Calculator;
 
     protected static ?int $navigationSort = 8;
+
+    /** True in the browser while the chosen fiscal residence has no settlement figure (RA001). */
+    private const string RESIDENCE_TO_CONFIRM_JS = "\$get('residence') === 'PT-AC'";
 
     protected string $view = 'filament.pages.irs-scenario';
 
@@ -61,7 +67,10 @@ class IrsScenarioPage extends Page
         abort_unless(static::canAccess(), 403);
 
         $this->accountId = CurrentAccount::id();
-        $this->form->fill(['year' => today()->year]);
+        $this->form->fill([
+            'year' => today()->year,
+            'residence' => (app(FinanceSettings::class)->vatRegion() ?? PortugueseVatRegion::Mainland)->value,
+        ]);
     }
 
     public function getSubheading(): string
@@ -109,14 +118,27 @@ class IrsScenarioPage extends Page
                         ->helperText(__('Optional. Enter the total for the selected months. Use €0 if that is the amount for this scenario.')),
                 ]),
             Section::make(__('Personal income tax assessment estimate'))
-                ->description(__('Available for 2026 income, with individual taxation at mainland general rates.'))
+                ->description(__('Available for 2026 income, with individual taxation at the general rates of your fiscal residence.'))
                 ->visible(fn (Get $get): bool => (int) $get('year') === IrsSettlementEstimate::YEAR)
                 ->schema([
-                    Toggle::make('estimateSettlement')->label(__('Calculate with verified tax details')),
+                    Select::make('residence')->label(__('Fiscal residence'))
+                        ->options(collect(PortugueseVatRegion::cases())
+                            ->mapWithKeys(fn (PortugueseVatRegion $region): array => [$region->value => $region->label()])
+                            ->all())
+                        ->helperText(__('Where you live for tax purposes, not where your clients are. It starts from the VAT region in your tax settings.'))
+                        ->selectablePlaceholder(false)
+                        ->required(),
+                    Callout::make(__('To confirm'))
+                        ->description(IrsSettlementEstimate::toConfirm(PortugueseVatRegion::Azores))
+                        ->icon(Phosphor::WarningCircle)
+                        ->status('warning')
+                        ->visibleJs(self::RESIDENCE_TO_CONFIRM_JS),
+                    Toggle::make('estimateSettlement')->label(__('Calculate with verified tax details'))
+                        ->hiddenJs(self::RESIDENCE_TO_CONFIRM_JS),
                     Section::make(__('Current scenario'))->schema($this->settlementInputs('baseline'))
-                        ->visibleJs("!! \$get('estimateSettlement')"),
+                        ->visibleJs("!! \$get('estimateSettlement') && ! (".self::RESIDENCE_TO_CONFIRM_JS.')'),
                     Section::make(__('Scenario with the new retainer'))->schema($this->settlementInputs('combined'))
-                        ->visibleJs("!! \$get('estimateSettlement')"),
+                        ->visibleJs("!! \$get('estimateSettlement') && ! (".self::RESIDENCE_TO_CONFIRM_JS.')'),
                 ]),
         ]);
     }
@@ -182,19 +204,35 @@ class IrsScenarioPage extends Page
             scenarioRetentionCents: $data['scenarioRetention'],
         );
         $this->result['settlement'] = null;
+        $this->result['settlementToConfirm'] = null;
 
-        if ((int) $data['year'] === IrsSettlementEstimate::YEAR && ($data['estimateSettlement'] ?? false)) {
+        if ((int) $data['year'] !== IrsSettlementEstimate::YEAR) {
+            return;
+        }
+
+        $residence = self::residence($data['residence'] ?? null);
+        $this->result['settlementResidence'] = $residence->label();
+        $this->result['settlementToConfirm'] = IrsSettlementEstimate::toConfirm($residence);
+
+        if ($this->result['settlementToConfirm'] === null && ($data['estimateSettlement'] ?? false)) {
             $this->result['settlement'] = [
-                'baseline' => $this->calculateSettlement($data, 'baseline'),
-                'combined' => $this->calculateSettlement($data, 'combined'),
+                'baseline' => $this->calculateSettlement($data, 'baseline', $residence),
+                'combined' => $this->calculateSettlement($data, 'combined', $residence),
             ];
         }
+    }
+
+    /** The fiscal residence chosen on the page; the mainland when none is chosen. */
+    private static function residence(mixed $value): PortugueseVatRegion
+    {
+        return PortugueseVatRegion::tryFrom((string) $value) ?? PortugueseVatRegion::Mainland;
     }
 
     /** @return list<TextInput> */
     private function settlementInputs(string $prefix): array
     {
-        $estimatesSettlement = fn (Get $get): bool => (bool) $get('estimateSettlement');
+        $estimatesSettlement = fn (Get $get): bool => (bool) $get('estimateSettlement')
+            && IrsSettlementEstimate::toConfirm(self::residence($get('residence'))) === null;
 
         return array_map(fn (TextInput $input): TextInput => $input
             ->dehydrated($estimatesSettlement)
@@ -212,7 +250,7 @@ class IrsScenarioPage extends Page
     }
 
     /** @return array{grossTax: int, solidarity: int, taxAfterDeductions: int, payable: int, refund: int} */
-    private function calculateSettlement(array $data, string $prefix): array
+    private function calculateSettlement(array $data, string $prefix, PortugueseVatRegion $residence): array
     {
         return IrsSettlementEstimate::calculate(
             (int) $data['year'],
@@ -220,6 +258,7 @@ class IrsScenarioPage extends Page
             $data[$prefix.'Deductions'],
             $data[$prefix.'TaxWithholding'],
             $data[$prefix.'AdvancePayments'],
+            $residence,
         );
     }
 

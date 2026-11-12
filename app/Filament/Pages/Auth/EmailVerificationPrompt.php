@@ -3,13 +3,18 @@
 namespace App\Filament\Pages\Auth;
 
 use App\Filament\Pages\Auth\Concerns\UsesContiuAuthLayout;
+use App\Models\User;
+use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use Filament\Actions\Action;
 use Filament\Auth\Pages\EmailVerification\EmailVerificationPrompt as BaseEmailVerificationPrompt;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\HtmlString;
 use Livewire\Attributes\Locked;
@@ -122,6 +127,7 @@ class EmailVerificationPrompt extends BaseEmailVerificationPrompt
                 ->viewData(['tips' => [
                     __('Look in spam or promotions.'),
                     __('Still nothing after a few minutes? Send it again.'),
+                    new HtmlString(e(__('Typed the email wrong?')).' '.$this->changeEmailAction->toHtml()),
                 ]]),
         ]);
     }
@@ -133,6 +139,55 @@ class EmailVerificationPrompt extends BaseEmailVerificationPrompt
             ->color('gray')
             ->size($this->showsAccountCreated() ? 'sm' : 'lg')
             ->label(__('Send again'));
+    }
+
+    /**
+     * "Usar outro email": a typo in the sign-up email would otherwise leave the account locked.
+     * The new address must be free; the link goes to it, and the old link stops working (it is
+     * signed over the email).
+     */
+    public function changeEmailAction(): Action
+    {
+        return Action::make('changeEmail')
+            ->link()
+            ->label(__('Use another email'))
+            ->modalHeading(__('Use another email'))
+            ->modalDescription(__('We send the confirmation link to the new address.'))
+            ->modalSubmitActionLabel(__('Send the link'))
+            ->modalWidth('md')
+            ->schema([
+                TextInput::make('email')
+                    ->label(__('Email'))
+                    ->email()
+                    ->required()
+                    ->maxLength(255)
+                    ->unique(table: 'users', column: 'email', ignorable: fn (): ?Model => Filament::auth()->user()),
+            ])
+            ->action(function (array $data): void {
+                try {
+                    $this->rateLimit(3);
+                } catch (TooManyRequestsException $exception) {
+                    $this->getRateLimitedNotification($exception)?->send();
+
+                    return;
+                }
+
+                /** @var User $user */
+                $user = Filament::auth()->user();
+                $user->forceFill(['email' => $data['email'], 'email_verified_at' => null])->save();
+
+                if ($this->accountCreated !== null) {
+                    $this->accountCreated['email'] = $user->email;
+                    session()->put(self::ACCOUNT_CREATED_SESSION_KEY, $this->accountCreated);
+                }
+
+                $this->sendEmailVerificationNotification($user);
+
+                Notification::make()
+                    ->title(__('We sent a new link to :email', ['email' => $user->email]))
+                    ->success()
+                    ->send();
+            });
     }
 
     protected function getClosingLine(): string|Htmlable|null

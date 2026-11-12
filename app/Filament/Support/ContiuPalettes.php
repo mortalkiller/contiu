@@ -80,6 +80,17 @@ final class ContiuPalettes
                 ->action('#12372a', dark: '#e8f7ef')
                 ->navigation('#e8f7ef', dark: '#12372a')
                 ->background('#fafbf7'),
+            // Black and white: black bar and buttons on white, neutral greys, no colour but the
+            // states (success, warning, danger). In dark mode the buttons turn near-white.
+            Palette::make('black-white')
+                ->label($translate('Black and white'))
+                ->description($translate('Black bar and buttons'))
+                ->primary('#171717')
+                ->primaryShades(Color::Neutral)
+                ->action('#0a0a0a', dark: '#fafafa')
+                ->navigation('#0a0a0a', dark: '#000000')
+                ->background('#f5f5f5')
+                ->grayShades(Color::Neutral),
         ];
     }
 }

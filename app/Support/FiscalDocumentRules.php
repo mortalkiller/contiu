@@ -67,6 +67,44 @@ final class FiscalDocumentRules
         return [0, ...array_values($region->rates())];
     }
 
+    /**
+     * Every VAT rate of Portugal's three regions, lowest first: a document recorded by hand may
+     * come from a supplier in any of them.
+     *
+     * @return list<int>
+     */
+    public static function portugueseVatRates(): array
+    {
+        $rates = [0];
+
+        foreach (PortugueseVatRegion::cases() as $region) {
+            array_push($rates, ...array_values($region->rates()));
+        }
+
+        $rates = array_values(array_unique($rates));
+        sort($rates);
+
+        return $rates;
+    }
+
+    /**
+     * The lines of a document recorded by hand (SaveFiscalDocument), as the domain takes them:
+     * thousandths, cents and basis points.
+     *
+     * @return array<string, list<mixed>>
+     */
+    public static function recordedLineRules(FiscalDocumentType $type): array
+    {
+        return [
+            'lines' => [$type->hasLines() ? 'array' : 'prohibited', 'max:'.self::MAX_LINES],
+            'lines.*.description' => ['required', 'string', 'max:255'],
+            'lines.*.quantity' => ['required', 'integer', 'min:1', 'max:999999999'],
+            'lines.*.unit' => ['required', 'string', 'max:16'],
+            'lines.*.unit_price' => ['required', 'integer', 'min:0', 'max:9999999999'],
+            'lines.*.vat_basis_points' => ['required', 'integer', Rule::in(self::portugueseVatRates())],
+        ];
+    }
+
     /** @return array<string, list<mixed>> */
     private static function rules(FiscalDocumentType $type): array
     {

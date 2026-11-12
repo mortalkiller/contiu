@@ -5,6 +5,7 @@ use App\Actions\StartSignupSubscription;
 use App\Filament\Pages\Auth\EmailVerificationPrompt;
 use App\Filament\Pages\Auth\RegisterAccount;
 use App\Filament\Pages\Dashboard;
+use App\Http\Middleware\ApplyGuestLanguage;
 use App\Mail\AccountantServiceRequested;
 use App\Models\Account;
 use App\Models\Category;
@@ -658,6 +659,14 @@ it('asks whether the activity is only commercial for a service off the table, ne
     'programmer, on the table' => ['technology', '1332', 0.214],
 ])->group('integration');
 
+it('accepts a mixed activity and keeps the general rate until the ISS confirms it (SS003)', function () {
+    registrationWizard(['activity_kind' => 'other_services', 'occupation' => 'other', 'commercial_only' => 'mixed'])
+        ->call('register')
+        ->assertHasNoFormErrors();
+
+    expect(registeredSettings()->ssRate())->toBe(0.214);
+})->group('integration');
+
 it('keeps the secondary CAEs and shows how many on the tax card', function () {
     registrationWizard(['secondary_caes' => ['63100', '58210']])
         ->goToWizardStep(5)
@@ -784,4 +793,12 @@ it('opens on “Conta criada” with what to do when the activity is opened, for
         ->assertSee('Atividade por abrir')
         ->assertSee('Quando abrires atividade nas Finanças')
         ->assertDontSee('Primeiros passos, quando entrares');
+})->group('integration');
+
+it('keeps the language picked on the sign-in pages for the new user', function () {
+    session()->put(ApplyGuestLanguage::SESSION_KEY, 'en-US');
+
+    registrationWizard()->call('register')->assertHasNoFormErrors();
+
+    expect(User::firstWhere('email', 'rita@example.pt')->language)->toBe('en-US');
 })->group('integration');

@@ -121,3 +121,26 @@ function fakeInvoiceXpress(array $routes = []): void
         };
     });
 }
+
+/** A small PDF that passes the app's PDF checks, as a provider or an upload would give it. */
+function fiscalPdfBytes(string $text = 'Prova fiscal'): string
+{
+    $pdf = "%PDF-1.4\n% {$text}\n";
+    $offsets = [];
+    foreach ([
+        '<< /Type /Catalog /Pages 2 0 R >>',
+        '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+        '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] >>',
+    ] as $index => $object) {
+        $offsets[] = strlen($pdf);
+        $pdf .= ($index + 1)." 0 obj\n{$object}\nendobj\n";
+    }
+
+    $xref = strlen($pdf);
+    $pdf .= "xref\n0 4\n0000000000 65535 f \n";
+    foreach ($offsets as $offset) {
+        $pdf .= sprintf("%010d 00000 n \n", $offset);
+    }
+
+    return $pdf."trailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n{$xref}\n%%EOF\n";
+}

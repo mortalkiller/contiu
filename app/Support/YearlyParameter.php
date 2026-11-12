@@ -45,6 +45,21 @@ final class YearlyParameter
         return (float) self::value('irs_prepayment_factor', $year);
     }
 
+    /**
+     * Art. 68.º CIRS brackets of a territory of fiscal residence ('PT', 'PT-MA') for a year, as
+     * [upper limit in cents, marginal rate, average rate] rows (HIST002, RA002). Null when that
+     * year or territory has no published table here: another year's or the mainland's rates would
+     * give a wrong figure, so they are never borrowed.
+     *
+     * @return list<array{0: ?int, 1: int, 2: ?int}>|null
+     */
+    public static function irsBrackets(string $territory, int $year): ?array
+    {
+        $byYear = config('contiu.irs_brackets')[$territory] ?? [];
+
+        return $byYear[$year] ?? null;
+    }
+
     public static function isProvisional(string $table, int $year): bool
     {
         return ! array_key_exists($year, self::table($table));

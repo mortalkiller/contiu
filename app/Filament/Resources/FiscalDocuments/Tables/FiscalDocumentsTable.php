@@ -6,6 +6,7 @@ use App\Enums\FiscalDocumentDirection;
 use App\Enums\FiscalDocumentStatus;
 use App\Enums\FiscalDocumentType;
 use App\Enums\Language;
+use App\Filament\Resources\FiscalDocuments\Actions\FiscalDocumentEmailAction;
 use App\Filament\Resources\FiscalDocuments\Actions\FiscalDocumentPdfActions;
 use App\Filament\Resources\FiscalDocuments\FiscalDocumentPresenter;
 use App\Filament\Resources\FiscalDocuments\FiscalDocumentResource;
@@ -98,6 +99,7 @@ class FiscalDocumentsTable
                     ->url(fn (FiscalDocument $record): string => FiscalDocumentResource::getUrl('draft', ['record' => $record])),
                 FiscalDocumentPdfActions::download()->label(__('PDF'))->icon(null)->button()->color('gray')->size('sm')->outlined()
                     ->visible(fn (FiscalDocument $record): bool => $record->currentPdf !== null),
+                FiscalDocumentEmailAction::make()->iconButton()->tooltip(__('Send by email'))->size('sm'),
             ])
             ->emptyStateHeading(__('No fiscal documents'))
             ->emptyStateDescription(__('Documents you issue or record appear here.'));

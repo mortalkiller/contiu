@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\SetGuestLanguageController;
 use App\Support\MailPreviews\MailPreviewRegistry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -9,6 +10,9 @@ use Illuminate\Validation\Rule;
 // public pages of its own are the legal texts linked from the sign-up (both in reserved_slugs).
 Route::view('termos', 'legal.terms')->name('legal.terms');
 Route::view('privacidade', 'legal.privacy')->name('legal.privacy');
+
+// The language of the sign-in pages, before anyone signs in (their footer).
+Route::get('idioma/{language}', SetGuestLanguageController::class)->name('guest-language');
 
 require __DIR__.'/calendar-subscriptions.php';
 

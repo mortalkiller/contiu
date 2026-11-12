@@ -163,6 +163,19 @@ it('proposes the sole trader rate for a commercial service that is not on the ta
         ->and(deduce(['work_kind' => 'other', 'commercial_only' => 'no'])->settings()['ss_rate'])->toBe(0.214);
 });
 
+it('keeps 21.4% for a mixed activity, to confirm with the ISS (SS003)', function (string $workKind) {
+    $deduction = deduce(['work_kind' => $workKind, 'commercial_only' => 'mixed']);
+    $card = collect($deduction->cards())->firstWhere('key', 'social_security');
+
+    expect($deduction->settings()['ss_rate'])->toBe(0.214)
+        ->and($deduction->ssRateToConfirm())->toBeTrue()
+        ->and($card['status'])->toBe(TaxProfileDeduction::PROBABLE)
+        ->and($card['reason'])->toContain('fica a confirmar com a Segurança Social (ISS)')
+        ->and($card['confirm'])->toContain('Segurança Social Direta')
+        ->and(collect($deduction->known())->firstWhere('label', 'Taxa Seg. Social')['value'])->toContain('(a confirmar)')
+        ->and(deduce(['work_kind' => $workKind, 'commercial_only' => 'no'])->ssRateToConfirm())->toBeFalse();
+})->with(['goods', 'other']);
+
 it('warns that the IRS Jovem cap also counts the salary (JOV005, IRS09)', function () {
     $young = ['irs_jovem' => 'yes', 'irs_jovem_year_number' => 2, 'birth_date' => '1997-05-14'];
     $reason = fn (array $answers): string => collect(deduce($answers)->cards())->firstWhere('key', 'irs')['reason'];

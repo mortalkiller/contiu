@@ -81,12 +81,24 @@ class RequestPasswordReset extends BaseRequestPasswordReset
         ]);
     }
 
+    /**
+     * "Enviar outra vez", locked with a countdown for as long as Laravel's password broker
+     * refuses a new link (its throttle), so the click never ends in "please wait".
+     */
     public function resendLinkAction(): Action
     {
+        $seconds = $this->resendThrottleInSeconds();
+
         return Action::make('resendLink')
-            ->label(__('Send again'))
+            ->label(new HtmlString(e(__('Send again')).'<span class="contiu-auth-countdown" x-show="left > 0" x-cloak> · <span x-text="Math.floor(left / 60) + \':\' + String(left % 60).padStart(2, \'0\')"></span></span>'))
             ->color('gray')
             ->size('lg')
+            ->extraAttributes([
+                'x-data' => "{ left: {$seconds}, tick() { const timer = setInterval(() => { this.left = Math.max(0, this.left - 1); if (this.left === 0) clearInterval(timer) }, 1000) } }",
+                'x-init' => 'tick()',
+                'x-bind:disabled' => 'left > 0',
+                'x-on:click' => "\$nextTick(() => { left = {$seconds}; tick() })",
+            ])
             ->action(function (): void {
                 $this->data = ['email' => $this->sentTo];
 
@@ -142,10 +154,18 @@ class RequestPasswordReset extends BaseRequestPasswordReset
         return parent::getFailureNotification($status);
     }
 
+    private function resendThrottleInSeconds(): int
+    {
+        return (int) config("auth.passwords.{$this->passwordBroker()}.throttle", 60);
+    }
+
+    private function passwordBroker(): string
+    {
+        return Filament::getAuthPasswordBroker() ?? config('auth.defaults.passwords');
+    }
+
     private function linkLifetimeInMinutes(): int
     {
-        $broker = Filament::getAuthPasswordBroker() ?? config('auth.defaults.passwords');
-
-        return (int) config("auth.passwords.{$broker}.expire", 60);
+        return (int) config("auth.passwords.{$this->passwordBroker()}.expire", 60);
     }
 }

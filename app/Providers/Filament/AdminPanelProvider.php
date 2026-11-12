@@ -19,6 +19,7 @@ use App\Filament\Resources\Receivables\ReceivableResource;
 use App\Filament\Support\AccountantAwareGlobalSearch;
 use App\Filament\Support\BrandPalette;
 use App\Filament\Support\ContiuPalettes;
+use App\Http\Middleware\ApplyGuestLanguage;
 use App\Http\Middleware\RestrictAccountantRoutes;
 use App\Http\Middleware\UseDefaultAccountOutsideTenantRoutes;
 use App\Models\Account;
@@ -265,6 +266,7 @@ class AdminPanelProvider extends PanelProvider
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
+                ApplyGuestLanguage::class,
                 AuthenticateSession::class,
                 ShareErrorsFromSession::class,
                 PreventRequestForgery::class,
@@ -277,7 +279,7 @@ class AdminPanelProvider extends PanelProvider
                 UseDefaultAccountOutsideTenantRoutes::class,
             ])
             // Also on Livewire updates from those pages (e.g. saving /profile).
-            ->persistentMiddleware([UseDefaultAccountOutsideTenantRoutes::class])
+            ->persistentMiddleware([UseDefaultAccountOutsideTenantRoutes::class, ApplyGuestLanguage::class])
             ->tenantMiddleware([RestrictAccountantRoutes::class], isPersistent: true);
     }
 

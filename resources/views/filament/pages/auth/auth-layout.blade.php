@@ -4,7 +4,10 @@
     showcase, in the palette's navigation colour, on the right. On a phone only the left half shows.
 --}}
 @php
+    use App\Enums\Language;
     use ToneGabes\Filament\Icons\Enums\Phosphor;
+
+    $currentLanguage = Language::resolve(app()->getLocale());
 @endphp
 
 <x-filament-panels::layout.base :livewire="$livewire ?? null">
@@ -23,6 +26,22 @@
                 <span>© {{ now()->year }} TrekDev, Lda.</span>
                 <a href="{{ route('legal.terms') }}">{{ __('Terms') }}</a>
                 <a href="{{ route('legal.privacy') }}">{{ __('Privacy') }}</a>
+
+                <x-filament::dropdown placement="top-end" class="contiu-auth-language">
+                    <x-slot name="trigger">
+                        <button type="button" class="contiu-auth-language-button" aria-label="{{ __('Language') }}">
+                            <x-filament::icon :icon="Phosphor::Globe" />{{ Language::options()[$currentLanguage->value] }}
+                        </button>
+                    </x-slot>
+
+                    <x-filament::dropdown.list>
+                        @foreach (Language::cases() as $language)
+                            <x-filament::dropdown.list.item tag="a" :href="route('guest-language', $language)" :color="$language === $currentLanguage ? 'primary' : 'gray'">
+                                {{ Language::options()[$language->value] }}
+                            </x-filament::dropdown.list.item>
+                        @endforeach
+                    </x-filament::dropdown.list>
+                </x-filament::dropdown>
             </footer>
         </div>
 

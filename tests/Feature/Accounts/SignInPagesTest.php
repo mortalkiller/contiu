@@ -5,12 +5,16 @@ use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\Auth\RequestPasswordReset;
 use App\Filament\Pages\Auth\ResetPassword;
 use App\Models\User;
+use App\Support\TrustedDevice;
 use Filament\Auth\Notifications\ResetPassword as ResetPasswordNotification;
+use Filament\Auth\Notifications\VerifyEmail;
 use Filament\Facades\Filament;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\URL;
 use Livewire\Livewire;
+use PragmaRX\Google2FAQRCode\Google2FA;
 
 pest()->group('tenancy', 'ui');
 
@@ -38,6 +42,63 @@ it('asks for the authenticator code before signing in a user with two-step verif
     $user->saveAppAuthenticationSecret('JBSWY3DPEHPK3PXP');
 
     Livewire::test(Login::class)
+        ->fillForm(['email' => 'rita@example.pt', 'password' => 'uma-palavra-passe-longa'])
+        ->call('authenticate')
+        ->assertSee('Código de verificação');
+
+    expect(Filament::auth()->check())->toBeFalse();
+});
+
+it('trusts the device for 30 days once the code is right and “do not ask again” is ticked', function () {
+    $user = User::factory()->create(['email' => 'rita@example.pt', 'password' => 'uma-palavra-passe-longa']);
+    $user->saveAppAuthenticationSecret('JBSWY3DPEHPK3PXP');
+
+    Livewire::test(Login::class)
+        ->fillForm(['email' => 'rita@example.pt', 'password' => 'uma-palavra-passe-longa'])
+        ->call('authenticate')
+        ->assertSee('Não pedir de novo neste dispositivo durante 30 dias')
+        ->set('data.multiFactor.app.code', app(Google2FA::class)->getCurrentOtp('JBSWY3DPEHPK3PXP'))
+        ->set('data.multiFactor.trustDevice', true)
+        ->call('authenticate')
+        ->assertHasNoErrors();
+
+    expect(Filament::auth()->id())->toBe($user->id)
+        ->and(Cookie::hasQueued(app(TrustedDevice::class)->cookieName($user)))->toBeTrue();
+});
+
+it('signs in without the code on a trusted device, until the password changes', function () {
+    $user = User::factory()->create(['email' => 'rita@example.pt', 'password' => 'uma-palavra-passe-longa']);
+    $user->saveAppAuthenticationSecret('JBSWY3DPEHPK3PXP');
+
+    app(TrustedDevice::class)->trust($user);
+    $cookie = Cookie::queued(app(TrustedDevice::class)->cookieName($user));
+
+    Livewire::withCookie($cookie->getName(), $cookie->getValue())
+        ->test(Login::class)
+        ->fillForm(['email' => 'rita@example.pt', 'password' => 'uma-palavra-passe-longa'])
+        ->call('authenticate')
+        ->assertDontSee('Código de verificação');
+
+    expect(Filament::auth()->id())->toBe($user->id);
+
+    Filament::auth()->logout();
+    $user->forceFill(['password' => 'outra-palavra-passe-longa'])->save();
+
+    Livewire::withCookie($cookie->getName(), $cookie->getValue())
+        ->test(Login::class)
+        ->fillForm(['email' => 'rita@example.pt', 'password' => 'outra-palavra-passe-longa'])
+        ->call('authenticate')
+        ->assertSee('Código de verificação');
+
+    expect(Filament::auth()->check())->toBeFalse();
+});
+
+it('does not trust a device with a forged cookie', function () {
+    $user = User::factory()->create(['email' => 'rita@example.pt', 'password' => 'uma-palavra-passe-longa']);
+    $user->saveAppAuthenticationSecret('JBSWY3DPEHPK3PXP');
+
+    Livewire::withCookie(app(TrustedDevice::class)->cookieName($user), now()->addDay()->getTimestamp().'.'.str_repeat('a', 64))
+        ->test(Login::class)
         ->fillForm(['email' => 'rita@example.pt', 'password' => 'uma-palavra-passe-longa'])
         ->call('authenticate')
         ->assertSee('Código de verificação');
@@ -100,6 +161,34 @@ it('asks a user who comes back later to confirm the email, without the “Conta 
         ->assertDontSee('O que fica combinado');
 });
 
+it('sends the confirmation link to another email when the first one was mistyped', function () {
+    Notification::fake();
+    $user = User::factory()->unverified()->create(['email' => 'rita@exmaple.pt']);
+    $this->actingAs($user);
+
+    Livewire::test(EmailVerificationPrompt::class)
+        ->callAction('changeEmail', ['email' => 'rita@example.pt'])
+        ->assertHasNoActionErrors()
+        ->assertSee('rita@example.pt');
+
+    expect($user->fresh()->email)->toBe('rita@example.pt')
+        ->and($user->fresh()->hasVerifiedEmail())->toBeFalse();
+
+    Notification::assertSentTo($user, VerifyEmail::class);
+});
+
+it('refuses another email that already has an account', function () {
+    User::factory()->create(['email' => 'ocupado@example.pt']);
+    $user = User::factory()->unverified()->create(['email' => 'rita@exmaple.pt']);
+    $this->actingAs($user);
+
+    Livewire::test(EmailVerificationPrompt::class)
+        ->callAction('changeEmail', ['email' => 'ocupado@example.pt'])
+        ->assertHasActionErrors(['email' => 'unique']);
+
+    expect($user->fresh()->email)->toBe('rita@exmaple.pt');
+});
+
 it('never shows another user’s “Conta criada” screen kept in the session', function () {
     $this->actingAs(User::factory()->unverified()->create());
 
@@ -139,4 +228,25 @@ it('offers the authenticator app and the email codes in Segurança', function ()
         ->assertSee('Verificação em dois passos (2FA)')
         ->assertSee('App de autenticação')
         ->assertSee('Códigos por email');
+});
+
+it('switches the sign-in pages to English from the footer, and back to where it was picked', function () {
+    $this->from(Filament::getLoginUrl())
+        ->get(route('guest-language', 'en-US'))
+        ->assertRedirect(Filament::getLoginUrl());
+
+    $this->get(Filament::getLoginUrl())
+        ->assertSee('Sign in to Contiu')
+        ->assertSee('English (United States)')
+        ->assertDontSee('Entra na Contiu');
+});
+
+it('never sends the language switch back to another site', function () {
+    $this->from('https://example.com/phishing')
+        ->get(route('guest-language', 'en-US'))
+        ->assertRedirect(Filament::getLoginUrl());
+});
+
+it('refuses a language Contiu does not have', function () {
+    $this->get('/idioma/xx-XX')->assertNotFound();
 });

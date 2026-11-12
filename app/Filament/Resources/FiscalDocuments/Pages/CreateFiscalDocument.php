@@ -5,6 +5,7 @@ namespace App\Filament\Resources\FiscalDocuments\Pages;
 use App\Filament\Pages\IntegrationsPage;
 use App\Filament\Resources\Concerns\HasSaveBar;
 use App\Filament\Resources\FiscalDocuments\FiscalDocumentResource;
+use App\Filament\Resources\FiscalDocuments\Schemas\FiscalDocumentForm;
 use App\Models\FiscalDocument;
 use App\Support\FiscalDocumentPdfs;
 use App\Support\Invoicing\Invoicing;
@@ -19,7 +20,7 @@ class CreateFiscalDocument extends CreateRecord
 
     protected function handleRecordCreation(array $data): FiscalDocument
     {
-        return app(FiscalDocumentPdfs::class)->saveManual($data);
+        return app(FiscalDocumentPdfs::class)->saveManual(FiscalDocumentForm::data($data));
     }
 
     protected function getRedirectUrl(): string

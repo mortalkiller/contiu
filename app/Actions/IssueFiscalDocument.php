@@ -16,6 +16,7 @@ use App\Support\Invoicing\InvoicingProvider;
 use App\Support\Invoicing\InvoicingRecords;
 use App\Support\Invoicing\RemoteDocument;
 use App\Support\Money;
+use App\Support\VatExemptionExport;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -84,7 +85,7 @@ final class IssueFiscalDocument
             throw ValidationException::withMessages(['document' => __('The provider did not issue the document. Open it there and try again.')]);
         }
 
-        return DB::transaction(function () use ($document, $remote): FiscalDocument {
+        $issued = DB::transaction(function () use ($document, $remote): FiscalDocument {
             $document = FiscalDocument::query()->lockForUpdate()->findOrFail($document->getKey());
 
             if ($document->status === FiscalDocumentStatus::Active) {
@@ -107,6 +108,24 @@ final class IssueFiscalDocument
 
             return $document;
         });
+
+        $this->warnAboutExport($issued);
+
+        return $issued;
+    }
+
+    /**
+     * An exempt account that may have just exported goods is reminded, after issuing, that the
+     * art. 53.º exemption ends and the declaration of changes is due (IVA08, VAT05). The regime is
+     * never switched here.
+     */
+    private function warnAboutExport(FiscalDocument $document): void
+    {
+        $warning = VatExemptionExport::issuedWarning($document);
+
+        if ($warning !== null) {
+            $this->warnings[] = $warning;
+        }
     }
 
     private function issueAtProvider(FiscalDocument $document, InvoicingProvider $provider): RemoteDocument

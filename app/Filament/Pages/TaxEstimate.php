@@ -203,12 +203,16 @@ class TaxEstimate extends Page
             [
                 'label' => __('Income taxed in IRS'),
                 'value' => Money::format($taxable, locale: $locale),
-                'note' => $income > 0
-                    ? __(':percent of what you received · coefficient :coefficient', [
+                'note' => match (true) {
+                    $estimator->irsJovemExemptToConfirm() => __('Without IRS Jovem, which is to confirm · coefficient :coefficient', [
+                        'coefficient' => self::decimal($estimator->effectiveIrsCoefficient()),
+                    ]),
+                    $income > 0 => __(':percent of what you received · coefficient :coefficient', [
                         'percent' => self::percent(round($taxable / $income, 2)),
                         'coefficient' => self::decimal($estimator->effectiveIrsCoefficient()),
-                    ])
-                    : __('Coefficient :coefficient', ['coefficient' => self::decimal($estimator->effectiveIrsCoefficient())]),
+                    ]),
+                    default => __('Coefficient :coefficient', ['coefficient' => self::decimal($estimator->effectiveIrsCoefficient())]),
+                },
             ],
             $vat,
         ];
@@ -385,8 +389,13 @@ class TaxEstimate extends Page
             TextEntry::make('irs')->hiddenLabel()->state(Money::format($estimator->irsTaxableIncome(), locale: app()->getLocale()))->size(TextSize::Large)->weight('bold'),
             $line('irs_note', __('Taxable income. The tax depends on the personal income tax tables and is not calculated here.')),
             $line('irs_gross', __('Gross income: :amount', ['amount' => Money::format($estimator->income(), locale: app()->getLocale())])),
-            $estimator->settings()->irsJovem() ? $line('irs_jovem', $jovemPercent > 0
-                ? __('Exempt under IRS Jovem (:percent, year :year): −:amount', [
+            $estimator->settings()->irsJovem() ? $line('irs_jovem', match (true) {
+                $estimator->irsJovemExemptToConfirm() => __('IRS Jovem (:percent, year :year): up to :amount may be exempt, to confirm. It is not taken off the taxable income above.', [
+                    'percent' => self::percent($jovemPercent),
+                    'year' => $estimator->settings()->irsJovemYearNumber($estimator->year),
+                    'amount' => Money::format($jovemExempt, locale: app()->getLocale()),
+                ]),
+                $jovemPercent > 0 => __('Exempt under IRS Jovem (:percent, year :year): −:amount', [
                     'percent' => self::percent($jovemPercent),
                     'year' => $estimator->settings()->irsJovemYearNumber($estimator->year),
                     'amount' => Money::format($jovemExempt, locale: app()->getLocale()),
@@ -396,10 +405,14 @@ class TaxEstimate extends Page
                             'cap' => TaxEstimator::IRS_JOVEM_IAS_CAP,
                             'provisional' => $estimator->iasIsProvisional() ? __(', provisional') : '',
                         ])
-                        : '')
-                : __('IRS Jovem does not apply in :year (age or year of eligibility).', ['year' => $estimator->year])) : null,
-            $estimator->irsJovemCapSharedWithSalary()
-                ? $line('irs_jovem_cap', __('The IRS Jovem cap is one per person and also counts your salary of :year. If the two together go over it, the exempt part of your receipts is smaller than shown here: how it is split has not been confirmed. Check it with your accountant.', ['year' => $estimator->year]))
+                        : ''),
+                default => __('IRS Jovem does not apply in :year (age or year of eligibility).', ['year' => $estimator->year]),
+            }) : null,
+            $estimator->irsJovemExemptToConfirm()
+                ? $line('irs_jovem_cap', __('The IRS Jovem cap of :cap × IAS is one per person and also counts your salary of :year, so it is never doubled. How it is split between the salary and your receipts has not been confirmed: check it with your accountant.', [
+                    'cap' => TaxEstimator::IRS_JOVEM_IAS_CAP,
+                    'year' => $estimator->year,
+                ]))
                 : null,
             $line('irs_coefficient', __('Coefficient :coefficient', ['coefficient' => self::decimal($estimator->effectiveIrsCoefficient())])
                 .match (true) {

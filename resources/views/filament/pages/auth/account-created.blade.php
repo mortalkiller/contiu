@@ -37,7 +37,7 @@
                 <p>{{ new HtmlString(__('We sent a link to :email. Open it on this device or another: the account is active as soon as you confirm.', ['email' => '<b>'.e($accountCreated['email']).'</b>'])) }}</p>
                 <div class="contiu-signup-done-mail-actions">
                     {{ $this->resendNotificationAction }}
-                    <span>{{ __('Did not arrive? Look in spam or promotions.') }}</span>
+                    <span>{{ __('Did not arrive? Look in spam or promotions.') }} {{ __('Typed the email wrong?') }} {{ $this->changeEmailAction }}</span>
                 </div>
             </div>
         </section>
@@ -63,6 +63,13 @@
         @endunless
 
         <div class="contiu-signup-foot">
+            @if (filled(config('contiu.support_email')))
+                <span class="contiu-signup-login">
+                    {{ __('Need help?') }}
+                    <x-filament::link :href="'mailto:'.config('contiu.support_email')">{{ __('Talk to us') }}</x-filament::link>
+                </span>
+            @endif
+
             <x-filament::button size="lg" tag="a" :href="filament()->getUrl()" :icon="Phosphor::SignIn" class="contiu-signup-next">
                 {{ __('I have confirmed, sign in to Contiu') }}
             </x-filament::button>

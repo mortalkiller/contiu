@@ -248,6 +248,30 @@
         }
     }
 
+    & .contiu-auth-language {
+        margin-inline-start: auto;
+    }
+
+    & .contiu-auth-language-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.25rem 0.625rem;
+        border: 1px solid var(--gray-200);
+        border-radius: 999px;
+        font: inherit;
+        color: var(--gray-500);
+
+        & .fi-icon {
+            width: 0.875rem;
+            height: 0.875rem;
+        }
+
+        &:hover {
+            color: var(--gray-700);
+        }
+    }
+
     /* Right half: the showcase. */
     & .contiu-auth-show {
         position: relative;
@@ -372,6 +396,11 @@
     & .contiu-auth-mailbox-subject,
     & .contiu-auth-strength-label,
     & .contiu-auth-rules {
+        color: var(--gray-400);
+    }
+
+    & .contiu-auth-language-button {
+        border-color: rgb(255 255 255 / 0.15);
         color: var(--gray-400);
     }
 

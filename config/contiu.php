@@ -7,6 +7,9 @@ return [
 
     'invoice_email_inbox_enabled' => (bool) env('CONTIU_INVOICE_EMAIL_INBOX_ENABLED', false),
 
+    // Where "Precisas de ajuda? Fala connosco" points (e.g. on "Conta criada"). Hidden when empty.
+    'support_email' => env('CONTIU_SUPPORT_EMAIL'),
+
     // Days a new account can use everything before it has to subscribe.
     'trial_days' => 14,
 
@@ -65,21 +68,39 @@ return [
     'irs_prepayment_factor' => [2023 => 0.765, 2024 => 0.765, 2025 => 0.65, 2026 => 0.65],
 
     /*
-     * Art. 68.º CIRS, mainland: upper limit of each bracket in cents, then the marginal and the
-     * average rate in thousandths of a percent (2026 after DL 212/2026). The last bracket has no
-     * limit nor average rate.
+     * Art. 68.º CIRS, by territory of fiscal residence and then by year: upper limit of each
+     * bracket in cents, then the marginal and the average rate in thousandths of a percent, as
+     * published (never rebuilt from another table). The last bracket has no limit nor average rate.
+     * 'PT': the national table, 2026 after DL 212/2026 (HIST002, HIST003). 'PT-MA': Madeira,
+     * DLR 17/2026/M, art. 2.º, effects from 1 January 2026 (RA002, RAM04). The Azores (RA001) have
+     * no table here: their reduction is confirmed but the published regional table is not loaded.
      */
     'irs_brackets' => [
-        2026 => [
-            [834200, 12200, 12200],
-            [1258700, 15200, 13212],
-            [1783800, 20700, 15416],
-            [2308900, 23600, 17277],
-            [2939700, 30600, 20136],
-            [4309000, 34600, 24732],
-            [4656600, 43100, 26103],
-            [8663400, 44600, 34658],
-            [null, 48000, null],
+        'PT' => [
+            2026 => [
+                [834200, 12200, 12200],
+                [1258700, 15200, 13212],
+                [1783800, 20700, 15416],
+                [2308900, 23600, 17277],
+                [2939700, 30600, 20136],
+                [4309000, 34600, 24732],
+                [4656600, 43100, 26103],
+                [8663400, 44600, 34658],
+                [null, 48000, null],
+            ],
+        ],
+        'PT-MA' => [
+            2026 => [
+                [834200, 8540, 8540],
+                [1258700, 10640, 9248],
+                [1783800, 14490, 10791],
+                [2308900, 16520, 12094],
+                [2939700, 21420, 14095],
+                [4309000, 24220, 17313],
+                [4656600, 30170, 18272],
+                [8663400, 31220, 24261],
+                [null, 33600, null],
+            ],
         ],
     ],
 
@@ -90,7 +111,7 @@ return [
      */
     'reserved_slugs' => [
         'login', 'logout', 'register', 'password-reset', 'email-verification', 'profile',
-        'termos', 'privacidade', 'stripe', 'livewire', 'up', 'storage', 'build', 'brand',
+        'termos', 'privacidade', 'idioma', 'stripe', 'livewire', 'up', 'storage', 'build', 'brand',
         'admin', 'api', 'filament', 'filament-excel', 'filament-fullcalendar', 'dev',
     ],
 

@@ -12,6 +12,7 @@ use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\FiscalDocuments\Actions\CreditApplicationActions;
 use App\Filament\Resources\FiscalDocuments\Actions\CustomerRefundAction;
 use App\Filament\Resources\FiscalDocuments\Actions\DebitNoteChargeAction;
+use App\Filament\Resources\FiscalDocuments\Actions\FiscalDocumentEmailAction;
 use App\Filament\Resources\FiscalDocuments\Actions\FiscalDocumentPdfActions;
 use App\Filament\Resources\FiscalDocuments\Actions\InvoiceAdvanceAction;
 use App\Filament\Resources\FiscalDocuments\Actions\RecordEuServiceAction;
@@ -84,6 +85,7 @@ class ViewFiscalDocument extends ViewRecord
                 RecordEuServiceAction::make(),
             ])->label(__('More actions')),
             FiscalDocumentPdfActions::download()->label(__('PDF'))->icon(null)->color('gray'),
+            FiscalDocumentEmailAction::make()->icon(null),
             FiscalDocumentPdfActions::retrieve()->color('gray')->icon(null)
                 ->visible(fn (): bool => $this->record->currentPdf === null && ! $this->record->isDraft() && $this->record->integrationRecord !== null && Invoicing::connected()),
             Action::make('editRecord')

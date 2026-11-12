@@ -175,3 +175,17 @@ it('keeps the palette logo on the profile page, which is not a sign-in page', fu
         ->assertDontSee('brand/contiu/contiu-logo-black.svg', escape: false)
         ->assertSee('height: 2rem', escape: false);
 });
+
+it('paints the black-and-white palette with a black bar and buttons, near-white buttons in dark mode', function () {
+    $user = actingAsAdmin();
+    $user->palette = 'black-white';
+    $user->save();
+
+    $this->get(ProjectResource::getUrl())
+        ->assertOk()
+        ->assertSee('--fap-navigation: #0a0a0a', escape: false)
+        ->assertSee('--fap-action: #0a0a0a', escape: false)
+        ->assertSee('--fap-on-action: #ffffff', escape: false);
+
+    expect(collect(ContiuPalettes::all())->firstWhere(fn (Palette $palette): bool => $palette->getId() === 'black-white')->getAction(dark: true))->toBe('#fafafa');
+});

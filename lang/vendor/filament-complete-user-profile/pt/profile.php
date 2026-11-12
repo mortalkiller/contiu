@@ -4,7 +4,7 @@ return [
     'page' => [
         'label' => 'A minha conta',
         'heading' => 'A minha conta',
-        'subheading' => 'Gerir o seu perfil, segurança e acesso.',
+        'subheading' => 'O teu perfil, a segurança e o acesso à conta.',
     ],
     'fields' => [
         'avatar' => 'Avatar',
@@ -12,11 +12,11 @@ return [
     ],
     'profile_information' => [
         'heading' => 'Informações do perfil',
-        'description' => 'Atualize as suas informações pessoais e os dados do perfil.',
+        'description' => 'Atualiza os teus dados pessoais e o perfil.',
     ],
     'overview' => [
         'name' => 'Nome',
-        'email' => 'E-mail',
+        'email' => 'Email',
         'locale' => 'Idioma preferido',
     ],
     'security' => [
@@ -36,7 +36,7 @@ return [
             'requirement' => 'O modelo autenticável tem de implementar :contract quando a autenticação por e-mail está ativada.',
             'notifications' => 'O modelo de utilizador autenticado tem de suportar notificações do Laravel para usar autenticação por e-mail.',
             'resend' => [
-                'label' => 'Enviar um novo código por e-mail',
+                'label' => 'Enviar um novo código por email',
                 'sent' => 'Foi enviado um novo código de verificação.',
             ],
             'email' => [
@@ -76,7 +76,7 @@ return [
             'mobile' => 'Telemóvel',
             'desktop' => 'Computador',
         ],
-        'empty' => 'Não foram encontradas sessões de browser',
+        'empty' => 'Sem sessões noutros browsers',
     ],
     'api_tokens' => [
         'columns' => [
@@ -99,9 +99,9 @@ return [
         'created' => [
             'heading' => 'Token de API criado',
             'warning' => [
-                'heading' => 'Copie este token agora',
+                'heading' => 'Copia este token agora',
             ],
-            'description' => 'Esta é a única vez que será mostrado por completo. Certifique-se de que o copiou — não poderá voltar a vê-lo.',
+            'description' => 'Só o mostramos completo esta vez. Copia-o já: não o vais conseguir ver de novo.',
             'token' => 'Token',
         ],
         'requirements' => [
@@ -116,11 +116,11 @@ return [
     'features' => [
         'overview' => [
             'label' => 'Visão geral',
-            'description' => 'Um resumo da sua conta e das funcionalidades de segurança ativadas.',
+            'description' => 'Um resumo da tua conta e da segurança que tens ligada.',
         ],
         'profile' => [
             'label' => 'Perfil',
-            'description' => 'Gerir as suas informações pessoais e preferências.',
+            'description' => 'Os teus dados pessoais e preferências.',
         ],
         'security' => [
             'label' => 'Segurança',
@@ -128,7 +128,7 @@ return [
         ],
         'sessions' => [
             'label' => 'Sessões',
-            'description' => 'Rever e gerir os dispositivos com sessão iniciada na sua conta.',
+            'description' => 'Os dispositivos com sessão iniciada na tua conta.',
         ],
         'api-tokens' => [
             'label' => 'Tokens de API',
@@ -137,15 +137,15 @@ return [
     ],
     'aside' => [
         'security' => [
-            'description' => 'Reveja as definições de segurança da sua conta.',
+            'description' => 'Revê a segurança da tua conta.',
             'heading' => 'Segurança da conta',
             'app_authentication' => [
-                'label' => 'Aplicação de autenticação',
+                'label' => 'App de autenticação',
                 'enabled' => 'Ativada',
                 'disabled' => 'Por configurar',
             ],
             'email_authentication' => [
-                'label' => 'MFA por e-mail',
+                'label' => 'Códigos por email',
                 'enabled' => 'Ativada',
                 'disabled' => 'Por configurar',
             ],

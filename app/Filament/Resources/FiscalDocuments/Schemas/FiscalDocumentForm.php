@@ -10,22 +10,32 @@ use App\Filament\Support\DetachedFileUpload;
 use App\Filament\Support\MoneyInput;
 use App\Models\Expense;
 use App\Models\FiscalDocument;
+use App\Models\FiscalDocumentLine;
 use App\Models\FiscalDocumentLink;
 use App\Models\Payment;
 use App\Models\Receivable;
+use App\Support\FinanceSettings;
 use App\Support\FiscalDocumentPdfs;
+use App\Support\FiscalDocumentRules;
 use App\Support\Money;
 use Closure;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Alignment;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Vite;
+use Illuminate\Support\Js;
+use Illuminate\Support\Number;
 
 final class FiscalDocumentForm
 {
@@ -64,12 +74,13 @@ final class FiscalDocumentForm
                             $net = $get('net_amount');
                             $vat = $get('vat_amount');
 
-                            if (is_numeric($net) && is_numeric($vat) && is_numeric($value)
+                            if (! self::linesGiven($get) && is_numeric($net) && is_numeric($vat) && is_numeric($value)
                                 && Money::toCents($value) !== Money::toCents($net) + Money::toCents($vat)) {
                                 $fail(__('The total must equal the taxable base plus VAT.'));
                             }
                         }),
                     ])->columns(4)->columnSpanFull(),
+                self::linesSection(),
                 Section::make(__('Counterparty'))
                     ->schema([
                         TextInput::make('party_name')->label(__('Name on document'))->maxLength(255),
@@ -109,9 +120,156 @@ final class FiscalDocumentForm
         return $data + Arr::only($record->links?->getAttributes() ?? [], FiscalDocumentLink::TARGET_FIELDS);
     }
 
+    /**
+     * A recorded document's lines as the form shows them: the quantity as a decimal, the price
+     * in cents (the money field shows it in euros) and the VAT rate in basis points.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public static function withLines(array $data, FiscalDocument $record): array
+    {
+        return [...$data, 'lines' => $record->lines->map(fn (FiscalDocumentLine $line): array => [
+            'description' => $line->description,
+            'quantity' => rtrim(rtrim(number_format($line->quantity / FiscalDocumentLine::QUANTITY_SCALE, 3, '.', ''), '0'), '.') ?: '0',
+            'unit_price' => $line->unit_price,
+            'vat_basis_points' => (string) $line->vat_basis_points,
+        ])->all()];
+    }
+
+    /**
+     * The form's state as SaveFiscalDocument takes it: the lines in thousandths, cents and basis
+     * points. Without lines the document keeps only its header amounts.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public static function data(array $data): array
+    {
+        $data['lines'] = array_values(array_map(fn (array $line): array => [
+            'description' => $line['description'] ?? null,
+            'quantity' => (int) round((float) str_replace(',', '.', (string) ($line['quantity'] ?? 0)) * FiscalDocumentLine::QUANTITY_SCALE),
+            'unit' => 'un',
+            'unit_price' => (int) ($line['unit_price'] ?? 0),
+            'vat_basis_points' => (int) ($line['vat_basis_points'] ?? 0),
+        ], array_filter((array) ($data['lines'] ?? []), is_array(...))));
+
+        return $data;
+    }
+
+    /**
+     * What was charged, line by line. Optional: with lines, the amounts above are worked out from
+     * them in the browser as they are typed, and again on the server when the document is saved.
+     */
+    private static function linesSection(): Section
+    {
+        $hasLines = fn (Get $get): bool => self::typeValue($get('type')) !== FiscalDocumentType::Receipt->value;
+
+        return Section::make(__('Lines'))
+            ->description(__('Optional. With lines, the taxable base, the VAT and the total are worked out from them.'))
+            // A receipt only says which invoices were paid: it has no lines.
+            ->visibleJs(sprintf("\$get('type') !== %s", Js::from(FiscalDocumentType::Receipt->value)))
+            ->schema([
+                Repeater::make('lines')
+                    ->hiddenLabel()
+                    ->dehydrated($hasLines)
+                    ->validatedWhenNotDehydrated(false)
+                    ->defaultItems(0)
+                    ->maxItems(FiscalDocumentRules::MAX_LINES)
+                    ->reorderable()
+                    ->addActionLabel(__('Add line'))
+                    ->addActionAlignment(Alignment::Start)
+                    ->table([
+                        TableColumn::make(__('Description'))->alignment(Alignment::Start),
+                        TableColumn::make(__('Qty'))->width('7rem')->alignment(Alignment::End),
+                        TableColumn::make(__('Price'))->width('10rem')->alignment(Alignment::End),
+                        TableColumn::make(__('VAT'))->width('9rem'),
+                    ])
+                    ->schema([
+                        TextInput::make('description')->required()->maxLength(255),
+                        TextInput::make('quantity')->required()->numeric()->minValue(0.001)->step(0.001)->default('1')
+                            ->afterStateUpdatedJs(self::totalsFromLinesJs()),
+                        MoneyInput::make('unit_price')->required()->minValue(0)->suffix(null)
+                            ->afterStateUpdatedJs(self::totalsFromLinesJs()),
+                        Select::make('vat_basis_points')
+                            ->options(fn (): array => self::vatOptions())
+                            ->default(fn (): string => app(FinanceSettings::class)->vatExempt() ? '0' : (string) max(FiscalDocumentRules::vatRates()))
+                            ->selectablePlaceholder(false)
+                            ->required()
+                            ->afterStateUpdatedJs(self::totalsFromLinesJs()),
+                    ])
+                    // Adding or removing a line is a request already: the amounts follow it there.
+                    ->afterStateUpdated(function (Set $set, ?array $state): void {
+                        if (blank($state)) {
+                            return;
+                        }
+
+                        $totals = FiscalDocumentDraftForm::totals(array_filter($state, is_array(...)));
+                        $set('net_amount', Money::toEuros($totals->net));
+                        $set('vat_amount', Money::toEuros($totals->vat));
+                        $set('total_amount', Money::toEuros($totals->total));
+                    }),
+            ])
+            ->columnSpanFull();
+    }
+
+    /**
+     * Fills the taxable base, the VAT and the total from the lines on screen, in the browser and
+     * with the same sums as App\Support\FiscalDocumentTotals (fiscal-document-totals.js).
+     */
+    private static function totalsFromLinesJs(): string
+    {
+        $asset = Js::from(Vite::asset('resources/js/filament/schemas/components/fiscal-document-totals.js'));
+
+        return <<<JS
+            const lines = \$get('../../lines') ?? {};
+            import({$asset}).then(({ documentTotals }) => {
+                if (Object.keys(lines).length === 0) return;
+
+                const totals = documentTotals(lines);
+                const euros = (cents) => {
+                    const size = cents < 0n ? -cents : cents;
+
+                    return (cents < 0n ? '-' : '') + (size / 100n) + '.' + String(size % 100n).padStart(2, '0');
+                };
+
+                \$set('../../net_amount', euros(totals.net));
+                \$set('../../vat_amount', euros(totals.vat));
+                \$set('../../total_amount', euros(totals.total));
+            });
+            JS;
+    }
+
+    /**
+     * Every VAT rate of Portugal's three regions: a recorded document may come from any of them.
+     *
+     * @return array<string, string>
+     */
+    private static function vatOptions(): array
+    {
+        return collect(FiscalDocumentRules::portugueseVatRates())
+            ->mapWithKeys(fn (int $rate): array => [
+                (string) $rate => $rate === 0 ? __('VAT exempt') : Number::format($rate / 100, maxPrecision: 2, locale: app()->getLocale()).'%',
+            ])
+            ->all();
+    }
+
+    /** The document type as the form holds it: the enum once filled from a record, its value once chosen. */
+    private static function typeValue(mixed $type): ?string
+    {
+        return $type instanceof FiscalDocumentType ? $type->value : (is_string($type) ? $type : null);
+    }
+
+    /** Whether the amounts come from lines: the document has some, and is of a kind that has lines. */
+    private static function linesGiven(Get $get): bool
+    {
+        return self::typeValue($get('type')) !== FiscalDocumentType::Receipt->value && filled($get('lines'));
+    }
+
+    /** Required while there are no lines; with lines, the amounts come from them. */
     private static function amount(string $name, string $label): TextInput
     {
-        return MoneyInput::make($name)->label($label)->suffix(null)->required()
+        return MoneyInput::make($name)->label($label)->suffix(null)->required(fn (Get $get): bool => ! self::linesGiven($get))
             ->minValue(-9999999999.99)->maxValue(9999999999.99)->rule('decimal:0,2');
     }
 

@@ -362,7 +362,11 @@ final class TaxEstimator
         };
     }
 
-    /** Cents exempt by IRS Jovem, never above 55 × IAS. */
+    /**
+     * Cents of the self-employed income exempt by IRS Jovem: the percentage of the gross income,
+     * never above 55 × IAS (JOV005; JOV008 for the gross before the coefficient; IRS04). In a year
+     * with a salary this is only an upper bound (irsJovemExemptToConfirm()).
+     */
     public function irsJovemExempt(): int
     {
         return min(Money::share($this->income(), $this->irsJovemPercent()), self::IRS_JOVEM_IAS_CAP * $this->ias());
@@ -370,12 +374,31 @@ final class TaxEstimator
 
     /**
      * The 55 IAS are one cap per person, for salary and self-employed income together (JOV005,
-     * IRS09). In a year with a salary the exempt amount above may be too high: the salary is not
-     * known here and how the cap is split between the two is not confirmed.
+     * IRS09). In a year with a salary the salary is not known here and how the cap is split
+     * between the two is not confirmed.
      */
     public function irsJovemCapSharedWithSalary(): bool
     {
         return $this->irsJovemPercent() > 0 && in_array($this->year, $this->settings->dependentIncomeYears(), true);
+    }
+
+    /**
+     * Whether the IRS Jovem exemption of the receipts is left to confirm: with the cap shared with
+     * a salary, the split between the two is NÃO CONFIRMADO (JOV005, IRS09), so the exemption is
+     * shown only as "up to irsJovemExempt()" and is not taken off the taxable income.
+     */
+    public function irsJovemExemptToConfirm(): bool
+    {
+        return $this->irsJovemCapSharedWithSalary();
+    }
+
+    /**
+     * Cents of IRS Jovem exemption taken off the taxable income: irsJovemExempt(), or none while it
+     * is to confirm (JOV005, IRS09). The estimate then stays usable, without the exemption.
+     */
+    public function irsJovemExemptApplied(): int
+    {
+        return $this->irsJovemExemptToConfirm() ? 0 : $this->irsJovemExempt();
     }
 
     /**
@@ -444,11 +467,12 @@ final class TaxEstimator
     /**
      * (gross − IRS Jovem) × coefficient − contributions above 10 % + expenses missing to reach 15 %,
      * in cents, never below zero. The shortfall is left out while it cannot be worked out
-     * (irsExpenseShortfall() null).
+     * (irsExpenseShortfall() null); the IRS Jovem exemption while it is to confirm (JOV005,
+     * irsJovemExemptApplied()).
      */
     public function irsTaxableIncome(): int
     {
-        $afterCoefficient = Money::share($this->income() - $this->irsJovemExempt(), $this->effectiveIrsCoefficient());
+        $afterCoefficient = Money::share($this->income() - $this->irsJovemExemptApplied(), $this->effectiveIrsCoefficient());
 
         return max(0, $afterCoefficient - $this->irsContributionsDeduction()) + ($this->irsExpenseShortfall() ?? 0);
     }

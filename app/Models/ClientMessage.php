@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * An email sent to a client from the app (payment reminder or statement).
+ * An email sent to a client from the app (payment reminder, statement or fiscal document).
  */
 class ClientMessage extends Model
 {
@@ -16,6 +16,8 @@ class ClientMessage extends Model
     public const PAYMENT_REMINDER = 'payment_reminder';
 
     public const STATEMENT = 'statement';
+
+    public const FISCAL_DOCUMENT = 'fiscal_document';
 
     protected $guarded = ['id'];
 

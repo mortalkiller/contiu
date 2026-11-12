@@ -7,6 +7,7 @@ use App\Enums\FiscalDocumentStatus;
 use App\Enums\FiscalDocumentType;
 use App\Enums\Language;
 use App\Enums\PaymentMethod;
+use App\Filament\Resources\Articles\ArticleResource;
 use App\Filament\Resources\FiscalDocuments\FiscalDocumentPresenter;
 use App\Filament\Support\MoneyInput;
 use App\Filament\Support\QuickCreate;
@@ -21,9 +22,11 @@ use App\Support\FiscalDocumentRules;
 use App\Support\FiscalDocumentTotals;
 use App\Support\FiscalTerms;
 use App\Support\Money;
+use App\Support\VatExemptionExport;
 use App\Support\WithholdingWaiver;
 use Carbon\CarbonImmutable;
 use Closure;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Hidden;
@@ -36,6 +39,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\JsComponent;
@@ -48,6 +53,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\Js;
 use Illuminate\Support\Number;
+use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 /**
  * The form a document is written in before it is issued. One builder for every kind: each kind
@@ -234,6 +240,12 @@ class FiscalDocumentDraftForm
                 ->visibleJs($simplified ? "\$get('consumer') === 'identified'" : null)
                 ->dehydrated($identified)
                 ->validatedWhenNotDehydrated(false) : null,
+            $original === null && $type->isInvoice() ? Callout::make(__('Export of goods: the VAT exemption ends'))
+                ->description(fn (Get $get): ?string => static::exportWarning($type, $get))
+                ->icon(Phosphor::WarningCircle)
+                ->status('warning')
+                ->visible(fn (Get $get): bool => static::exportWarning($type, $get) !== null)
+                ->columnSpanFull() : null,
             $type === FiscalDocumentType::SimplifiedInvoice ? TextInput::make('party_tax_id')
                 ->label(__('Tax ID'))
                 ->maxLength(64)
@@ -275,6 +287,25 @@ class FiscalDocumentDraftForm
                 ->validatedWhenNotDehydrated(false)
                 ->required(fn (Get $get): bool => static::totals((array) $get('lines'))->net > 0) : null,
         ])));
+    }
+
+    /**
+     * The warning of an exempt account invoicing a client outside the European Union while it sells
+     * goods (IVA08, VAT05; none for services, VAT06). It is not dismissible: it stays on screen for
+     * as long as the chosen client is one an export may go to, and redraws when the client changes,
+     * the one field that already asks the server.
+     */
+    private static function exportWarning(FiscalDocumentType $type, Get $get): ?string
+    {
+        $clientId = $get('client_id');
+
+        if (blank($clientId) || ($type === FiscalDocumentType::SimplifiedInvoice && $get('consumer') !== 'identified')) {
+            return null;
+        }
+
+        $date = filled($get('document_date')) ? CarbonImmutable::parse($get('document_date')) : CarbonImmutable::today();
+
+        return VatExemptionExport::warning(Client::query()->with('structuredAddress')->find($clientId), $type, $date);
     }
 
     /**
@@ -361,6 +392,7 @@ class FiscalDocumentDraftForm
                         ->required(),
                     static::totalsRenderer('line'),
                 ])
+                ->extraItemActions([static::saveAsArticleAction()])
                 // URL-encoded: the names are the user's own text and must not be able to end the attribute.
                 ->extraAttributes(fn (): array => ['data-articles' => rawurlencode(json_encode(static::articleCatalogue(), JSON_THROW_ON_ERROR))]),
             Grid::make(['default' => 1, 'lg' => 2])->schema([
@@ -594,6 +626,80 @@ class FiscalDocumentDraftForm
                 if (article.vat !== null) \$set('vat_basis_points', article.vat);
             });
             JS;
+    }
+
+    /**
+     * "Save as article" on a free line: keeps its text, unit, price and VAT as an article of the
+     * account and ties the line to it. Shown while the line has a description and no article; the
+     * server decides on the article and the browser on the description as it is typed, so nothing
+     * is asked of the server while typing.
+     */
+    private static function saveAsArticleAction(): Action
+    {
+        return Action::make('saveAsArticle')
+            ->label(__('Save as article'))
+            ->tooltip(__('Save as article'))
+            ->icon(Phosphor::BookmarkSimple)
+            ->visible(fn (array $arguments, Repeater $component): bool => ArticleResource::canCreate()
+                && blank($component->getRawState()[$arguments['item'] ?? null]['article_id'] ?? null))
+            ->extraAttributes(function (array $arguments, Repeater $component): array {
+                $line = $component->getStatePath().'.'.($arguments['item'] ?? '');
+
+                // Js::from() quotes the path in single quotes with any double quote escaped, so it cannot end the attribute.
+                return ['x-show' => sprintf(
+                    "String(\$wire.\$get(%s) ?? '').trim() !== '' && ! \$wire.\$get(%s)",
+                    Js::from("{$line}.description"),
+                    Js::from("{$line}.article_id"),
+                )];
+            })
+            ->action(function (array $arguments, Repeater $component, Action $action): void {
+                $key = (string) ($arguments['item'] ?? '');
+                $raw = $component->getRawState();
+
+                if (! isset($raw[$key]) || filled($raw[$key]['article_id'] ?? null)) {
+                    $action->halt();
+                }
+
+                $line = $component->getItemState($key);
+                $name = trim((string) ($line['description'] ?? ''));
+
+                if ($name === '') {
+                    Notification::make()->warning()->title(__('Write the description of the line first.'))->send();
+                    $action->halt();
+                }
+
+                if (Article::query()->where('name', $name)->exists()) {
+                    Notification::make()->danger()->title(__('You already have an article with this name.'))->send();
+                    $action->halt();
+                }
+
+                $article = Article::query()->create([
+                    'code' => static::nextArticleCode(),
+                    'name' => $name,
+                    'unit' => filled($line['unit'] ?? null) ? (string) $line['unit'] : 'un',
+                    'unit_price' => (int) ($line['unit_price'] ?? 0),
+                    'vat_basis_points' => (int) ($line['vat_basis_points'] ?? 0),
+                ]);
+
+                $raw[$key]['article_id'] = $article->getKey();
+                $component->rawState($raw);
+
+                Notification::make()->success()->title(__('Saved as article'))
+                    ->body(__(':name is now in your articles, with code :code.', ['name' => $article->name, 'code' => $article->code]))
+                    ->send();
+            });
+    }
+
+    /** The first free code of the "ART-0001" kind the account has not used yet. */
+    private static function nextArticleCode(): string
+    {
+        $number = Article::query()->count() + 1;
+
+        do {
+            $code = sprintf('ART-%04d', $number++);
+        } while (Article::query()->where('code', $code)->exists());
+
+        return $code;
     }
 
     /** @return Collection<int, Article> */

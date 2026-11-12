@@ -5,12 +5,14 @@ namespace App\Support\MailPreviews;
 use App\Filament\Pages\AccountSubscription;
 use App\Mail\AccountantServiceRequested;
 use App\Mail\ClientStatementEmail;
+use App\Mail\FiscalDocumentEmail;
 use App\Mail\PaymentReminder;
 use App\Mail\SubscriptionPaid;
 use App\Mail\TaxObligationsDigest;
 use App\Mail\TrialEndingSoon;
 use App\Models\Account;
 use App\Models\Client;
+use App\Models\FiscalDocument;
 use App\Models\SubscriptionPayment;
 use App\Models\User;
 use App\Support\ClientStatement;
@@ -46,6 +48,7 @@ final class MailPreviewRegistry
             'client-statement' => 'Account statement (to a client)',
             'subscription-paid' => 'Subscription paid (to super admins)',
             'accountant-service-requested' => 'Certified accountant requested (to super admins)',
+            'fiscal-document' => 'Fiscal document (to a client)',
         ];
     }
 
@@ -99,6 +102,8 @@ final class MailPreviewRegistry
                 'client-statement' => $this->mailable($template, $locale, $account, new ClientStatementEmail(new ClientStatement($client = $this->client()), __('Account statement — :name', ['name' => $client->name]), __('Hello :name,', ['name' => $client->name])."\n\n".__('Your account statement is attached.'))),
                 'subscription-paid' => $this->mailable($template, $locale, $account, new SubscriptionPaid($this->subscriptionPayment($account))),
                 'accountant-service-requested' => $this->mailable($template, $locale, $account, new AccountantServiceRequested($account->forceFill(['accountant_service' => $account->accountant_service ?? 'simplified']))),
+                // An unsaved example invoice without a PDF: it shows the text; a test send needs a real document (its attachment).
+                'fiscal-document' => $this->mailable($template, $locale, $account, new FiscalDocumentEmail(FiscalDocument::factory()->make(['number' => 'FT 2026/15']), 'fiscal-documents/exemplo.pdf')),
                 default => throw new InvalidArgumentException("Unknown mail preview [{$template}]."),
             });
         } finally {

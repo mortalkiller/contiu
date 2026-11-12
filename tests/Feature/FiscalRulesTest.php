@@ -1,26 +1,37 @@
 <?php
 
+use App\Actions\IssueFiscalDocument;
 use App\Enums\ExpenseAttribution;
 use App\Enums\FiscalDocumentType;
+use App\Enums\PortugueseVatRegion;
 use App\Filament\Analysis\Widgets\TaxQuartersTable;
 use App\Filament\Pages\FinanceSettingsPage;
+use App\Filament\Pages\TaxEstimate;
+use App\Filament\Resources\FiscalDocuments\Pages\ComposeFiscalDocument;
 use App\Filament\Resources\FiscalDocuments\Schemas\FiscalDocumentDraftForm;
+use App\Models\Client;
 use App\Models\Expense;
 use App\Models\FiscalDocument;
 use App\Models\Payment;
 use App\Models\Project;
 use App\Models\Receivable;
 use App\Support\FinanceSettings;
+use App\Support\Invoicing\RemoteDocument;
+use App\Support\Invoicing\RemoteDocumentState;
 use App\Support\IrsPrepayments;
+use App\Support\IrsSettlementEstimate;
+use App\Support\Money;
 use App\Support\PortugueseDeadline;
 use App\Support\TaxEstimator;
 use App\Support\TaxObligation;
 use App\Support\TaxObligations;
+use App\Support\VatExemptionExport;
 use App\Support\WithholdingReview;
 use App\Support\WithholdingWaiver;
 use App\Support\YearlyParameter;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
 /*
@@ -332,3 +343,126 @@ it('does not ask for the quarterly declaration of an exempt account in the quart
         ->assertSee('Não é preciso')
         ->assertDontSee('Atrasada');
 })->group('ui');
+
+describe('Export of goods by an exempt account (IVA08)', function () {
+    beforeEach(function () {
+        actingAsAdmin();
+        invoicingConnection();
+        Http::preventStrayRequests();
+        $this->abroad = Client::factory()->create(['name' => 'Harbor Goods Inc.', 'fiscal_country_code' => 'US']);
+    });
+
+    it('warns, without switching the regime, that selling goods outside the EU ends the exemption (VAT05)', function () {
+        rulesEstimator(2026, ['vat_exempt' => true, 'sells_goods' => true, 'irs_coefficient' => 0.15]);
+
+        Livewire::test(ComposeFiscalDocument::class, ['type' => 'invoice'])
+            ->fillForm(['document_date' => '2026-09-15', 'client_id' => $this->abroad->id])
+            ->assertSee('Exportação de bens: a isenção de IVA termina')
+            ->assertSee('até 7 de outubro de 2026 (15 dias úteis)')
+            ->assertSee('artigo 14.º do Código do IVA');
+
+        expect(app(FinanceSettings::class)->vatExempt())->toBeTrue();
+    })->group('ui');
+
+    it('counts the declaration of changes in working days, after holidays (IVA10)', function () {
+        // AT guidance: 15 working days from 31 December 2025 end on 22 January 2026.
+        expect(VatExemptionExport::declarationDeadline(CarbonImmutable::parse('2025-12-31'))->toDateString())->toBe('2026-01-22')
+            // 5 October 2026 is a holiday.
+            ->and(VatExemptionExport::declarationDeadline(CarbonImmutable::parse('2026-09-15'))->toDateString())->toBe('2026-10-07');
+    });
+
+    it('repeats the warning once the export is issued (VAT05)', function () {
+        rulesEstimator(2026, ['vat_exempt' => true, 'sells_goods' => true, 'irs_coefficient' => 0.15]);
+        $draft = FiscalDocument::factory()->draft()->create(['client_id' => $this->abroad->id, 'document_date' => '2026-09-15', 'net_amount' => 20000, 'vat_amount' => 0, 'total_amount' => 20000]);
+        $action = app(IssueFiscalDocument::class);
+
+        $action->complete($draft, new RemoteDocument('invoices', '9001', FiscalDocumentType::Invoice, RemoteDocumentState::Issued, CarbonImmutable::parse('2026-09-15'), 20000, 0, 20000, 'FT 2026/20'));
+
+        expect($action->warnings)->toHaveCount(1)
+            ->and($action->warnings[0])->toContain('declaração de alterações até 7 de outubro de 2026');
+    });
+
+    it('does not warn for services to a client abroad, nor for goods sold inside the EU (VAT06)', function () {
+        $germany = Client::factory()->create(['name' => 'Berlin Studio GmbH', 'fiscal_country_code' => 'DE']);
+        rulesEstimator(2026, ['vat_exempt' => true, 'sells_goods' => false, 'irs_coefficient' => 0.75]);
+
+        Livewire::test(ComposeFiscalDocument::class, ['type' => 'invoice'])
+            ->fillForm(['client_id' => $germany->id])
+            ->assertDontSee('Exportação de bens')
+            ->fillForm(['client_id' => $this->abroad->id])
+            ->assertDontSee('Exportação de bens');
+
+        rulesEstimator(2026, ['vat_exempt' => true, 'sells_goods' => true, 'irs_coefficient' => 0.15]);
+        $on = CarbonImmutable::parse('2026-09-15');
+
+        expect(VatExemptionExport::warning($germany, FiscalDocumentType::Invoice, $on))->toBeNull()
+            ->and(VatExemptionExport::warning($this->abroad, FiscalDocumentType::Quote, $on))->toBeNull();
+
+        rulesEstimator(2026, ['vat_exempt' => false, 'sells_goods' => true, 'irs_coefficient' => 0.15]);
+
+        expect(VatExemptionExport::warning($this->abroad, FiscalDocumentType::Invoice, $on))->toBeNull();
+    })->group('ui');
+});
+
+describe('IRS settlement by fiscal residence (RA001, RA002)', function () {
+    it('applies the first national bracket up to 8 342 € and the next rate only above it (IRS11, IRS12, IRS13)', function (int $taxable, int $grossTax) {
+        expect(IrsSettlementEstimate::calculate(2026, $taxable, 0, 0, 0)['grossTax'])->toBe($grossTax);
+    })->with([
+        'IRS11, 8 342 €' => [834200, 101772],
+        'IRS12, 8 342,01 €' => [834201, 101773],
+        'IRS13, 8 059,01 €' => [805901, 98320],
+    ]);
+
+    it('uses the published Madeira average rate, not the national one × 70% (RAM04)', function () {
+        // 43 090 € × 17,313% = 7 460,17 €; 24,732% × 70% = 17,3124% would give 7 459,91 €.
+        expect(YearlyParameter::irsBrackets('PT-MA', 2026)[5])->toBe([4309000, 24220, 17313])
+            ->and(IrsSettlementEstimate::calculate(2026, 4309000, 0, 0, 0, PortugueseVatRegion::Madeira)['grossTax'])->toBe(746017)
+            ->and(IrsSettlementEstimate::calculate(2026, 4309000, 0, 0, 0)['grossTax'])->toBe(1065702);
+    });
+
+    it('shows no Azores figure until the regional table is loaded (RA001)', function () {
+        expect(IrsSettlementEstimate::toConfirm(PortugueseVatRegion::Azores))->toContain('Portal das Finanças')
+            ->and(IrsSettlementEstimate::toConfirm(PortugueseVatRegion::Madeira))->toBeNull()
+            ->and(fn () => IrsSettlementEstimate::calculate(2026, 1000000, 0, 0, 0, PortugueseVatRegion::Azores))->toThrow(InvalidArgumentException::class);
+    });
+});
+
+describe('IRS Jovem cap (JOV005)', function () {
+    beforeEach(function () {
+        $this->young = ['ss_contribution_exempt' => true, 'ss_exemption_reason' => 'other', 'irs_jovem' => true, 'birth_date' => '1997-05-14'];
+    });
+
+    it('exempts at most 55 IAS of the gross receipts, before the coefficient (IRS04)', function (int $gross, int $remaining) {
+        rulesPaid('2026-02-10', $gross);
+        $estimator = rulesEstimator(2026, [...$this->young, 'irs_jovem_year' => ['year' => 2026, 'number' => 1]]);
+
+        expect($estimator->irsJovemExempt())->toBe(2954215)
+            ->and($estimator->irsJovemExemptToConfirm())->toBeFalse()
+            ->and($estimator->irsTaxableIncome())->toBe(Money::share($remaining, 0.75));
+    })->with([
+        '29 542,15 €' => [2954215, 0],
+        '29 542,16 €' => [2954216, 1],
+    ]);
+
+    it('leaves the exemption to confirm when the cap is shared with a salary, never doubling it (IRS09)', function () {
+        rulesPaid('2026-02-10', 4000000);
+        $estimator = rulesEstimator(2026, [...$this->young, 'irs_jovem_year' => ['year' => 2026, 'number' => 2], 'dependent_income_years' => [2026]]);
+
+        expect($estimator->irsJovemExemptToConfirm())->toBeTrue()
+            // One cap of 29 542,15 €, as an upper bound, never 59 084,30 €.
+            ->and($estimator->irsJovemExempt())->toBe(2954215)
+            ->and($estimator->irsJovemExemptApplied())->toBe(0)
+            // The estimate stays usable: 40 000 € × 0,75, without the exemption.
+            ->and($estimator->irsTaxableIncome())->toBe(3000000);
+    });
+
+    it('says on the estimate how much may be exempt, to confirm (IRS09)', function () {
+        actingAsAdmin();
+        rulesPaid('2026-02-10', 4000000);
+        rulesEstimator(2026, [...$this->young, 'irs_jovem_year' => ['year' => 2026, 'number' => 2], 'dependent_income_years' => [2026]]);
+
+        Livewire::test(TaxEstimate::class)
+            ->assertSee('até '.Money::format(2954215).' pode ficar isento, a confirmar')
+            ->assertSee('Sem o IRS Jovem, que está a confirmar');
+    })->group('ui');
+});

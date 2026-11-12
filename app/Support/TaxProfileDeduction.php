@@ -18,7 +18,7 @@ use Throwable;
  * activity_start_kind (first|restart), previous_activity_ended_on, ss_enrolled_from, situation
  * (list of employment|pension|self_only), employer_unrelated, salary_at_least_ias (yes|no),
  * employment_scheme (ss|cga), birth_date, irs_jovem (yes|no), irs_jovem_year_number, work_kind
- * (listed|other|goods), profession, commercial_only (yes|no), expected_turnover (cents) and
+ * (listed|other|goods), profession, commercial_only (yes|no|mixed), expected_turnover (cents) and
  * vat_answer (exempt|normal|unknown).
  */
 final class TaxProfileDeduction
@@ -226,7 +226,17 @@ final class TaxProfileDeduction
      */
     public function ssRate(): float
     {
-        return in_array($this->answer('work_kind'), ['goods', 'other'], true) && $this->yes('commercial_only') === true ? self::SS_RATE_SOLE_TRADER : self::SS_RATE;
+        return $this->mayBeCommercial() && $this->yes('commercial_only') === true ? self::SS_RATE_SOLE_TRADER : self::SS_RATE;
+    }
+
+    /**
+     * A mixed activity, or one the user is not sure about, keeps the general 21.4 % but only as a
+     * proposal: mixed activities are confirmed with the ISS, never chosen from the main activity
+     * (SS003).
+     */
+    public function ssRateToConfirm(): bool
+    {
+        return $this->mayBeCommercial() && $this->answer('commercial_only') === 'mixed';
     }
 
     /** SIM001–SIM003. Null until the work is said. */
@@ -406,7 +416,9 @@ final class TaxProfileDeduction
 
         if ($coefficient !== null) {
             $items[] = ['label' => __('IRS coefficient'), 'value' => $this->number($coefficient), 'step' => 'work'];
-            $items[] = ['label' => __('Social Security rate'), 'value' => $this->percent($this->ssRate()), 'step' => 'work'];
+            $items[] = ['label' => __('Social Security rate'), 'value' => $this->ssRateToConfirm()
+                ? __(':value (to confirm)', ['value' => $this->percent($this->ssRate())])
+                : $this->percent($this->ssRate()), 'step' => 'work'];
         }
 
         if ($this->vatExempt() !== null) {
@@ -557,12 +569,17 @@ final class TaxProfileDeduction
         };
 
         $soleTrader = $this->ssRate() === self::SS_RATE_SOLE_TRADER;
+        $rateToConfirm = $this->ssRateToConfirm();
 
         if ($soleTrader) {
             $sentences[] = __('As your activity is only commercial or industrial, the rate is :rate.', ['rate' => $this->percent(self::SS_RATE_SOLE_TRADER)]);
         }
 
-        $probable = $soleTrader || $this->employmentBlocker() === 'cga';
+        if ($rateToConfirm) {
+            $sentences[] = __('Your activity is mixed, or you are not sure: we use :rate, the general rate, but it is to confirm with the Social Security (ISS). Mixed activities are not decided by the main activity.', ['rate' => $this->percent(self::SS_RATE)]);
+        }
+
+        $probable = $soleTrader || $rateToConfirm || $this->employmentBlocker() === 'cga';
 
         return $this->card('social_security', __('Social Security'),
             $startsOn !== null && $startsOn->isAfter($this->today)
@@ -571,7 +588,7 @@ final class TaxProfileDeduction
             implode(' ', array_filter($sentences)),
             status: $probable ? self::PROBABLE : self::DEDUCED,
             confirm: $probable ? __('In Social Security Direct, under “Forma de atividade (taxa)” and “Situação atual”.') : null,
-            step: $soleTrader ? 'work' : 'situation');
+            step: $soleTrader || $rateToConfirm ? 'work' : 'situation');
     }
 
     /** @return array{key: string, title: string, value: string, reason: string, status: string, confirm: ?string, step: string} */
@@ -680,6 +697,12 @@ final class TaxProfileDeduction
             2 => 0.25,
             default => 0.0,
         };
+    }
+
+    /** Goods, or a service off the art. 151.º table: the work may be commercial or industrial (SS002, SS003). */
+    private function mayBeCommercial(): bool
+    {
+        return in_array($this->answer('work_kind'), ['goods', 'other'], true);
     }
 
     private function isRestart(): bool
