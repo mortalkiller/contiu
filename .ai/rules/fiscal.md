@@ -15,7 +15,9 @@ paths:
 ## The legal reference is `docs/fiscal/memoria-fiscal-ti-eni-portugal-2026.md`
 It holds the Portuguese tax and Social Security rules for freelancers and sole traders (IRS category B, VAT, Social Security, invoicing, calendar), with the legal article and an official link per rule. It was researched on 2026-11-11 and was not checked independently against the Diário da República.
 
-Do not read it whole (about 1,900 lines). Search it by rule ID (`SS040`, `IVA08`, `INI001`, ...) or by topic, and read that block.
+Do not read it whole (about 2,200 lines). Search it by rule ID (`SS040`, `IVA08`, `INI001`, ...) or by topic, and read that block.
+
+Chapter 12 has acceptance cases with boundary values already worked out (`IRS01`–`IRS14`, `VAT01`–`VAT08`, `SSC01`–`SSC12`, `REG01`–`REG03`, `RAM01`–`RAM04`). Use the matching case as test data when you change a rule. A case marked `NÃO CONFIRMADO` expects a "to confirm" state, never a figure.
 
 ## Check the rule before changing a calculation, an obligation or the sign-up questions
 Find the rule that covers the change and follow its conditions, including the boundary cases it names (equal to a limit versus above it). Name the rule ID in the PHPDoc of the method that applies it.

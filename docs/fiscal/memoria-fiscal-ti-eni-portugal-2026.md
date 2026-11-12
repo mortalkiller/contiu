@@ -1,6 +1,9 @@
 <!--
-Origem: relatório de pesquisa aprofundada feito no ChatGPT a pedido do Pedro, recebido a 2026-11-11
-(ficheiro original: memoria_fiscal_TI_ENI_Portugal_2026.docx), convertido para Markdown sem alterar o texto.
+Origem: relatório de pesquisa aprofundada feito no ChatGPT a pedido do Pedro, convertido para Markdown
+sem alterar o texto. Esta é a segunda versão, recebida a 2026-11-11 (ficheiro original:
+"memoria_fiscal_TI_ENI_Portugal_2026 (1).docx"). Substitui a primeira versão do mesmo dia: revê o estado
+de várias regras, acrescenta as tabelas de IRS da Madeira de 2023 a 2026 e as taxas médias nacionais,
+e o capítulo 12 com 44 casos de aceitação e 13 perguntas por esclarecer junto da AT, do ISS e do CC.
 
 Como usar:
 - É a referência das regras fiscais e contributivas (IRS categoria B, IVA, Segurança Social, faturação,
@@ -9,6 +12,8 @@ Como usar:
 - Não a leias inteira: procura pelo identificador da regra (por exemplo SS040, IVA08, INI001) ou pelo tema.
 - Cada regra traz o estado CONFIRMADO, DOUTRINA ou NÃO CONFIRMADO. Uma regra NÃO CONFIRMADO não deve
   virar cálculo automático sem validação de um contabilista certificado.
+- Os casos de aceitação do capítulo 12 (IRS01–14, VAT01–08, SSC01–12, REG01–03, RAM01–04, ...) dão
+  valores de fronteira já calculados: usa-os como dados de teste.
 - O texto não foi verificado de forma independente contra o Diário da República. As ligações oficiais
   estão em cada regra. Data de corte do relatório: 2026-11-11.
 -->
@@ -20,6 +25,8 @@ Como usar:
 Regras para uma aplicação de gestão que determina enquadramentos, bases tributáveis, contribuições e obrigações declarativas de pessoas singulares com rendimentos da categoria B, em regime simplificado ou em contabilidade organizada. Data de verificação: **11 de novembro de 2026**. As tabelas históricas abrangem 2023 a 2026. As alterações posteriores à data de verificação não estão abrangidas.
 
 O documento reúne o regime geral e identifica os regimes condicionais que exigem classificação adicional. Cada bloco relaciona a regra com a sua base legal e uma ligação oficial. A confirmação de uma regra não significa que qualquer perfil esteja suficientemente descrito para a aplicar: natureza efetiva da atividade, residência, estabelecimento, agregado familiar, datas, opções e notificações podem alterar o resultado.
+
+**Revisão de validação.** Esta versão integra uma segunda verificação dirigida dos pontos em aberto, corrige as classificações de confiança anteriores, completa as tabelas gerais da Madeira e a lista base do dossier fiscal e acrescenta casos de aceitação e perguntas concretas de esclarecimento. O capítulo 12 distingue resultados calculáveis, orientações administrativas ou profissionais e combinações que ainda exigem decisão fundamentada.
 
 **Limite de completude.** Esta memória não certifica um motor universal de liquidação de todos os impostos portugueses. Os pontos cuja redação histórica, interpretação, interação ou parametrização integral não ficou confirmada estão identificados expressamente. Entre eles encontram-se regimes setoriais, benefícios especiais, certas regras regionais históricas, convenções internacionais e módulos patrimoniais ou de processamento salarial. O núcleo fiscal e contributivo aqui documentado não deve ser utilizado para preencher automaticamente essas lacunas.
 
@@ -50,6 +57,7 @@ Por isso, cada regra deve ter data de publicação, entrada em vigor, produção
 1. Árvore de decisão de enquadramento.
 1. Alterações recentes e futuras.
 1. Divergências e matérias a validar.
+1. Validação adicional, casos de aceitação e perguntas de esclarecimento.
 
 Siglas: AT, Autoridade Tributária e Aduaneira; ISS, Instituto da Segurança Social; TI, trabalhador independente; ENI, empresário em nome individual; CC, contabilista certificado; CO, contabilidade organizada; RR, rendimento relevante; BIC, base de incidência contributiva; DQ, declaração trimestral; DP, declaração periódica; CRC, Código dos Regimes Contributivos; RCRC, respetivo regulamento; CIRS, Código do IRS; CIVA, Código do IVA; RITI, Regime do IVA nas Transações Intracomunitárias; SNC, Sistema de Normalização Contabilística.
 
@@ -537,15 +545,15 @@ Com IAS 2023=480,43 €, os tetos monetários são 6.005,38 €; 4.804,30 €; 3
 
 #### JOV004 Âmbito e duração
 
-Rendimentos A/B de pessoa até 35 anos, não dependente, mediante opção declarativa, nos dez primeiros anos relevantes. Sem exigência de conclusão de estudos. Anos sem A/B não consomem a contagem; a idade máxima continua a limitar. CIRS 12.º-B, n.os 1 e 3, Lei 45-A/2024, art. 89.º [C 12 B](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs12b.aspx), [OE 25](https://diariodarepublica.pt/dr/detalhe/lei/45-a-2024-901667918). **CONFIRMADO**, desde 01-01-2025.
+Rendimentos A/B de pessoa até 35 anos, não dependente, mediante opção declarativa, nos dez primeiros anos relevantes. Sem exigência de conclusão de estudos. Anos sem A/B não consomem a contagem; a idade máxima continua a limitar. CIRS 12.º-B, n.os 1 e 3, Lei 45-A/2024, art. 89.º [C 12 B](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs12b.aspx), [OE 25](https://diariodarepublica.pt/dr/detalhe/lei/45-a-2024-901667918). **CONFIRMADO**, desde 01-01-2025. A categoria B em contabilidade organizada também é admitida: o Ofício-circulado n.º 20291/2026, de 17-03, ponto 3.2, confirma a opção no quadro 3 D.1 do Anexo C para rendimentos de 2025 e seguintes [OF 20291](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/legislacao/instrucoes_administrativas/Documents/Oficio-circulado-20291-2026.pdf). Esta confirmação declarativa não resolve a base de isenção nem a afetação de gastos na CO.
 
 #### JOV005 Isenção e teto
 
-100% ano 1; 75% anos 2–4; 50% anos 5–7; 25% anos 8–10. Limite anual da isenção 55 IAS: 28.737,50 € em 2025; 29.542,15 € em 2026. Rendimentos isentos relevam para progressividade. CIRS 12.º-B, n.os 4–5; 22.º, n.º 4 [C 12 B](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs12b.aspx), [C 22](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs22.aspx). **CONFIRMADO**. O teto limita a parcela isenta, não a receita máxima para poder exercer a opção.
+100% ano 1; 75% anos 2–4; 50% anos 5–7; 25% anos 8–10. Limite anual da isenção 55 IAS: 28.737,50 € em 2025; 29.542,15 € em 2026. É um limite por titular para o benefício A/B, não um teto autónomo por categoria. Os rendimentos isentos relevam para progressividade e são considerados sem deduções na determinação das taxas. CIRS 12.º-B, n.os 4–5; 22.º, n.os 4 e 7, alínea a) [C 12 B](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs12b.aspx), [C 22](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs22.aspx). **CONFIRMADO**. O teto limita a parcela isenta, não a receita máxima para poder exercer a opção. O critério de repartição entre A e B quando o teto é atingido permanece **NÃO CONFIRMADO** nesta memória; não atribuir prioridade nem rateio proporcional sem fundamento adicional.
 
 #### JOV006 Transição
 
-Em 2025 enquadra-se o titular no ano subsequente ao número de anos anteriores de rendimentos A/B, excluindo os anos em que foi dependente. A opção tardia não transforma esse ano em «ano 1». Lei 45-A/2024, art 116.º, n.º 2; folheto AT 2025 e PIV 28315 [OE 25](https://diariodarepublica.pt/dr/detalhe/lei/45-a-2024-901667918), [FJOV 25](https://info.portaldasfinancas.gov.pt/pt/apoio_contribuinte/Folhetos_informativos/Documents/Folheto_IRS_jovem_2025.pdf), [PIV 28315](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/informacoes_vinculativas/rendimento/cirs/Documents/PIV_28315.pdf). Lei **CONFIRMADA**; exemplos/contagem administrativa **DOUTRINA**. É necessário histórico anual de rendimentos e condição de dependente.
+Em 2025 enquadra-se o titular no ano subsequente ao número de anos anteriores de rendimentos A/B, excluindo os anos em que foi dependente. A opção tardia não transforma esse ano em «ano 1»; A e B obtidos no mesmo ano não contam como dois anos. Lei 45-A/2024, art. 116.º, n.º 2; folheto AT 2025 e PIV 28315 [OE 25](https://diariodarepublica.pt/dr/detalhe/lei/45-a-2024-901667918), [FJOV 25](https://info.portaldasfinancas.gov.pt/pt/apoio_contribuinte/Folhetos_informativos/Documents/Folheto_IRS_jovem_2025.pdf), [PIV 28315](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/informacoes_vinculativas/rendimento/cirs/Documents/PIV_28315.pdf). Lei **CONFIRMADA**; exemplos/contagem administrativa **DOUTRINA**. O folheto AT, páginas 3–4, exclui também da contagem os anos com dispensa de entrega da Modelo 3: esta precisão é **DOUTRINA**, não texto literal da norma transitória. Não confundir dispensa legal com falta de entrega. Recolher histórico anual de rendimentos, condição de dependente e dispensa aplicável.
 
 #### JOV007 Incompatibilidades
 
@@ -553,7 +561,7 @@ Exclui beneficiários atuais/anteriores de RNH e IFICI, quem opte por 12.º-A e 
 
 #### JOV008 Base B
 
-A PIV 28155, despacho 24-03-2025, conclusão 6, aplica a percentagem e limite de isenção ao bruto dos serviços do artigo 3.º, n.º 1, b), antes do coeficiente 31.º. A informação não valida, por si, todas as combinações A+B, múltiplos coeficientes, 15%, CO, deficiência ou rendimentos empresariais de outra natureza. [PIV 28155](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/informacoes_vinculativas/rendimento/cirs/Documents/PIV_28155.pdf). **DOUTRINA**. A aplicação completa dessas combinações fica **NÃO CONFIRMADA** até confronto com regras de liquidação/documentação adicional.
+A PIV 28155, despacho de 24-03-2025, ponto 6, confirma que a isenção incide no rendimento bruto de advocacia classificado no artigo 3.º, n.º 1, alínea b), no caso de uma requerente no regime simplificado em 2025; confirma também a progressividade [PIV 28155](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/informacoes_vinculativas/rendimento/cirs/Documents/PIV_28155.pdf). **DOUTRINA** de um caso concreto. A ficha não apresenta cálculo numérico nem valida expressamente a sequência completa dos coeficientes, reduções iniciais, contribuições e despesas. A aplicação do coeficiente ao bruto remanescente após isenção é uma combinação interpretativa dos artigos 12.º-B e 31.º, não uma fórmula expressamente demonstrada na ficha. Permanecem **NÃO CONFIRMADOS** o rateio A+B com teto atingido, as bases dos testes de 10%/15% quando existe parcela isenta, a afetação de contribuições/despesas e as interações com múltiplos coeficientes, deficiência ou outras receitas empresariais. Na CO, a admissão no benefício está confirmada em JOV004, mas não se deve extrapolar desta PIV uma isenção sobre volume de negócios sem determinar gastos e lucro fiscal. A vinculação da informação reporta-se ao objeto do pedido, nos termos do artigo 68.º, n.º 14, da LGT [LGT 68](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/lgt/Pages/lgt68.aspx).
 
 #### JOV009 Retenção B
 
@@ -571,7 +579,7 @@ O artigo 16.º, n.os 1–5 define residência, permanência, habitação e resid
 
 #### FIN002 Englobamento
 
-O artigo 22.º agrega rendimentos líquidos por categorias, com exceções e opções próprias; isenções com progressividade entram no cálculo da taxa. Para tributação conjunta, artigo 69.º divide o rendimento coletável por 2, aplica as taxas e multiplica a coleta por 2. Filhos não criam automaticamente divisores adicionais. [C 22](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs22.aspx), [C 69](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs69.aspx). **CONFIRMADO** atual. A comparação conjunta/separada exige duplicar o cálculo completo, incluindo deduções e mínimos.
+O artigo 22.º agrega rendimentos líquidos por categorias, com exceções e opções próprias. Quando a lei imponha progressividade, os rendimentos isentos entram na determinação das taxas sem deduções (n.os 4 e 7, alínea a)); não reduzir automaticamente essa parcela isenta pelo coeficiente B. Para tributação conjunta, o artigo 69.º prevê divisão por 2 e multiplicação da coleta por 2, observando ainda a imputação proporcional dos rendimentos isentos do artigo 22.º, n.º 7, alínea b). Filhos não criam automaticamente divisores adicionais. [C 22](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs22.aspx), [C 69](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs69.aspx). **CONFIRMADO** atual. A comparação conjunta/separada exige o cálculo completo, incluindo deduções e mínimos.
 
 #### FIN003 Solidariedade
 
@@ -649,7 +657,7 @@ DLR 2/99/A, art 4.º, n.º 1, na redação do DLR 15-A/2021/A, aplica redução 
 
 #### RA002 Madeira 2026
 
-DLR 17/2026/M, art 2.º, substitui a tabela do DLR 3/2001/M, art 2.º: taxas 8,54%; 10,64%; 14,49%; 16,52%; 21,42%; 24,22%; 30,17%; 31,22%; 33,60%, nos mesmos limites nacionais 2026. O art 3.º fixa entrada 06-11-2026 e efeitos 01-01-2026. [MADEIRA 26](https://diariodarepublica.pt/dr/detalhe/decreto-legislativo-regional/17-2026-1191346240). **CONFIRMADO**. As tabelas Madeira 2023–2025 não foram inventariadas integralmente: **NÃO CONFIRMADO** para histórico regional. A taxa nacional×70% é válida nesta tabela 2026, não uma regra histórica presumida para todos os anos anteriores.
+DLR 17/2026/M, art 2.º, substitui a tabela do DLR 3/2001/M, art 2.º: taxas 8,54%; 10,64%; 14,49%; 16,52%; 21,42%; 24,22%; 30,17%; 31,22%; 33,60%, nos mesmos limites nacionais 2026. O art 3.º fixa entrada 06-11-2026 e efeitos 01-01-2026. [MADEIRA 26](https://diariodarepublica.pt/dr/detalhe/decreto-legislativo-regional/17-2026-1191346240). **CONFIRMADO**. As tabelas finais da Madeira de 2023–2025 constam das tabelas anuais regionais do capítulo 8 da memória consolidada, com fontes e versões próprias. A relação entre taxas normais nacionais e regionais de 70% é válida nesta tabela 2026; as taxas médias devem ser lidas diretamente no diploma. Não presumir essa relação para todos os anos anteriores nem para a liquidação final. Outros benefícios e adaptações regionais não estão integralmente parametrizados.
 
 ### Exemplos de cálculo parcial
 
@@ -742,9 +750,11 @@ Até à reforma, contabilidade organizada, importações/exportações e ativida
 
 #### IVA08 Acesso nacional atual
 
-**CONFIRMADO; regime novo desde 29-3-2025, com transição específica.** Para estabelecidos em Portugal: volume de negócios anual em território nacional do ano anterior **não superior a 15.000**, e não realização de exportações ou atividades conexas. No início, considera-se a previsão até ao fim do ano civil corrente, **sem anualizar**. Excluem-se operações ocasionais e transmissões intracomunitárias de meios de transporte novos nas condições do n.º 6.
+**CONFIRMADO; regime novo desde 29-3-2025, com transição específica.** Para estabelecidos em Portugal: volume de negócios anual em território nacional do ano anterior **não superior a 15.000**, e não realização de exportações ou atividades conexas. No início, considera-se a previsão até ao fim do ano civil corrente, **sem anualizar**. O n.º 6 exclui os sujeitos que pratiquem uma só operação tributável nas condições do art. 2.º, n.º 1, al. a), usualmente designada ato isolado, e as transmissões intracomunitárias de meios de transporte novos. Uma operação pouco frequente dentro de atividade aberta não é automaticamente um ato isolado.
 
-**Base:** CIVA, art. 53.º, n.os 1, 5 e 6. [Texto atual](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/civa_rep/Pages/artigo-53-o-do-civa.aspx). **Divergência documental:** a [FAQ AT 5735](https://info.portaldasfinancas.gov.pt/pt/apoio_contribuinte/questoes_frequentes/pages/faqs-00101.aspx) emprega «exclusivamente» relativamente a exportações, palavra ausente da lei. **NÃO CONFIRMADO:** admissibilidade de exportações ocasionais com base apenas nessa FAQ; a aplicação deve seguir a condição legal e encaminhar a divergência para análise.
+**CONFIRMADO — exportação ocasional:** uma única exportação de bens no âmbito da atividade provoca a perda do art. 53.º desde essa operação, independentemente do valor, com declaração de alterações em 15 dias úteis. A própria exportação pode continuar isenta pelo art. 14.º, cumpridos os requisitos e a prova: distinguir a isenção da operação da perda do regime do sujeito. Serviços B2B não localizados em Portugal não constituem exportações ou atividades conexas apenas por terem cliente estrangeiro; aplicar IVA03, IVA09 e IVA16.
+
+**Base:** CIVA, art. 53.º, n.os 1, 5 e 6, e art. 58.º, n.º 2, al. c), n.º 4, al. c), e n.º 5, al. c). [Texto do art. 53.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/civa_rep/Pages/artigo-53-o-do-civa.aspx), [art. 58.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/civa_rep/Pages/iva58.aspx), [isenção da exportação no art. 14.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/civa_rep/Pages/iva14.aspx). **DOUTRINA convergente:** [Ofício 25062/2025, pontos 9 e 21, al. c), e exemplo 7](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/legislacao/instrucoes_administrativas/Documents/Oficio_circulado_25062_2025.pdf), que exemplifica a exportação de um bem. **Divergência documental resolvida pela lei:** a [FAQ AT 5735](https://info.portaldasfinancas.gov.pt/pt/apoio_contribuinte/questoes_frequentes/pages/faqs-00101.aspx) acrescenta «exclusivamente», palavra ausente do articulado e incompatível com a circular; não utilizar essa formulação para admitir exportações ocasionais no regime.
 
 #### IVA09 Qual volume de negócios entra no limite
 
@@ -900,7 +910,7 @@ A exigibilidade acompanha recebimentos, mas não indefinidamente: existe limite 
 
 **CONFIRMADO.** O DL 97/2026 alargou a autoliquidação de construção em determinados casos de habitação e alterou o procedimento do art. 27.º, n.º 3, com efeitos em **1-7-2026**. Existe opção conjunta específica de retroação a 1-1-2026 para certas operações de construção; não aplicar essa retroação a todas as alterações do diploma.
 
-A **Lei 65/2026, de 5 de novembro**, alarga a al. j) do art. 2.º, n.º 1, a adquirentes sujeitos passivos sem a antiga condição geral de dedução, e obriga vendedores de combustíveis à periodicidade mensal. Contudo, a **Retificação 39-B/2026/1** corrige o art. 12.º, n.º 1: os efeitos reportam-se a operações exigíveis no **trimestre seguinte**, portanto **1-1-2027**. O art. 8.º, n.º 2, manda os vendedores abrangidos apresentar alteração em janeiro de 2027, eficaz em 1 de janeiro. Não aplicar já em novembro o texto mais recente da consolidação AT.
+A **Lei 65/2026, de 5 de novembro**, alarga a al. j) do art. 2.º, n.º 1, a adquirentes sujeitos passivos sem a antiga condição geral de dedução, e obriga vendedores de combustíveis à periodicidade mensal. É lei aprovada, com entrada em vigor em 6-11-2026 e aplicação futura às operações em causa: a **Retificação 39-B/2026/1** corrige o art. 12.º, n.º 1, reportando os efeitos a operações exigíveis no **trimestre seguinte**, portanto **1-1-2027**. O dever transitório do art. 8.º, n.º 2, de apresentar alteração em janeiro de 2027, eficaz em 1 de janeiro, respeita especificamente aos sujeitos abrangidos pelo **art. 75.º-A, n.º 1, do CIVA** que se encontravam na periodicidade trimestral à entrada em vigor da lei. Preservar esta remissão no cadastro, distinguindo-a da regra de periodicidade do art. 41.º, n.º 6. Não aplicar já em novembro o texto mais recente da consolidação AT.
 
 **Base:** [DL 97/2026, arts. 4.º e 18.º, n.os 4 e 7](https://diariodarepublica.pt/dr/detalhe/decreto-lei/97-2026-1124493227), [Lei 65/2026, arts. 2.º, 8.º e 12.º](https://diariodarepublica.pt/dr/detalhe/lei/65-2026-1191346238), [retificação original](https://diariodarepublica.pt/dr/detalhe/declaracao-retificacao/39-b-2026-1192129277).
 
@@ -1030,9 +1040,9 @@ Fontes: [CIRS 116.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal
 
 #### SS003 Taxas próprias
 
-**CONFIRMADO.** Taxa geral dos TI: **21,4%**. ENI/EIRL e cônjuges: **25,2%**. A contabilidade organizada não altera, por si, a taxa. O art. 54.º-A/2 exige declaração da forma de exercício, no mês da alteração, aos ENI/EIRL com atividade exclusivamente industrial ou comercial; pelo art. 54.º-B, a taxa especial produz efeitos no mês da declaração e deixa de se aplicar no mês seguinte à declaração de mudança. Atividades mistas devem ser confirmadas com o ISS, sem escolher automaticamente a taxa pela atividade principal fiscal.
+**CONFIRMADO.** Taxa geral dos TI: **21,4%**. ENI/EIRL e cônjuges: **25,2%**. A contabilidade organizada não altera, por si, a taxa. O art. 54.º-A/2 exige declaração da forma de exercício, no mês da alteração, aos ENI/EIRL com atividade exclusivamente industrial ou comercial; pelo art. 54.º-B, a taxa especial produz efeitos no mês da declaração e deixa de se aplicar no mês seguinte à declaração de mudança. Atividades mistas devem ser confirmadas com o ISS, sem escolher automaticamente a taxa pela atividade principal fiscal. A natureza de prestação de serviços também não determina, sozinha, a taxa de 21,4%: construção, transportes e outras atividades podem ser comerciais ou industriais nos termos do CIRS art. 4.º. Separar a classificação pessoal para a taxa da classificação de cada receita para os coeficientes de rendimento relevante.
 
-**Base/vigência:** CRC art. 168.º/1 e /4; DL n.º 2/2018, art. 8.º/1, efeitos desde 01-01-2019. **Fontes:** [art. 168.º](https://diariodarepublica.pt/dr/legislacao-consolidada/lei/2009-34514575-114488784), [DL 2/2018](https://diariodarepublica.pt/dr/detalhe/decreto-lei/2-2018-114484243), [RCRC](https://diariodarepublica.pt/dr/legislacao-consolidada/decreto-regulamentar/2011-56720826).
+**Base/vigência:** CRC art. 168.º/1 e /4; DL n.º 2/2018, art. 8.º/1, efeitos desde 01-01-2019. **Fontes:** [art. 168.º](https://diariodarepublica.pt/dr/legislacao-consolidada/lei/2009-34514575-114488784), [DL 2/2018](https://diariodarepublica.pt/dr/detalhe/decreto-lei/2-2018-114484243), [RCRC](https://diariodarepublica.pt/dr/legislacao-consolidada/decreto-regulamentar/2011-56720826), [CIRS 4.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs4.aspx).
 
 #### SS004 Principais exclusões do regime
 
@@ -1072,7 +1082,7 @@ Fontes: [CIRS 116.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal
 
 **CONFIRMADO.** Reinício depois de o enquadramento ter produzido efeitos: obrigação desde o primeiro dia do mês do reinício. Se a atividade cessou durante os primeiros 12 meses, a contagem suspende-se e continua desde o primeiro dia do mês de reinício **quando este ocorre nos 12 meses posteriores à cessação**. Exemplo administrativo: início 16-03-2025, cessação 31-08-2025, reinício 15-04-2026 → efeitos 01-10-2026. Não atribuir automaticamente um novo período inicial completo a cada reabertura.
 
-**Base/vigência:** CRC art. 145.º/3–4; mecanismo preexistente mantido no regime de 2019. **Fontes:** [CRC](https://diariodarepublica.pt/dr/legislacao-consolidada/lei/2009-34514575), [FAQ ISS](https://www.seg-social.pt/storage1/files/Perguntas-Frequentes---Novo-regime-dos-Trabalhadores-Independentes--v09-eo5R_UXwpLhcDifan-xPgA.pdf), pergunta 3. **NÃO CONFIRMADO:** cálculo automático dos reinícios fora daquela janela quando o primeiro enquadramento nunca chegou a produzir efeitos; registar a data comunicada pelo ISS.
+**Base/vigência:** CRC art. 145.º/3–4; mecanismo preexistente mantido no regime de 2019. **Fontes:** [CRC](https://diariodarepublica.pt/dr/legislacao-consolidada/lei/2009-34514575), [FAQ ISS](https://www.seg-social.pt/storage1/files/Perguntas-Frequentes---Novo-regime-dos-Trabalhadores-Independentes--v09-eo5R_UXwpLhcDifan-xPgA.pdf), pergunta 3. **NÃO CONFIRMADO:** cálculo automático dos reinícios fora daquela janela quando o primeiro enquadramento nunca chegou a produzir efeitos. A leitura conjugada aponta para a regra geral do art. 145.º/3 — efeitos no mês do reinício — porque a exceção do n.º 4 exige reinício nos 12 meses seguintes; esta é uma interpretação, não um procedimento específico confirmado pela FAQ para o caso. Não conceder novo diferimento por presunção; registar a decisão e a data comunicadas pelo ISS.
 
 #### SS013 Antecipação voluntária
 
@@ -1088,7 +1098,7 @@ Fontes: [CIRS 116.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal
 
 #### SS015 Início reinício até à primeira declaração
 
-**CONFIRMADO.** Até à primeira DQ, fixa-se a base correspondente à contribuição mínima de 20 €, salvo se já estiver fixada uma base aplicável ao período. O mínimo não significa base de incidência de 20 €. As situações de isenção/exclusão têm de ser verificadas antes de liquidar esse mínimo.
+**CONFIRMADO.** Até à primeira DQ, fixa-se a base correspondente à contribuição mínima do art. 163.º/2, salvo se já estiver fixada uma base aplicável ao período. O ISS publica o valor operacional de 20 €; a divergência de indexação está identificada em SS031. O mínimo não significa base de incidência de 20 €. As situações de isenção/exclusão têm de ser verificadas antes de liquidar esse mínimo.
 
 **Base/vigência:** CRC art. 165.º/1–2 por remissão ao art. 163.º/2; efeitos 01-01-2019. **Fonte:** [CRC](https://diariodarepublica.pt/dr/legislacao-consolidada/lei/2009-34514575).
 
@@ -1146,9 +1156,11 @@ Fontes: [CIRS 116.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal
 
 #### SS031 Mínimo mensal de contribuição
 
-**CONFIRMADO** na redação do art. 163.º/2 e na prática ISS 2026: sem rendimentos ou se o cálculo der menos de **20 €**, a contribuição mensal é 20 €. A base correspondente é 20/taxa: cerca de 93,46 € à taxa de 21,4%, ou 79,37 € à taxa de 25,2%. Não guardar 20 € como BIC. O mínimo geral não se aplica ao remanescente por acumulação. O n.º 8 prevê atualização com o IAS, mas os guias atuais continuam a fixar 20 €; não gerar por iniciativa do software um mínimo indexado diferente sem fonte operacional publicada.
+**CONFIRMADO quanto à redação legal; DOUTRINA quanto ao valor operacional publicado pelo ISS.** O art. 163.º/2 estabelece o mínimo nominal de contribuição de **20 €**, por ausência de rendimentos ou cálculo inferior a esse valor, e o n.º 8 determina a sua atualização de acordo com o IAS. Os guias ISS de 2026 continuam a aplicar **20 €**. A base correspondente a esse valor operacional é 20/taxa: cerca de 93,46 € à taxa de 21,4%, ou 79,37 € à taxa de 25,2%. Não guardar 20 € como BIC. O mínimo geral não se aplica ao remanescente por acumulação.
 
-**Base/vigência:** CRC art. 163.º/2 e /8, desde 01-01-2019. **Fontes:** [art. 163.º](https://diariodarepublica.pt/dr/legislacao-consolidada/lei/2009-34514575-114431452), [Guia ISS](https://www.seg-social.pt/storage1/files/1009---Novo-Regime-dos-Trabalhadores-Independentes-v1-09-8TvHiLaPC6okosI9oUn9_A.pdf), secções F 3/G.
+**NÃO CONFIRMADO:** fundamento para a manutenção nominal dos 20 € apesar da indexação. Não foi localizada norma que suspenda especificamente o art. 163.º/8; a ausência de resultado na pesquisa não prova a inexistência de tal ato. O Despacho n.º 599/2019 não fixa nem congela este mínimo geral: regula a contribuição residual de 5 € na acumulação e a BIC mínima de 20 € na revisão anual. Conservar o valor operacional de 20 € com a ressalva documentada; não apresentar a indexação como revogada nem gerar autonomamente um novo mínimo sem confirmação do ano-base, primeira atualização e arredondamentos.
+
+**Base/vigência:** CRC art. 163.º/2 e /8, redação do DL n.º 2/2018 com efeitos em 01-01-2019; o n.º 8 mantém-se no texto consolidado. **Fontes:** [art. 163.º](https://diariodarepublica.pt/dr/legislacao-consolidada/lei/2009-34514575-114431452), [DL 2/2018](https://diariodarepublica.pt/dr/detalhe/decreto-lei/2-2018-114484243), [Guia ISS](https://www.seg-social.pt/storage1/files/1009---Novo-Regime-dos-Trabalhadores-Independentes-v1-09-8TvHiLaPC6okosI9oUn9_A.pdf), secções F 3/G; [Despacho 599/2019](https://files.diariodarepublica.pt/2s/2019/01/008000000/0152401524.pdf), n.os 1–3.
 
 #### SS032 Ajuste de até 25 por cento
 
@@ -1196,9 +1208,13 @@ Fontes: [CIRS 116.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal
 
 #### SS042 Exatamente 4 IAS excedente e mínimo de 5 euros
 
-**CONFIRMADO.** Para RR mensal **≥4 IAS**, cumpridas as condições pessoais, monthlyBase = max(0, monthlyRelevantIncome - 4 * ias), sujeita ao teto. Exatamente 4 IAS cai no regime do remanescente com base zero: não alterar o operador da isenção legal de < para ≤. Não há ajuste ±25%. Não releva base que origine contribuição **<5 €**; a exatamente 5 €, a norma já não exclui. Não impor o mínimo geral de 20 €. Exemplo 2026: RR 2 180 € → excedente 31,48 € → contribuição 6,74 € a 21,4%.
+**CONFIRMADO quanto ao apuramento contributivo.** Para RR mensal **≥4 IAS**, cumpridas as condições pessoais, monthlyBase = max(0, monthlyRelevantIncome - 4 * ias), sujeita ao teto. Exatamente 4 IAS cai no regime do remanescente com base zero: não alterar o operador da isenção legal de < para ≤. Não há ajuste ±25%. Não releva base que origine contribuição **<5 €**; a exatamente 5 €, a norma já não exclui. Não impor o mínimo geral de 20 €. Exemplo 2026: RR de 2 180 € → excedente de 31,48 € → contribuição de 6,74 € a 21,4%.
 
-**Base/vigência:** CRC art. 163.º/4–5; RCRC art. 59.º/4–5; Despacho n.º 599/2019, n.º 1, efeitos 01-01-2019. **Fontes:** [art. 163.º](https://diariodarepublica.pt/dr/legislacao-consolidada/lei/2009-34514575-114431452), [RCRC](https://diariodarepublica.pt/dr/legislacao-consolidada/decreto-regulamentar/2011-56720826), [Despacho 599](https://files.diariodarepublica.pt/2s/2019/01/008000000/0152401524.pdf). A DQ não fica dispensada só por a contribuição ser zero na igualdade; conservar separação entre sujeição declarativa e quantia apurada.
+**DOUTRINA — interpretação conjugada:** a obrigação de DQ na igualdade exata de 4 IAS resulta da leitura dos arts. 151.º-A/1, 157.º/1/a e 163.º/4; não é uma instrução expressa de preenchimento identificada para esse caso. O RCRC art. 59.º/1 emprega «ultrapasse» e algumas FAQs usam «superior». Conservar a distinção entre contribuição zero e isenção reconhecida, assinalando a necessidade de confirmação operacional do ISS na igualdade.
+
+**NÃO CONFIRMADO:** ordem do teste de 5 € face ao arredondamento. Em 2026, RR mensal de 2 171,88 € dá remanescente de 23,36 € e contribuição matemática de **4,99904 €** a 21,4%. Não decidir automaticamente entre exclusão por valor inferior a 5 € e contribuição de 5 € após arredondamento sem regra operacional confirmada. Os casos de contribuição matemática exatamente 4,99 € e exatamente 5 € distinguem-se sem essa dúvida.
+
+**Base/vigência:** CRC art. 163.º/4–5; RCRC art. 59.º/4–5; Despacho n.º 599/2019, n.º 1, efeitos em 01-01-2019. **Fontes:** [art. 163.º](https://diariodarepublica.pt/dr/legislacao-consolidada/lei/2009-34514575-114431452), [RCRC](https://diariodarepublica.pt/dr/legislacao-consolidada/decreto-regulamentar/2011-56720826), [Despacho 599](https://files.diariodarepublica.pt/2s/2019/01/008000000/0152401524.pdf), [art. 151.º-A](https://diariodarepublica.pt/dr/legislacao-consolidada/lei/2009-34514575-105630590).
 
 #### SS043 Pensões
 
@@ -1208,9 +1224,9 @@ Fontes: [CIRS 116.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal
 
 #### SS044 Ano anterior sujeito ao mínimo
 
-**CONFIRMADO.** Em janeiro do ano seguinte verifica-se se, no ano anterior, a obrigação resultou do art. 163.º/2, por ausência de rendimento ou cálculo inferior a 20 €. A isenção mantém-se enquanto persistirem essas condições e é reconhecida oficiosamente quando conhecidas. **Não é renunciável**, ao contrário de outras isenções. Ter transferido exatamente 20 € não prova, sozinho, que houve enquadramento no mínimo legal: pode ter existido uma contribuição normal de igual montante ou uma declaração omissa.
+**CONFIRMADO.** Em janeiro do ano seguinte verifica-se se, no ano anterior, a obrigação resultou do art. 163.º/2, por ausência de rendimento ou cálculo inferior ao mínimo aplicável — 20 € nos documentos operacionais do ISS, com a ressalva de indexação de SS031. A isenção mantém-se enquanto persistirem essas condições e é reconhecida oficiosamente quando conhecidas. **Não é renunciável**, ao contrário de outras isenções. Ter transferido exatamente 20 € não prova, sozinho, que houve enquadramento no mínimo legal: pode ter existido uma contribuição normal de igual montante ou uma declaração omissa.
 
-**Base/vigência:** CRC art. 157.º/1/d e /2; RCRC art. 61.º/3; desde 2019. **Fontes:** [art. 157.º](https://diariodarepublica.pt/dr/legislacao-consolidada/lei/2009-34514575-117658277), [RCRC](https://diariodarepublica.pt/dr/legislacao-consolidada/decreto-regulamentar/2011-56720826), [FAQ ISS](https://www.seg-social.pt/storage1/files/Perguntas-Frequentes---Novo-regime-dos-Trabalhadores-Independentes--v09-eo5R_UXwpLhcDifan-xPgA.pdf), perguntas 47–48. **NÃO CONFIRMADO:** algoritmo de concessão para um ano apenas parcialmente abrangido; a FAQ 47 repete a lei sem esclarecer inequívoca contagem de 12 meses. Usar o reconhecimento ISS e conservar histórico mensal.
+**Base/vigência:** CRC art. 157.º/1/d e /2; RCRC art. 61.º/3; desde 2019. **Fontes:** [art. 157.º](https://diariodarepublica.pt/dr/legislacao-consolidada/lei/2009-34514575-117658277), [RCRC](https://diariodarepublica.pt/dr/legislacao-consolidada/decreto-regulamentar/2011-56720826), [FAQ ISS](https://www.seg-social.pt/storage1/files/Perguntas-Frequentes---Novo-regime-dos-Trabalhadores-Independentes--v09-eo5R_UXwpLhcDifan-xPgA.pdf), perguntas 47–48. **NÃO CONFIRMADO:** algoritmo de concessão para um ano apenas parcialmente abrangido; a FAQ 47 pergunta sobre o ano inteiro, mas a resposta repete a lei sem esclarecer inequivocamente quantos meses são exigidos. Não inventar uma exigência de 12 meses pagos nem conceder automaticamente a isenção após um único mês no mínimo. Exemplo a validar: enquadramento eficaz em outubro, mínimo de outubro a dezembro e verificação em janeiro seguinte. Usar o reconhecimento ISS e conservar o histórico mensal, o fundamento de cada base e as declarações.
 
 #### SS045 Início e cessação de isenções
 
@@ -1260,7 +1276,11 @@ Fontes: [CIRS 116.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal
 
 **CONFIRMADO.** Separada da confirmação de janeiro, a declaração anual do art. 152.º identifica vendas, serviços a particulares e serviços por pessoa coletiva/singular com atividade empresarial, além de dados não obtidos por interconexão. Faz-se pelo **Anexo SS do Modelo 3**, no prazo legal do IRS. Para cada adquirente relevante: NISS, NIF e serviços anuais, sem prejuízo das especificações do formulário. O antigo art. 153.º, que exigia declaração de serviços adquiridos às entidades contratantes, está revogado desde 2011.
 
-**Base/vigência:** CRC art. 152.º; RCRC arts. 54.º-A/1/b e 58.º; redação atual desde 2019. **Fontes:** [CRC](https://diariodarepublica.pt/dr/legislacao-consolidada/lei/2009-34514575), [RCRC](https://diariodarepublica.pt/dr/legislacao-consolidada/decreto-regulamentar/2011-56720826). Não confundir dispensa de quadro 6 do Anexo SS com dispensa integral de todo o anexo.
+**Três decisões distintas:** dispensa de DQ; obrigação de entregar dados no Anexo SS; identificação de adquirentes no quadro 6. As instruções da Portaria n.º 249/2021 mandam assinalar «Não» no quadro 6 para os isentos do art. 157.º. Isso não constitui uma dispensa universal de todo o anexo. Analisar os elementos complementares previstos no RCRC art. 54.º-A/1/b e art. 58.º separadamente da obrigação trimestral.
+
+**NÃO CONFIRMADO — adaptação operacional do quadro 6 aos ENI/EIRL:** as instruções de 2021 ainda mandam assinalar «Não» para essas categorias, enquanto o CRC art. 140.º-A lhes estende o apuramento de entidades contratantes desde 01-05-2023. Não foi localizada portaria substitutiva na pesquisa dirigida a 2025–2026; tal resultado não certifica o conteúdo do formulário autenticado. Um parecer da OCC de 19-03-2026 reconhece o art. 140.º-A, mas recomenda «Não» para um ENI de construção. É orientação profissional conflitante, não fundamento para afastar a lei. Confirmar com o ISS, em coordenação com a AT, a versão aplicável e o modo de comunicar os adquirentes; ver SS071.
+
+**Base/vigência:** CRC art. 152.º; RCRC arts. 54.º-A/1/b e 58.º, redação atual desde 2019. Portaria n.º 249/2021, arts. 1.º/2, 2.º e 4.º: modelo para rendimentos de 2021 e seguintes, entrada em vigor em 13-11-2021. **Fontes:** [CRC](https://diariodarepublica.pt/dr/legislacao-consolidada/lei/2009-34514575), [RCRC](https://diariodarepublica.pt/dr/legislacao-consolidada/decreto-regulamentar/2011-56720826), [Anexo SS e instruções, pp. 3–4](https://files.diariodarepublica.pt/1s/2021/11/22000/0002400027.pdf), [Portaria 249/2021](https://diariodarepublica.pt/dr/detalhe/portaria/249-2021-174244814), [parecer OCC de 19-03-2026 — orientação profissional](https://portal.occ.pt/en/node/2083417).
 
 #### SS056 Revisão anual e limiar de correção
 
@@ -1284,9 +1304,11 @@ Fontes: [CIRS 116.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal
 
 #### SS062 Divergência informativa sobre dia 25
 
-**NÃO CONFIRMADO como alteração da norma dos TI.** Notícias de agosto de 2026, incluindo reproduções autárquicas, anunciam prazo 31 de agosto e afirmam regresso ao dia 25 em setembro para uma lista que inclui TI. A fonte indicada é uma notícia ISS que, na extração disponível, não devolve o texto. A legislação consolidada e as fontes próprias TI consultadas mantêm 10–20. Não ocultar a divergência nem substituir silenciosamente o calendário legal. Para execução de pagamento real, prevalecerá o vencimento expresso no documento de cobrança validado; uma aplicação legislativa deve marcar a divergência para atualização oficial.
+**NÃO CONFIRMADO como alteração da norma dos TI.** Notícias de agosto de 2026, incluindo reproduções autárquicas, anunciam prazo de 31 de agosto e afirmam regresso ao dia 25 em setembro para uma lista que inclui TI. A fonte indicada é uma notícia ISS que, na extração disponível, não devolve o texto. A legislação consolidada e as fontes próprias TI consultadas mantêm **10–20 como regra legal confirmada**, sem prejuízo da exceção de agosto. Não foi identificado diploma ou despacho que fundamente a aplicação geral do dia 25 às contribuições próprias dos TI.
 
-**Fontes para auditoria:** [notícia ISS referida](https://www.seg-social.pt/ptss/pssd/noticias/prazo-alargado-em-agosto); [gov.pt distingue entidades empregadoras](https://www.gov.pt/noticias/prazo-de-pagamento-das-contribuicoes-das-entidades-empregadoras-alargado-ate-ao-dia-25); [CRC](https://diariodarepublica.pt/dr/legislacao-consolidada/lei/2009-34514575). Não é evidência de que o OE 2026 tenha prorrogado todos os pagamentos TI para fim de mês.
+Não substituir silenciosamente o calendário legal nem marcar todas as datas como indeterminadas. Quando o documento individual indicar vencimento diferente, guardar essa evidência e obter esclarecimento do ISS sobre o enquadramento e o ato aplicável. A data de uma cobrança individual não demonstra, por si, alteração geral do art. 155.º/2, nem deve ser apresentada como prevalecendo sempre sobre a norma. Distinguir ainda as contribuições próprias TI das obrigações que a mesma pessoa tenha como entidade empregadora.
+
+**Fontes para auditoria:** [notícia ISS referida](https://www.seg-social.pt/ptss/pssd/noticias/prazo-alargado-em-agosto); [gov.pt distingue entidades empregadoras](https://www.gov.pt/noticias/prazo-de-pagamento-das-contribuicoes-das-entidades-empregadoras-alargado-ate-ao-dia-25); [gov.pt/ISS, pagar como TI, atualizado em 28-05-2026](https://www.gov.pt/servicos/obter-informacoes-sobre-as-contribuicoes-para-a-seguranca-social-pagamento-de-trabalhador-independente); [CRC](https://diariodarepublica.pt/dr/legislacao-consolidada/lei/2009-34514575); [DL 127/2025](https://diariodarepublica.pt/dr/detalhe/decreto-lei/127-2025-967317021). Não é evidência de que o OE 2026 tenha prorrogado todos os pagamentos TI para o fim do mês.
 
 #### SS063 Atraso no pagamento e coimas
 
@@ -1310,9 +1332,9 @@ Fontes: [CIRS 116.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal
 
 #### SS071 ENI EIRL desde maio de 2023
 
-**CONFIRMADO.** O art. 140.º-A estende o apuramento a serviços de ENI/EIRL, para proteção no desemprego. Não utilizar sem atualização um guia que exclua sempre ENI das entidades contratantes. A aplicação deve versionar esta extensão em **01-05-2023**; o tratamento do ano de transição e repartição de prestações antes/depois dessa data merece validação quando material.
+**CONFIRMADO.** O art. 140.º-A estende o apuramento a serviços de ENI/EIRL, para proteção no desemprego. Não utilizar sem atualização um guia que exclua sempre ENI das entidades contratantes. A aplicação deve versionar esta extensão em **01-05-2023**; o tratamento do ano de transição e repartição de prestações antes/depois dessa data merece validação quando material. As instruções do quadro 6 do Anexo SS aprovado em 2021 ainda contêm indicação de «Não» para ENI/EIRL; esta divergência de preenchimento exige confirmação operacional, sem afastar a extensão legal. Ver SS055.
 
-**Base/vigência:** Lei n.º 13/2023, art. 16.º, adita CRC art. 140.º-A; em vigor desde 01-05-2023. **Fontes:** [Lei 13/2023](https://diariodarepublica.pt/dr/detalhe/lei/13-2023-211340863), [art. 140.º-A](https://diariodarepublica.pt/dr/legislacao-consolidada/lei/2009-34514575-43555975).
+**Base/vigência:** Lei n.º 13/2023, art. 16.º, adita CRC art. 140.º-A; em vigor desde 01-05-2023. **Fontes:** [Lei 13/2023](https://diariodarepublica.pt/dr/detalhe/lei/13-2023-211340863), [art. 140.º-A](https://diariodarepublica.pt/dr/legislacao-consolidada/lei/2009-34514575-43555975), [Anexo SS de 2021](https://files.diariodarepublica.pt/1s/2021/11/22000/0002400027.pdf), [Portaria 249/2021](https://diariodarepublica.pt/dr/detalhe/portaria/249-2021-174244814).
 
 #### SS072 Base taxa e responsável
 
@@ -1324,7 +1346,7 @@ Fontes: [CIRS 116.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal
 
 **CONFIRMADO.** Contribuições da entidade contratante reportam-se ao ano anterior e vencem até dia 20 do mês seguinte à emissão do documento de cobrança, sem prejuízo da exceção de agosto. TI sem obrigação contributiva não cumpre a condição do art. 140.º/2. **NÃO CONFIRMADO:** exclusão automática do cliente só por ser estrangeiro; o art. 140.º não contém essa exclusão e o formulário anual admite identificação estrangeira. Atividades mistas exigem atenção ao denominador: a lei fala em valor total da atividade, enquanto alguns textos operacionais resumem «serviços». Conservar vendas e serviços separadamente e validar casos fronteira.
 
-**Base/vigência:** CRC art. 155.º/3, redação desde 2011; art. 140.º; RCRC art. 58.º. **Fontes:** [CRC](https://diariodarepublica.pt/dr/legislacao-consolidada/lei/2009-34514575), [RCRC](https://diariodarepublica.pt/dr/legislacao-consolidada/decreto-regulamentar/2011-56720826), [Anexo SS oficial](https://files.diariodarepublica.pt/gratuitos/1s/2021/11/22000.pdf).
+**Base/vigência:** CRC art. 155.º/3, redação desde 2011; art. 140.º; RCRC art. 58.º. **Fontes:** [CRC](https://diariodarepublica.pt/dr/legislacao-consolidada/lei/2009-34514575), [RCRC](https://diariodarepublica.pt/dr/legislacao-consolidada/decreto-regulamentar/2011-56720826), [Anexo SS oficial](https://files.diariodarepublica.pt/1s/2021/11/22000/0002400027.pdf).
 
 ### Divergências dos guias e exemplos
 
@@ -1335,6 +1357,10 @@ Fontes: [CIRS 116.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal
 - Guia, revisão anual: refere contribuição adicional >20 €, mas Despacho 599/2019/2 fixa 20 € de **base**. Não confundir unidades.
 - Guia, pagamentos: pode dar a entender juros apenas após 30 dias; CRC 211.º determina juros por incumprimento do prazo, independentemente da classificação contraordenacional.
 - Página gov.pt de obrigações gerais consultada, apesar de datada de 2026, contém taxa de 29,6% e referência a 2 090 €/trimestre; são incompatíveis com CRC 168.º/1, 157.º/1/a e IAS 2026. Não a usar para alimentar o motor de cálculo.
+- O art. 163.º/8 mantém a indexação ao IAS, enquanto os guias de 2026 publicam 20 € como mínimo. Não foi localizada suspensão específica; o Despacho 599/2019 não resolve essa divergência. Ver SS031.
+- As notícias de agosto de 2026 aludem ao dia 25 para TI; o art. 155.º/2 e a página gov.pt/ISS de maio de 2026 mantêm 10–20. Preservar a regra legal e o alerta operacional separadamente. Ver SS060–062.
+- Portaria 249/2021, instruções do quadro 6: indicação de «Não» para ENI/EIRL não está conciliada com o art. 140.º-A, eficaz desde maio de 2023. O parecer OCC de março de 2026 é orientação profissional, não atualização da norma. Ver SS055/071.
+- Na igualdade exata de 4 IAS, a quantia contributiva é zero; a obrigação de DQ decorre de interpretação conjugada. O caso de contribuição matemática de 4,99904 € depende da ordem do teste de 5 € e do arredondamento, não esclarecida nas fontes consultadas. Ver SS042.
 
 ## 6 Contabilidade organizada
 
@@ -1367,6 +1393,8 @@ Nos exercícios iniciados em ou após 01-01-2026, microentidade é a que não ul
 Base: Decreto-Lei n.º 158/2009, artigos 9.º e 9.º-A; Decreto-Lei n.º 126-B/2025, artigos 2.º e 3.º. Vigência formal do último diploma: 06-12-2025; efeitos nas demonstrações financeiras de exercícios iniciados desde 01-01-2026. Estado: CONFIRMADO. Fontes: [alteração de 2025](https://diariodarepublica.pt/dr/detalhe/decreto-lei/126-b-2025-964514221); [SNC consolidado](https://diariodarepublica.pt/dr/legislacao-consolidada/decreto-lei/2009-34517175).
 
 Microentidades aplicam NC-ME, podendo optar por NCRF-PE ou NCRF; pequenas entidades podem aplicar NCRF-PE. A NC-ME integra o SNC desde 2016; não usar como regime autónomo atual o antigo NCM de 2011. Base: artigos 9.º-C e 9.º-D do Decreto-Lei n.º 158/2009; Aviso n.º 8255/2015, pontos 1.1, 2.1 e 19.1 a 19.3. Vigência: 01-01-2016. Estado: CONFIRMADO. Fonte: [NC-ME](https://diariodarepublica.pt/dr/detalhe/aviso/8255-2015-69889535).
+
+**Transição de 2026 — DOUTRINA profissional OCC.** O parecer de 31-03-2026 aplica os novos limites na classificação de 2026 ao avaliar os dados dos períodos antecedentes. Não altera retroativamente a categoria de 2025. Conservar balanço, volume de negócios e trabalhadores dos dois anos, em vez de guardar apenas a categoria anterior. Por exemplo, uma pequena entidade com balanço de 4,1/4,8 milhões, volume de negócios de 7,1/7,3 milhões e 52/55 empregados em 2024/2025 permanece pequena em 2026 segundo essa orientação. O artigo 9.º-A mantém o teste de dois períodos; a leitura da transição é orientação profissional, não informação vinculativa da AT. Fonte: [OCC, Normalização contabilística, 31-03-2026](https://www.occ.pt/index.php/pt-pt/noticias/normalizacao-contabilistica-0).
 
 #### CONT05 Determinação fiscal e existência material de contabilidade
 
@@ -1402,7 +1430,23 @@ Base: Lei n.º 73-A/2025, artigo 95.º, n.º 1, alíneas a) e b); Decreto-Lei n.
 
 Titulares de IRS que possuam ou devam possuir contabilidade organizada constituem o processo de documentação fiscal até ao prazo da declaração do artigo 113.º. Deve conter os documentos efetivamente aplicáveis, definidos pela portaria, incluindo mapas e elementos justificativos das correções fiscais. Não é uma obrigação reservada às sociedades ou a contribuintes de grande dimensão.
 
-Base: CIRS, artigo 129.º, n.os 1 e 2, remissão para artigo 118.º; Portaria n.º 92-A/2011 e alterações. Vigência: obrigação consolidada verificada em 2026; a lista integral atualizada de todos os anexos técnicos da portaria não foi certificada nesta memória e é ponto de validação do CC. Estado: CONFIRMADO para obrigação/prazo; NÃO CONFIRMADO para uma lista fechada de todos os componentes por atividade. Fontes: [CIRS 129](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs129.aspx); [Portaria 92-A/2011](https://diariodarepublica.pt/dr/detalhe/portaria/92-a-2011-406326).
+Base: CIRS, artigo 129.º, n.os 1 e 2, remissões para os artigos 113.º e 118.º; Portaria n.º 51/2018, artigo 2.º e Anexo I, que substituem o Anexo I da Portaria n.º 92-A/2011. A Portaria n.º 51/2018 entrou em vigor em 17-02-2018 e aplica a lista aos períodos iniciados desde 01-01-2017, nos termos do artigo 6.º. Estado: CONFIRMADO para obrigação, prazo, lista base e vigência. A aplicabilidade de cada documento condicional depende das operações e dos benefícios efetivos.
+
+| **Número do Anexo I** | **Documento assinalado para IRS** | **Condição** |
+| --- | --- | --- |
+| 2 | Documentação dos créditos e regularizações do artigo 78.º do CIVA | Existência de regularizações abrangidas |
+| 3 | Provisões, imparidades em créditos e ajustamentos de inventários; modelo 30 do dossier | Existência de valores a controlar |
+| 4 | Mapa de mais-valias e menos-valias; modelo 31 | Operações abrangidas |
+| 5 | Mapa de depreciações e amortizações; modelo 32 | Ativos abrangidos |
+| 6 e 7 | Mapas de reavaliações fiscais | Aplicação efetiva dos regimes de reavaliação |
+| 8 | Apuramento do lucro por regimes de tributação | Necessidade dessa discriminação |
+| 10 | Controlo da dedução de prejuízos | Existência de prejuízos e regras de reporte aplicáveis |
+| 11 | Reporte de gastos de financiamento líquidos | Aplicabilidade do regime material |
+| 12 | Outros elementos exigidos por legislação ou benefícios fiscais | Lista aberta; verificar os factos e o benefício usado |
+
+Os números 1 e 9 não estão assinalados na coluna IRS. O mapa modelo 30 do dossier não é a declaração Modelo 30 de pagamentos a não residentes. Os modelos 30 e 31 continuam regulados pela Portaria n.º 92-A/2011; o modelo 32, pela Portaria n.º 94/2013; os modelos 34.7 e 34.8, pela Portaria n.º 51/2018. Base adicional: artigos 4.º e 5.º desta última portaria. Não gerar mapas de reavaliação ou de outros regimes apenas por existir contabilidade organizada.
+
+Fontes: [CIRS 129.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs129.aspx); [Portaria 51/2018](https://diariodarepublica.pt/dr/detalhe/portaria/51-2018-114706488); [Anexo I no original, página 984 do DR](https://files.diariodarepublica.pt/1s/2018/02/03400/0098300990.pdf); [Portaria 92-A/2011](https://diariodarepublica.pt/dr/detalhe/portaria/92-a-2011-406326); [Portaria 94/2013](https://diariodarepublica.pt/dr/detalhe/portaria/94-2013-259264).
 
 #### CONT10 Conta bancária e pagamentos em numerário
 
@@ -1432,9 +1476,9 @@ Modelo 3 de 1 abril a 30 junho, mesmo se o último dia não útil; prazos especi
 
 Simplificado/atos isolados usam Anexo B; CO usa Anexo C; imputações podem exigir D; fonte estrangeira exige análise do Anexo J; Anexo SS depende do enquadramento contributivo.
 
-**Base e fonte:** Instruções oficiais Modelo 3, v 2026, [M 3](https://irs.portaldasfinancas.gov.pt/app/formularioEletronico/v2026); CIRS 57/60/117
+**Base e fonte:** Instruções oficiais Modelo 3, v 2026, [M 3](https://irs.portaldasfinancas.gov.pt/app/formularioEletronico/v2026); Ofício 20291/2026, de 17-03, pontos 2.2 e 3.2 [OF 20291](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/legislacao/instrucoes_administrativas/Documents/Oficio-circulado-20291-2026.pdf); CIRS 57/60/117
 
-**Vigência e estado:** B/C e opções IRS Jovem confirmadas; casos detalhados J/SS **NÃO CONFIRMADOS** integralmente nesta pesquisa.
+**Vigência e estado:** B/C e opções IRS Jovem confirmadas para rendimentos de 2025 e seguintes; casos detalhados J/SS **NÃO CONFIRMADOS** integralmente nesta pesquisa.
 
 #### OBR003 Declaração anual contabilística
 
@@ -1626,11 +1670,11 @@ Esta é uma limitação declarada da cobertura, não uma nova regra fiscal. Uma 
 
 #### HIST003 Precisão temporal 2026
 
-O DL 212 não tem, no dispositivo, frase de produção de efeitos 01-01; essa aplicação está expressa no preâmbulo. A Lei 64-B/2026 de autorização também não acrescenta uma disposição de retroatividade. Registar: publicação 04-11; entrada 05-11; aplicação anual 2026 sustentada no preâmbulo e enquadramento da liquidação anual, não numa inexistente frase do art 3.º. **CONFIRMADO** quanto à estrutura textual; a qualificação jurídica adicional da retroatividade não foi objeto de parecer autónomo. Na Madeira, a retroação é expressa no art 3.º do DLR 17/2026/M.
+DL 212/2026: publicação em 04-11 e entrada em vigor em 05-11, por artigo 3.º. A tabela deve ser considerada na estimativa da liquidação anual de 2026: o preâmbulo afirma aplicação desde 01-01, em consonância com o enquadramento anual e a versão atual do artigo 68.º publicada pela AT. A reserva documental é delimitada: não existe cláusula autónoma de produção de efeitos no dispositivo, nem na Lei 64-B/2026 de autorização. **CONFIRMADO** para as datas e o texto; a aplicação anual é interpretação sustentada nesses elementos, não transcrição do artigo 3.º. Na Madeira, o artigo 3.º do DLR 17/2026/M prevê expressamente efeitos desde 01-01-2026, com entrada em vigor em 06-11. Fontes: [DL 212](https://diariodarepublica.pt/dr/detalhe/decreto-lei/212-2026-1190825214), [AUT 64](https://diariodarepublica.pt/dr/detalhe/lei/64-b-2026-1184484177), [T 26](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs68.aspx), [MADEIRA 26](https://diariodarepublica.pt/dr/detalhe/decreto-legislativo-regional/17-2026-1191346240).
 
 #### HIST004 Taxas médias e arredondamento
 
-A tabela legal contém taxas médias com três decimais; a página AT 2025 publica também parcelas a abater. Um motor deve definir claramente método e arredondamento e conferir com a liquidação AT. Não presumir que misturar médias arredondadas, parcelas arredondadas e integração exata de faixas produz sempre os mesmos cêntimos. Em 2026, o n.º 2 do art 68.º na página AT ainda menciona 8.059 €, apesar do n.º 1 já ter 8.342 €; não usar essa referência residual como limite do primeiro escalão 2026. Fonte [T 26](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs68.aspx).
+A tabela legal contém taxas médias com três decimais; a página AT 2025 publica também parcelas a abater. Um motor deve definir claramente método e arredondamento e conferir com a liquidação AT. Não presumir que misturar médias arredondadas, parcelas arredondadas e integração exata de faixas produz sempre os mesmos cêntimos. Em 2026, o n.º 2 do artigo 68.º na página AT ainda menciona 8.059 €, apesar do n.º 1 já ter 8.342 €; a incongruência consta também da versão anterior a novembro e não foi localizada retificação até 11-11-2026. O limite da tabela é 8.342 €: não criar um escalão adicional a partir de 8.059 €. A aplicação da taxa do primeiro escalão até 8.342 € segue o n.º 1; a harmonização com a referência residual do n.º 2 é interpretação, não correção formal do diploma. Fontes [T 26](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs68.aspx), [T 26 ANT](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/ra/Pages/irs68ra-202611.aspx), [DL 212](https://diariodarepublica.pt/dr/detalhe/decreto-lei/212-2026-1190825214).
 
 ### IAS e múltiplos anuais
 
@@ -1647,7 +1691,7 @@ As portarias abaixo fixam o IAS com efeitos a 1 de janeiro do respetivo ano. Os 
 | 2025 | 522,50 € | 2 090,00 € | 3 135,00 € | 6 270,00 € | 783,75 € | [Portaria 6-B/2025/1](https://diariodarepublica.pt/dr/detalhe/portaria/6-b-2025-902111932) |
 | 2026 | 537,13 € | 2 148,52 € | 3 222,78 € | 6 445,56 € | 805,70 € | [Portaria 480-A/2025/1](https://diariodarepublica.pt/dr/detalhe/portaria/480-a-2025-993056222) |
 
-Parâmetros comuns de 2023–2026: taxas TI 21,4%; ENI/EIRL 25,2%; coeficientes serviços 70%, bens/hotelaria/restauração 20%; subsídio exploração 20% segundo ISS; mínimo trimestral mensal 20 €; remanescente não considerado se contribuição <5 €; teto BIC 12 IAS; ajuste de −25% a +25%, passos de 5%. O teto deve usar o IAS do período contributivo, não o ano da fatura que alimenta o trimestre. Para CO, guardar ano do lucro, ano da declaração fiscal, data de fixação e período da base, com atualização dos limites anuais.
+Parâmetros comuns de 2023–2026: taxas TI 21,4%; ENI/EIRL 25,2%; coeficientes serviços 70%, bens/hotelaria/restauração 20%; subsídio exploração 20% segundo ISS; mínimo mensal de 20 € publicado pelo ISS para o apuramento trimestral, com a divergência de indexação identificada em SS031; remanescente não considerado se contribuição <5 €; teto BIC 12 IAS; ajuste de −25% a +25%, passos de 5%. O teto deve usar o IAS do período contributivo, não o ano da fatura que alimenta o trimestre. Para CO, guardar ano do lucro, ano da declaração fiscal, data de fixação e período da base, com atualização dos limites anuais.
 
 #### Taxas médias nacionais de IRS em 2026
 
@@ -1666,6 +1710,102 @@ Complemento à tabela histórica de taxas normais. O artigo 68.º, n.º 2, manda
 | Superior a 86 634 | 48,00% | Não prevista |
 
 **CONFIRMADO:** CIRS 68.º, n.º 1, na redação do DL 212/2026, arts. 2.º–3.º, em vigor desde 05-11-2026, com a nota temporal de HIST003. Fonte: [tabela oficial AT](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs68.aspx). Não substituir sem validação estas taxas médias, arredondadas pelo legislador a três casas, por uma parcela a abater calculada a partir de outro método.
+
+#### Taxas médias nacionais de IRS de 2023 a 2025
+
+Complemento às taxas normais e limites de HIST002. Cada taxa média corresponde ao limite superior do mesmo escalão e ano; os limites não são iguais entre anos. As taxas são as publicadas, com três casas decimais, sem reconstrução a partir das taxas normais.
+
+| **Escalão** | **Média 2023** | **Média 2024** | **Média 2025** |
+| --- | --- | --- | --- |
+| 1 | 14,500% | 13,000% | 12,500% |
+| 2 | 16,692% | 14,180% | 13,680% |
+| 3 | 19,579% | 16,482% | 15,982% |
+| 4 | 21,608% | 18,419% | 17,897% |
+| 5 | 24,482% | 21,334% | 20,794% |
+| 6 | 28,460% | 25,835% | 25,277% |
+| 7 | 31,991% | 27,154% | 26,607% |
+| 8 | 36,669% | 35,408% | 34,929% |
+| 9 | Não prevista | Não prevista | Não prevista |
+
+**CONFIRMADO:** CIRS 68.º/1–2. Em 2023, redação da Lei 24-D/2022, para esse exercício; em 2024, tabela final da Lei 33/2024, arts. 2.º–3.º, em vigor desde 08-08-2024; em 2025, tabela final da Lei 55-A/2025, de 22 de julho. Fontes: [CIRS 68.º em 2023](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/ra/Pages/irs68ra_202312.aspx), [Lei 33/2024](https://diariodarepublica.pt/dr/detalhe/lei/33-2024-875716577), [CIRS 68.º em 2025](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/ra/Pages/irs68ra_202512.aspx). Usar a versão final do ano na liquidação anual; conservar as versões anteriores para auditoria.
+
+#### Taxas gerais de IRS da Madeira de 2023 a 2026
+
+Limites e taxas normais e médias das tabelas gerais finais de cada ano, aplicáveis aos residentes fiscais abrangidos. As deduções e os benefícios regionais exigem a sua própria análise. O ano do rendimento e o da entrega da declaração são campos distintos.
+
+##### Madeira 2023
+
+Base: artigo 17.º do Decreto Legislativo Regional n.º 26/2022/M, que altera o artigo 2.º do Decreto Legislativo Regional n.º 3/2001/M. Entrada em vigor em 30-12-2022; efeitos em 01-01-2023, artigo 106.º. A Retificação n.º 1/2023/M refere o anexo do artigo 83.º, sem alterar a tabela de IRS. Estado: **CONFIRMADO**.
+
+| **Limite superior em euros** | **Taxa normal por cento** | **Taxa média por cento** |
+| --- | --- | --- |
+| 7 479 | 10,15 | 10,150 |
+| 11 284 | 14,70 | 11,684 |
+| 15 992 | 18,55 | 13,706 |
+| 20 700 | 19,95 | 15,126 |
+| 26 355 | 29,75 | 18,264 |
+| 38 632 | 33,67 | 23,160 |
+| 50 483 | 42,20 | 27,629 |
+| 78 834 | 43,65 | 33,391 |
+| Superior a 78 834 | 47,52 | — |
+
+Fontes: [DLR 26/2022/M, artigos 17.º e 106.º](https://diariodarepublica.pt/dr/detalhe/decreto-legislativo-regional/26-2022-205450899); [original, página 33 do DR](https://files.diariodarepublica.pt/1s/2022/12/25000/0002700169.pdf); [Retificação 1/2023/M](https://diariodarepublica.pt/dr/detalhe/declaracao-retificacao/1-2023-206056782). A tabela foi ainda confrontada com a página 1 do [folheto da AT Madeira](https://at.madeira.gov.pt/ficheiros/RAM-TaxasBeneficios.pdf); outras páginas desse folheto contêm informação de IRS Jovem de 2022 e não servem para fixar esse benefício em 2023.
+
+##### Madeira 2024
+
+Base: artigo 2.º do Decreto Legislativo Regional n.º 7/2024/M, que altera o artigo 2.º do Decreto Legislativo Regional n.º 3/2001/M. Entrada em vigor em 24-10-2024; efeitos expressos em 01-01-2024, artigo 3.º. Estado: **CONFIRMADO** para a tabela final do ano.
+
+| **Limite superior em euros** | **Taxa normal por cento** | **Taxa média por cento** |
+| --- | --- | --- |
+| 7 703 | 9,10 | 9,100 |
+| 11 623 | 11,55 | 9,926 |
+| 16 472 | 15,40 | 11,538 |
+| 21 321 | 17,50 | 12,894 |
+| 27 146 | 22,40 | 14,934 |
+| 39 791 | 32,31 | 20,454 |
+| 43 000 | 42,20 | 22,076 |
+| 80 000 | 43,65 | 32,054 |
+| Superior a 80 000 | 47,52 | — |
+
+Fonte: [DLR 7/2024/M, artigos 2.º e 3.º](https://diariodarepublica.pt/dr/detalhe/decreto-legislativo-regional/7-2024-892301185). As versões publicadas antes desta alteração devem ser conservadas para auditoria, sem as usar como tabela final de rendimentos de 2024.
+
+##### Madeira 2025
+
+Base: artigo 2.º do Decreto Legislativo Regional n.º 3/2025/M, que altera o artigo 2.º do Decreto Legislativo Regional n.º 3/2001/M. Entrada em vigor em 29-07-2025; efeitos expressos em 01-01-2025, artigo 3.º. Estado: **CONFIRMADO** para a tabela final do ano.
+
+| **Limite superior em euros** | **Taxa normal por cento** | **Taxa média por cento** |
+| --- | --- | --- |
+| 8 059 | 8,75 | 8,750 |
+| 12 160 | 11,20 | 9,576 |
+| 17 233 | 15,05 | 11,188 |
+| 22 306 | 17,08 | 12,528 |
+| 28 400 | 21,98 | 14,556 |
+| 41 629 | 24,43 | 17,694 |
+| 44 987 | 36,64 | 19,108 |
+| 83 696 | 40,59 | 29,041 |
+| Superior a 83 696 | 46,56 | — |
+
+Fonte: [DLR 3/2025/M, artigos 2.º e 3.º](https://diariodarepublica.pt/dr/detalhe/decreto-legislativo-regional/3-2025-926481290).
+
+Não aplicar um multiplicador regional uniforme às taxas de 2023–2025. As taxas normais e médias publicadas devem ser guardadas como parâmetros próprios; uma taxa média arredondada não deve ser substituída silenciosamente por uma taxa média reconstruída.
+
+##### Madeira 2026
+
+Base: artigo 2.º do Decreto Legislativo Regional n.º 17/2026/M, que altera o artigo 2.º do Decreto Legislativo Regional n.º 3/2001/M. Entrada em vigor em 06-11-2026; efeitos expressos em 01-01-2026, artigo 3.º. Estado: **CONFIRMADO** para a tabela publicada em novembro e aplicável ao ano de 2026.
+
+| **Limite superior em euros** | **Taxa normal por cento** | **Taxa média por cento** |
+| --- | --- | --- |
+| 8 342 | 8,54 | 8,540 |
+| 12 587 | 10,64 | 9,248 |
+| 17 838 | 14,49 | 10,791 |
+| 23 089 | 16,52 | 12,094 |
+| 29 397 | 21,42 | 14,095 |
+| 43 090 | 24,22 | 17,313 |
+| 46 566 | 30,17 | 18,272 |
+| 86 634 | 31,22 | 24,261 |
+| Superior a 86 634 | 33,60 | — |
+
+Fonte: [DLR 17/2026/M, artigos 2.º e 3.º](https://diariodarepublica.pt/dr/detalhe/decreto-legislativo-regional/17-2026-1191346240). As taxas normais correspondem à redução regional de 30%, mas as taxas médias são os valores específicos publicados. Por exemplo, a média legal de 17,313% não deve ser substituída pelo produto 24,732% × 70% = 17,3124%. Não confundir uma relação entre taxas normais com autorização para reconstruir todas as médias ou multiplicar a liquidação final por 70%.
 
 #### Parâmetros de IVA e faturação
 
@@ -1721,7 +1861,7 @@ Ordem: reduzida, intermédia e normal. A tabela não substitui a classificação
 | Taxa ENI/EIRL | 25,2% | CRC 168.º/4 |
 | RR de serviços | 70% | CRC 162.º/1/a |
 | RR de bens e atividades equiparadas | 20% | CRC 162.º/1/b e 2 |
-| Mínimo contributivo trimestral | 20 € por mês | CRC 163.º/2; ressalva sobre n.º 8 |
+| Mínimo contributivo trimestral publicado pelo ISS | 20 € por mês | CRC 163.º/2; divergência não resolvida com n.º 8 |
 | Ajuste opcional | −25% a +25%, passos de 5% | CRC 164.º |
 | Teto mensal | 12 IAS | CRC 163.º/5 |
 | Mínimo mensal no lucro CO | 1,5 IAS | CRC 163.º/3 |
@@ -1777,7 +1917,7 @@ Esta árvore é uma síntese das regras citadas nos capítulos anteriores. As su
 
 **F. CO:** apurar lucro contabilístico e correções fiscais, observando CIRS 32.º/33.º e as remissões aplicáveis ao CIRC. Determinar separadamente tributações autónomas, prejuízos e obrigações de CC, IES, dossier e inventários. A existência material de contabilidade e a opção pelo regime fiscal são campos distintos.
 
-**G. Há IRS Jovem ou outro benefício?** Verificar idade, dependência, anos relevantes, residência, benefícios incompatíveis e situação tributária. No IRS Jovem, manter o rendimento isento para progressividade; a aplicação ao rendimento bruto B segue o entendimento AT identificado. Interações sem regra operacional confirmada exigem revisão.
+**G. Há IRS Jovem ou outro benefício?** Verificar idade, dependência, anos relevantes, residência, benefícios incompatíveis e situação tributária. A admissão do benefício também em CO está confirmada. Manter o rendimento isento sem deduções para a determinação das taxas, nos termos do artigo 22.º/7/a; a referência ao bruto na PIV 28155 corresponde ao caso de serviços em regime simplificado aí analisado. Não duplicar o teto por existirem A e B. Rateio entre categorias e interações com coeficientes, despesas, contribuições e gastos CO ainda não fechados exigem revisão.
 
 **H. Quem paga está obrigado a reter?** Se sim, classificar a natureza do rendimento e testar dispensa facultativa, rendimentos anteriores, limiar atingido e data do pagamento. A retenção é um adiantamento; não é a taxa final de IRS. Avaliar PPC com os dados do penúltimo ano e englobar com as restantes categorias na liquidação anual.
 
@@ -1786,6 +1926,8 @@ Esta árvore é uma síntese das regras citadas nos capítulos anteriores. As su
 **I. A operação beneficia do art. 9.º?** Se sim, testar os requisitos materiais e eventual renúncia admitida. Se não, calcular a elegibilidade do art. 53.º com o volume nacional relevante e restantes condições, independentemente de IRS simplificado ou CO.
 
 **J. Art. 53.º aplicável:** faturar com a menção legal, sem dedução nas operações isentas. Até 15 000 € mantém-se o requisito de volume; acima de 15 000 € até 18 750 € prepara-se a saída no início do ano seguinte; acima de 18 750 € há saída imediata, com o tratamento da operação de ultrapassagem indicado pela AT. Não aplicar retroativamente este mecanismo aos anos anteriores à reforma.
+
+Uma exportação de bens ou atividade conexa incompatível provoca saída imediata mesmo com volume baixo e mesmo ocorrendo uma só vez. A exportação pode ter a sua própria isenção do artigo 14.º. Um serviço B2B não localizado em Portugal não deve ser classificado como exportação de bens apenas por o cliente ser estrangeiro; ver IVA08 e os casos VAT05/VAT06.
 
 **K. Regime normal:** escolher periodicidade por volume do art. 41.º, opção e causas especiais; mensal a partir de 650 000 €. Determinar taxa por localização e bem/serviço, direito à dedução, DP e pagamento. Se existe opção válida pelo IVA de caixa, ativar as suas regras próprias de exigibilidade e dedução.
 
@@ -1799,7 +1941,7 @@ Esta árvore é uma síntese das regras citadas nos capítulos anteriores. As su
 
 **O. Há pensão compatível ou outra isenção?** Se sim, reconhecer o motivo e a data próprios. Se há trabalho dependente, testar simultaneamente entidades distintas sem grupo/domínio, proteção completa e remuneração média pelo menos igual ao IAS. Sem todas as condições, o emprego não afasta por si as contribuições TI.
 
-**P. Cumpridas as condições de acumulação:** RR mensal inferior a 4 IAS → isenção; RR igual ou superior a 4 IAS → base correspondente ao excedente, sem ajuste de 25% e sem mínimo de 20 €. Contribuição inferior a 5 € não releva; na igualdade de 4 IAS a base é zero, sem confundir esse resultado com dispensa declarativa.
+**P. Cumpridas as condições de acumulação:** RR mensal inferior a 4 IAS → isenção; RR igual ou superior a 4 IAS → base correspondente ao excedente, sem ajuste de 25% e sem mínimo de 20 €. Contribuição inferior a 5 € não releva; na igualdade de 4 IAS a base é zero. A obrigação de DQ na igualdade decorre de interpretação conjugada e mantém ressalva operacional. Uma contribuição matemática de 4,99904 € exige confirmação do passo de arredondamento antes de decidir a fronteira de 5 €.
 
 **Q. Sem isenção:** modelo trimestral → 70% dos serviços e 20% dos bens/atividades equiparadas, dividido por três, com opção de ajuste e limites; modelo CO → lucro tributável de referência dividido por doze, mínimo de 1,5 IAS e máximo de 12 IAS. Verificar opção de CO para apuramento trimestral. Aplicar a taxa do enquadramento pessoal e guardar a notificação da base.
 
@@ -1833,7 +1975,7 @@ As datas e normas completas constam dos blocos de regras. A tabela funciona como
 | OE 2026 art. 95.º/2 | SAF-T contabilístico de 2027, entrega em 2028 | Lei em vigor no corte |
 | OE 2026 art. 95.º/3 | Aceitação fiscal de PDF até dezembro de 2026 | Lei em vigor no corte |
 | Proposta OE 2027 art. 77.º/2–3 | SAF-T de 2028, entrega em 2029; prolongamento PDF até dezembro de 2027 | PROPOSTA; NÃO CONFIRMADO como direito aprovado |
-| Portaria 298/2026/1 e Ofício 25119/2026 | Novos modelos IVA com aplicação geral indicada para julho de 2027 e casos especiais anteriores | Formulários exigem validação própria |
+| Portaria 298/2026/1, art. 4.º/2–3, e Ofício 25119/2026 | Modelos IVA: aplicação geral a períodos desde julho de 2027; identificação de grupos IVA e regularizações da verba 2.42 desde julho de 2026 | Datas confirmadas; integração técnica por verificar |
 
 Fontes principais de alterações futuras: [OE 2026](https://diariodarepublica.pt/dr/detalhe/lei/73-a-2025-993270096), [Lei 65/2026](https://diariodarepublica.pt/dr/detalhe/lei/65-2026-1191346238), [retificação](https://diariodarepublica.pt/dr/detalhe/declaracao-retificacao/39-b-2026-1192129277), [proposta OE 2027](https://app.parlamento.pt/OE2027/HTML/OrcamentoEstado2027.html), [Ofício 25119/2026](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/legislacao/instrucoes_administrativas/Documents/Oficio-Circulado-25119-2026.pdf).
 
@@ -1850,18 +1992,19 @@ Fontes principais de alterações futuras: [OE 2026](https://diariodarepublica.p
 
 #### Divergências documentais identificadas
 
-1. **Exportações e art. 53.º:** a FAQ AT emprega «exclusivamente», enquanto o articulado e o Ofício 25062/2025 excluem a prática de exportações/atividades conexas. A admissibilidade de exportação ocasional não fica confirmada por essa FAQ.
-1. **Pagamentos SS até dia 25:** informação noticiosa de 2026 contrasta com o art. 155.º e os guias próprios TI que mantêm 10–20. A alteração localizada do art. 43.º respeita às entidades empregadoras. Guardar o vencimento efetivo da cobrança e obter esclarecimento ISS para a divergência.
-1. **Mínimo SS de 20 €:** o art. 163.º/8 prevê atualização com o IAS, mas os documentos operacionais de 2026 mantêm 20 €. Não criar uma nova atualização por cálculo autónomo sem confirmação publicada.
+1. **Exportações e art. 53.º — resolvido quanto à regra:** a FAQ AT emprega «exclusivamente», mas o articulado e o exemplo 7 do Ofício 25062/2025 confirmam que uma única exportação de bens faz cessar a isenção. A formulação da FAQ permanece registada como divergência documental; deixou de justificar um bloqueio geral de cálculo.
+1. **Pagamentos SS até dia 25:** o art. 155.º/2 mantém 10–20 e a página gov.pt da responsabilidade do ISS, atualizada em maio de 2026, confirma esse intervalo. A alteração do art. 43.º respeita às entidades empregadoras. A notícia de 2026 sobre dia 25 não tem fundamento normativo localizado para TI. Guardar o vencimento da cobrança e pedir o fundamento de eventual divergência; esse documento não prova uma mudança geral da lei.
+1. **Mínimo SS de 20 €:** confirmado como valor operacional publicado pelo ISS; a compatibilidade com a atualização prevista no art. 163.º/8 continua por explicar. O Despacho 599/2019 regula outros limiares e não congela o mínimo geral. Não criar uma atualização por cálculo histórico autónomo nem declarar a indexação legal inexistente.
 1. **Erros de exemplos ISS:** antecipação no próprio mês versus mês seguinte; BIC versus contribuição de 20 €; teto aritmético de 12 IAS; mínimo indevido de 20 € no remanescente; limiar de revisão anual de 20 € de base. As regras SS identificam a norma e a passagem divergente.
 1. **Reinício e isenção do mínimo:** os casos de reinício fora da janela legal descrita e o reconhecimento da isenção após um ano apenas parcialmente abrangido pelo mínimo não estão fechados para decisão automática universal.
-1. **Consolidações e efeitos futuros:** a AT já incorpora a Lei 65/2026 com efeitos em 2027. A tabela nacional IRS de novembro tem nota de retroatividade no preâmbulo, enquanto o diploma madeirense a prevê expressamente no articulado. Preservar esta diferença documental.
+1. **Consolidações e efeitos futuros:** a AT já incorpora a Lei 65/2026 com efeitos em 2027. A aplicação anual de 2026 da tabela nacional IRS de novembro é sustentada no preâmbulo e no sistema de liquidação anual; o dispositivo não contém cláusula autónoma de efeitos a janeiro. A Madeira contém essa cláusula. Preservar a diferença sem transformar toda a tabela nacional numa regra indeterminada. A referência residual a 8 059 € no artigo 68.º/2 também não substitui o primeiro limite de 8 342 € do n.º 1.
+1. **Anexo SS dos ENI/EIRL:** as instruções do quadro 6 da Portaria 249/2021 mandam assinalar «Não», enquanto o CRC 140.º-A estende as entidades contratantes a estes prestadores desde maio de 2023. A OCC reproduz a orientação do formulário num parecer de março de 2026. A regra legal da entidade contratante está confirmada; o preenchimento operacional coerente com a lei exige esclarecimento ISS/AT. Dispensa da DQ, resposta ao quadro 6 e dispensa do anexo inteiro são questões distintas.
 
 #### Cobertura que permanece incompleta
 
-1. **Histórico integral:** a tabela anual reúne os parâmetros confirmados para o núcleo tratado; não certifica todos os parâmetros de todos os regimes setoriais, todas as versões regionais de 2023–2025 nem a data inaugural de cada disposição estrutural.
+1. **Histórico integral:** as tabelas gerais nacionais e da Madeira de 2023–2026 estão documentadas, incluindo taxas médias. A memória não certifica todos os parâmetros setoriais, todas as deduções ou benefícios regionais, nem a data inaugural de cada disposição estrutural.
 1. **Regimes especiais de IVA:** listas por produto, usados/arte, agências, pequenos retalhistas, forfetário agrícola, grupos, créditos incobráveis/duvidosos e certas obras/imóveis exigem módulos próprios. O mapa de aplicabilidade não substitui as respetivas regras completas.
-1. **Formulários e dossier:** confirmar versão anual e instruções de Modelo 3, Anexo SS, IES e declarações IVA, bem como todos os componentes do dossier fiscal aplicáveis à atividade. Números de campos não devem ser perpetuados entre exercícios.
+1. **Formulários e dossier:** a lista base do dossier fiscal está confirmada pela Portaria 51/2018 e discriminada em CONT09. O CC deve selecionar os elementos condicionais aplicáveis. Confirmar a versão e o esquema técnico de cada declaração no ano de submissão; números de campos não devem ser perpetuados. As datas dos modelos IVA da Portaria 298/2026/1 já estão identificadas, sem equivaler a ensaio da submissão eletrónica.
 1. **Obrigações adicionais:** património, veículos, empregados, seguros profissionais, imposto do selo, importações e autorizações setoriais podem gerar outros deveres. Não foram integralmente parametrizados nesta memória os impostos patrimoniais, o processamento salarial, a CPAS, o regime dos profissionais da cultura ou a coordenação internacional de Segurança Social.
 1. **Juros e sanções:** as taxas e os tipos legais estão documentados, mas a liquidação concreta depende de períodos, notificações, culpa, regularização, garantias, execução e regras de arredondamento. A aplicação deve distinguir uma estimativa do montante liquidado pela autoridade.
 
@@ -1872,3 +2015,195 @@ Estas recomendações são de implementação. Cada resultado deve conter rule_i
 Os testes de fronteira devem cobrir igualdade e ultrapassagem dos limites: 15 000/18 750 € de IVA, 200 000/250 000 € de IRS, 4/6/12 IAS, quotas de cliente de 50%/80%, contribuição remanescente de 5 €, retenção de 25 €, passagem de ano e normas com efeitos a meio do ano. Testar também CO com art. 53.º, isento que compra serviços estrangeiros, acumulação com salário, pensão, reinício e atividade mista.
 
 Nos casos marcados **NÃO CONFIRMADO**, apresentar o motivo concreto e impedir que a parcela afetada seja rotulada como cálculo fiscal exato. As partes independentes e confirmadas podem continuar a ser calculadas com a sua própria fundamentação.
+
+## 12 Validação adicional e casos de aceitação
+
+### Resultado da segunda verificação
+
+Revisão dirigida às dúvidas identificadas na primeira versão, com corte em **11-11-2026**. Os capítulos anteriores já incorporam as correções; este capítulo conserva a decisão, os casos de fronteira e as perguntas que ainda precisam de resposta. Uma orientação administrativa ou profissional mantém esse estatuto mesmo quando permite uma decisão operacional.
+
+| **Matéria** | **Resultado da validação** | **Consequência para a aplicação** |
+| --- | --- | --- |
+| Exportação ocasional e artigo 53.º | CONFIRMADO: uma exportação de bens faz perder a isenção, sem exceção geral de frequência ou valor | Resolver a elegibilidade pela lei; tratar a eventual isenção da própria exportação pelo artigo 14.º |
+| Limites de IVA, início e CO | CONFIRMADO: limites de 15 000/18 750 €, previsão sem anualização e compatibilidade com CO na redação atual | Contadores e regras por versão legal; tributar integralmente a operação de ultrapassagem quando devida |
+| IRS Jovem em CO | Admissão CONFIRMADA; sequência completa de cálculo NÃO CONFIRMADA | Permitir o perfil; não extrapolar a PIV do regime simplificado para o lucro CO |
+| Tabelas gerais de IRS | CONFIRMADAS as tabelas finais nacionais e da Madeira de 2023–2026, incluindo médias | Guardar parâmetros publicados por território e ano; preservar a nota textual do artigo 68.º/2 |
+| Dossier fiscal | CONFIRMADA a lista base do Anexo I da Portaria 51/2018 | Selecionar mapas por operação; submeter os elementos condicionais à classificação do CC |
+| Novos limites SNC | Datas e limites CONFIRMADOS; transição concretizada por DOUTRINA profissional OCC | Avaliar dados dos períodos anteriores para a classificação de 2026; não reclassificar 2025 |
+| Pagamento SS e mínimo | Prazo legal TI 10–20 CONFIRMADO; mínimo de 20 € publicado pelo ISS; dúvidas localizadas no dia 25 e na indexação | Manter fundamento legal e evidência operacional separados |
+| Anexo SS ENI/EIRL | Extensão legal CONFIRMADA; instruções de 2021 conflitantes | Não afastar entidades contratantes pela etiqueta ENI; rever o preenchimento do quadro 6 |
+| Novos formulários IVA | Datas da Portaria 298/2026/1 CONFIRMADAS | Selecionar a versão pelo período; verificar o esquema e o canal ao desenvolver a submissão |
+
+As fontes e a vigência estão em IVA08–IVA12, IVA30, ENG 02, JOV004–JOV008, HIST002–HIST004, CONT04/CONT09, SS031/SS055/SS060–SS062 e nas tabelas do capítulo 8. Não é necessário pedir esclarecimento genérico para reabrir uma regra já confirmada, como a perda do artigo 53.º por exportação de bens. Contratos ou operações sem factos suficientes continuam a exigir classificação própria.
+
+### Como utilizar os casos de aceitação
+
+Os **44 casos** seguintes especificam resultados parciais, datas ou a necessidade de revisão. Não representam 44 liquidações finais de IRS nem uma execução de testes sobre uma aplicação concreta. As variantes dentro de uma linha testam a mesma fronteira. O resultado de um caso não confirma matérias expressamente excluídas dos seus pressupostos.
+
+Salvo indicação contrária: ano de rendimentos 2026; pessoa singular residente no continente; atividade habitual; valores em euros e líquidos de IVA; sem benefícios ou exceções adicionais; classificação factual indicada já confirmada. Os casos de IRS Jovem pressupõem os restantes requisitos de acesso preenchidos. Os cálculos usam aritmética decimal sem arredondamentos intermédios; o valor a cêntimos é apresentação aritmética. Nos casos em que a própria fronteira depende do arredondamento, o resultado fica pendente.
+
+Um caso marcado **NÃO CONFIRMADO** deve produzir um estado de revisão, por exemplo requires_review, acompanhado do motivo e da fonte. Não deve ser convertido silenciosamente em zero, isenção ou valor fiscal definitivo. A aplicação pode continuar a calcular as partes independentes que estejam confirmadas.
+
+### IRS e IRS Jovem
+
+Fontes comuns: [CIRS 12.º-B](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs12b.aspx), [CIRS 22.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs22.aspx), [CIRS 25.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs25.aspx), [CIRS 31.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs31.aspx), [PIV 28155](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/informacoes_vinculativas/rendimento/cirs/Documents/PIV_28155.pdf), [Ofício 20291/2026](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/legislacao/instrucoes_administrativas/Documents/Oficio-circulado-20291-2026.pdf), [folheto IRS Jovem 2025](https://info.portaldasfinancas.gov.pt/pt/apoio_contribuinte/Folhetos_informativos/Documents/Folheto_IRS_jovem_2025.pdf), [DL 212/2026](https://diariodarepublica.pt/dr/detalhe/decreto-lei/212-2026-1190825214), [IAS 2026](https://diariodarepublica.pt/dr/detalhe/portaria/480-a-2025-993056222).
+
+| **Caso** | **Factos de entrada** | **Resultado esperado e fundamento** |
+| --- | --- | --- |
+| IRS01 | 36 anos em 31 de dezembro; primeiro ano de rendimentos A/B | IRS Jovem não elegível. Idade máxima: CIRS 12.º-B/1, CONFIRMADO. Aferição em 31 de dezembro: DOUTRINA do folheto AT. |
+| IRS02 | 35 anos em 31 de dezembro; décimo ano relevante | Percentagem de isenção de 25%; teto de 29 542,15 €. CIRS 12.º-B/1 e 5; 55 × 537,13. CONFIRMADO, com a aferição etária administrativa indicada. |
+| IRS03 | Décimo primeiro ano relevante, mesmo sem opção pelo benefício nos anos anteriores | Benefício terminado. A ausência de opção não cria dez anos novos. CIRS 12.º-B e regime transitório da Lei 45-A/2024; DOUTRINA AT sobre a contagem. |
+| IRS04 | Apenas serviços B no simplificado; primeiro ano elegível, percentagem de 100%; bruto de 29 542,15 € ou 29 542,16 € | Parcela bruta isenta de 29 542,15 € nos dois casos; remanescente bruto de 0 € ou 0,01 €. DOUTRINA da PIV 28155 aplicada à redação de 2026 e respetivo IAS. Não concluir um valor final de IRS nem resolver automaticamente despesas e contribuições. |
+| IRS05 | Sem IRS Jovem nem redução inicial; serviços com coeficiente 0,75; bruto 30 000 €; contribuições obrigatórias 3 000 €; restantes despesas zero | Dedução por contribuições que excedam 10%: zero. Os 4 500 € do teste de 15% estão cobertos pela parcela automática de 4 587,09 €. Rendimento B parcial: 22 500 €. CIRS 31.º/1/b, 2 e 13; CONFIRMADO como derivação. |
+| IRS06 | Mesmo perfil de IRS05; contribuições de 3 000,01 € | Dedução adicional de 0,01 €, sem dupla utilização; acréscimo de despesas zero. Rendimento B parcial: 22 499,99 €. CIRS 31.º/2 e 13; CONFIRMADO como derivação. |
+| IRS07 | Primeiro ano de atividade; sem IRS Jovem; sem A/H e sem cessação nos cinco anos anteriores; bruto 40 000 € de serviços 0,75; contribuições e outras despesas zero | Coeficiente reduzido 0,375. Base 15 000 €; acréscimo por despesas 1 412,91 €; resultado parcial 16 412,91 €. CIRS 31.º/10, 11 e 13. A ordem e manutenção do teste são apoiadas pelo manual AT de liquidação: DOUTRINA, ver INI/DES. |
+| IRS08 | Mesmo perfil de IRS07, mas com 1 € de rendimento da categoria A no ano | Falha a condição de ausência de A/H; coeficiente 0,75. Resultado B parcial: 31 412,91 €, antes de englobar A e restantes mecanismos. CIRS 31.º/10; CONFIRMADO para a exclusão da redução. |
+| IRS09 | IRS Jovem de 75%; rendimentos A de 40 000 € e B simplificado de 40 000 € | Teto global de 29 542,15 €, sem duplicação por categoria. Critério de rateio A/B e rendimento líquido final: NÃO CONFIRMADO. CIRS 12.º-B/5, 22.º/7/a; não devolver 59 084,30 € de teto. |
+| IRS10 | Apenas B em CO; receitas de 60 000 €, gastos de 20 000 €, lucro fiscal de 40 000 €; IRS Jovem de 50% | Admissibilidade em CO confirmada pelo Ofício 20291/2026, ponto 3.2. Base da isenção, imputação dos gastos e sequência matemática: NÃO CONFIRMADO. Não assumir que a regra bruta da PIV 28155 resolve o lucro CO. |
+| IRS11 | Rendimento coletável 8 342 €; tabela nacional publicada em novembro | Cálculo parcial de escalões: 8 342 × 12,2% = 1 017,724 €; apresentação 1 017,72 €. CIRS 68.º/1 e DL 212/2026, art. 2.º. CONFIRMADO como cálculo parcial, com a nota temporal HIST003. |
+| IRS12 | Rendimento coletável 8 342,01 € | 1 017,724 + 0,01 × 15,2% = 1 017,72552 €; apresentação 1 017,73 €. CIRS 68.º/1–2. Não aplicar a segunda taxa a todo o rendimento. |
+| IRS13 | Rendimento coletável 8 059,01 € | Pela tabela do n.º 1: 983,19922 €; apresentação 983,20 €. Não criar escalão entre 8 059 e 8 342 €. O tratamento da referência residual do n.º 2 é interpretação conjugada; a gralha não foi objeto de retificação localizada. |
+| IRS14 | Ano 2024; parcela automática na comprovação de despesas de 15% | 4 350,24 €, e não 4 349,08 €. A fórmula de 8,54 IAS não se retroaplica a 2024. CIRS 25.º na redação da Lei 32/2024, art. 2.º, e parâmetros AT de 2024; CONFIRMADO. |
+
+Fontes específicas: [manual AT de liquidação de 2021, nota 5.3](https://info.portaldasfinancas.gov.pt/pt/apoio_contribuinte/Manuais/Documents/Regras_Liquidacao_IRS_2021_Residentes.pdf), apoio administrativo histórico para a sequência ainda relevante; [Lei 32/2024](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/legislacao/diplomas_legislativos/Documents/Lei_32_2024.pdf); [parâmetros AT de 2024](https://info.portaldasfinancas.gov.pt/pt/apoio_contribuinte/IRS/IRS_2024/Paginas/5_Deducoes_beneficios_taxas.aspx). Os resultados IRS05–IRS08 são rendimentos parciais da categoria B, não imposto a pagar.
+
+### IVA e operações estrangeiras
+
+Nas operações internas desta tabela, usar a taxa normal de 23% quando a operação seja tributável; não há outra isenção. Nas compras estrangeiras, o adquirente atua como empresário, o serviço ou bem é tributável em Portugal e não existe isenção própria do fornecedor/operação, salvo indicação. A classificação B2B e o estabelecimento destinatário estão comprovados.
+
+Fontes: [CIVA 53.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/civa_rep/Pages/artigo-53-o-do-civa.aspx), [CIVA 58.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/civa_rep/Pages/iva58.aspx), [CIVA 59.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/civa_rep/Pages/iva59.aspx), [CIVA 6.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/civa_rep/Pages/iva6.aspx), [CIVA 14.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/civa_rep/Pages/iva14.aspx), [CIVA 27.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/civa_rep/Pages/iva27.aspx), [Ofício 25062/2025](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/legislacao/instrucoes_administrativas/Documents/Oficio_circulado_25062_2025.pdf), [RITI 5.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/RITI_2021/Paginas/riti005.aspx), [RITI 25.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/RITI_2021/Paginas/riti025.aspx), [RITI 29.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/RITI_2021/Paginas/riti029.aspx), [RITI 22.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/RITI_2021/Paginas/riti022.aspx).
+
+| **Caso** | **Factos de entrada** | **Resultado esperado e fundamento** |
+| --- | --- | --- |
+| VAT01 | Artigo 53.º; volume nacional de 2026 exatamente 15 000 €; demais condições mantidas | Mantém elegibilidade em 2027. Se o valor fosse 15 000,01 €, saída em 01-01-2027. CIVA 53.º/1 e 58.º/2/a e 4/a; CONFIRMADO. |
+| VAT02 | Acumulado nacional 18 500 €; operação de 250 € | Total de 18 750 €: ainda não ocorre a saída imediata. A operação mantém o artigo 53.º; saída em janeiro seguinte se o ano terminar com esse total. CIVA 58.º/2/a–b e 4/a–b; CONFIRMADO. |
+| VAT03 | Acumulado nacional 18 500 €; operação de 500 € | Total de 19 000 €: operação inteira no regime normal. IVA 115 €; total da fatura 615 €. Declaração de alterações em 15 dias úteis. CIVA 58.º/2/b, 4/b e 5/b; DOUTRINA explícita no ponto 21/b e exemplo 6 do Ofício 25062. |
+| VAT04 | Início em 01-10-2026; previsão de 12 000 € até dezembro; contabilidade organizada | Pode iniciar no artigo 53.º se as demais condições se verificarem. Não comparar 48 000 € anualizados com 15 000 €. Se o total real terminar em 16 000 €, saída em janeiro seguinte. CIVA 53.º/1 e 5, 58.º; CONFIRMADO na redação do DL 35/2025. |
+| VAT05 | Vendas internas de 8 000 €; uma exportação de bem de 200 € em setembro; venda interna posterior de 100 € | Sai do artigo 53.º no momento da exportação. A exportação pode beneficiar do artigo 14.º se houver requisitos e prova; a venda interna posterior suporta 23 € de IVA. CIVA 53.º/1 e 58.º/2/c, 4/c e 5/c; CONFIRMADO, com exemplo 7 do Ofício 25062. |
+| VAT06 | 12 000 € de operações internas e 30 000 € de programação B2B geral para estabelecimento na Alemanha | Volume nacional relevante: 12 000 €. O serviço não localizado não causa perda por exportação. Dispensa da recapitulativa enquanto enquadrado no artigo 53.º/1. CIVA 6.º/6/a, 52.º-A/a e 59.º/1; CONFIRMADO, com ponto 28 do Ofício 25062. |
+| VAT07 | Primeira aquisição de SaaS empresarial, 100 €, a fornecedor dos EUA; exigibilidade em outubro de 2026; adquirente no artigo 53.º | Autoliquidação de 23 €, sem dedução nas condições indicadas; declaração e pagamento até ao fim de novembro. Não aguardar por 10 000 €. A isenção das vendas mantém-se. CIVA 2.º/1/e e 5, 6.º/6/a e 27.º/3 e 5, redação com efeitos em 01-07-2026; CONFIRMADO. |
+| VAT08 | Bens UE comuns: compras anteriores 9 900 €, depois 100 € e 200 €; ano anterior ≤10 000 €, sem opção | Em 10 000 € exatos mantém derrogação. A aquisição seguinte de 200 € provoca sujeição: 46 € de IVA. Cumprir os deveres dos RITI 25.º, 29.º e 22.º; não tributar retroativamente as primeiras compras. Uma aquisição individual inicial de 10 001 € exigiria declaração cadastral antes. CONFIRMADO. |
+
+### Segurança Social
+
+Fontes comuns: [CRC consolidado](https://diariodarepublica.pt/dr/legislacao-consolidada/lei/2009-34514575), [RCRC consolidado](https://diariodarepublica.pt/dr/legislacao-consolidada/decreto-regulamentar/2011-56720826), [FAQ ISS de janeiro de 2026](https://www.seg-social.pt/storage1/files/Perguntas-Frequentes---Novo-regime-dos-Trabalhadores-Independentes--v09-eo5R_UXwpLhcDifan-xPgA.pdf), [Despacho 599/2019](https://files.diariodarepublica.pt/2s/2019/01/008000000/0152401524.pdf), [DL 127/2025](https://diariodarepublica.pt/dr/detalhe/decreto-lei/127-2025-967317021), [Portaria 249/2021 e Anexo SS](https://files.diariodarepublica.pt/1s/2021/11/22000/0002400027.pdf), [OCC sobre entidades contratantes, 19-03-2026](https://portal.occ.pt/en/node/2083417).
+
+| **Caso** | **Factos de entrada** | **Resultado esperado e fundamento** |
+| --- | --- | --- |
+| SSC01 | Primeiro início em 10-01-2025, sem interrupção nem antecipação | Primeiro enquadramento com efeitos em 01-01-2026. CRC 145.º/1; CONFIRMADO. Não usar 10 de janeiro nem 1 de fevereiro. |
+| SSC02 | Início em 16-03-2025; cessação em 31-08-2025; reinício em 15-04-2026 | Efeitos em 01-10-2026 segundo a FAQ ISS de 2026, exemplo da pergunta 3. DOUTRINA; conservar essa versão. Um exemplo antigo análogo contou os meses de outra forma. CRC 145.º/4. |
+| SSC03 | Mesmo início e cessação, mas reinício em 15-10-2026 | Não atribuir um novo ano de diferimento. A conjugação do CRC 145.º/3–4 aponta para 01-10-2026; confirmar a decisão e notificação ISS. NÃO CONFIRMADO para automatização universal deste caso de reinício longo. |
+| SSC04 | Primeiro enquadramento eficaz em outubro de 2025; outubro–dezembro fixados no mínimo do CRC 163.º/2; ausência de rendimentos mantida | Em janeiro de 2026, submeter a isenção do CRC 157.º/1/d a validação. Não conceder automaticamente nem impor doze meses pagos sem fundamento. NÃO CONFIRMADO para ano parcial; FAQ 47 não fecha a duração. |
+| SSC05 | Acumulação válida; RR mensal de 2 148,51 €, 2 148,52 € ou 2 180 €; taxa 21,4% | Primeiro: isenção. Segundo: remanescente zero. Terceiro: base 31,48 €, contribuição 6,73672 €, apresentada 6,74 €. CRC 157.º/1/a e 163.º/4; CONFIRMADO para as quantias. A DQ na igualdade exata é interpretação conjugada com ressalva operacional. |
+| SSC06 | Acumulação válida; contribuição matemática de 4,99 € ou 5,00 €; variante RR mensal de 2 171,88 € | 4,99 € não releva; 5,00 € releva. Na variante: 23,36 × 21,4% = 4,99904 €; NÃO CONFIRMADO se o teste ocorre antes ou depois do arredondamento. RCRC 59.º/5 e Despacho 599/2019/1. |
+| SSC07 | Remuneração dependente média de 537,12 € ou 537,13 €; RR independente de 1 000 € | Primeiro falha a condição salarial da isenção por acumulação; segundo satisfaz essa condição. Continuam a ser necessários os restantes requisitos. CRC 157.º/1/a/iii e RCRC 59.º/2; CONFIRMADO. |
+| SSC08 | Lucro CO de 2024 de 12 000 €, declarado em 2025 e base fixada em outubro de 2025; taxa 21,4% | Em 2026: base de 1 000 €/mês e contribuição de 214 €. Sem lucro e sem isenção: base mínima de 1,5 IAS = 805,695 €, contribuição apresentada de 172,42 €. CRC 163.º/3; desfasamento confirmado pela FAQ 23. Não usar o mínimo trimestral de 20 €. |
+| SSC09 | Serviços de 6 000 €/trimestre; enquadramento pessoal confirmado como TI geral ou ENI comercial/industrial | RR de 4 200 € e base de 1 400 €. Contribuição de 299,60 € a 21,4% ou 352,80 € a 25,2%. CRC 162.º/1/a e 168.º/1 e 4; CONFIRMADO. Prestação de serviços não implica sempre 21,4%. |
+| SSC10 | Contribuições próprias TI de julho e setembro de 2026 | Julho: pagamento até 31-08-2026. Setembro: prazo legal entre 10 e 20 de outubro. A notícia sobre dia 25 não altera automaticamente o calendário TI. CRC 23.º-B/1 e 155.º/2; CONFIRMADO. Obrigações como empregador seguem o artigo 43.º, com ajuste dos dias não úteis. |
+| SSC11 | DQ de abril de 2025 obrigatória mas omitida; isenção desde outubro de 2025 | Continua a confirmação/correção anual em janeiro de 2026. Se esteve isento todo o ano e não houve DQ obrigatória, a mera atividade aberta não cria esse dever. CRC 151.º-A/5–7 e RCRC 57.º-B/4; CONFIRMADO. |
+| SSC12 | ENI de construção; 50 000 € anuais em serviços a um cliente; obrigação contributiva existente | O CRC 140.º-A permite apurar entidade contratante; não excluir por ser ENI. Preenchimento do quadro 6: NÃO CONFIRMADO perante a Portaria 249/2021 e a orientação OCC conflitante. Separar incidência legal e procedimento declarativo. |
+
+### Regime de IRS contabilidade e taxas regionais
+
+Fontes: [CIRS 28.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs28.aspx), [CIRS 129.º](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs129.aspx), [Portaria 51/2018](https://diariodarepublica.pt/dr/detalhe/portaria/51-2018-114706488), [Portaria 92-A/2011](https://diariodarepublica.pt/dr/detalhe/portaria/92-a-2011-406326), [OCC, transição SNC em 2026](https://www.occ.pt/index.php/pt-pt/noticias/normalizacao-contabilistica-0). As fontes das tabelas regionais estão ligadas por ano no capítulo 8.
+
+| **Caso** | **Factos de entrada** | **Resultado esperado e fundamento** |
+| --- | --- | --- |
+| REG01 | Simplificado; ano anterior sem excesso; rendimento atual de 250 000 € exatos | Não há passagem obrigatória pelo teste de excesso de um ano superior a 25%; avaliar ainda a regra dos dois anos. CIRS 28.º/6; CONFIRMADO. |
+| REG02 | Mesmo perfil; rendimento atual de 250 000,01 € | Passagem obrigatória a CO no ano seguinte. CIRS 28.º/6; CONFIRMADO. |
+| REG03 | Dois anos consecutivos com 200 000,01 € | CO no período seguinte ao segundo ano. CIRS 28.º/6; CONFIRMADO. |
+| DF01 | ENI em CO, ativos depreciáveis, sem reavaliação fiscal | Incluir o mapa de depreciações aplicável; não gerar mapas de reavaliação só por existir CO. CIRS 129.º e Portaria 51/2018, Anexo I, n.os 5–7; CONFIRMADO. |
+| DF02 | Pagamento a fornecedor estrangeiro e existência de provisões | Avaliar separadamente a declaração Modelo 30 e o mapa modelo 30 do dossier; não são o mesmo documento nem têm os mesmos pressupostos. CIRS 119.º/7 e Portaria 92-A/2011, art. 3.º/1/a; CONFIRMADO. A compra estrangeira isoladamente não prova a obrigação de Modelo 30. |
+| SNC01 | Pequena entidade; em 2024 balanço 4,1 milhões, VN 7,1 milhões e 52 empregados; em 2025 balanço 4,8 milhões, VN 7,3 milhões e 55 empregados | Em 2026 permanece pequena pelos novos limites; não reclassificar 2025. DOUTRINA profissional OCC de 31-03-2026 sobre DL 126-B/2025, art. 3.º, e SNC 9.º-A. |
+| RAM01 | Madeira, 2023; rendimento coletável de 10 000 €; sem quociente ou outros mecanismos neste teste | Coleta parcial: 7 479 × 10,15% + 2 521 × 14,70% = 1 129,7055 €; apresentação 1 129,71 €. DLR 26/2022/M, art. 17.º; CONFIRMADO como derivação. |
+| RAM02 | Madeira, 2024; rendimento coletável de 40 000 €; mesmo âmbito parcial | 39 791 × 20,454% + 209 × 42,20% = 8 227,04914 €; apresentação 8 227,05 €. DLR 7/2024/M, art. 2.º; CONFIRMADO como derivação. |
+| RAM03 | Madeira, 2025; rendimento coletável de 40 000 €; mesmo âmbito parcial | 28 400 × 14,556% + 11 600 × 24,43% = 6 967,784 €; apresentação 6 967,78 €. DLR 3/2025/M, art. 2.º; CONFIRMADO como derivação. |
+| RAM04 | Madeira, 2026; carregar a taxa média do escalão com limite superior de 43 090 € | Carregar 17,313%, tal como publicada. Rejeitar a substituição por 17,3124% calculada a partir da média nacional × 70%. DLR 17/2026/M, art. 2.º; CONFIRMADO. |
+
+### Perguntas concretas para esclarecimento
+
+As **13 minutas** seguintes não foram enviadas. Os pressupostos são exemplos técnicos, sem dados pessoais. Para obter uma resposta utilizável na aplicação, pedir a identificação do diploma, artigo, redação, data de efeitos, sequência de cálculo e arredondamentos. Uma resposta limitada a outro ano ou a factos diferentes deve ser guardada com esse alcance.
+
+#### AT 1 IRS Jovem com simplificado e despesas
+
+No ano de 2026, um sujeito passivo elegível ao artigo 12.º-B aufere exclusivamente 60 000 € de serviços do artigo 31.º/1/b, paga 6 000 € de contribuições obrigatórias e suporta 5 000 € de outras despesas elegíveis. A percentagem de isenção é 50%. Solicita-se o cálculo discriminado do rendimento isento e sujeito, da dedução do artigo 31.º/2 e do acréscimo do n.º 13. Os limiares de 10% e 15% incluem a parcela isenta? Há rateio das contribuições e despesas? O coeficiente incide apenas sobre o bruto remanescente? Que montante é considerado, sem deduções, para progressividade pelo artigo 22.º/7/a?
+
+Referências: CIRS 12.º-B, 22.º/4 e 7, 31.º/1/b, 2 e 13; PIV 28155, que não apresenta esta sequência completa. Prioridade: necessária antes de qualificar este cálculo combinado como exato.
+
+#### AT 2 IRS Jovem e redução de início de atividade
+
+Para 2026, primeiro ano de atividade e de rendimentos elegíveis, sem A/H nem cessação nos cinco anos anteriores, bruto de 40 000 € de serviços com coeficiente normal 0,75, contribuições e outras despesas zero: como se articulam a isenção de 100% limitada a 55 IAS, o coeficiente reduzido de 0,375 e o teste de despesas de 15%? O acréscimo por despesas integra rendimento sujeito, isento ou ambos? Indicar a ordem de operações e a imputação à progressividade.
+
+Referências: CIRS 12.º-B, 22.º/7/a e 31.º/10–13. Prioridade: necessária para automatizar a acumulação destes benefícios.
+
+#### AT 3 Teto global do IRS Jovem com A e B
+
+Em 2026, com 40 000 € da categoria A e 40 000 € de serviços B no simplificado, percentagem de isenção de 75% e teto único de 55 IAS, qual o critério de distribuição da isenção entre categorias? Como se imputam a dedução específica A e as despesas/contribuições B às parcelas isentas e sujeitas? Solicita-se um exemplo de liquidação discriminado, sem atribuir um teto por categoria.
+
+Referências: CIRS 12.º-B/5, 22.º/7, 25.º e 31.º. Prioridade: necessária quando o teto global é atingido e coexistem A/B.
+
+#### AT 4 Base e gastos no IRS Jovem em contabilidade organizada
+
+Em 2026, um titular elegível tem apenas categoria B em CO, receitas de 60 000 €, gastos fiscalmente aceites de 20 000 €, lucro tributável de 40 000 € e percentagem de isenção de 50%. Qual a base sobre a qual se aplicam percentagem e teto? Como se imputam os gastos à parcela isenta e à sujeita e qual o montante usado para progressividade? A admissão em CO está confirmada no Anexo C; pede-se a fórmula, sem extrapolar automaticamente a PIV 28155 sobre regime simplificado.
+
+Referências: CIRS 12.º-B, 22.º/7/a, 32.º e 33.º; Ofício 20291/2026, ponto 3.2. Prioridade: necessária para o cálculo deste benefício em CO.
+
+#### AT 5 Tabela anual de 2026 e arredondamento
+
+Confirma-se que a redação do artigo 68.º/1 dada pelo DL 212/2026 é utilizada integralmente na liquidação dos rendimentos de 2026, atendendo à referência a janeiro no preâmbulo? Como operacionaliza a AT o n.º 2 que mantém 8 059 €, quando o primeiro limite do n.º 1 é 8 342 €? Identificar eventual retificação ou orientação e o método de cálculo e arredondamento com taxas médias a três casas, incluindo resultados nos limites dos escalões.
+
+Esta pergunta não altera os valores publicados nem pressupõe criar uma tabela adicional. Destina-se a documentar a aplicação administrativa e a reconciliação a cêntimos. Referências: DL 212/2026, arts. 2.º–3.º; CIRS 68.º/1–2; HIST003–HIST004.
+
+#### ISS 1 Indexação do mínimo contributivo
+
+Qual o valor mínimo aplicável em cada ano de 2019 a 2026 ao CRC 163.º/2 e qual o diploma ou instrução que concretiza ou suspende a atualização prevista no n.º 8? Os guias de 2026 mantêm 20 €. Solicita-se o ano-base, a primeira atualização, taxas e arredondamentos, ou o fundamento da manutenção nominal. O Despacho 599/2019 não trata desse mínimo geral.
+
+Referências: CRC 163.º/2 e 8, DL 2/2018, guias ISS de 2026; Despacho 599/2019/1–2 apenas para distinguir os seus limiares. Prioridade: fechar a fundamentação jurídica do valor operacional.
+
+#### ISS 2 Alegado prazo de pagamento até dia 25
+
+Existe ato que permita pagar contribuições próprias de TI após o dia 20 e até ao dia 25, sem juros ou coima, em 2026? Indicar diploma ou despacho, publicação, data de efeitos e meses abrangidos, explicando a relação com o CRC 155.º/2 e a notícia de agosto de 2026. Separar contribuições próprias das obrigações enquanto entidade empregadora e da exceção de agosto.
+
+Referências: CRC 155.º/2, 23.º-B e 43.º; DL 127/2025. Prioridade: resolver a divergência informativa; a regra legal geral 10–20 permanece identificada.
+
+#### ISS 3 Isenção pelo mínimo num ano parcial
+
+Com primeiro enquadramento eficaz em 01-10-2025, contribuições de outubro a dezembro fixadas no mínimo do CRC 163.º/2 e manutenção de ausência de rendimento, aplica-se a isenção do artigo 157.º/1/d em janeiro de 2026? Se não, qual o número de meses exigido e o respetivo fundamento? A resposta muda quando existem meses de isenção, doença, cessação ou reinício no ano anterior?
+
+Referências: CRC 157.º/1/d e 2, 163.º/2; RCRC 61.º/3; FAQ ISS 47–48. Prioridade: impedir uma condição de doze meses ou uma concessão após um só mês sem suporte confirmado.
+
+#### ISS 4 Reinício após interrupção superior a doze meses
+
+Início em 16-03-2025, cessação em 31-08-2025 antes dos efeitos do primeiro enquadramento e reinício em 15-10-2026: confirmar se os efeitos ocorrem em 01-10-2026 ou noutra data e fundamentar a articulação dos n.os 3 e 4 do artigo 145.º. Para reinício na fronteira exata de doze meses, indicar a contagem do prazo e o tratamento dos meses parciais.
+
+Referências: CRC 145.º/3–4 e FAQ ISS de 2026, pergunta 3. Prioridade: fechar o caso que o exemplo administrativo disponível não cobre.
+
+#### ISS 5 Igualdade de quatro IAS e arredondamento de cinco euros
+
+Cumpridos os demais requisitos de acumulação, com RR mensal exatamente igual a 4 IAS, a DQ é obrigatória apesar da base remanescente zero? Numa contribuição residual matemática de 4,99904 €, obtida em 2026 por RR mensal de 2 171,88 € à taxa de 21,4%, o teste de exclusão abaixo de 5 € é feito antes ou depois do arredondamento monetário? Identificar o passo e a regra de arredondamento.
+
+Referências: CRC 151.º-A/1, 157.º/1/a, 163.º/4; RCRC 59.º/1 e 5; Despacho 599/2019/1. Prioridade: fechar uma fronteira declarativa e uma fronteira de cobrança distintas.
+
+#### ISS 6 Anexo SS de ENI com coordenação da AT
+
+Qual a versão e instrução do Modelo RC 3048 operacional para os rendimentos de 2025 declarados em 2026 e para os rendimentos de 2026? Como deve preencher o quadro 6 um ENI/EIRL abrangido pelo CRC 140.º-A se a Portaria 249/2021 manda assinalar «Não» para essas categorias? Existe instrução posterior ou recolha alternativa dos adquirentes? Confirmar também em que casos a dispensa da DQ por isenção do artigo 157.º afasta, ou não, os restantes dados do Anexo SS.
+
+Referências: CRC 140.º, 140.º-A, 151.º-A e 157.º; RCRC 54.º-A/1/b e 58.º/3; Portaria 249/2021. Prioridade: necessária para preencher automaticamente o quadro 6 de ENI. O parecer OCC de 19-03-2026 deve acompanhar o pedido como evidência da divergência, não como revogação da lei.
+
+#### ISS 7 Atividade profissional e comercial simultâneas
+
+Para uma pessoa que exerce programação/consultoria profissional e comércio de equipamentos, que elementos determinam o enquadramento pessoal a 21,4% ou 25,2%? Como se aplica o RCRC 54.º-A/2 quando a atividade comercial/industrial não é exclusiva e desde que data produz efeitos a classificação? A resposta deve basear-se na descrição real da atividade, contratos e forma de exercício, e não apenas no CAE principal.
+
+Referências: CRC 134.º/1/b e 168.º/1 e 4; RCRC 54.º-A/2 e 54.º-B; CIRS 3.º/1/a e 4.º. Prioridade: depende de a aplicação suportar este perfil misto; a percentagem de RR de cada receita é decisão separada da taxa pessoal.
+
+#### CC 1 Perfil contabilístico e elementos condicionais
+
+Para cada perfil de atividade efetivamente suportado, confirmar a forma de exercício, regime fiscal, referencial contabilístico, critério de transição de categoria e documentos condicionais do dossier. Para profissional liberal em CO, fundamentar a aplicação do SNC e da eventual dispensa do artigo 10.º, articulando o CIRS 117.º, a remissão para CIRC 123.º e os artigos 3.º e 10.º do DL 158/2009. Nos perfis de 2026, indicar se é seguida a orientação de transição OCC de 31-03-2026. Selecionar os mapas do Anexo I da Portaria 51/2018 por operação e benefício utilizado.
+
+Esta validação é factual e contabilística. Não coloca em dúvida a obrigação fiscal de contabilidade organizada quando o CIRS a exige. A resposta deve identificar o fundamento de cada exceção e os documentos que comprovam os factos.
+
+### Critério para integrar uma resposta posterior
+
+Quando chegar um esclarecimento, ligar a resposta ao caso e à regra afetados, registar os factos do pedido, emissor, data, ano abrangido e alcance vinculativo. Atualizar apenas as versões e perfis cobertos. Rever os resultados esperados dos casos correspondentes e preservar a decisão anterior para auditoria. Uma resposta sobre o preenchimento de um formulário não altera, por si, a incidência legal; uma notificação individual também não constitui automaticamente uma regra geral.
+
+Para submissão eletrónica de declarações, acresce uma verificação técnica da versão do formulário e do esquema em vigor. Esta revisão confirmou o calendário normativo dos novos modelos IVA; não ensaiou uma submissão autenticada nem certificou uma integração de software.
