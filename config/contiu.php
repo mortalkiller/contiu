@@ -17,10 +17,19 @@ return [
      */
     'signup_payment' => (bool) env('CONTIU_SIGNUP_PAYMENT', false),
 
+    /*
+     * Contiu is software of TrekDev Lda, which charges VAT on top of the subscription prices.
+     * subscription_vat_rate is shown on the screens; stripe_tax_rate is the id of the matching
+     * Stripe tax rate (exclusive, "IVA 23%"), added to every new subscription and Checkout. Without
+     * it Stripe charges no VAT, so it must be set wherever payments are taken.
+     */
+    'subscription_vat_rate' => 0.23,
+    'stripe_tax_rate' => env('STRIPE_TAX_RATE'),
+
     // Version of the terms and privacy policy accepted at sign-up (stored with the account).
     'terms_version' => '2026-11-08',
 
-    // Stripe prices (monthly 5 €, yearly 54 €; no VAT).
+    // Stripe prices (monthly 5 €, yearly 54 €), without VAT: VAT is added on top (above).
     'prices' => [
         'monthly' => env('STRIPE_PRICE_MONTHLY'),
         'yearly' => env('STRIPE_PRICE_YEARLY'),
@@ -72,7 +81,7 @@ return [
     'reserved_slugs' => [
         'login', 'logout', 'register', 'password-reset', 'email-verification', 'profile',
         'termos', 'privacidade', 'stripe', 'livewire', 'up', 'storage', 'build', 'brand',
-        'admin', 'api', 'filament', 'filament-excel', 'filament-fullcalendar',
+        'admin', 'api', 'filament', 'filament-excel', 'filament-fullcalendar', 'dev',
     ],
 
 ];

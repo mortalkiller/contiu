@@ -153,3 +153,23 @@ it('keeps the localized chart options inside their complete Alpine attribute', f
 
     expect($options)->toContain("Intl.NumberFormat('en-US'", "type: 'bar'");
 });
+
+it('lets the user give or withdraw the consent to news by email on the profile', function () {
+    $user = actingAsAdmin();
+
+    Livewire::test(Filament::getProfilePage(), ['section' => 'profile'])
+        ->assertSchemaStateSet(['marketing' => false])
+        ->fillForm(['marketing' => true])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    $given = $user->fresh()->marketing_opt_in_at;
+    expect($given)->not->toBeNull();
+
+    Livewire::test(Filament::getProfilePage(), ['section' => 'profile'])
+        ->assertSchemaStateSet(['marketing' => true])
+        ->fillForm(['marketing' => false])
+        ->call('save');
+
+    expect($user->fresh()->marketing_opt_in_at)->toBeNull();
+})->group('ui');

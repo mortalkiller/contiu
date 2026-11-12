@@ -65,6 +65,17 @@ class Account extends Model
         return $this->hasMany(SubscriptionPayment::class);
     }
 
+    /**
+     * The VAT Stripe adds to the subscription (config contiu.stripe_tax_rate): the plan prices are
+     * without VAT. Cashier puts these on every new subscription and Checkout.
+     *
+     * @return list<string>
+     */
+    public function taxRates(): array
+    {
+        return array_values(array_filter([config('contiu.stripe_tax_rate')]));
+    }
+
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class)->withPivot('role')->withTimestamps();

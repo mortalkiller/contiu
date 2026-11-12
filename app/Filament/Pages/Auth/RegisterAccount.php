@@ -14,6 +14,7 @@ use App\Rules\PortugueseNif;
 use App\Support\CurrentAccount;
 use App\Support\Money;
 use App\Support\TaxProfileDeduction;
+use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use Filament\Auth\Pages\Register;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Checkbox;
@@ -30,6 +31,7 @@ use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\HtmlString;
@@ -37,6 +39,7 @@ use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use SensitiveParameter;
 use Stripe\Exception\ApiErrorException;
+use Throwable;
 
 /**
  * Self-service sign-up, as in the "Registo" mocks: a green side panel with the steps and what
@@ -146,6 +149,10 @@ class RegisterAccount extends Register
                     ->dehydrateStateUsing(fn (#[SensitiveParameter] $state) => Hash::make($state))
                     ->validationAttribute(__('password'))
                     ->autocomplete('new-password'),
+                // GDPR art. 13: the information is given when the data is collected, here.
+                Text::make(new HtmlString(__('We use this data to create your account and work out your taxes, as the :privacy explains.', [
+                    'privacy' => '<a href="'.e(url('/privacidade')).'" target="_blank" class="font-medium underline">'.e(__('Privacy Policy')).'</a>',
+                ])))->extraAttributes(['class' => 'contiu-signup-hint']),
             ]),
 
             $this->step('activity', [
@@ -207,12 +214,12 @@ class RegisterAccount extends Register
                     ->label(__('Plan'))
                     ->hiddenLabel()
                     ->options(fn (): array => [
-                        'yearly' => __('Yearly · :amount a year', ['amount' => Money::format(AccountSubscription::PLANS['yearly']['amount'])]),
-                        'monthly' => __('Monthly · :amount a month', ['amount' => Money::format(AccountSubscription::PLANS['monthly']['amount'])]),
+                        'yearly' => __('Yearly · :amount a year', ['amount' => Money::format(AccountSubscription::priceWithVat('yearly'))]),
+                        'monthly' => __('Monthly · :amount a month', ['amount' => Money::format(AccountSubscription::priceWithVat('monthly'))]),
                     ])
                     ->descriptions(fn (): array => [
-                        'yearly' => __('No VAT. The same as :amount per month.', ['amount' => Money::format(intdiv(AccountSubscription::PLANS['yearly']['amount'], 12))]),
-                        'monthly' => __('No VAT. :amount after one year.', ['amount' => Money::format(12 * AccountSubscription::PLANS['monthly']['amount'])]),
+                        'yearly' => __('VAT included (:net + VAT). The same as :amount per month.', ['net' => Money::format(AccountSubscription::PLANS['yearly']['amount']), 'amount' => Money::format(intdiv(AccountSubscription::priceWithVat('yearly'), 12))]),
+                        'monthly' => __('VAT included (:net + VAT). :amount after one year.', ['net' => Money::format(AccountSubscription::PLANS['monthly']['amount']), 'amount' => Money::format(12 * AccountSubscription::priceWithVat('monthly'))]),
                     ])
                     ->default('yearly')
                     ->required()
@@ -226,7 +233,7 @@ class RegisterAccount extends Register
                             'publishableKey' => config('cashier.key'),
                             'locale' => Language::resolve(app()->getLocale()) === Language::EnglishUnitedStates ? 'en' : 'pt',
                         ]),
-                    // The PaymentMethod Stripe.js creates from the card, set just before register().
+                    // The payment method of the SetupIntent Stripe.js confirmed, set just before register().
                     Hidden::make('payment_method')
                         ->required()
                         ->rule('starts_with:pm_')
@@ -263,12 +270,44 @@ class RegisterAccount extends Register
                     View::make('filament.pages.auth.partials.signup-heading')
                         ->viewData(fn (): array => $this->headingData($name)),
                     ...$components,
-                    ...($this->isLastStep($name) ? [$this->termsField()] : []),
+                    ...($this->isLastStep($name) ? $this->closingFields($name) : []),
                     View::make('filament.pages.auth.partials.signup-foot')
                         ->viewData(fn (): array => $this->footData($name)),
                 ])->extraAttributes(['class' => 'contiu-signup-main']),
             ])
             ->extraAttributes(['class' => 'contiu-signup-step']);
+    }
+
+    /**
+     * The end of every path: with the payment step, what will be charged and when (it renews by
+     * itself until cancelled); then the terms (required) and the news by email (optional, off).
+     *
+     * @return array<int, Component>
+     */
+    private function closingFields(string $name): array
+    {
+        return array_values(array_filter([
+            $name === 'payment' ? View::make('filament.pages.auth.partials.signup-notice')
+                ->viewData(fn (): array => ['notice' => $this->renewalNotice()]) : null,
+            $this->termsField(),
+            Checkbox::make('marketing')
+                ->label(__('I want news and tips from Contiu by email. Optional.'))
+                ->default(false),
+        ]));
+    }
+
+    /**
+     * What pressing the button commits to. The plan is chosen on the same screen without asking the
+     * server, so the notice names both prices rather than following the choice.
+     */
+    private function renewalNotice(): string
+    {
+        return __('By pressing “:button”, you authorise the charge of the chosen plan on :date (:yearly a year or :monthly a month, VAT included) and then at each renewal, until you cancel in Subscription. We email you 3 days before the first charge.', [
+            'button' => __('Start :days free days', ['days' => config('contiu.trial_days')]),
+            'date' => $this->trialEndsOn(),
+            'yearly' => Money::format(AccountSubscription::priceWithVat('yearly')),
+            'monthly' => Money::format(AccountSubscription::priceWithVat('monthly')),
+        ]);
     }
 
     /** The terms go on the last step of every path. */
@@ -349,7 +388,7 @@ class RegisterAccount extends Register
         return ['title' => __('Your plan'), 'empty' => null, 'plans' => collect(AccountSubscription::PLANS)->map(fn (array $plan, string $key): array => [
             ['label' => __('Plan'), 'value' => __($plan['label']), 'new' => false],
             ['label' => __('Today'), 'value' => Money::format(0), 'new' => true],
-            ['label' => __('On :date', ['date' => $chargedOn]), 'value' => Money::format($plan['amount']), 'new' => false],
+            ['label' => __('On :date', ['date' => $chargedOn]), 'value' => Money::format(AccountSubscription::priceWithVat($key)), 'new' => false],
             ['label' => __('Renews'), 'value' => $key === 'yearly' ? __('Every year') : __('Every month'), 'new' => false],
         ])->all(), 'items' => []];
     }
@@ -433,7 +472,24 @@ class RegisterAccount extends Register
      */
     protected function handleRegistration(#[SensitiveParameter] array $data): Model
     {
-        return DB::transaction(function () use ($data): User {
+        // The Stripe customer made inside the transaction, undone if the account is not saved.
+        $stripeCustomer = null;
+
+        try {
+            return $this->createUserAndAccount($data, $stripeCustomer);
+        } catch (Throwable $exception) {
+            app(StartSignupSubscription::class)->undo($stripeCustomer);
+
+            throw $exception;
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function createUserAndAccount(#[SensitiveParameter] array $data, ?string &$stripeCustomer): User
+    {
+        return DB::transaction(function () use ($data, &$stripeCustomer): User {
             $user = new User;
             $user->forceFill([
                 'name' => $data['name'],
@@ -441,6 +497,7 @@ class RegisterAccount extends Register
                 'password' => $data['password'],
                 'terms_accepted_at' => now(),
                 'terms_version' => config('contiu.terms_version'),
+                'marketing_opt_in_at' => ($data['marketing'] ?? false) ? now() : null,
             ])->save();
 
             $deduction = TaxProfileDeduction::from(SignupQuestions::answers($data, turnoverInEuros: false));
@@ -459,7 +516,7 @@ class RegisterAccount extends Register
             }
 
             if (self::takesPayment()) {
-                $this->startSubscription($account, $data);
+                $this->startSubscription($account, $data, $stripeCustomer);
             }
 
             return $user;
@@ -467,7 +524,7 @@ class RegisterAccount extends Register
     }
 
     /** @param array<string, mixed> $data */
-    private function startSubscription(Account $account, array $data): void
+    private function startSubscription(Account $account, array $data, ?string &$stripeCustomer): void
     {
         try {
             app(StartSignupSubscription::class)->handle($account, $data['plan'], $data['payment_method'], [
@@ -481,6 +538,45 @@ class RegisterAccount extends Register
             throw ValidationException::withMessages([
                 'data.payment_method' => __('Stripe did not accept the card. Check the details or try another card.'),
             ]);
+        } finally {
+            $stripeCustomer = $account->stripe_id;
+        }
+    }
+
+    /**
+     * Before the card is confirmed: the whole sign-up must be valid (so a mistake never makes the
+     * bank ask for authentication twice), then a SetupIntent for the Payment Element to confirm.
+     * Null, with the errors on the form, when something is wrong.
+     */
+    public function prepareCardSetup(): ?string
+    {
+        abort_unless(self::takesPayment(), 404);
+
+        try {
+            $this->rateLimit(10);
+        } catch (TooManyRequestsException $exception) {
+            $this->addError('data.payment_method', __('Too many attempts. Try again in :seconds seconds.', ['seconds' => $exception->secondsUntilAvailable]));
+
+            return null;
+        }
+
+        try {
+            $this->form->validate();
+        } catch (ValidationException $exception) {
+            $errors = Arr::except($exception->errors(), ['data.payment_method']);
+
+            if ($errors !== []) {
+                throw ValidationException::withMessages($errors);
+            }
+        }
+
+        try {
+            return app(StartSignupSubscription::class)->setupIntentSecret();
+        } catch (ApiErrorException $exception) {
+            report($exception);
+            $this->addError('data.payment_method', __('Payments are unavailable right now. Try again in a few minutes.'));
+
+            return null;
         }
     }
 }

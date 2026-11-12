@@ -69,8 +69,8 @@ class HelpCentre extends Page
     }
 
     /**
-     * Trial length and prices as the app charges them, so the help never drifts from the
-     * subscription page.
+     * Trial length and prices (VAT included) as the app charges them, so the help never drifts
+     * from the subscription page.
      *
      * @return array{trialDays: int, monthly: string, yearly: string}
      */
@@ -78,8 +78,8 @@ class HelpCentre extends Page
     {
         return [
             'trialDays' => (int) config('contiu.trial_days'),
-            'monthly' => Money::format(AccountSubscription::PLANS['monthly']['amount'], locale: app()->getLocale()),
-            'yearly' => Money::format(AccountSubscription::PLANS['yearly']['amount'], locale: app()->getLocale()),
+            'monthly' => Money::format(AccountSubscription::priceWithVat('monthly'), locale: app()->getLocale()),
+            'yearly' => Money::format(AccountSubscription::priceWithVat('yearly'), locale: app()->getLocale()),
         ];
     }
 

@@ -70,6 +70,12 @@ class AccountSubscription extends Page
             && EditAccountProfile::canView($account);
     }
 
+    /** What the customer pays for a plan, VAT included (contiu.subscription_vat_rate), in cents. */
+    public static function priceWithVat(string $plan): int
+    {
+        return Money::round(self::PLANS[$plan]['amount'] * (1 + (float) config('contiu.subscription_vat_rate')));
+    }
+
     /** The Stripe price of a plan; null while it is not configured (STRIPE_PRICE_* unset). */
     public static function priceFor(string $plan): ?string
     {
@@ -276,7 +282,7 @@ class AccountSubscription extends Page
     private function planSection(string $plan, Action $action): Section
     {
         $details = self::PLANS[$plan];
-        $saving = 12 * self::PLANS['monthly']['amount'] - self::PLANS['yearly']['amount'];
+        $saving = 12 * self::priceWithVat('monthly') - self::priceWithVat('yearly');
         $locale = app()->getLocale();
 
         return Section::make(__($details['label']))
@@ -285,10 +291,10 @@ class AccountSubscription extends Page
             ] : [])
             ->extraAttributes($plan === 'yearly' ? ['class' => 'ring-2 ring-primary-600 dark:ring-primary-500'] : [])
             ->schema([
-                Text::make(Money::format($details['amount'], locale: $locale).' '.__($details['per']))->size(TextSize::Large)->extraAttributes(['class' => 'font-semibold']),
-                Text::make($plan === 'yearly'
-                    ? __('No VAT. The same as :amount per month.', ['amount' => Money::format(intdiv(self::PLANS['yearly']['amount'], 12), locale: $locale)])
-                    : __('No VAT. Cancel any time; your account stays active until the end of the month you paid for.'))
+                Text::make(Money::format(self::priceWithVat($plan), locale: $locale).' '.__($details['per']))->size(TextSize::Large)->extraAttributes(['class' => 'font-semibold']),
+                Text::make(__(':net + VAT (:rate%).', ['net' => Money::format($details['amount'], locale: $locale), 'rate' => (int) round((float) config('contiu.subscription_vat_rate') * 100)]).' '.($plan === 'yearly'
+                    ? __('The same as :amount per month.', ['amount' => Money::format(intdiv(self::priceWithVat('yearly'), 12), locale: $locale)])
+                    : __('Cancel any time; your account stays active until the end of the month you paid for.')))
                     ->color('gray'),
                 Actions::make([$action]),
             ]);

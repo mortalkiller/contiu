@@ -561,3 +561,62 @@ it('keeps the sign-up page logo while moving between steps', function () {
         // White, on the green side panel.
         ->assertSee('brand/contiu/contiu-logo-white.svg', escape: false);
 })->group('integration');
+
+it('says how the data is used on the first screen', function () {
+    Livewire::test(RegisterAccount::class)
+        ->assertSee('Usamos estes dados para criar a tua conta e calcular os teus impostos')
+        ->assertSee('/privacidade');
+})->group('ui');
+
+it('records the optional consent to news by email, off by default', function (?bool $marketing, ?string $consentAt) {
+    registrationWizard($marketing === null ? [] : ['marketing' => $marketing])->call('register')->assertHasNoFormErrors();
+
+    expect(User::where('email', 'rita@example.pt')->sole()->marketing_opt_in_at?->toDateTimeString())->toBe($consentAt);
+})->with([
+    'left as it is' => [null, null],
+    'ticked' => [true, '2026-11-08 10:00:00'],
+])->group('integration');
+
+it('says what will be charged, VAT included, before starting the trial', function () {
+    config(['contiu.signup_payment' => true]);
+
+    registrationWizard()
+        ->goToWizardStep(6)
+        ->assertSee('autorizas a cobrança do plano escolhido a 22/11/2026')
+        ->assertSee(Money::format(6642))
+        ->assertSee(Money::format(615))
+        ->assertSee('IVA incluído');
+})->group('ui');
+
+it('checks the whole sign-up before the bank is asked to confirm the card', function () {
+    config(['contiu.signup_payment' => true]);
+    $stripe = $this->mock(StartSignupSubscription::class);
+    $stripe->shouldReceive('setupIntentSecret')->once()->andReturn('seti_secret');
+
+    registrationWizard(['terms' => false])
+        ->call('prepareCardSetup')
+        ->assertReturned(null)
+        ->assertHasFormErrors(['terms']);
+
+    registrationWizard(['plan' => 'yearly', 'billing_address' => 'Rua do Porto 15, 2.º', 'billing_postal_code' => '4050-123', 'billing_city' => 'Porto'])
+        ->call('prepareCardSetup')
+        ->assertReturned('seti_secret');
+})->group('integration');
+
+it('removes the Stripe customer when the account cannot be saved after subscribing', function () {
+    config(['contiu.signup_payment' => true]);
+    $stripe = $this->mock(StartSignupSubscription::class);
+    $stripe->shouldReceive('handle')->once()->andReturnUsing(function (Account $account): never {
+        $account->forceFill(['stripe_id' => 'cus_signup'])->save();
+
+        throw new RuntimeException('falhou');
+    });
+    $stripe->shouldReceive('undo')->once()->with('cus_signup');
+
+    expect(fn () => registrationWizard([
+        'plan' => 'yearly', 'payment_method' => 'pm_card_visa',
+        'billing_address' => 'Rua do Porto 15, 2.º', 'billing_postal_code' => '4050-123', 'billing_city' => 'Porto',
+    ])->call('register'))->toThrow(RuntimeException::class, 'falhou');
+
+    expect(Account::where('nif', '501964843')->exists())->toBeFalse();
+})->group('integration');

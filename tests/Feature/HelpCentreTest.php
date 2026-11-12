@@ -33,8 +33,9 @@ it('explains the trial, the plans and the read-only account', function () {
         ->assertSee('href="#conta"', escape: false)
         ->assertSeeInOrder(['Notas legais', 'A tua conta e a assinatura'])
         ->assertSee('14 dias')
-        ->assertSee(Money::format(500))
-        ->assertSee(Money::format(5400))
+        // The prices with VAT, as charged.
+        ->assertSee(Money::format(615))
+        ->assertSee(Money::format(6642))
         ->assertSee('só de leitura')
         ->assertSee('portal de faturação da Stripe');
 });

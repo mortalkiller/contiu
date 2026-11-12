@@ -1,7 +1,10 @@
 {{--
-    Card for the plan (contiu.signup_payment): Stripe's Payment Element, in setup mode so nothing is
-    charged now. On submit it creates the PaymentMethod in the browser (the card never reaches
-    Contiu) and then registers; StartSignupSubscription subscribes with it.
+    Payment for the plan (contiu.signup_payment): Stripe's Payment Element, in setup mode so nothing
+    is charged now, with the payment methods turned on in the Stripe dashboard (it shows the SEPA
+    mandate itself). On submit: the server checks the whole sign-up and makes a SetupIntent
+    (prepareCardSetup), Stripe.js confirms it here, asking the bank's authentication when needed,
+    and only then the account is created; StartSignupSubscription subscribes with that payment
+    method. The card details never reach Contiu.
 --}}
 @php
     use ToneGabes\Filament\Icons\Enums\Phosphor;
@@ -30,7 +33,7 @@
                 }
 
                 this.stripe = window.Stripe(@js($publishableKey), { locale: @js($locale) })
-                this.elements = this.stripe.elements({ mode: 'setup', currency: 'eur', paymentMethodCreation: 'manual', paymentMethodTypes: ['card'] })
+                this.elements = this.stripe.elements({ mode: 'setup', currency: 'eur' })
                 this.elements.create('payment').mount(this.$refs.element)
             },
             async pay() {
@@ -50,9 +53,21 @@
                         return
                     }
 
-                    const { error, paymentMethod } = await this.stripe.createPaymentMethod({
+                    // Null when the sign-up has errors: they are already on the form.
+                    const clientSecret = await $wire.prepareCardSetup()
+
+                    if (! clientSecret) {
+                        return
+                    }
+
+                    const { error, setupIntent } = await this.stripe.confirmSetup({
                         elements: this.elements,
-                        params: { billing_details: { name: $wire.data.name, email: $wire.data.email } },
+                        clientSecret,
+                        redirect: 'if_required',
+                        confirmParams: {
+                            return_url: window.location.href,
+                            payment_method_data: { billing_details: { name: $wire.data.name, email: $wire.data.email } },
+                        },
                     })
 
                     if (error) {
@@ -61,7 +76,7 @@
                         return
                     }
 
-                    $wire.$set('data.payment_method', paymentMethod.id, false)
+                    $wire.$set('data.payment_method', setupIntent.payment_method, false)
                     await $wire.register()
                 } finally {
                     this.busy = false
@@ -77,5 +92,5 @@
 
 <p class="contiu-signup-pay-secure">
     <x-filament::icon :icon="Phosphor::Lock" />
-    {{ __('Card details go straight to Stripe. Contiu never sees nor stores them.') }}
+    {{ __('Payment details go straight to Stripe. Contiu never sees nor stores them.') }}
 </p>

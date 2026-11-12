@@ -116,6 +116,7 @@ class User extends Authenticatable implements FilamentUser, HasDefaultTenant, Ha
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'terms_accepted_at' => 'datetime',
+            'marketing_opt_in_at' => 'datetime',
         ];
     }
 }

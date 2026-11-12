@@ -88,4 +88,6 @@
             @endforeach
         </div>
     </div>
+
+    <p class="contiu-signup-hint">{{ __('It is an estimate made from your answers, to help you plan: it does not replace a certified accountant.') }}</p>
 </div>
