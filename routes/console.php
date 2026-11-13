@@ -17,3 +17,5 @@ Schedule::command('invoicing:sync')->hourly()->withoutOverlapping();
 Schedule::command('backup:clean')->dailyAt('01:00');
 Schedule::command('backup:run')->dailyAt('01:30');
 Schedule::command('backup:monitor')->dailyAt('02:00');
+
+Schedule::command('invoice-benchmark:prune')->everyFifteenMinutes()->withoutOverlapping();

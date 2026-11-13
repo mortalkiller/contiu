@@ -1,0 +1,382 @@
+{
+    "standard-qr": {
+        "label": "Standard invoice with fiscal QR",
+        "file": "standard-qr.png",
+        "expected": {
+            "document_type": "FT",
+            "invoice_number": "FT DEMO\/001",
+            "issue_date": "2026-11-13",
+            "atcud": "DEMO0001-001",
+            "currency": "EUR",
+            "supplier_name": "Fornecedor Sintético",
+            "supplier_nif": "500000000",
+            "supplier_country": "PT",
+            "customer_nif": "999999990",
+            "customer_country": "PT",
+            "net_amount": "100.00",
+            "taxable_amount": "100.00",
+            "vat_amount": "23.00",
+            "total_tax": "23.00",
+            "gross_total": "123.00",
+            "vat": [
+                {
+                    "region": "PT",
+                    "category": "standard",
+                    "rate": "23",
+                    "taxable_amount": "100.00",
+                    "vat_amount": "23.00"
+                }
+            ],
+            "lines": [
+                {
+                    "description": "Artigo de teste",
+                    "reference": "A-01",
+                    "quantity": "2",
+                    "unit": "un",
+                    "unit_price": "50.00",
+                    "vat_rate": "23",
+                    "line_total": "100.00"
+                }
+            ]
+        }
+    },
+    "standard-no-qr": {
+        "label": "Standard invoice without QR",
+        "file": "standard-no-qr.png",
+        "expected": {
+            "document_type": "FT",
+            "invoice_number": "FT DEMO\/001",
+            "issue_date": "2026-11-13",
+            "atcud": "DEMO0001-001",
+            "currency": "EUR",
+            "supplier_name": "Fornecedor Sintético",
+            "supplier_nif": "500000000",
+            "supplier_country": "PT",
+            "customer_nif": "999999990",
+            "customer_country": "PT",
+            "net_amount": "100.00",
+            "taxable_amount": "100.00",
+            "vat_amount": "23.00",
+            "total_tax": "23.00",
+            "gross_total": "123.00",
+            "vat": [
+                {
+                    "region": "PT",
+                    "category": "standard",
+                    "rate": "23",
+                    "taxable_amount": "100.00",
+                    "vat_amount": "23.00"
+                }
+            ],
+            "lines": [
+                {
+                    "description": "Artigo de teste",
+                    "reference": "A-01",
+                    "quantity": "2",
+                    "unit": "un",
+                    "unit_price": "50.00",
+                    "vat_rate": "23",
+                    "line_total": "100.00"
+                }
+            ]
+        }
+    },
+    "multirate": {
+        "label": "Multi-page invoice with VAT rates, exemption and discount",
+        "file": "multirate.pdf",
+        "expected": {
+            "document_type": "FT",
+            "invoice_number": "FT DEMO\/002",
+            "issue_date": "2026-11-13",
+            "atcud": "DEMO0001-002",
+            "currency": "EUR",
+            "supplier_name": "Fornecedor Sintético",
+            "supplier_nif": "500000000",
+            "supplier_country": "PT",
+            "customer_nif": "999999990",
+            "customer_country": "PT",
+            "net_amount": "102.00",
+            "taxable_amount": "102.00",
+            "vat_amount": "11.76",
+            "total_tax": "11.76",
+            "gross_total": "113.76",
+            "vat": [
+                {
+                    "region": "PT",
+                    "category": "reduced",
+                    "rate": "6",
+                    "taxable_amount": "51.00",
+                    "vat_amount": "3.06"
+                },
+                {
+                    "region": "PT",
+                    "category": "standard",
+                    "rate": "23",
+                    "taxable_amount": "35.00",
+                    "vat_amount": "8.05"
+                },
+                {
+                    "region": "PT",
+                    "category": "intermediate",
+                    "rate": "13",
+                    "taxable_amount": "5.00",
+                    "vat_amount": "0.65"
+                },
+                {
+                    "region": "PT",
+                    "category": "exempt",
+                    "rate": "0",
+                    "taxable_amount": "11.00",
+                    "vat_amount": "0.00",
+                    "exemption_reason": "M07"
+                }
+            ],
+            "lines": [
+                {
+                    "description": "Livros",
+                    "reference": "B-01",
+                    "quantity": "3",
+                    "unit": "un",
+                    "unit_price": "17.00",
+                    "vat_rate": "6",
+                    "line_total": "51.00"
+                },
+                {
+                    "description": "Mochila",
+                    "reference": "B-02",
+                    "quantity": "1",
+                    "unit": "un",
+                    "unit_price": "40.00",
+                    "discount": "5.00",
+                    "vat_rate": "23",
+                    "line_total": "35.00"
+                },
+                {
+                    "description": "Conserva",
+                    "reference": "B-03",
+                    "quantity": "1",
+                    "unit": "un",
+                    "unit_price": "5.00",
+                    "vat_rate": "13",
+                    "line_total": "5.00"
+                },
+                {
+                    "description": "Serviço isento",
+                    "reference": "B-04",
+                    "quantity": "1",
+                    "unit": "un",
+                    "unit_price": "11.00",
+                    "vat_rate": "0",
+                    "line_total": "11.00"
+                }
+            ],
+            "discount": "5.00",
+            "exemption_reason": "M07"
+        }
+    },
+    "receipt": {
+        "label": "Receipt with paid amount",
+        "file": "receipt.png",
+        "expected": {
+            "document_type": "RC",
+            "invoice_number": "RC DEMO\/003",
+            "issue_date": "2026-11-13",
+            "atcud": "DEMO0003-003",
+            "currency": "EUR",
+            "supplier_name": "Fornecedor Sintético",
+            "supplier_nif": "500000000",
+            "supplier_country": "PT",
+            "customer_nif": "999999990",
+            "customer_country": "PT",
+            "net_amount": null,
+            "taxable_amount": null,
+            "vat_amount": null,
+            "total_tax": null,
+            "gross_total": "123.00",
+            "vat": null,
+            "lines": null,
+            "paid_amount": "123.00"
+        }
+    },
+    "supermarket": {
+        "label": "Supermarket receipt",
+        "file": "supermarket.png",
+        "expected": {
+            "document_type": "FS",
+            "invoice_number": "FS DEMO\/004",
+            "issue_date": "2026-11-13",
+            "atcud": "DEMO0004-004",
+            "currency": "EUR",
+            "supplier_name": "Mercado Sintético",
+            "supplier_nif": "500000000",
+            "supplier_country": "PT",
+            "customer_nif": "999999990",
+            "customer_country": "PT",
+            "net_amount": "102.00",
+            "taxable_amount": "102.00",
+            "vat_amount": "11.76",
+            "total_tax": "11.76",
+            "gross_total": "113.76",
+            "vat": [
+                {
+                    "region": "PT",
+                    "category": "reduced",
+                    "rate": "6",
+                    "taxable_amount": "51.00",
+                    "vat_amount": "3.06"
+                },
+                {
+                    "region": "PT",
+                    "category": "standard",
+                    "rate": "23",
+                    "taxable_amount": "35.00",
+                    "vat_amount": "8.05"
+                },
+                {
+                    "region": "PT",
+                    "category": "intermediate",
+                    "rate": "13",
+                    "taxable_amount": "5.00",
+                    "vat_amount": "0.65"
+                },
+                {
+                    "region": "PT",
+                    "category": "exempt",
+                    "rate": "0",
+                    "taxable_amount": "11.00",
+                    "vat_amount": "0.00",
+                    "exemption_reason": "M07"
+                }
+            ],
+            "lines": [
+                {
+                    "description": "Livros",
+                    "reference": "B-01",
+                    "quantity": "3",
+                    "unit": "un",
+                    "unit_price": "17.00",
+                    "vat_rate": "6",
+                    "line_total": "51.00"
+                },
+                {
+                    "description": "Mochila",
+                    "reference": "B-02",
+                    "quantity": "1",
+                    "unit": "un",
+                    "unit_price": "40.00",
+                    "discount": "5.00",
+                    "vat_rate": "23",
+                    "line_total": "35.00"
+                },
+                {
+                    "description": "Conserva",
+                    "reference": "B-03",
+                    "quantity": "1",
+                    "unit": "un",
+                    "unit_price": "5.00",
+                    "vat_rate": "13",
+                    "line_total": "5.00"
+                },
+                {
+                    "description": "Serviço isento",
+                    "reference": "B-04",
+                    "quantity": "1",
+                    "unit": "un",
+                    "unit_price": "11.00",
+                    "vat_rate": "0",
+                    "line_total": "11.00"
+                }
+            ],
+            "discount": "5.00",
+            "exemption_reason": "M07",
+            "paid_amount": "113.76"
+        }
+    },
+    "poor-photo": {
+        "label": "Poor-quality invoice photograph",
+        "file": "poor-photo.jpg",
+        "expected": {
+            "document_type": "FT",
+            "invoice_number": "FT DEMO\/001",
+            "issue_date": "2026-11-13",
+            "atcud": "DEMO0001-001",
+            "currency": "EUR",
+            "supplier_name": "Fornecedor Sintético",
+            "supplier_nif": "500000000",
+            "supplier_country": "PT",
+            "customer_nif": "999999990",
+            "customer_country": "PT",
+            "net_amount": "100.00",
+            "taxable_amount": "100.00",
+            "vat_amount": "23.00",
+            "total_tax": "23.00",
+            "gross_total": "123.00",
+            "vat": [
+                {
+                    "region": "PT",
+                    "category": "standard",
+                    "rate": "23",
+                    "taxable_amount": "100.00",
+                    "vat_amount": "23.00"
+                }
+            ],
+            "lines": [
+                {
+                    "description": "Artigo de teste",
+                    "reference": "A-01",
+                    "quantity": "2",
+                    "unit": "un",
+                    "unit_price": "50.00",
+                    "vat_rate": "23",
+                    "line_total": "100.00"
+                }
+            ]
+        }
+    },
+    "rotated-photo": {
+        "label": "Rotated invoice photograph",
+        "file": "rotated-photo.jpg",
+        "expected": {
+            "document_type": "FT",
+            "invoice_number": "FT DEMO\/001",
+            "issue_date": "2026-11-13",
+            "atcud": "DEMO0001-001",
+            "currency": "EUR",
+            "supplier_name": "Fornecedor Sintético",
+            "supplier_nif": "500000000",
+            "supplier_country": "PT",
+            "customer_nif": "999999990",
+            "customer_country": "PT",
+            "net_amount": "100.00",
+            "taxable_amount": "100.00",
+            "vat_amount": "23.00",
+            "total_tax": "23.00",
+            "gross_total": "123.00",
+            "vat": [
+                {
+                    "region": "PT",
+                    "category": "standard",
+                    "rate": "23",
+                    "taxable_amount": "100.00",
+                    "vat_amount": "23.00"
+                }
+            ],
+            "lines": [
+                {
+                    "description": "Artigo de teste",
+                    "reference": "A-01",
+                    "quantity": "2",
+                    "unit": "un",
+                    "unit_price": "50.00",
+                    "vat_rate": "23",
+                    "line_total": "100.00"
+                }
+            ]
+        }
+    },
+    "unreadable": {
+        "label": "Unreadable document",
+        "file": "unreadable.png",
+        "expected": []
+    }
+}

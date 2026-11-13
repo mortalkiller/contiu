@@ -15,6 +15,7 @@ use App\Filament\Resources\Receivables\ReceivableResource;
 use App\Filament\Support\AccountantAwareGlobalSearch;
 use App\Filament\Support\BrandPalette;
 use App\Filament\Support\ContiuPalettes;
+use App\Http\Controllers\InvoiceBenchmarkPreviewController;
 use App\Http\Middleware\RestrictAccountantRoutes;
 use App\Http\Middleware\UseDefaultAccountOutsideTenantRoutes;
 use App\Models\Account;
@@ -46,6 +47,7 @@ use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Route;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Livewire\Livewire;
 use MortalKiller\FilamentAppearance\AppearancePlugin;
@@ -266,7 +268,11 @@ class AdminPanelProvider extends PanelProvider
             ])
             // Also on Livewire updates from those pages (e.g. saving /profile).
             ->persistentMiddleware([UseDefaultAccountOutsideTenantRoutes::class])
-            ->tenantMiddleware([RestrictAccountantRoutes::class], isPersistent: true);
+            ->tenantMiddleware([RestrictAccountantRoutes::class], isPersistent: true)
+            ->tenantRoutes(function (): void {
+                Route::get('invoice-benchmark/preview/{document}', InvoiceBenchmarkPreviewController::class)
+                    ->whereUuid('document')->middleware([Authenticate::class, 'throttle:60,1'])->name('invoice-benchmark.preview');
+            });
     }
 
     /**
