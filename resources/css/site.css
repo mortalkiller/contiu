@@ -894,6 +894,8 @@ body{margin:0}
 .tp-search input{flex:1;min-width:0;height:46px;padding:0;border:0;background:none;font:inherit;font-size:18px;color:var(--night);outline:none}
 .tp-search input::placeholder{color:#6b6f8e;opacity:1}
 .tp-search input::-webkit-search-cancel-button{cursor:pointer}
+/* The box shows the focus (its border), not the input inside: no outline of its own (.c-root :focus-visible). */
+.st .tp-search input:focus-visible{outline:none}
 .tp-search:focus-within{border-color:var(--indigo)}
 .tp-search button{display:inline-flex;align-items:center;min-height:46px;padding:0 22px;border:0;border-radius:999px;background:var(--indigo);color:#fff;font:inherit;font-size:16px;font-weight:600;cursor:pointer}
 .tp-ab .tp-search{margin-top:8px}
