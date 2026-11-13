@@ -73,7 +73,7 @@ it('shows an issued invoice with its state, its dates, its lines and what it is 
         ->assertSee('IVA · isento (M10)')
         ->assertSee('Em sincronia')
         ->assertSee('12/11/2026 às 10:42')
-        ->assertSeeInOrder(['Ligado a', '2.ª prestação', 'Site institucional', 'Trabalho DEMO-03'])
+        ->assertSeeInOrder(['Ligado a', '2.ª prestação', 'Site institucional', 'Venda DEMO-03'])
         ->assertSeeInOrder(['Soma das linhas', '240,00', 'Descontos', '—', 'Total do documento', '240,00', 'Retenção de IRS', '—', 'A receber', '240,00'])
         ->assertDontSee('Retenção de IRS ·')
         ->assertActionVisible('recordPayment');

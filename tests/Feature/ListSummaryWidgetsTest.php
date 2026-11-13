@@ -117,8 +117,8 @@ it('sums up projects: in progress, still to receive, proposals and completed', f
     Project::factory()->create(['net_amount' => 50000, 'status' => ProjectStatus::Cancelled]);
 
     Livewire::test(ProjectsSummary::class)
-        ->assertSeeInOrder(['Em curso', '800,00 €', '1 trabalho · 400,00 € recebidos'])
-        ->assertSeeInOrder(['Por receber', '400,00 €', '1 trabalho · nada vencido'])
+        ->assertSeeInOrder(['Em curso', '800,00 €', '1 venda · 400,00 € recebidos'])
+        ->assertSeeInOrder(['Por receber', '400,00 €', '1 venda · nada vencido'])
         ->assertSeeInOrder(['Propostas à espera', '900,00 €', '1 proposta · a mais antiga há 12 dias'])
         ->assertSeeInOrder(['Propostas aprovadas', '2 de 4']);
 })->group('ui');
@@ -211,7 +211,7 @@ it('shows who this year\'s expenses went to beside the suppliers', function () {
 it('shows a summary above each of the other lists', function (string $resource, string $widget) {
     $this->get($resource::getUrl())->assertOk()->assertSeeLivewire($widget);
 })->with([
-    'trabalhos' => [ProjectResource::class, ProjectsSummary::class],
+    'vendas' => [ProjectResource::class, ProjectsSummary::class],
     'avenças' => [RetainerResource::class, RetainersSummary::class],
     'recebimentos' => [PaymentResource::class, PaymentsSummary::class],
     'documentos fiscais' => [FiscalDocumentResource::class, FiscalDocumentsSummary::class],

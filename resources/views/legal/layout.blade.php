@@ -1,6 +1,7 @@
 {{--
     Public legal page (terms, privacy), open without login. Self-contained like errors/layout
-    (inline CSS, no Vite), with the same brand header. Each page fills in the title and sections.
+    (inline CSS, no Vite), with the same brand header. Each page fills in the title and sections:
+    section title => the partial with its text, or null while the text is still to be written.
 --}}
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -10,8 +11,7 @@
     {{-- Out of search engines while the pages hold placeholder text: remove with Pedro's text. --}}
     <meta name="robots" content="noindex">
     <title>@yield('title') · Contiu</title>
-    <link rel="icon" href="{{ asset('brand/contiu/favicon.ico') }}" sizes="any">
-    <link rel="icon" href="{{ asset('brand/contiu/favicon.svg') }}" type="image/svg+xml">
+    @include('partials.favicons')
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=geist:400,500,600,700&display=swap" rel="stylesheet">
     @php($brand = \App\Filament\Support\BrandPalette::primary())
@@ -95,6 +95,11 @@
             font-weight: 600;
         }
         p { margin: 0; color: var(--muted); font-size: 16px; line-height: 1.6; }
+        p + p { margin-top: 12px; }
+        dl { margin: 12px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; font-size: 15px; }
+        dt { color: var(--muted); }
+        dd { margin: 0; font-weight: 500; }
+        dd a, p a { color: var(--brand-link); }
         .placeholder {
             padding: 12px 16px;
             border-radius: 8px;
@@ -125,9 +130,13 @@
             <span class="version">{{ __('Version :version', ['version' => config('contiu.terms_version')]) }}</span>
             <h1>@yield('title')</h1>
 
-            @foreach ($sections as $section)
+            @foreach ($sections as $section => $partial)
                 <h2>{{ $loop->iteration }}. {{ $section }}</h2>
-                <p class="placeholder">{{ __('Text to be provided by Pedro.') }}</p>
+                @if ($partial)
+                    @include($partial)
+                @else
+                    <p class="placeholder">{{ __('Text to be provided by Pedro.') }}</p>
+                @endif
             @endforeach
 
             <nav>
@@ -137,6 +146,6 @@
         </article>
     </main>
 
-    <footer>Contiu</footer>
+    <footer>{{ __('Contiu is a service of :company', ['company' => config('contiu.company.name')]) }}</footer>
 </body>
 </html>

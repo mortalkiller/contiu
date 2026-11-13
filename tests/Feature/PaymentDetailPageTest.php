@@ -79,7 +79,7 @@ it('shows how much came in, who paid, when, how and what it pays', function () {
         ->assertDontSee('Visualizar')
         ->assertSeeInOrder(['Recebido em', '12/11/2026', 'Como foi pago', 'MB Way', 'Valor', '400,00', 'N.º da fatura / recibo', 'FR 2026/14'])
         ->assertSeeInOrder(['O que este recebimento paga', 'Vencia a', 'Pago neste recebimento', 'Fica por receber'])
-        ->assertSeeInOrder(['Loja online · sinal de 50%', 'Trabalho DEMO-05 · Estúdio Brisa, Lda.', '12/11/2026', Money::format(100000), '400,00', '600,00', 'Total recebido', '400,00'], false)
+        ->assertSeeInOrder(['Loja online · sinal de 50%', 'Venda DEMO-05 · Estúdio Brisa, Lda.', '12/11/2026', Money::format(100000), '400,00', '600,00', 'Total recebido', '400,00'], false)
         ->assertSee('Sinal pago no dia da adjudicação.')
         ->assertSeeInOrder(['Cliente', 'Estúdio Brisa, Lda.', 'NIF 509999982 · Porto', 'Recebido em 2026', '2 recebimentos', Money::format(105000)], false)
         ->assertSeeHtml(ClientResource::getUrl('view', ['record' => $this->client]))

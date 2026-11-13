@@ -17,9 +17,9 @@ beforeEach(function () {
 it('keeps sign-up closed by default', function () {
     expect(config('contiu.registration_open'))->toBeFalse();
 
-    $this->get('/register')->assertNotFound();
+    $this->get('/app/register')->assertNotFound();
 
-    $this->get('/login')->assertOk()
+    $this->get('/app/login')->assertOk()
         ->assertDontSee(__('filament-panels::auth/pages/login.actions.register.label'))
         ->assertDontSee(url('/register'), escape: false);
 });
@@ -27,9 +27,9 @@ it('keeps sign-up closed by default', function () {
 it('opens sign-up when the switch is on', function () {
     expect(config('contiu.registration_open'))->toBeTrue();
 
-    $this->get('/register')->assertOk()->assertSee('Criar conta');
+    $this->get('/app/register')->assertOk()->assertSee('Criar conta');
 
-    $this->get('/login')->assertOk()
+    $this->get('/app/login')->assertOk()
         ->assertSee('Começa com 14 dias grátis')
-        ->assertSee(url('/register'), escape: false);
+        ->assertSee(url('/app/register'), escape: false);
 })->group('registration-open');

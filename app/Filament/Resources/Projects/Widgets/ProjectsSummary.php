@@ -13,7 +13,7 @@ use Illuminate\Support\HtmlString;
 use MortalKiller\FilamentSkeletonLoading\Concerns\HasSkeletonPlaceholder;
 
 /**
- * Above the "Trabalhos" list, as in the mock (one card each, no icons): work in progress, what
+ * Above the "Vendas" list, as in the mock (one card each, no icons): work in progress, what
  * is still to receive (a way into "A receber"), proposals waiting for an answer, and how many of
  * this year's proposals went ahead.
  */

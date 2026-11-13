@@ -9,8 +9,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex">
     <title>@yield('title') · Contiu</title>
-    <link rel="icon" href="{{ asset('brand/contiu/favicon.ico') }}" sizes="any">
-    <link rel="icon" href="{{ asset('brand/contiu/favicon.svg') }}" type="image/svg+xml">
+    @include('partials.favicons')
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=geist:400,500,600,700&display=swap" rel="stylesheet">
     @php($brand = \App\Filament\Support\BrandPalette::primary())
@@ -140,7 +139,7 @@
 </head>
 <body>
     <header>
-        <a href="{{ url('/') }}" aria-label="{{ __('Contiu — go to dashboard') }}">
+        <a href="{{ \App\Support\PanelLocation::url() }}" aria-label="{{ __('Contiu — go to dashboard') }}">
             <img src="{{ asset('brand/contiu/contiu-logo-white.svg') }}" alt="Contiu">
         </a>
     </header>
@@ -155,8 +154,8 @@
                 @hasSection('actions')
                     @yield('actions')
                 @else
-                    <a class="btn btn-primary" href="{{ url('/') }}">{{ __('Back to dashboard') }}</a>
-                    <button type="button" class="btn" onclick="history.length > 1 ? history.back() : location.assign('{{ url('/') }}')">{{ __('Go back') }}</button>
+                    <a class="btn btn-primary" href="{{ \App\Support\PanelLocation::url() }}">{{ __('Back to dashboard') }}</a>
+                    <button type="button" class="btn" onclick="history.length > 1 ? history.back() : location.assign('{{ \App\Support\PanelLocation::url() }}')">{{ __('Go back') }}</button>
                 @endif
             </div>
         </div>

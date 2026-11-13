@@ -190,9 +190,9 @@ it('renders the inbox in the tenant panel and forbids accountants and foreign ac
     $foreign = Account::factory()->create();
     asAWebRequest();
 
-    $url = url("/{$this->account->slug}/integracoes/faturas-por-email");
+    $url = url("/app/{$this->account->slug}/integracoes/faturas-por-email");
     $this->actingAs($owner)->get($url)->assertOk()->assertSeeText(__('Invoice email inbox'));
-    $this->get(url("/{$foreign->slug}/integracoes/faturas-por-email"))->assertNotFound();
+    $this->get(url("/app/{$foreign->slug}/integracoes/faturas-por-email"))->assertNotFound();
     $this->actingAs($accountant)->get($url)->assertForbidden();
 });
 

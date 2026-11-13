@@ -48,10 +48,14 @@ class AccountSubscription extends Page
 
     protected static ?int $navigationSort = 1;
 
-    /** Amounts as charged by the Stripe prices in config('contiu.prices'): cents, no VAT. */
+    /**
+     * Amounts as charged by the Stripe prices in config('contiu.prices'): cents, no VAT. Chosen so
+     * that with 23% VAT the monthly plan is a round 7,00 € and the yearly one is 10% off twelve
+     * months (75,60 €).
+     */
     public const PLANS = [
-        'monthly' => ['label' => 'Monthly', 'amount' => 500, 'per' => 'per month'],
-        'yearly' => ['label' => 'Yearly', 'amount' => 5400, 'per' => 'per year'],
+        'monthly' => ['label' => 'Monthly', 'amount' => 569, 'per' => 'per month'],
+        'yearly' => ['label' => 'Yearly', 'amount' => 6146, 'per' => 'per year'],
     ];
 
     /**

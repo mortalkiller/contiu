@@ -42,6 +42,8 @@ return [
                     // Previous backup archives (local disk root is storage/app/private).
                     storage_path('app/private/pressiumize'),
                     storage_path('app/private/livewire-tmp'),
+                    storage_path('app/private/invoice-benchmark'),
+                    storage_path('app/private/invoice-benchmark-raster'),
                     storage_path('app/backup-temp'),
                 ],
 

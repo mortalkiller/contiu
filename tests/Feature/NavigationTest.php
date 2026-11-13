@@ -76,7 +76,7 @@ it('builds the phone menu from the navigation: open groups as tiles, collapsed g
     $sections = collect(MobileMenu::sections())->keyBy(fn (array $section): string => $section['label'] ?? '—');
 
     expect($sections['Receitas']['collapsed'])->toBeFalse()
-        ->and(array_column($sections['Receitas']['items'], 'label'))->toContain('A receber', 'Trabalhos', 'Avenças')
+        ->and(array_column($sections['Receitas']['items'], 'label'))->toContain('A receber', 'Vendas', 'Avenças')
         ->and($sections['Impostos']['collapsed'])->toBeTrue()
         ->and($sections['Definições']['collapsed'])->toBeTrue()
         ->and($sections['—']['collapsed'])->toBeFalse();
@@ -92,7 +92,7 @@ it('leaves the pages already on the tab bar out of the phone menu', function () 
 
     expect($labels)->not->toContain('Hoje')
         ->not->toContain('A receber')
-        ->toContain('Fecho do mês', 'Trabalhos');
+        ->toContain('Fecho do mês', 'Vendas');
 });
 
 it('puts the phone menu sheet on the page, with tiles and a row per collapsed group', function () {
@@ -123,7 +123,7 @@ it('puts the search at the start of the topbar, with what it searches and its sh
     $this->get(Dashboard::getUrl())
         ->assertOk()
         ->assertSee('<meta name="filament-appearance" content="search tablesearch tabs tables edge tabbar">', escape: false)
-        ->assertSee('Pesquisar clientes, trabalhos, despesas…')
+        ->assertSee('Pesquisar clientes, vendas, despesas…')
         ->assertSee('Ctrl K');
 });
 

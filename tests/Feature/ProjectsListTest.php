@@ -29,7 +29,7 @@ beforeEach(function () {
 
 it('says how many projects there are and what this year\'s quotes add up to, with no breadcrumbs', function () {
     Livewire::test(ListProjects::class)
-        ->assertSee('3 trabalhos · '.Money::format(170000).' em orçamentos de 2026', escape: false)
+        ->assertSee('3 vendas · '.Money::format(170000).' em orçamentos de 2026', escape: false)
         ->assertDontSeeHtml('fi-breadcrumbs')
         ->assertActionExists('export')
         ->assertActionExists('create');
@@ -39,7 +39,7 @@ it('lists each project with its code and line under the title, how much came in 
     Livewire::test(ListProjects::class)
         ->loadTable()
         ->assertSeeInOrder(['Landing page', 'DEMO-05', 'Web'])
-        ->assertSee('Ainda não aprovado')
+        ->assertSee('Ainda não aprovada')
         ->assertSee('50%')
         ->assertTableColumnSummarySet('total', 'sum', 220000)
         ->assertTableColumnSummarySet('outstanding_amount', 'sum', 40000);

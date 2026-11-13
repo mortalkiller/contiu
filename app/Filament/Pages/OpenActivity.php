@@ -46,6 +46,7 @@ class OpenActivity extends Page
     public function mount(): void
     {
         $this->form->fill();
+        $this->data['fiscal_account_type'] = app(FinanceSettings::class)->fiscalAccountType()?->value;
     }
 
     public function getSubheading(): string

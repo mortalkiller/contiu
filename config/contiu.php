@@ -5,6 +5,13 @@ return [
     // Public sign-up (/register and the login page's link). Off until going live is ready.
     'registration_open' => (bool) env('CONTIU_REGISTRATION_OPEN', false),
 
+    /*
+     * Where the panel lives. Without a domain it sits at /app on the site's own domain (locally,
+     * http://localhost:8000/app); with CONTIU_PANEL_DOMAIN (production: the "app" subdomain) it
+     * takes the root of that domain, and the public site stays on the APP_URL host.
+     */
+    'panel_domain' => env('CONTIU_PANEL_DOMAIN'),
+
     'invoice_email_inbox_enabled' => (bool) env('CONTIU_INVOICE_EMAIL_INBOX_ENABLED', false),
 
     // Where "Precisas de ajuda? Fala connosco" points (e.g. on "Conta criada"). Hidden when empty.
@@ -29,10 +36,25 @@ return [
     'subscription_vat_rate' => 0.23,
     'stripe_tax_rate' => env('STRIPE_TAX_RATE'),
 
+    /*
+     * The company behind Contiu, named on the terms and privacy pages as the provider of the service
+     * and the data controller. The environment can override the company number, registered office
+     * and email; a detail left empty there is left out of the pages.
+     */
+    'company' => [
+        'name' => 'TrekDev - Tecnologias de Informação, Lda',
+        'short_name' => 'TrekDev',
+        'website' => 'https://trekdev.com',
+        'vat_number' => env('CONTIU_COMPANY_VAT_NUMBER', '515873624'),
+        'address' => env('CONTIU_COMPANY_ADDRESS', 'Rua Manuel Teixeira Gomes, n.º 11, 5.º Esq.º, 2790-104 Carnaxide, Oeiras'),
+        'email' => env('CONTIU_COMPANY_EMAIL', 'info@trekdev.com'),
+    ],
+
     // Version of the terms and privacy policy accepted at sign-up (stored with the account).
     'terms_version' => '2026-11-08',
 
-    // Stripe prices (monthly 5 €, yearly 54 €), without VAT: VAT is added on top (above).
+    // Stripe prices (monthly 5,69 €, yearly 61,46 €), without VAT: VAT is added on top (above), for
+    // 7,00 € a month or 75,60 € a year.
     'prices' => [
         'monthly' => env('STRIPE_PRICE_MONTHLY'),
         'yearly' => env('STRIPE_PRICE_YEARLY'),
@@ -105,7 +127,7 @@ return [
     ],
 
     /*
-     * Account slugs are the first URL segment (/{slug}/…), so no account may take a name the
+     * Account slugs are the first URL segment after the panel's prefix (/app/{slug}/…), so no account may take a name the
      * app's own routes use. CreateAccount also checks the router itself; a test fails when a
      * route outside the accounts is missing here, so the list stays the source of truth.
      */
@@ -113,6 +135,8 @@ return [
         'login', 'logout', 'register', 'password-reset', 'email-verification', 'profile',
         'termos', 'privacidade', 'idioma', 'stripe', 'livewire', 'up', 'storage', 'build', 'brand',
         'admin', 'api', 'filament', 'filament-excel', 'filament-fullcalendar', 'dev',
+        // The panel's prefix and the public site's pages (routes/web.php).
+        'app', 'funcionalidades', 'precos', 'contabilista', 'blogue', 'ajuda', 'ferramentas', 'sitemap.xml', 'robots.txt',
     ],
 
 ];

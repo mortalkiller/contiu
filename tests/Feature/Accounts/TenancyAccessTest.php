@@ -65,7 +65,7 @@ it('returns 404 for a record of another account', function () {
 
     $this->get(ExpenseResource::getUrl('edit', ['record' => $theirs], tenant: $this->mine))->assertNotFound();
     $this->get(ProjectResource::getUrl('view', ['record' => $theirProject], tenant: $this->mine))->assertNotFound();
-    $this->get('/'.$this->other->slug)->assertNotFound();
+    $this->get('/app/'.$this->other->slug)->assertNotFound();
     $this->get(ExpenseResource::getUrl(tenant: $this->other))->assertNotFound();
 
     $this->get(ExpenseResource::getUrl(tenant: $this->mine))->assertOk();
@@ -75,7 +75,7 @@ it('sends a logged-in user from the root to their account', function () {
     $this->actingAs(ownerOf($this->mine));
     asAWebRequest();
 
-    $this->get('/')->assertRedirect(Dashboard::getUrl(tenant: $this->mine));
+    $this->get('/app')->assertRedirect(Dashboard::getUrl(tenant: $this->mine));
     $this->get(Dashboard::getUrl(tenant: $this->mine))->assertOk();
 })->group('ui');
 
@@ -279,7 +279,7 @@ it('lets a super admin change the account address and opens it at the new one', 
         ->fillForm(['nif' => '123456789', 'slug' => 'estudio-rita'])
         ->call('save')
         ->assertHasNoFormErrors()
-        ->assertRedirect(url('/estudio-rita/perfil-da-conta'));
+        ->assertRedirect(url('/app/estudio-rita/perfil-da-conta'));
 
     expect($this->mine->fresh()->slug)->toBe('estudio-rita');
 })->group('ui');
@@ -340,13 +340,13 @@ it('opens the user profile, which lives outside any account, with the menu of th
     $this->actingAs(superAdminOf($this->mine));
     asAWebRequest();
 
-    $this->get('/profile')->assertOk()
+    $this->get('/app/profile')->assertOk()
         ->assertSee(PaymentResource::getUrl(tenant: $this->mine), escape: false);
 
     $this->actingAs(ownerOf($this->mine));
     asAWebRequest();
 
-    $this->get('/profile')->assertOk();
+    $this->get('/app/profile')->assertOk();
 })->group('ui');
 
 it('links the help centre, the "Novo" menu and the account profile into the account being viewed', function () {
@@ -419,6 +419,6 @@ it('places the account profile link with the active account in the user menu', f
     asAWebRequest();
 
     $this->get(Dashboard::getUrl(tenant: $this->mine))
-        ->assertSeeInOrder(['Conta ativa', $this->mine->name, 'Proprietário', 'Perfil da conta', $user->email, 'A minha conta'])
+        ->assertSeeInOrder(['Conta ativa', $this->mine->name, 'Titular da conta', 'Perfil da conta', $user->email, 'A minha conta'])
         ->assertSee(EditAccountProfile::getUrl(tenant: $this->mine), escape: false);
 })->group('ui');

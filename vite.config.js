@@ -13,6 +13,8 @@ export default defineConfig({
                 'resources/js/finance-preview.js',
                 'resources/js/filament/schemas/components/fiscal-document-totals.js',
                 'resources/css/filament/admin/theme.css',
+                'resources/css/site.css',
+                'resources/js/site.js',
             ],
             refresh: true,
             fonts: [

@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\FiscalAccountType;
 use App\Enums\PortugueseVatRegion;
 use App\Models\Setting;
 use Carbon\CarbonImmutable;
@@ -13,6 +14,7 @@ use Carbon\CarbonImmutable;
 final class FinanceSettings
 {
     public const DEFAULTS = [
+        'fiscal_account_type' => null,
         'activity_started_on' => null,
         'cae' => null, // the main activity code, as registered with the tax authority
         'secondary_caes' => [], // the other activity codes of the declaration of activity
@@ -199,6 +201,13 @@ final class FinanceSettings
     public function activityOpened(): bool
     {
         return (bool) $this->all()['activity_opened'];
+    }
+
+    public function fiscalAccountType(): ?FiscalAccountType
+    {
+        $value = $this->all()['fiscal_account_type'];
+
+        return is_string($value) ? FiscalAccountType::tryFrom($value) : null;
     }
 
     /** simplified | organised. */

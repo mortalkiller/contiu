@@ -101,7 +101,7 @@ describe('Charts and client concentration', function () {
     });
     it('picks the period in the header and splits the invoiced money as one bar', function () {
         Livewire::test(Margins::class, ['year' => 2026])
-            ->assertSee('O que faturaste, menos os custos diretos de cada trabalho e avença.')
+            ->assertSee('O que faturaste, menos os custos diretos de cada venda e avença.')
             ->assertSeeHtml('contiu-proportion')
             ->assertSee('Para onde vai o faturado')
             ->callAction('month_3')

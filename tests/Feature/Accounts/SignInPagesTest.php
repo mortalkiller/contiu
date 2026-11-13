@@ -223,7 +223,7 @@ it('shows “Email confirmado” after the confirmation link, then goes on to th
 it('offers the authenticator app and the email codes in Segurança', function () {
     actingAsAdmin();
 
-    $this->get(url('/profile?section=security'))
+    $this->get(url('/app/profile?section=security'))
         ->assertOk()
         ->assertSee('Verificação em dois passos (2FA)')
         ->assertSee('App de autenticação')
@@ -248,5 +248,5 @@ it('never sends the language switch back to another site', function () {
 });
 
 it('refuses a language Contiu does not have', function () {
-    $this->get('/idioma/xx-XX')->assertNotFound();
+    $this->get('/app/idioma/xx-XX')->assertNotFound();
 });

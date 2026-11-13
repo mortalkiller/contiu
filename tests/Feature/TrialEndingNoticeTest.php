@@ -43,7 +43,7 @@ it('emails the owner the first charge with VAT, once', function () {
 
     Mail::assertQueued(TrialEndingSoon::class, 1);
     Mail::assertQueued(TrialEndingSoon::class, fn (TrialEndingSoon $mail): bool => $mail->hasTo($this->owner->email)
-        && $mail->amountInCents === 6642
+        && $mail->amountInCents === 7560
         && $mail->planKey === 'yearly'
         && $mail->chargeOn->toDateString() === '2026-11-25');
 });
@@ -54,7 +54,7 @@ it('says when, how much and how to cancel', function () {
     Mail::assertQueued(TrialEndingSoon::class, function (TrialEndingSoon $mail): bool {
         $mail->locale('pt_PT');
         $mail->assertSeeInHtml('25/11/2026')
-            ->assertSeeInHtml('6,15')
+            ->assertSeeInHtml('7,00')
             ->assertSeeInHtml('IVA incluído')
             ->assertSeeInHtml('cancela antes de');
 

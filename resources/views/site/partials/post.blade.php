@@ -1,0 +1,3 @@
+{{-- A blog post card. A post whose text is not written yet is shown but does not open. --}}
+@php($tag = $post['url'] ? 'a' : 'div')
+<{{ $tag }} class="st-post" @if ($post['url']) href="{{ $post['url'] }}" @endif><figure class="st-ph " style="aspect-ratio: 16 / 9; max-width: none" aria-hidden="true"><span>Imagem por gerar</span><b>img/{{ $post['image'] }}.webp</b><span>1600 × 900</span></figure><span class="st-post-cat">{{ $post['category_name'] }}</span><h3 class="st-h3">{{ $post['title'] }}</h3><p class="st-muted">{{ $post['excerpt'] }}</p><span class="st-meta">{{ $post['minutes'] }} min de leitura</span></{{ $tag }}>

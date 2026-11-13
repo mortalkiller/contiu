@@ -32,7 +32,7 @@ use Illuminate\Validation\Rules\Unique;
 class ProjectForm
 {
     /**
-     * As in the mock ("Novo trabalho"), on both the create and the edit page: the project, its
+     * As in the mock ("Nova venda"), on both the create and the edit page: the project, its
      * amount, the payment plan and notes, one card each, with a summary beside them that follows
      * what is typed. The create page adds quick plans over the instalments.
      *

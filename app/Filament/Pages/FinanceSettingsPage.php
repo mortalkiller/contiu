@@ -173,6 +173,7 @@ class FinanceSettingsPage extends Page
                             ->label(__('I have opened my activity with the Tax Authority'))
                             ->helperText(__('Off while you have not opened it yet: Contiu shows no taxes nor tax calendar until you do.'))
                             ->columnSpanFull(),
+                        TaxSettingsFields::fiscalAccountType()->columnSpanFull(),
                         TaxSettingsFields::whereToFind(
                             Radio::make('accounting_regime')
                                 ->label(__('Accounting regime'))

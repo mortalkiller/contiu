@@ -2,6 +2,7 @@
 
 namespace App\Filament\Support;
 
+use App\Enums\FiscalAccountType;
 use App\Enums\Language;
 use App\Support\ActivityCatalogue;
 use App\Support\Money;
@@ -71,6 +72,7 @@ final class SignupQuestions
         $needsSsDate = fn (Get $get): bool => $isRestart($get) && $get('accounting_regime') !== 'organised';
 
         return [
+            self::when(TaxSettingsFields::fiscalAccountType()->inlineLabel(), $opened, $isOpened),
             self::when(self::date('activity_started_on')
                 ->label(__('When did you open it?'))
                 ->maxDate(today())
@@ -347,7 +349,9 @@ final class SignupQuestions
     public static function profileViewData(TaxProfileDeduction $deduction, array $state, string $eyebrow, array $stepNames): array
     {
         $name = trim((string) ($state['name'] ?? ''));
-        $startedOn = $deduction->settings()['activity_started_on'] ?? null;
+        $settings = $deduction->settings();
+        $startedOn = $settings['activity_started_on'] ?? null;
+        $activityType = FiscalAccountType::tryFrom($settings['fiscal_account_type'] ?? '');
         $situation = $deduction->situation();
         $occupation = isset($state['occupation']) ? (string) $state['occupation'] : null;
         $profession = trim((string) (ActivityCatalogue::occupationLabel($occupation) ?? $state['profession'] ?? ''));
@@ -373,6 +377,7 @@ final class SignupQuestions
             ])),
             'facts' => array_values(array_filter([
                 filled($state['nif'] ?? null) ? ['label' => __('Tax ID'), 'value' => (string) $state['nif']] : null,
+                $activityType ? ['label' => __('Fiscal activity type'), 'value' => $activityType->getLabel()] : null,
                 $startedOn ? ['label' => __('Since'), 'value' => Carbon::parse($startedOn)->format('m/Y')] : null,
                 $codes !== '' ? ['label' => filled($state['cae'] ?? null) ? __('Occupation · CAE') : __('Occupation'), 'value' => $codes] : null,
             ])),

@@ -42,7 +42,7 @@ it('shows the history to a user with the audit permission', function (string $mo
 
     expect(AuditsRelationManager::canViewForRecord($record, ViewProject::class))->toBeTrue();
 })->with([
-    'trabalho' => [Project::class, 'Audit:Project'],
+    'venda' => [Project::class, 'Audit:Project'],
     'avença' => [Retainer::class, 'Audit:Retainer'],
     'despesa' => [Expense::class, 'Audit:Expense'],
     'recebimento' => [Payment::class, 'Audit:Payment'],

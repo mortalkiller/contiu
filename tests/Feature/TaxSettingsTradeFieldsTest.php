@@ -1,7 +1,10 @@
 <?php
 
+use App\Enums\FiscalAccountType;
 use App\Filament\Pages\FinanceSettingsPage;
 use App\Filament\Support\TaxSettingsFields;
+use App\Models\Account;
+use App\Support\CurrentAccount;
 use App\Support\FinanceSettings;
 use Livewire\Livewire;
 
@@ -78,6 +81,32 @@ it('keeps a main CAE saved before CAE-Rev.4 but refuses a new one off the list',
         ->fillForm(['cae' => '12345'])
         ->call('save')
         ->assertHasFormErrors(['cae']);
+});
+
+it('saves the fiscal activity type per account without changing its regime or contribution rate', function () {
+    actingAsAdmin();
+    $settings = app(FinanceSettings::class);
+    $settings->set(['ss_rate' => 0.214, 'accounting_regime' => 'simplified']);
+
+    Livewire::test(FinanceSettingsPage::class)
+        ->assertSchemaStateSet(['fiscal_account_type' => null])
+        ->fillForm(['fiscal_account_type' => 'eni'])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($settings->fiscalAccountType())->toBe(FiscalAccountType::SoleTrader)
+        ->and($settings->ssRate())->toBe(0.214)
+        ->and($settings->accountingRegime())->toBe('simplified');
+
+    CurrentAccount::run(Account::factory()->create(), fn () => expect($settings->fiscalAccountType())->toBeNull());
+
+    Livewire::test(FinanceSettingsPage::class)
+        ->assertSchemaStateSet(['fiscal_account_type' => 'eni'])
+        ->fillForm(['fiscal_account_type' => 'accountant'])
+        ->call('save')
+        ->assertHasFormErrors(['fiscal_account_type']);
+
+    expect($settings->fiscalAccountType())->toBe(FiscalAccountType::SoleTrader);
 });
 
 it('leaves the CAE and the goods answer alone when a form does not ask them', function () {

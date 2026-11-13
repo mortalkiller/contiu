@@ -2,6 +2,6 @@
 
 return [
     'field' => [
-        'placeholder' => 'Pesquisar clientes, trabalhos, despesas…',
+        'placeholder' => 'Pesquisar clientes, vendas, despesas…',
     ],
 ];

@@ -209,7 +209,7 @@ it('keeps the review role local to the granted account even when the user owns a
     $this->actingAs($user);
     asAWebRequest();
 
-    $this->get('/')->assertRedirect(Dashboard::getUrl(tenant: $owned));
+    $this->get('/app')->assertRedirect(Dashboard::getUrl(tenant: $owned));
     $url = fn (Expense $record): string => AccountantReviewRecords::getUrl([
         'source' => 'expense',
         'record' => $record->id,

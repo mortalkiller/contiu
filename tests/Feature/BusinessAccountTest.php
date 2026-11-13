@@ -152,7 +152,7 @@ it('explains the app without the statement when there is no business account', f
 
     $this->get(HelpCentre::getUrl())
         ->assertOk()
-        ->assertSee('Do trabalho ao recebimento')
+        ->assertSee('Da venda ao recebimento')
         ->assertSee('Fecho do mês')
         ->assertDontSee('Transferência minha')
         ->assertDontSee(BankStatementImport::getUrl(), escape: false);

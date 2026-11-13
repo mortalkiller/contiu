@@ -22,7 +22,7 @@
         </nav>
 
         <div class="fi-help-body mt-8 space-y-6 text-sm leading-6 text-gray-700 dark:text-gray-300">
-            {{-- Do trabalho ao extrato (ao recebimento, sem conta da atividade) --}}
+            {{-- Da venda ao extrato (ao recebimento, sem conta da atividade) --}}
             <x-filament::section class="scroll-mt-24" id="fluxo" :icon="$icons['fluxo']" :heading="$flowTitle" :description="__('Example: an online shop for Gonçalo Teixeira, €2,000, paid in two halves.')">
                 <ol class="list-decimal space-y-4 ps-5">
                     <li>

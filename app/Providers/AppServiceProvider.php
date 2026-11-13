@@ -14,6 +14,7 @@ use App\Support\AccountMemberAccess;
 use App\Support\CurrentAccount;
 use App\Support\FinanceSettings;
 use App\Support\Invoicing\Invoicing;
+use App\Support\PublicSite;
 use App\Support\ReadOnlyAccountAccess;
 use Filament\Auth\Http\Responses\Contracts\EmailVerificationResponse as EmailVerificationResponseContract;
 use Filament\Forms\Components\FileUpload;
@@ -22,9 +23,11 @@ use Filament\Pages\BasePage as Page;
 use Filament\Schemas\Schema;
 use Filament\Support\Facades\FilamentIcon;
 use Filament\Tables\Table;
+use Illuminate\Contracts\View\View as ViewContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Cashier\Cashier;
 use Mortalkiller\FilamentCompleteUserProfile\Http\Middleware\SetUserLocale;
@@ -60,6 +63,20 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
+     * What every view of the public site (resources/views/site) reads: the links into the panel,
+     * the company in the footer and the trial length.
+     */
+    private function sharePublicSiteData(): void
+    {
+        View::composer('site.*', fn (ViewContract $view) => $view->with([
+            'signInUrl' => PublicSite::signInUrl(),
+            'signUpUrl' => PublicSite::signUpUrl(),
+            'company' => config('contiu.company'),
+            'trialDays' => (int) config('contiu.trial_days'),
+        ]));
+    }
+
+    /**
      * Bootstrap any application services.
      */
     public function boot(): void
@@ -73,6 +90,7 @@ class AppServiceProvider extends ServiceProvider
             $locales,
         )));
         $this->detectLazyLoading();
+        $this->sharePublicSiteData();
         $this->registerPhosphorIcons();
         $this->configureFormatting();
         $this->configureFormActions();

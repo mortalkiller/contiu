@@ -19,7 +19,7 @@ it('discovers the owner settings page and protects it by account and membership'
     $other = Account::factory()->create();
     $accountant = User::factory()->create();
     $this->account->users()->attach($accountant, ['role' => AccountantAccess::ROLE]);
-    $path = "/{$this->account->slug}/integracoes/subscricao-calendario";
+    $path = "/app/{$this->account->slug}/integracoes/subscricao-calendario";
 
     asAWebRequest();
     $this->get($path)->assertRedirect(route('filament.admin.auth.login'));
@@ -41,7 +41,7 @@ it('discovers the owner settings page and protects it by account and membership'
     expect($update->json('components.0.effects.html'))->toMatch('~/api/calendario/[a-f0-9]{64}\.ics~');
 
     asAWebRequest();
-    $this->get("/{$other->slug}/integracoes/subscricao-calendario")->assertNotFound();
+    $this->get("/app/{$other->slug}/integracoes/subscricao-calendario")->assertNotFound();
 
     asAWebRequest();
     $this->actingAs($accountant)->get($path)->assertForbidden();

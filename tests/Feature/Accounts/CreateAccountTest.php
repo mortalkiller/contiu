@@ -142,7 +142,7 @@ it('reserves the first segment of every route outside the accounts', function ()
 
     $segments = collect(Route::getRoutes()->getRoutes())
         ->reject(fn ($route) => in_array('tenant', $route->parameterNames(), true))
-        ->map(fn ($route) => explode('/', trim($route->uri(), '/'))[0])
+        ->map(fn ($route) => CreateAccount::firstSegment($route->uri()))
         ->reject(fn (string $segment) => $segment === '' || str_starts_with($segment, '{'))
         ->map(fn (string $segment) => $segment === $livewirePrefix ? 'livewire' : $segment)
         ->unique()

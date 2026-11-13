@@ -6,6 +6,7 @@ use App\Models\Account;
 use App\Models\User;
 use App\Support\CurrentAccount;
 use App\Support\FinanceSettings;
+use App\Support\PanelLocation;
 use Illuminate\Routing\Route as RouteDefinition;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +24,7 @@ class CreateAccount
     public const SLUG_MAX_LENGTH = 50;
 
     private const SETTINGS = [
+        'fiscal_account_type',
         'activity_started_on', 'vat_exempt', 'vat_exemption_threshold',
         'ss_rate', 'ss_exemption_reason', 'account_names', 'has_business_account',
         'activity_start_kind', 'previous_activity_ended_on', 'ss_enrolled_from', 'dependent_income_years',
@@ -103,10 +105,26 @@ class CreateAccount
     {
         return collect(Route::getRoutes()->getRoutes())
             ->reject(fn (RouteDefinition $route) => in_array('tenant', $route->parameterNames(), true))
-            ->map(fn (RouteDefinition $route) => explode('/', trim($route->uri(), '/'))[0])
+            ->map(fn (RouteDefinition $route) => self::firstSegment($route->uri()))
             ->reject(fn (string $segment) => $segment === '' || str_starts_with($segment, '{'))
             ->unique()
             ->values()
             ->all();
+    }
+
+    /**
+     * The segment an account slug would clash with: the first one after the panel's prefix
+     * (/app/login → "login"), or the first one of a route outside the panel (/blogue → "blogue").
+     */
+    public static function firstSegment(string $uri): string
+    {
+        $uri = trim($uri, '/');
+        $prefix = PanelLocation::path();
+
+        if ($prefix !== '' && str_starts_with($uri.'/', $prefix.'/')) {
+            $uri = trim(substr($uri, strlen($prefix)), '/');
+        }
+
+        return explode('/', $uri)[0];
     }
 }

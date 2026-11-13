@@ -26,7 +26,7 @@ it('shows the invoicing provider status and links to its page for the account in
     Http::preventStrayRequests()->fake([]);
     asAWebRequest();
 
-    $url = url("/{$this->account->slug}/integracoes");
+    $url = url("/app/{$this->account->slug}/integracoes");
     $response = $this->get($url)->assertOk();
 
     $response->assertDontSee('private-test-key')
@@ -64,7 +64,7 @@ it('says when the connected provider last synchronised and links to what differs
     Http::preventStrayRequests()->fake([]);
     asAWebRequest();
 
-    $response = $this->get(url("/{$this->account->slug}/integracoes"))->assertOk();
+    $response = $this->get(url("/app/{$this->account->slug}/integracoes"))->assertOk();
     $document = HTMLDocument::createFromString($response->getContent(), LIBXML_NOERROR);
     $differences = $document->querySelector('main a[href="'.InvoicingSyncPage::getUrl(tenant: $this->account).'"]');
 
@@ -93,7 +93,7 @@ it('marks invoice email as coming soon and blocks direct access by default', fun
     $this->actingAs(ownerOf($this->account));
     asAWebRequest();
 
-    $baseUrl = url("/{$this->account->slug}/integracoes");
+    $baseUrl = url("/app/{$this->account->slug}/integracoes");
     $response = $this->get($baseUrl)->assertOk();
     $document = HTMLDocument::createFromString($response->getContent(), LIBXML_NOERROR);
     $card = $document->querySelector('main section[aria-labelledby="expenses-integrations-heading"] .fi-section');
@@ -111,7 +111,7 @@ it('opens the enabled email inbox and a shared calendar subscription from the cu
     Http::preventStrayRequests()->fake([]);
     asAWebRequest();
 
-    $baseUrl = url("/{$this->account->slug}/integracoes");
+    $baseUrl = url("/app/{$this->account->slug}/integracoes");
     $response = $this->get($baseUrl)->assertOk();
     $document = HTMLDocument::createFromString($response->getContent(), LIBXML_NOERROR);
 
@@ -133,7 +133,7 @@ it('only offers the simulated email inbox from the catalog in local and testing 
     $this->actingAs(ownerOf($this->account));
     asAWebRequest();
 
-    $baseUrl = url("/{$this->account->slug}/integracoes");
+    $baseUrl = url("/app/{$this->account->slug}/integracoes");
     $response = $this->get($baseUrl)->assertOk();
     $document = HTMLDocument::createFromString($response->getContent(), LIBXML_NOERROR);
 
@@ -146,19 +146,19 @@ it('forbids access to integrations for an accountant on the account', function (
     $this->account->users()->attach($accountant, ['role' => 'accountant']);
     asAWebRequest();
 
-    $this->actingAs($accountant)->get(url("/{$this->account->slug}/integracoes"))->assertForbidden();
+    $this->actingAs($accountant)->get(url("/app/{$this->account->slug}/integracoes"))->assertForbidden();
 });
 
 it('returns 404 for integrations on an account the owner cannot access', function () {
     $foreignAccount = Account::factory()->create();
     asAWebRequest();
 
-    $this->actingAs(ownerOf($this->account))->get(url("/{$foreignAccount->slug}/integracoes"))->assertNotFound();
+    $this->actingAs(ownerOf($this->account))->get(url("/app/{$foreignAccount->slug}/integracoes"))->assertNotFound();
 });
 
 it('redirects guests from integrations to the panel login', function () {
     asAWebRequest();
 
-    $this->get(url("/{$this->account->slug}/integracoes"))
+    $this->get(url("/app/{$this->account->slug}/integracoes"))
         ->assertRedirect(Filament::getPanel('admin')->getLoginUrl());
 });

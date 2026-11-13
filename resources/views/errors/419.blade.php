@@ -6,5 +6,5 @@
 
 @section('actions')
     <button type="button" class="btn btn-primary" onclick="location.reload()">{{ __('Reload') }}</button>
-    <a class="btn" href="{{ url('/') }}">{{ __('Back to dashboard') }}</a>
+    <a class="btn" href="{{ \App\Support\PanelLocation::url() }}">{{ __('Back to dashboard') }}</a>
 @endsection

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Support;
 
+use App\Enums\FiscalAccountType;
 use App\Enums\Language;
 use App\Support\ActivityCatalogue;
 use App\Support\FinanceSettings;
@@ -75,6 +76,18 @@ final class TaxSettingsFields
                 ->displayFormat(fn (): string => Language::resolve(app()->getLocale())->dateFormat()),
             __('In the Portuguese Tax Portal, under “Declarações de Atividade”, look for the date of your start or restart declaration. It is also on the receipt you received.'),
         );
+    }
+
+    public static function fiscalAccountType(): Select
+    {
+        return Select::make('fiscal_account_type')
+            ->label(__('Fiscal activity type'))
+            ->options([
+                FiscalAccountType::IndependentWorker->value => FiscalAccountType::IndependentWorker->getLabel(),
+                FiscalAccountType::SoleTrader->value => FiscalAccountType::SoleTrader->getLabel(),
+            ])
+            ->placeholder(__('Not specified'))
+            ->helperText(__('Leave this blank if you are unsure how your activity is registered.'));
     }
 
     /**
@@ -274,6 +287,7 @@ final class TaxSettingsFields
         $year = (int) now()->year;
 
         return [
+            'fiscal_account_type' => $settings->fiscalAccountType()?->value,
             'activity_started_on' => $settings->activityStartedOn()?->toDateString(),
             'cae' => $settings->cae(),
             'secondary_caes' => $settings->secondaryCaes(),
@@ -329,6 +343,10 @@ final class TaxSettingsFields
             'ss_rate' => (float) $data['ss_rate'],
             'ss_contribution_exempt' => (bool) ($data['ss_contribution_exempt'] ?? false),
         ];
+
+        if (array_key_exists('fiscal_account_type', $data)) {
+            $values['fiscal_account_type'] = $data['fiscal_account_type'];
+        }
 
         if (array_key_exists('ss_exemption_reason', $data)) {
             $values['ss_exemption_reason'] = $values['ss_contribution_exempt'] ? $data['ss_exemption_reason'] : null;

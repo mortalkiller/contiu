@@ -132,7 +132,7 @@ class PaymentInfolist
         return collect([$title, $receivable?->description])->filter()->unique()->implode(' · ') ?: __('Receivable');
     }
 
-    /** "Trabalho DEMO-05 · Estúdio Brisa": where the receivable comes from and whose it is. */
+    /** "Venda DEMO-05 · Estúdio Brisa": where the receivable comes from and whose it is. */
     private static function receivableOrigin(?Receivable $receivable): ?string
     {
         $billable = $receivable?->billable;

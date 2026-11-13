@@ -131,7 +131,7 @@ it('renders the main resource screens in English', function (string $resource, s
 })->with([
     [ClientResource::class, 'Clients'],
     [SupplierResource::class, 'Suppliers'],
-    [ProjectResource::class, 'Projects'],
+    [ProjectResource::class, 'Sales'],
     [RetainerResource::class, 'Retainers'],
     [ReceivableResource::class, 'To receive'],
     [PaymentResource::class, 'Payments'],

@@ -13,12 +13,12 @@ use App\Filament\Pages\Auth\RequestPasswordReset;
 use App\Filament\Pages\Auth\ResetPassword;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\HelpCentre;
+use App\Filament\Pages\MailPreviewPage;
 use App\Filament\Pages\Tenancy\EditAccountProfile;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\Receivables\ReceivableResource;
 use App\Filament\Support\AccountantAwareGlobalSearch;
-use App\Filament\Support\BrandPalette;
-use App\Filament\Support\ContiuPalettes;
+use App\Filament\Support\ContiuPanelLayout;
 use App\Http\Middleware\ApplyGuestLanguage;
 use App\Http\Middleware\RestrictAccountantRoutes;
 use App\Http\Middleware\UseDefaultAccountOutsideTenantRoutes;
@@ -26,6 +26,7 @@ use App\Models\Account;
 use App\Models\User;
 use App\Support\AccountantAccess;
 use App\Support\AccountStatus;
+use App\Support\PanelLocation;
 use AzGasim\FilamentUnsavedChangesModal\FilamentUnsavedChangesModalPlugin;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Actions\Action;
@@ -41,7 +42,6 @@ use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
 use Filament\Panel;
 use Filament\PanelProvider;
-use Filament\Support\Colors\Color;
 use Filament\Support\Enums\Platform;
 use Filament\Support\Enums\Width;
 use Filament\View\PanelsRenderHook;
@@ -53,7 +53,6 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Livewire\Livewire;
-use MortalKiller\FilamentAppearance\AppearancePlugin;
 use MortalKiller\FilamentAppearance\Schemas\Components\PalettePicker;
 use Mortalkiller\FilamentCompleteUserProfile\AccountSection;
 use Mortalkiller\FilamentCompleteUserProfile\CompleteUserProfilePlugin;
@@ -61,8 +60,6 @@ use Mortalkiller\FilamentCompleteUserProfile\Features\Profile;
 use Mortalkiller\FilamentCompleteUserProfile\Features\Security;
 use MortalKiller\FilamentPageHeader\Components\Header;
 use MortalKiller\FilamentPageHeader\Enums\BreadcrumbPosition;
-use MortalKiller\FilamentPageHeader\PageHeaderPlugin;
-use MortalKiller\FilamentSkeletonLoading\SkeletonLoadingPlugin;
 use ShuvroRoy\FilamentSpatieLaravelBackup\FilamentSpatieLaravelBackupPlugin;
 use Tapp\FilamentAuditing\FilamentAuditingPlugin;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
@@ -72,11 +69,14 @@ class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
-        return $panel
+        return ContiuPanelLayout::apply($panel)
             ->default()
             ->id('admin')
-            ->path('')
-            // Each account is a tenant: pages live at /{account-slug}/…, and "/" sends the user to
+            // At /app next to the public site, or at the root of the panel's own domain in
+            // production (App\Support\PanelLocation, config contiu.panel_domain).
+            ->path(PanelLocation::path())
+            ->domain(PanelLocation::domain())
+            // Each account is a tenant: pages live at /app/{account-slug}/…, and /app sends the user to
             // their own account. Business resources are scoped by Filament AND by BelongsToAccount.
             // Livewire update requests re-run IdentifyTenant (Filament makes it persistent
             // middleware), so the tenant always comes from the page URL.
@@ -85,7 +85,6 @@ class AdminPanelProvider extends PanelProvider
             // The account switcher only matters to whoever can open more than one account. Pages
             // outside an account (/profile) have no tenant, and Filament's menu needs one.
             ->tenantMenu(fn (): bool => Filament::getTenant() !== null && static::canSwitchAccounts())
-            ->viteTheme('resources/css/filament/admin/theme.css')
             // The sign-in pages share the split layout of the "Autenticação" mocks.
             ->login(Login::class)
             // Self-service sign-up: the wizard creates the user and their account, and nothing
@@ -95,28 +94,10 @@ class AdminPanelProvider extends PanelProvider
             ->emailVerification(EmailVerificationPrompt::class)
             ->passwordReset(RequestPasswordReset::class, ResetPassword::class)
             ->brandName(config('app.name'))
-            // Larger on the sign-in and sign-up pages, where the logo stands alone.
-            ->brandLogoHeight(fn () => AppearancePlugin::isOnSimplePage() ? '2.5rem' : '2rem')
-            ->colors([
-                'primary' => BrandPalette::primary(),
-                'gray' => BrandPalette::gray(),
-                'clay' => BrandPalette::clay(),
-                'success' => Color::Emerald,
-                'warning' => Color::Amber,
-                'danger' => Color::Red,
-                'info' => Color::Sky,
-            ])
-            ->font('Geist')
-            ->monoFont('Geist Mono')
             ->unsavedChangesAlerts()
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
-            // Sidebar on the left in the palette's navigation colour; the topbar keeps the search,
-            // "Novo", notifications and the user menu.
-            ->sidebarWidth('15.5rem')
-            // The sidebar can shrink to its icons; the topbar corner then shows the Contiu symbol.
-            ->sidebarCollapsibleOnDesktop()
             ->navigation(fn (NavigationBuilder $builder): NavigationBuilder|bool => AccountantAccess::isReviewOnly()
                 ? $builder->items(AccountantReview::getNavigationItems())
                 : true)
@@ -141,6 +122,12 @@ class AdminPanelProvider extends PanelProvider
                 NavigationGroup::make(fn (): string => __('Settings'))->collapsed(),
             ])
             ->userMenuItems([
+                'tools' => Action::make('tools')
+                    ->label(fn (): string => __('Tools'))
+                    ->icon(Phosphor::Toolbox)
+                    ->url(fn (): string => Filament::getPanel('tools')->getUrl(Filament::getTenant()))
+                    ->visible(fn (): bool => MailPreviewPage::canAccess()
+                        || (config('invoice-benchmark.enabled') && User::loggedInIsSuperAdmin())),
                 'help' => Action::make('help')
                     ->label(fn (): string => __('Help center'))
                     ->icon(Phosphor::Question)
@@ -150,52 +137,25 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->renderHook(
                 PanelsRenderHook::USER_MENU_PROFILE_BEFORE,
-                fn (): string => static::renderUserMenuHeader(),
-            )
-            ->renderHook(
-                PanelsRenderHook::HEAD_END,
-                fn (): string => view('filament.partials.brand-head')->render(),
+                fn (): string => Filament::getCurrentPanel()?->getId() === 'admin' ? static::renderUserMenuHeader() : '',
             )
             // Trial days left, or that the account is read-only (App\Support\AccountStatus). Not on
             // "Assinatura" itself, which says the same in its own card.
             ->renderHook(
                 PanelsRenderHook::CONTENT_START,
-                fn (): string => AccountantAccess::isReviewOnly() || request()->routeIs(AccountSubscription::getRouteName()) || ($banner = AccountStatus::banner()) === null
+                fn (): string => Filament::getCurrentPanel()?->getId() !== 'admin' || AccountantAccess::isReviewOnly() || request()->routeIs(AccountSubscription::getRouteName()) || ($banner = AccountStatus::banner()) === null
                     ? ''
                     : view('filament.partials.account-status-banner', ['banner' => $banner])->render(),
             )
             ->renderHook(
                 PanelsRenderHook::GLOBAL_SEARCH_BEFORE,
-                fn (): string => AccountantAccess::isReviewOnly() ? '' : Blade::render('@livewire(\\App\\Livewire\\QuickCreateMenu::class)'),
+                fn (): string => Filament::getCurrentPanel()?->getId() === 'admin' && ! AccountantAccess::isReviewOnly()
+                    ? Blade::render('@livewire(\\App\\Livewire\\QuickCreateMenu::class)')
+                    : '',
             )
             ->plugins([
-                SkeletonLoadingPlugin::make()
-                    ->pageLoader()
-                    ->pageLoaderSymbol(fn () => view('filament.partials.contiu-symbol'))
-                    ->pageLoaderLabel(fn (): string => __('Loading…')),
-                PageHeaderPlugin::make(),
-                // Palettes per user, the logo that goes with each one, and the panel's shell: tabs
-                // with a line under the active one and, on a phone, lists instead of tables,
-                // edge-to-edge cards and a bar of shortcuts at the bottom of the screen.
-                AppearancePlugin::make()
-                    ->palettes(fn (): array => ContiuPalettes::all())
-                    ->defaultPalette(ContiuPalettes::DEFAULT)
-                    ->customPalettes()
-                    // Black on a light surface, white on a dark one: the sign-in pages, and the
-                    // navigation bar of every palette without a logo of its own.
-                    ->brandLogo(
-                        fn (): string => asset('brand/contiu/contiu-logo-black.svg'),
-                        dark: fn (): string => asset('brand/contiu/contiu-logo-white.svg'),
-                    )
-                    ->collapsedBrandLogo(
-                        fn (): string => asset('brand/contiu/contiu-symbol-black.svg'),
-                        dark: fn (): string => asset('brand/contiu/contiu-symbol-white.svg'),
-                    )
+                ContiuPanelLayout::appearance()
                     ->topbarSearchAtStart()
-                    ->tableSearchAtStart()
-                    ->underlinedTabs()
-                    ->mobileTables()
-                    ->mobileEdgeToEdge()
                     ->mobileTabBar(fn (): bool => static::showsMobileTabBar())
                     ->mobileTabBarItems(fn (): array => [
                         NavigationItem::make(__('Today'))->icon(Phosphor::House)->url(Dashboard::getUrl()),
@@ -289,7 +249,9 @@ class AdminPanelProvider extends PanelProvider
      */
     private static function showsMobileTabBar(): bool
     {
-        return Filament::getTenant() !== null && ! AccountantAccess::isReviewOnly();
+        return Filament::getCurrentPanel()?->getId() === 'admin'
+            && Filament::getTenant() !== null
+            && ! AccountantAccess::isReviewOnly();
     }
 
     private static function canSwitchAccounts(): bool
@@ -314,7 +276,7 @@ class AdminPanelProvider extends PanelProvider
             : null;
 
         $roleLabel = match ($role) {
-            'owner' => __('Owner'),
+            'owner' => __('Account holder'),
             'member' => __('Member'),
             AccountantAccess::ROLE => __('Accountant'),
             null => $account instanceof Account && $user->isSuperAdmin() ? __('Super admin') : null,

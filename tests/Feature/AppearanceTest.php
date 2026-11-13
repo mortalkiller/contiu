@@ -189,3 +189,16 @@ it('paints the black-and-white palette with a black bar and buttons, near-white 
 
     expect(collect(ContiuPalettes::all())->firstWhere(fn (Palette $palette): bool => $palette->getId() === 'black-white')->getAction(dark: true))->toBe('#fafafa');
 });
+
+it('paints the night palette with a night-blue bar that glows indigo and green', function () {
+    $user = actingAsAdmin();
+    $user->palette = 'night';
+    $user->save();
+
+    $this->get(ProjectResource::getUrl())
+        ->assertOk()
+        ->assertSee('--fap-navigation: #0c0e1d', escape: false)
+        ->assertSee('--fap-action: #5a3df0', escape: false)
+        ->assertSee('--fap-navigation-image: radial-gradient(130% 38% at 100% 64%, #5a3df099', escape: false)
+        ->assertSee('brand/contiu/contiu-logo-white.svg', escape: false);
+});

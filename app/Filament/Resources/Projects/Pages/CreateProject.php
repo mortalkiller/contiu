@@ -19,7 +19,7 @@ use Illuminate\Support\Str;
 use ToneGabes\Filament\Icons\Enums\Phosphor;
 
 /**
- * "Novo trabalho", as in the mock: the same single-page form as the edit page, with quick plans
+ * "Nova venda" (the mock's "Novo trabalho"): the same single-page form as the edit page, with quick plans
  * that fill the instalments from the total.
  */
 class CreateProject extends CreateRecord
@@ -33,7 +33,7 @@ class CreateProject extends CreateRecord
         return __('New project');
     }
 
-    /** "Novo trabalho" from a client page arrives with ?client=ID. */
+    /** "Nova venda" from a client page arrives with ?client=ID. */
     protected function afterFill(): void
     {
         if ($client = request()->integer('client')) {

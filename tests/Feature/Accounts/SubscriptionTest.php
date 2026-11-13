@@ -477,11 +477,11 @@ it('shows the trial, the two plans and who has accountant access on one page', f
     Livewire::test(AccountSubscription::class)
         ->assertSee('Faltam 3 dias de experiência.')
         ->assertSee('Em experiência')
-        // 5 € and 54 € plus 23% VAT: 6,15 € a month, 66,42 € a year.
-        ->assertSee(Money::format(615).' por mês')
-        ->assertSee(Money::format(6642).' por ano')
-        ->assertSee('Poupas '.Money::format(738))
-        ->assertSee(Money::format(5400).' + IVA (23%). Equivale a '.Money::format(553).' por mês.')
+        // 5,69 € and 61,46 € plus 23% VAT: 7,00 € a month, 75,60 € a year.
+        ->assertSee(Money::format(700).' por mês')
+        ->assertSee(Money::format(7560).' por ano')
+        ->assertSee('Poupas '.Money::format(840))
+        ->assertSee(Money::format(6146).' + IVA (23%). Equivale a '.Money::format(630).' por mês.')
         ->assertSeeLivewire(AccountantAccessWidget::class);
 })->group('ui');
 
@@ -489,8 +489,8 @@ it('adds the VAT tax rate to every new subscription, as the prices are without V
     config(['contiu.stripe_tax_rate' => 'txr_iva23']);
 
     expect($this->account->taxRates())->toBe(['txr_iva23'])
-        ->and(AccountSubscription::priceWithVat('monthly'))->toBe(615)
-        ->and(AccountSubscription::priceWithVat('yearly'))->toBe(6642);
+        ->and(AccountSubscription::priceWithVat('monthly'))->toBe(700)
+        ->and(AccountSubscription::priceWithVat('yearly'))->toBe(7560);
 
     config(['contiu.stripe_tax_rate' => null]);
 

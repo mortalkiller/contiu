@@ -32,7 +32,7 @@ function projectFormData(array $overrides = []): array
     ];
 }
 
-// Trabalhos ---------------------------------------------------------------------------------
+// Vendas ------------------------------------------------------------------------------------
 
 it('saves a project whose instalments add up to the total', function () {
     Livewire::test(CreateProject::class)

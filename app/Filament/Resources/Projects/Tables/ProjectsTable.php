@@ -20,7 +20,7 @@ use pxlrbt\FilamentExcel\Columns\Column as ExportColumn;
 use pxlrbt\FilamentExcel\Exports\ExcelExport;
 
 /**
- * "Trabalhos" as in the mock: the title with its code and business line under it, the client,
+ * "Vendas" (the mock's "Trabalhos"): the title with its code and business line under it, the client,
  * the state, the amounts with how much of the total came in, the quote date, "Receive" on a
  * project with something open and "Approve" on a proposal, and the totals at the foot. The
  * export sits in the page header (ListProjects).

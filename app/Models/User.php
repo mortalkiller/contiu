@@ -50,7 +50,7 @@ class User extends Authenticatable implements FilamentUser, HasDefaultTenant, Ha
 
     public function canAccessPanel(Panel $panel): bool
     {
-        return true;
+        return $panel->getId() !== 'tools' || $this->isSuperAdmin();
     }
 
     /** @return BelongsToMany<Account, $this> */

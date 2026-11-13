@@ -15,6 +15,6 @@ it('shows only Phosphor icons on list pages, including the Excel export buttons'
 
     expect(heroiconsOn($html))->toBe(0);
 })->with([
-    'trabalhos' => ProjectResource::class,
+    'vendas' => ProjectResource::class,
     'recebimentos' => PaymentResource::class,
 ]);

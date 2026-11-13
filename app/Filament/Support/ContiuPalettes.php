@@ -80,6 +80,17 @@ final class ContiuPalettes
                 ->action('#12372a', dark: '#e8f7ef')
                 ->navigation('#e8f7ef', dark: '#12372a')
                 ->background('#fafbf7'),
+            // Night, from the public site: indigo buttons on a lavender canvas and a night-blue bar
+            // with an indigo and a fluorescent green glow. In dark mode the buttons turn lavender.
+            Palette::make('night')
+                ->label($translate('Night'))
+                ->description($translate('Indigo with a green glow'))
+                ->primary('#5a3df0')
+                ->action('#5a3df0', dark: '#a5acff')
+                ->navigation('#0c0e1d', dark: '#080918')
+                ->navigationGlow('#19f5a0', '#5a3df0')
+                ->background('#eeeffc')
+                ->grayShades(Color::Slate),
             // Black and white: black bar and buttons on white, neutral greys, no colour but the
             // states (success, warning, danger). In dark mode the buttons turn near-white.
             Palette::make('black-white')

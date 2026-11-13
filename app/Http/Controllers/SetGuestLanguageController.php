@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\Language;
 use App\Http\Middleware\ApplyGuestLanguage;
+use App\Support\PanelLocation;
 use Filament\Facades\Filament;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,6 +21,6 @@ class SetGuestLanguageController extends Controller
 
         $previous = url()->previous();
 
-        return redirect()->to(str_starts_with($previous, url('/').'/') ? $previous : Filament::getPanel('admin')->getLoginUrl());
+        return redirect()->to(str_starts_with($previous, PanelLocation::url().'/') ? $previous : Filament::getPanel('admin')->getLoginUrl());
     }
 }

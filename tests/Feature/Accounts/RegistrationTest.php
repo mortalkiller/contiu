@@ -2,6 +2,7 @@
 
 use App\Actions\CreateAccount;
 use App\Actions\StartSignupSubscription;
+use App\Enums\FiscalAccountType;
 use App\Filament\Pages\Auth\EmailVerificationPrompt;
 use App\Filament\Pages\Auth\RegisterAccount;
 use App\Filament\Pages\Dashboard;
@@ -97,10 +98,10 @@ function registeredSettings(): FinanceSettings
 }
 
 it('creates user and account from the wizard', function () {
-    registrationWizard()
+    registrationWizard(['fiscal_account_type' => 'ti'])
         ->call('register')
         ->assertHasNoFormErrors()
-        ->assertRedirect(url('/rita-silva'));
+        ->assertRedirect(url('/app/rita-silva'));
 
     $user = User::firstWhere('email', 'rita@example.pt');
     $account = Account::firstWhere('nif', '501964843');
@@ -120,6 +121,7 @@ it('creates user and account from the wizard', function () {
         $settings = app(FinanceSettings::class);
 
         expect($settings->activityOpened())->toBeTrue()
+            ->and($settings->fiscalAccountType())->toBe(FiscalAccountType::IndependentWorker)
             ->and($settings->accountingRegime())->toBe('simplified')
             ->and($settings->activityStartedOn()?->toDateString())->toBe('2026-03-01')
             ->and($settings->activityStartKind())->toBe('first')
@@ -322,11 +324,12 @@ it('creates an account on hold, without fiscal questions, when the activity is n
         ->assertDontSee('Como é o teu 2026?')
         ->call('register')
         ->assertHasNoFormErrors()
-        ->assertRedirect(url('/rita-silva'));
+        ->assertRedirect(url('/app/rita-silva'));
 
     $settings = registeredSettings();
 
     expect($settings->activityOpened())->toBeFalse()
+        ->and($settings->fiscalAccountType())->toBeNull()
         ->and($settings->estimatesTaxes())->toBeFalse()
         ->and($settings->isIncomplete())->toBeFalse()
         ->and($settings->activityStartedOn())->toBeNull()
@@ -335,7 +338,7 @@ it('creates an account on hold, without fiscal questions, when the activity is n
 
 it('creates an account with organised accounting, asking only the VAT', function () {
     Livewire::test(RegisterAccount::class)
-        ->fillForm(registrationData(['accounting_regime' => 'organised', 'organised_vat_answer' => 'exempt', 'situation' => null, 'activity_kind' => null]))
+        ->fillForm(registrationData(['fiscal_account_type' => 'eni', 'accounting_regime' => 'organised', 'organised_vat_answer' => 'exempt', 'situation' => null, 'activity_kind' => null]))
         ->assertSee('Passo 3 de 4')
         ->assertSee('Entras sem a parte dos impostos')
         ->call('register')
@@ -344,6 +347,7 @@ it('creates an account with organised accounting, asking only the VAT', function
     $settings = registeredSettings();
 
     expect($settings->accountingRegime())->toBe('organised')
+        ->and($settings->fiscalAccountType())->toBe(FiscalAccountType::SoleTrader)
         ->and($settings->estimatesTaxes())->toBeFalse()
         ->and($settings->vatExempt())->toBeTrue()
         ->and($settings->activityStartedOn()?->toDateString())->toBe('2026-03-01')
@@ -595,8 +599,8 @@ it('says what will be charged, VAT included, before starting the trial', functio
     registrationWizard(['accountant' => 'none'])
         ->goToWizardStep(7)
         ->assertSee('autorizas a cobrança do plano escolhido a 22/11/2026')
-        ->assertSee(Money::format(6642))
-        ->assertSee(Money::format(615))
+        ->assertSee(Money::format(7560))
+        ->assertSee(Money::format(700))
         ->assertSee('IVA incluído');
 })->group('ui');
 
@@ -759,8 +763,8 @@ it('adds the accountant to what will be charged on the payment step', function (
     registrationWizard()
         ->goToWizardStep(7)
         ->assertSee('O que vais pagar')
-        // The yearly plan (66,42 €) and the accountant (30,00 €) on the first charge.
-        ->assertSee(Money::format(9642))
+        // The yearly plan (75,60 €) and the accountant (30,00 €) on the first charge.
+        ->assertSee(Money::format(10560))
         ->assertSee('mais '.Money::format(3000).' por mês pelo contabilista');
 })->group('ui');
 

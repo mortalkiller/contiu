@@ -17,11 +17,13 @@ use App\Models\SubscriptionPayment;
 use App\Models\User;
 use App\Support\ClientStatement;
 use App\Support\CurrentAccount;
+use App\Support\PanelLocation;
 use App\Support\TaxObligation;
 use Carbon\CarbonImmutable;
 use Filament\Auth\Notifications\ResetPassword;
 use Filament\Auth\Notifications\VerifyEmail;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Mail;
@@ -29,10 +31,8 @@ use Illuminate\Support\Facades\Notification as NotificationFacade;
 use InvalidArgumentException;
 
 /**
- * Every email Contiu sends, for the local preview page (/dev/mail-preview, routes/web.php). Each is
- * built with example data and rendered inside an account: the local database's first one (with a
- * client that has amounts open, when there is one), else an unsaved example account. Sending one
- * goes through the configured mailer, as the app would.
+ * Templates for the local Tools panel, rendered with synthetic accounts and clients.
+ * Test sends use the configured mailer.
  */
 final class MailPreviewRegistry
 {
@@ -97,13 +97,12 @@ final class MailPreviewRegistry
                 'verify-email' => $this->notification($template, $locale, $account, tap(new VerifyEmail, fn (VerifyEmail $notification) => $notification->url = url('/email-verification/verify/1/preview?signature=preview'))),
                 'password-reset' => $this->notification($template, $locale, $account, tap(new ResetPassword('preview-token'), fn (ResetPassword $notification) => $notification->url = url('/password-reset/reset?token=preview-token&email=ana%40exemplo.pt'))),
                 'trial-ending-soon' => $this->mailable($template, $locale, $account, new TrialEndingSoon($account, CarbonImmutable::today()->addDays(3), 'yearly', AccountSubscription::priceWithVat('yearly'))),
-                'tax-obligations-digest' => $this->mailable($template, $locale, $account, new TaxObligationsDigest($this->obligations(), url('/'))),
+                'tax-obligations-digest' => $this->mailable($template, $locale, $account, new TaxObligationsDigest($this->obligations(), PanelLocation::url())),
                 'payment-reminder' => $this->mailable($template, $locale, $account, new PaymentReminder($client = $this->client(), __('Payment reminder — :name', ['name' => $client->name]), __('Hello :name,', ['name' => $client->name])."\n\n".__('Please find below the amounts still open.'))),
                 'client-statement' => $this->mailable($template, $locale, $account, new ClientStatementEmail(new ClientStatement($client = $this->client()), __('Account statement — :name', ['name' => $client->name]), __('Hello :name,', ['name' => $client->name])."\n\n".__('Your account statement is attached.'))),
                 'subscription-paid' => $this->mailable($template, $locale, $account, new SubscriptionPaid($this->subscriptionPayment($account))),
                 'accountant-service-requested' => $this->mailable($template, $locale, $account, new AccountantServiceRequested($account->forceFill(['accountant_service' => $account->accountant_service ?? 'simplified']))),
-                // An unsaved example invoice without a PDF: it shows the text; a test send needs a real document (its attachment).
-                'fiscal-document' => $this->mailable($template, $locale, $account, new FiscalDocumentEmail(FiscalDocument::factory()->make(['number' => 'FT 2026/15']), 'fiscal-documents/exemplo.pdf')),
+                'fiscal-document' => $this->mailable($template, $locale, $account, $this->fiscalDocumentEmail()),
                 default => throw new InvalidArgumentException("Unknown mail preview [{$template}]."),
             });
         } finally {
@@ -143,18 +142,29 @@ final class MailPreviewRegistry
 
     private function account(): Account
     {
-        return Account::query()->orderBy('id')->first()
-            ?? tap(new Account(['name' => 'Ana Silva Design', 'nif' => '123456789']), fn (Account $account) => $account->forceFill(['id' => 0, 'slug' => 'exemplo']));
+        return tap(new Account(['name' => 'Ana Silva Design', 'nif' => '123456789']), fn (Account $account) => $account->forceFill(['id' => 0, 'slug' => 'exemplo']));
     }
 
-    /** A client with amounts open when the local data has one, else an example without any. */
     private function client(): Client
     {
-        $clients = Client::query()->orderBy('id')->limit(30)->get();
+        return tap(new Client(['name' => 'Estúdio Atlântico', 'email' => 'geral@example.test']), fn (Client $client) => $client->forceFill(['id' => 0]));
+    }
 
-        return $clients->first(fn (Client $client): bool => $client->openReceivables()->isNotEmpty())
-            ?? $clients->first()
-            ?? tap(new Client(['name' => 'Estúdio Atlântico', 'email' => 'geral@atlantico.pt']), fn (Client $client) => $client->forceFill(['id' => 0]));
+    private function fiscalDocumentEmail(): FiscalDocumentEmail
+    {
+        $document = FiscalDocument::factory()->make(['number' => 'FT EMAIL/1']);
+
+        return new class($document, '') extends FiscalDocumentEmail
+        {
+            public function attachments(): array
+            {
+                return [
+                    Attachment::fromPath(resource_path('fixtures/invoice-email-sample.pdf'))
+                        ->as($this->attachmentName())
+                        ->withMime('application/pdf'),
+                ];
+            }
+        };
     }
 
     /** @return list<TaxObligation> */

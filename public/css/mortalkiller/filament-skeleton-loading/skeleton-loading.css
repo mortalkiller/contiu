@@ -345,14 +345,17 @@
     }
 }
 
-/* Style the cells that Filament already marks as loading. */
+/* Style the cells that Filament already marks as loading. Filament 4 names the colour
+ * `--loading-skeleton-background-color`, Filament 5 `--loading-skeleton-bg`: set both. */
 .fi-ta-content-loading {
     --loading-skeleton-border-radius: var(--fsl-rounded, var(--fsl-bone-radius, var(--radius-md, 6px)));
     --loading-skeleton-bg: rgb(0 0 0 / 0.07);
+    --loading-skeleton-background-color: rgb(0 0 0 / 0.07);
 }
 
 .dark .fi-ta-content-loading {
     --loading-skeleton-bg: rgb(255 255 255 / 0.08);
+    --loading-skeleton-background-color: rgb(255 255 255 / 0.08);
 }
 
 /* Keep Filament's status and load trigger when the content hook supplies a richer placeholder. */

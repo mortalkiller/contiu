@@ -7,6 +7,7 @@ use App\Filament\Resources\Accounts\AccountResource;
 use App\Models\Account;
 use App\Support\AccountantService;
 use App\Support\Money;
+use App\Support\PanelLocation;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -47,7 +48,7 @@ class AccountantServiceRequested extends Mailable implements ShouldQueue
             'service' => ($service === 'organised' ? __('Organised accounting') : __('Simplified regime')).' · '.__(':amount a month', ['amount' => Money::format(AccountantService::priceWithVat($service === 'organised' ? 'organised' : 'simplified'))]),
             'requestedOn' => ($this->account->accountant_service_requested_at ?? now())->format(Language::resolve(app()->getLocale())->dateFormat()),
             // The mail preview may use an unsaved example account, which has no page.
-            'url' => $this->account->exists ? AccountResource::getUrl('view', ['record' => $this->account], panel: 'admin', tenant: $this->account) : url('/'),
+            'url' => $this->account->exists ? AccountResource::getUrl('view', ['record' => $this->account], panel: 'admin', tenant: $this->account) : PanelLocation::url(),
         ]);
     }
 }

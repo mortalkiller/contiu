@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\FiscalAccountType;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\OpenActivity;
 use App\Models\FiscalProfile;
@@ -55,9 +56,10 @@ it('shows neither once the activity is open', function () {
 });
 
 it('saves the answers as the tax settings and opens the activity', function () {
-    app(FinanceSettings::class)->set(['activity_opened' => false]);
+    app(FinanceSettings::class)->set(['activity_opened' => false, 'fiscal_account_type' => 'eni']);
 
     Livewire::test(OpenActivity::class)
+        ->assertSchemaStateSet(['fiscal_account_type' => 'eni'])
         ->fillForm(openActivityAnswers())
         ->call('save')
         ->assertHasNoFormErrors()
@@ -66,6 +68,7 @@ it('saves the answers as the tax settings and opens the activity', function () {
     $settings = new FinanceSettings;
 
     expect($settings->activityOpened())->toBeTrue()
+        ->and($settings->fiscalAccountType())->toBe(FiscalAccountType::SoleTrader)
         ->and($settings->estimatesTaxes())->toBeTrue()
         ->and($settings->activityStartedOn()?->toDateString())->toBe('2026-09-01')
         ->and($settings->irsCoefficient())->toBe(0.75)

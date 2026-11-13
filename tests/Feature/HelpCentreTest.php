@@ -34,8 +34,8 @@ it('explains the trial, the plans and the read-only account', function () {
         ->assertSeeInOrder(['Notas legais', 'A tua conta e a assinatura'])
         ->assertSee('14 dias')
         // The prices with VAT, as charged.
-        ->assertSee(Money::format(615))
-        ->assertSee(Money::format(6642))
+        ->assertSee(Money::format(700))
+        ->assertSee(Money::format(7560))
         ->assertSee('só de leitura')
         ->assertSee('portal de faturação da Stripe');
 });

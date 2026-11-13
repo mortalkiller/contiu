@@ -229,7 +229,7 @@ describe('Reimport and data protection', function () {
 
         expect($plan->pluck('description')->all())->toBe(['Prestação 1/2', 'Prestação 2/2'])
             ->and($plan->map(fn ($receivable) => $receivable->payments->sum('amount'))->all())->toBe([75000, 165000])
-            ->and($result->info)->toContain('Mantive o plano de prestações de 1 trabalho (PRINTEE OC-1).');
+            ->and($result->info)->toContain('Mantive o plano de prestações de 1 venda (PRINTEE OC-1).');
     })->group('integration');
 
     it('recognizes the English default for a single payment when re-importing', function () {
@@ -270,7 +270,7 @@ describe('Import entry points', function () {
 
     it('imports from the command line', function () {
         $this->artisan('finance:import-excel', ['path' => financeWorkbook(), '--account' => $this->account->slug])
-            ->expectsOutputToContain('Trabalhos: 3')
+            ->expectsOutputToContain('Vendas: 3')
             ->expectsOutputToContain('NAO-EXISTE')
             ->assertSuccessful();
 

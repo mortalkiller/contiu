@@ -6,6 +6,7 @@ use App\Actions\CreateAccount;
 use App\Models\Account;
 use App\Models\User;
 use App\Rules\PortugueseNif;
+use App\Support\PanelLocation;
 use Closure;
 use Filament\Forms\Components\TextInput;
 use Filament\Pages\Tenancy\EditTenantProfile;
@@ -56,7 +57,7 @@ class EditAccountProfile extends EditTenantProfile
             // Hidden fields are not saved, so an owner cannot send one either.
             TextInput::make('slug')
                 ->label(__('Account address'))
-                ->prefix(url('/').'/')
+                ->prefix(PanelLocation::url().'/')
                 ->helperText(__('Use only lowercase letters, numbers and hyphens. Old links to the account will stop working.'))
                 ->visible(fn (): bool => User::loggedInIsSuperAdmin())
                 ->required()

@@ -16,7 +16,7 @@ use OwenIt\Auditing\Auditable;
 use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
 
 /**
- * Trabalho: a one-off job with an optional instalment plan (receivables).
+ * Venda (formerly «Trabalho»): a one-off sale with an optional instalment plan (receivables).
  */
 class Project extends Model implements AuditableContract
 {

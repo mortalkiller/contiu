@@ -117,7 +117,7 @@ it('shows a paid direct expense with its payment, its supporting document and wh
         ->assertSeeHtml(ExpenseResource::getUrl('download-proof', ['record' => $expense]))
         ->assertDontSee('Ainda sem PDF.')
         ->assertSeeInOrder(['Gasto em 2026', '1 despesa', '123,00'])
-        ->assertSeeInOrder(['Ligado a', 'Loja online', 'Trabalho DEMO-05 · Estúdio Brisa', 'Alojamento · mensal', 'Despesa recorrente · gerada a 12/11/2026', 'FT A/2291', 'Fatura · recebida · e-Fatura', '123,00', 'Registad'])
+        ->assertSeeInOrder(['Ligado a', 'Loja online', 'Venda DEMO-05 · Estúdio Brisa', 'Alojamento · mensal', 'Despesa recorrente · gerada a 12/11/2026', 'FT A/2291', 'Fatura · recebida · e-Fatura', '123,00', 'Registad'])
         ->assertSeeHtml(ProjectResource::getUrl('view', ['record' => $project]))
         ->assertSeeHtml(FiscalDocumentResource::getUrl('view', ['record' => $invoice]))
         ->assertSeeInOrder(['Revisão', 'Guardado', 'Arquivo 5', 'Revista', 'Sim'])

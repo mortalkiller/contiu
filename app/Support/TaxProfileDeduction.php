@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\FiscalAccountType;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Number;
 use Throwable;
@@ -80,8 +81,10 @@ final class TaxProfileDeduction
         }
 
         $restart = $this->isRestart();
+        $activityType = $this->answer('fiscal_account_type');
         $settings = [
             'activity_opened' => true,
+            'fiscal_account_type' => is_string($activityType) ? FiscalAccountType::tryFrom($activityType)?->value : null,
             'accounting_regime' => $this->path() === 'organised' ? 'organised' : 'simplified',
             'activity_started_on' => $this->date('activity_started_on')?->toDateString(),
             'activity_start_kind' => $restart ? 'restart' : 'first',

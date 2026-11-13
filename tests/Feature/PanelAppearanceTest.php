@@ -11,10 +11,10 @@ it('shows the white Contiu logo on the green topbar and the brand favicons', fun
     $this->get(ProjectResource::getUrl())
         ->assertOk()
         ->assertSee('brand/contiu/contiu-logo-white.svg', escape: false)
-        ->assertSee('brand/contiu/favicon.ico', escape: false)
-        ->assertSee('brand/contiu/favicon.svg', escape: false)
-        ->assertSee('brand/contiu/apple-touch-icon.png', escape: false)
-        ->assertSee('brand/contiu/site.webmanifest', escape: false);
+        ->assertSee('favicons/favicon.ico', escape: false)
+        ->assertSee('favicons/favicon.svg', escape: false)
+        ->assertSee('favicons/apple-touch-icon.png', escape: false)
+        ->assertSee('favicons/site.webmanifest', escape: false);
 });
 
 it('shows the black logo on the light login page, white in dark mode', function () {
@@ -28,7 +28,11 @@ it('shows the black logo on the light login page, white in dark mode', function 
 
 it('ships the brand files', function (string $file) {
     expect(public_path('brand/contiu/'.$file))->toBeFile();
-})->with(['contiu-logo-black.svg', 'contiu-logo-white.svg', 'contiu-symbol-white.svg', 'favicon.ico', 'favicon.svg', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'site.webmanifest']);
+})->with(['contiu-logo-black.svg', 'contiu-logo-white.svg', 'contiu-symbol-white.svg']);
+
+it('ships the favicon pack', function (string $file) {
+    expect(public_path('favicons/'.$file))->toBeFile();
+})->with(['favicon.ico', 'favicon.svg', 'favicon-16x16.png', 'favicon-32x32.png', 'apple-touch-icon.png', 'android-chrome-192x192.png', 'android-chrome-512x512.png', 'maskable-icon-512x512.png', 'site.webmanifest']);
 
 it('is called Contiu', function () {
     actingAsAdmin();
@@ -37,7 +41,7 @@ it('is called Contiu', function () {
 
     $html = preg_replace('/\s+/', ' ', $this->get(ProjectResource::getUrl())->getContent());
 
-    expect($html)->toContain('<title> Trabalhos - Contiu </title>');
+    expect($html)->toContain('<title> Vendas - Contiu </title>');
 });
 
 it('renders the Contiu page loader with its inline symbol on the dashboard', function () {
