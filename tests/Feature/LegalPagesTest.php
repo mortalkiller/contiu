@@ -14,7 +14,7 @@ it('names the company behind Contiu as provider and data controller', function (
         ->assertSee('mailto:legal@example.pt', escape: false)
         ->assertSee('https://trekdev.com', escape: false);
 })->with([
-    'terms' => ['/termos', 'O Contiu é um serviço desenvolvido e prestado pela'],
+    'terms' => ['/termos', 'O Contiu é um serviço disponibilizado pela'],
     'privacy' => ['/privacidade', 'A responsável pelo tratamento dos dados pessoais da tua conta Contiu é a'],
 ])->group('ui');
 
@@ -23,7 +23,7 @@ it('leaves out the company details that are not configured', function () {
     config()->set('contiu.company.address', null);
     config()->set('contiu.company.email', null);
 
-    $this->get('/termos')
+    $this->get('/privacidade')
         ->assertOk()
         ->assertSee('TrekDev - Tecnologias de Informação, Lda')
         ->assertDontSee('NIPC')
@@ -35,6 +35,20 @@ it('says the certified accountant service is external and Contiu only an interme
     $this->get('/termos')
         ->assertOk()
         ->assertSee('Serviço de contabilista certificado')
-        ->assertSee('externo ao Contiu')
-        ->assertSee('O Contiu funciona apenas como intermediário');
+        ->assertSee('externo à TrekDev')
+        ->assertSee('A TrekDev atua apenas como intermediária');
+})->group('ui');
+
+it('shows the terms with the prices, trial and version as configured, and what is still to confirm', function () {
+    $this->get('/termos')
+        ->assertOk()
+        ->assertSee('<title>Termos e Condições · Contiu</title>', escape: false)
+        ->assertSee('Disposições finais')
+        ->assertSee('14 dias, com acesso a todas as funcionalidades')
+        ->assertSeeInOrder(['Mensal', '5,69', '7,00', 'Anual', '61,46', '75,60'])
+        ->assertSeeInOrder(['Regime simplificado', '30,00', 'Contabilidade organizada', '50,00'])
+        ->assertSee('mailto:ajuda@contiu.pt', escape: false)
+        ->assertSee('Estes Termos entram em vigor a 13 de novembro de 2026.')
+        ->assertSee('<p class="placeholder">A confirmar:', escape: false)
+        ->assertSee('<meta name="robots" content="noindex">', escape: false);
 })->group('ui');

@@ -1,0 +1,7 @@
+<p>A {{ config('contiu.company.short_name') }} trata os dados pessoais necessários para criar e gerir as contas, prestar o serviço, faturar e dar apoio aos utilizadores.</p>
+<p>Nos termos do Regulamento Geral sobre a Proteção de Dados (RGPD), a {{ config('contiu.company.short_name') }} atua, em regra, como:</p>
+<ul><li><strong>responsável pelo tratamento</strong> dos dados da tua conta de utilizador e da relação contratual contigo;</li><li><strong>subcontratante</strong> dos dados pessoais de clientes, fornecedores e outros terceiros que registas no Contiu, por tua conta e segundo as tuas instruções.</li></ul>
+<p>Enquanto responsável pelo tratamento dos dados dos teus clientes e fornecedores, cabe-te garantir que a recolha e o uso desses dados cumprem a lei, incluindo uma base legal adequada e o dever de informação.</p>
+<p>A {{ config('contiu.company.short_name') }} aplica medidas técnicas e organizativas para proteger os dados contra acessos não autorizados, perda, alteração ou divulgação indevida. Estas medidas não são uma garantia absoluta de segurança.</p>
+<p>Mais informação sobre finalidades, bases legais, prazos de conservação, direitos dos titulares e prestadores envolvidos está na nossa <a href="{{ route('legal.privacy') }}">Política de Privacidade</a>.</p>
+<p class="placeholder">A confirmar: existência e disponibilização de um acordo de tratamento de dados nos termos do artigo 28.º do RGPD, incluindo instruções documentadas, subcontratantes ulteriores e procedimentos de assistência ao responsável pelo tratamento.</p>

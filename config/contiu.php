@@ -54,7 +54,7 @@ return [
     ],
 
     // Version of the terms and privacy policy accepted at sign-up (stored with the account).
-    'terms_version' => '2026-11-08',
+    'terms_version' => '2026-11-13',
 
     // Stripe prices (monthly 5,69 €, yearly 61,46 €), without VAT: VAT is added on top (above), for
     // 7,00 € a month or 75,60 € a year.

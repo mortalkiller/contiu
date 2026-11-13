@@ -111,7 +111,7 @@ it('creates user and account from the wizard', function () {
     expect($user->name)->toBe('Rita Silva')
         ->and(Hash::check('uma-palavra-passe-longa', $user->password))->toBeTrue()
         ->and($user->hasVerifiedEmail())->toBeFalse()
-        ->and($user->terms_version)->toBe('2026-11-08')
+        ->and($user->terms_version)->toBe('2026-11-13')
         ->and($user->terms_accepted_at->toDateTimeString())->toBe('2026-11-08 10:00:00')
         // The account takes the person's name.
         ->and($account->name)->toBe('Rita Silva')
@@ -583,18 +583,18 @@ it('shows the sign-up page with links to the terms and the privacy policy', func
     $this->get(Filament::getLoginUrl())->assertSee(Filament::getRegistrationUrl(), escape: false);
 })->group('ui');
 
-it('serves the terms and privacy pages', function (string $path, string $title) {
+it('serves the terms and privacy pages', function (string $path, string $title, string $toConfirm) {
     $this->get($path)
         ->assertOk()
         ->assertSee($title)
-        ->assertSee('Texto a fornecer pelo Pedro')
-        ->assertSee('Versão 2026-11-08')
-        // Placeholder text until Pedro's: kept out of search engines.
+        ->assertSee($toConfirm)
+        ->assertSee('Versão 2026-11-13')
+        // While something is still to be written or confirmed: kept out of search engines.
         ->assertSee('<meta name="robots" content="noindex">', escape: false)
         ->assertSee('brand/contiu/contiu-logo-white.svg', escape: false);
 })->with([
-    'terms' => ['/termos', 'Termos de Serviço'],
-    'privacy' => ['/privacidade', 'Política de Privacidade'],
+    'terms' => ['/termos', 'Termos e Condições', 'A confirmar:'],
+    'privacy' => ['/privacidade', 'Política de Privacidade', 'Texto a fornecer pelo Pedro'],
 ])->group('ui');
 
 it('keeps the sign-up page logo while moving between steps', function () {

@@ -1,0 +1,6 @@
+<p>A {{ config('contiu.company.short_name') }} compromete-se a prestar o Contiu com diligência profissional, com medidas razoáveis para assegurar o funcionamento e a segurança da aplicação.</p>
+<p>Ainda assim, não podemos garantir que o serviço funcione sem interrupções, atrasos ou erros em todas as circunstâncias.</p>
+<p>És responsável pela veracidade, integridade e atualização da informação que introduzes no Contiu, e pela revisão dos documentos e resultados produzidos a partir dela.</p>
+<p>A {{ config('contiu.company.short_name') }} não é responsável por erros que resultem exclusivamente de informação incorreta ou incompleta dada por ti, nem por atos ou omissões de terceiros que não lhe sejam legalmente imputáveis.</p>
+<p>A {{ config('contiu.company.short_name') }} continua responsável pelos danos que lhe sejam legalmente imputáveis. Nada nestes Termos exclui ou limita a responsabilidade que a lei não permita excluir ou limitar, incluindo a responsabilidade por dolo ou culpa grave.</p>
+<p class="placeholder">A confirmar: regime de responsabilidade contratual e eventuais limites de indemnização proporcionais e legalmente admissíveis, tendo em conta a natureza profissional ou de consumo dos utilizadores.</p>

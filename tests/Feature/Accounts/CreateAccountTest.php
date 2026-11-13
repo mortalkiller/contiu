@@ -154,6 +154,6 @@ it('reserves the first segment of every route outside the accounts', function ()
 
 it('holds the plan values', function () {
     expect(config('contiu.trial_days'))->toBe(14)
-        ->and(config('contiu.terms_version'))->toBe('2026-11-08')
+        ->and(config('contiu.terms_version'))->toBe('2026-11-13')
         ->and(config('contiu.prices'))->toHaveKeys(['monthly', 'yearly']);
 });

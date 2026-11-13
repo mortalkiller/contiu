@@ -100,6 +100,13 @@
         dt { color: var(--muted); }
         dd { margin: 0; font-weight: 500; }
         dd a, p a { color: var(--brand-link); }
+        h3 { margin: 20px 0 6px; font-size: 16px; font-weight: 600; }
+        ul { margin: 12px 0 0; padding-left: 20px; color: var(--muted); font-size: 16px; line-height: 1.6; }
+        li + li { margin-top: 4px; }
+        table { width: 100%; margin-top: 12px; border-collapse: collapse; font-size: 15px; }
+        th, td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+        th { color: var(--muted); font-weight: 500; }
+        p + .placeholder, .placeholder + p, ul + .placeholder, table + .placeholder, dl + p { margin-top: 12px; }
         .placeholder {
             padding: 12px 16px;
             border-radius: 8px;
