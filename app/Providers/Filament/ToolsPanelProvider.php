@@ -8,6 +8,8 @@ use App\Filament\Pages\MailPreviewPage;
 use App\Filament\Support\ContiuPanelLayout;
 use App\Http\Middleware\ApplyUserLanguage;
 use App\Models\Account;
+use App\Modules\InvoiceReader\Benchmark\Filament\InvoiceAiBenchmark;
+use App\Modules\InvoiceReader\Benchmark\Http\InvoiceBenchmarkPreviewController;
 use App\Support\MailPreviews\MailPreviewRegistry;
 use App\Support\PanelLocation;
 use Filament\Actions\Action;
@@ -44,6 +46,7 @@ class ToolsPanelProvider extends PanelProvider
             ->login(fn (): RedirectResponse => redirect()->route('filament.admin.auth.login'))
             ->emailVerification(EmailVerificationPrompt::class)
             ->pages([
+                InvoiceAiBenchmark::class,
                 ...(app()->environment(['local', 'testing']) ? [MailPreviewPage::class] : []),
             ])
             ->brandName(fn (): string => __('Contiu Tools'))
@@ -52,6 +55,7 @@ class ToolsPanelProvider extends PanelProvider
             ->plugin(ContiuPanelLayout::appearance()
                 ->mobileTabBar(fn (): bool => Filament::getCurrentPanel()?->getId() === 'tools' && Filament::getTenant() !== null)
                 ->mobileTabBarItems(fn (): array => [
+                    ...(InvoiceAiBenchmark::canAccess() ? InvoiceAiBenchmark::getNavigationItems() : []),
                     NavigationItem::make(__('Back to Contiu'))
                         ->icon(Phosphor::ArrowLeft)
                         ->url(Dashboard::getUrl(panel: 'admin', tenant: Filament::getTenant())),
@@ -79,9 +83,15 @@ class ToolsPanelProvider extends PanelProvider
             ], isPersistent: true)
             ->authenticatedTenantRoutes(function (Panel $panel): void {
                 Route::get('/', fn (): RedirectResponse => redirect()->to(match (true) {
+                    InvoiceAiBenchmark::canAccess() => InvoiceAiBenchmark::getUrl(),
                     MailPreviewPage::canAccess() => MailPreviewPage::getUrl(),
                     default => Dashboard::getUrl(panel: 'admin', tenant: Filament::getTenant()),
                 }))->middleware($panel->getEmailVerifiedMiddleware())->name('home');
+
+                Route::get('invoice-benchmark/preview/{document}', InvoiceBenchmarkPreviewController::class)
+                    ->whereUuid('document')
+                    ->middleware([$panel->getEmailVerifiedMiddleware(), 'throttle:60,1'])
+                    ->name('invoice-benchmark.preview');
 
                 if (app()->environment(['local', 'testing'])) {
                     Route::get('email-preview/render/{template}', function (Request $request, string $tenant, string $template, MailPreviewRegistry $previews): Response {

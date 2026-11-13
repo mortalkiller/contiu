@@ -8,6 +8,7 @@
 
 @source '../../../../app/Filament/**/*';
 @source '../../../../resources/views/filament/**/*';
+@source '../../../../app/Modules/InvoiceReader/resources/views/**/*.blade.php';
 @source '../../../../vendor/mortalkiller/filament-page-header/resources/**/*.blade.php';
 @source '../../../../vendor/mortalkiller/filament-complete-user-profile/resources/**/*.blade.php';
 @source '../../../../vendor/saade/filament-fullcalendar/resources/views/**/*.blade.php';
