@@ -50,6 +50,10 @@
     </dl>
 
     @if ($canConfirm)
+        <p class="contiu-inv-more">
+            <x-filament::link tag="button" wire:click="correct">{{ __('Correct or see more details') }}</x-filament::link>
+        </p>
+
         <div class="contiu-inv-act">
             <x-filament::button size="lg" x-ref="primary" wire:click="registerSale" wire:loading.attr="disabled">{{ __('Record as a sale') }}</x-filament::button>
             <div class="contiu-inv-act-row">
@@ -137,6 +141,10 @@
                     @endif
                 </dd>
             @endforeach
+            @if ($joined === null && $decision['kind_of_cost'] === 'direct')
+                <dt>{{ __('Cost type') }}</dt>
+                <dd>{{ __('Direct') }}</dd>
+            @endif
             <dt>{{ __('Payment') }}</dt>
             <dd>{{ $decision['is_paid'] || $joined?->is_paid ? __('Expense paid') : __('To pay') }}
                 @if ($decision['bank'] !== null)
@@ -149,6 +157,9 @@
     @if ($canConfirm)
         <p class="contiu-inv-more">
             <x-filament::link tag="button" wire:click="correct">{{ $decision['missing'] !== [] ? __('Fill in what is missing') : __('Correct or see more details') }}</x-filament::link>
+            @if (($draft['lines'] ?? []) !== [])
+                <x-filament::link tag="button" color="gray" wire:click="editLines">{{ trans_choice('{1} 1 line|[2,*] :count lines', count($draft['lines'])) }}</x-filament::link>
+            @endif
         </p>
 
         <div class="contiu-inv-act">

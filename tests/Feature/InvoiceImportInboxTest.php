@@ -3,6 +3,7 @@
 use App\Actions\ConfirmInvoiceImport;
 use App\Actions\ImportExpenseDocuments;
 use App\Actions\ReadImportedInvoice;
+use App\Enums\ExpenseKind;
 use App\Enums\FiscalDocumentDirection;
 use App\Enums\FiscalDocumentType;
 use App\Enums\InvoiceImportStatus;
@@ -16,9 +17,11 @@ use App\Models\DirectInvoiceSale;
 use App\Models\Expense;
 use App\Models\FiscalDocument;
 use App\Models\InvoiceImport;
+use App\Models\Project;
 use App\Models\Receivable;
 use App\Models\Supplier;
 use App\Modules\InvoiceReader\InvoiceAiReader;
+use App\Support\CurrentAccount;
 use App\Support\ExpenseEvidence;
 use App\Support\FiscalDocumentPdfs;
 use chillerlan\QRCode\Output\QROutputInterface;
@@ -73,6 +76,7 @@ it('keeps each dropped invoice private to the account, queues its reading and ta
     Livewire::test(InvoiceImportInbox::class)
         ->assertSee('Arrasta as faturas para aqui')
         ->assertSee('Importar o CSV do e-Fatura')
+        ->assertDontSeeHtml('contiu-inv is-work')
         ->set('files', [invoicePhoto(), invoicePhoto('FT DEMO/8'), invoicePhoto()])
         ->assertHasNoErrors()
         ->assertSee('A ler…');
@@ -150,6 +154,19 @@ it('fills in with the AI what the QR code does not carry, the QR code staying th
 
     expect(InvoiceImport::sole()->data)->toMatchArray(['supplier_name' => 'Papelaria Demo, Lda', 'total' => 2460])
         ->lines->toHaveCount(1);
+});
+
+it('gives the whole screen to the workspace only, with a list that folds away and a panel that can be dragged', function () {
+    actingAsAdmin();
+    InvoiceImport::factory()->create();
+
+    Livewire::test(InvoiceImportInbox::class)
+        ->assertSeeHtml('contiu-inv is-work')
+        ->assertSeeHtml('class="contiu-inv-collapse"')
+        ->assertSeeHtml('role="separator"')
+        ->call('dismiss')
+        ->assertSee('Está tudo arrumado')
+        ->assertDontSeeHtml('contiu-inv is-work');
 });
 
 it('saves a confirmed invoice as a new expense with its supplier, its supporting document and the received fiscal document', function () {
@@ -359,6 +376,99 @@ it('saves what was corrected before confirming, and says what is wrong in what w
         ->and($import->refresh()->status)->toBe(InvoiceImportStatus::Confirmed);
 });
 
+it('edits the lines of the invoice and keeps them on the fiscal document when they add up to its base', function () {
+    actingAsAdmin();
+    $import = InvoiceImport::factory()->read(['lines' => [
+        ['description' => 'Resma de papel A4', 'quantity' => '2', 'unit_price' => 325, 'rate' => '0.2300', 'total' => 650],
+    ]])->create();
+
+    Livewire::test(InvoiceImportInbox::class)
+        ->call('editLines')
+        ->assertSee('Linhas da fatura')
+        ->assertSet('lines.0.unit_price', '3,25')
+        ->assertSee('A fatura diz')
+        ->call('addLine')
+        ->call('saveLines')
+        ->assertHasErrors(['lines.1.description', 'lines.1.unit_price'])
+        ->assertSee('Descreve a linha, ou tira-a.')
+        ->set('lines.1.description', 'Canetas gel (caixa de 10)')
+        ->set('lines.1.quantity', '0,5')
+        ->set('lines.1.unit_price', '7,00')
+        ->assertSee('Bate com a fatura')
+        ->call('saveLines')
+        ->assertHasNoErrors()
+        ->assertSet('mode', 'confirm')
+        ->call('confirm')
+        ->assertHasNoErrors();
+
+    expect($import->refresh()->data['lines'][1])->toBe(['description' => 'Canetas gel (caixa de 10)', 'quantity' => '0.5', 'unit_price' => 700, 'rate' => '0.2300', 'total' => 350])
+        ->and(FiscalDocument::sole()->lines->map(fn ($line) => [$line->description, $line->quantity, $line->unit_price, $line->vat_basis_points, $line->net_amount])->all())
+        ->toBe([['Resma de papel A4', 2000, 325, 2300, 650], ['Canetas gel (caixa de 10)', 500, 700, 2300, 350]])
+        ->and(FiscalDocument::sole())->net_amount->toBe(1000)->vat_amount->toBe(230);
+});
+
+it('keeps lines that do not add up to the invoice as a note only, off the fiscal document', function () {
+    actingAsAdmin();
+    InvoiceImport::factory()->read(['lines' => [
+        ['description' => 'Resma de papel A4', 'quantity' => '2', 'unit_price' => 325, 'rate' => '0.2300', 'total' => 650],
+    ]])->create();
+
+    Livewire::test(InvoiceImportInbox::class)->call('confirm')->assertHasNoErrors();
+
+    expect(FiscalDocument::sole()->lines)->toBeEmpty()
+        ->and(Expense::sole()->description)->toBe('Resma de papel A4');
+});
+
+it('records a direct cost against the sale it belongs to, one of the account\'s own', function () {
+    actingAsAdmin();
+    $project = Project::factory()->create(['code' => 'OC-000123', 'title' => 'Identidade visual']);
+    $foreign = CurrentAccount::run(Account::factory()->create(), fn () => Project::factory()->create());
+    InvoiceImport::factory()->create();
+
+    Livewire::test(InvoiceImportInbox::class)
+        ->call('correct')
+        ->assertSee('OC-000123 · Identidade visual')
+        ->set('form.kind', 'direct')
+        ->call('saveCorrection')
+        ->assertHasErrors(['form.cost_centre'])
+        ->assertSee('Escolhe a venda ou a avença a que este custo pertence.')
+        ->set('form.cost_centre', 'project:'.$foreign->id)
+        ->call('saveCorrection')
+        ->assertHasErrors(['form.cost_centre'])
+        ->set('form.cost_centre', 'project:'.$project->id)
+        ->call('saveCorrection')
+        ->assertHasNoErrors();
+
+    expect(Expense::sole())->kind->toBe(ExpenseKind::Direct)->project_id->toBe($project->id)->retainer_id->toBeNull();
+});
+
+it('corrects the client and the due date of an invoice issued by the account before recording the sale', function () {
+    actingAsAdmin();
+    $this->account->update(['nif' => '509876544']);
+    InvoiceImport::factory()->read([
+        'type' => 'invoice', 'number' => 'FT 2026/14', 'date' => '2026-11-12', 'customer_name' => 'Estudio Nrte', 'customer_nif' => null,
+        'net' => 100000, 'vat' => 23000, 'total' => 123000, 'rates' => [['rate' => '0.2300', 'net' => 100000, 'vat' => 23000]], 'paid' => false,
+    ])->create();
+
+    Livewire::test(InvoiceImportInbox::class)
+        ->call('correct')
+        ->assertSee('NIF do cliente')
+        ->assertDontSee('Tipo de custo')
+        ->set('form.supplier_name', 'Estúdio Norte, Lda')
+        ->set('form.supplier_nif', '513456783')
+        ->set('form.due_date', '2026-11-01')
+        ->call('saveCorrection')
+        ->assertHasErrors(['form.due_date'])
+        ->set('form.due_date', '2026-12-12')
+        ->call('saveCorrection')
+        ->assertHasNoErrors();
+
+    expect(Client::sole())->name->toBe('Estúdio Norte, Lda')->vat_number->toBe('513456783')
+        ->and(FiscalDocument::sole())->direction->toBe(FiscalDocumentDirection::Issued)->client_id->toBe(Client::sole()->id)
+        ->and(Receivable::sole()->due_on->toDateString())->toBe('2026-12-12')
+        ->and(Expense::count())->toBe(0);
+});
+
 it('lets the person pick the expense the invoice belongs to and keep its amount', function () {
     actingAsAdmin();
     $supplier = Supplier::factory()->create(['name' => 'Papelaria Demo, Lda', 'vat_number' => '509876544']);
@@ -419,6 +529,43 @@ it('turns an invoice that could not be read into an expense from what is typed b
     expect(Expense::sole())->net_amount->toBe(2537)->vat_amount->toBe(584)->description->toBe('Supermercado Demo')->proof_path->not->toBeNull()
         ->and(FiscalDocument::count())->toBe(0)
         ->and($import->refresh()->status)->toBe(InvoiceImportStatus::Confirmed);
+});
+
+it('goes on to the amounts of each rate when an invoice typed by hand has several', function () {
+    actingAsAdmin();
+    $import = InvoiceImport::factory()->unreadable()->create();
+
+    Livewire::test(InvoiceImportInbox::class)
+        ->call('open', $import->id)
+        ->call('fillByHand')
+        ->set('form.supplier_name', 'Supermercado Demo')
+        ->set('form.date', '2026-11-11')
+        ->set('form.total', '23,45')
+        ->set('form.rate', 'several')
+        ->call('saveByHand')
+        ->assertHasNoErrors()
+        ->assertSet('mode', 'correct')
+        ->assertCount('form.rates', 2)
+        ->assertSee('IVA por taxa');
+
+    expect($import->refresh()->status)->toBe(InvoiceImportStatus::Read)
+        ->and(Expense::count())->toBe(0);
+});
+
+it('prunes the invoices dealt with a month ago and the ones forgotten for three, with their files', function () {
+    actingAsAdmin();
+    $old = InvoiceImport::factory()->create(['status' => InvoiceImportStatus::Confirmed, 'handled_at' => now()->subDays(31)]);
+    $recent = InvoiceImport::factory()->create(['status' => InvoiceImportStatus::Confirmed, 'handled_at' => now()->subDays(29)]);
+    $waiting = InvoiceImport::factory()->create();
+    $forgotten = InvoiceImport::factory()->create();
+    InvoiceImport::whereKey($forgotten->id)->toBase()->update(['updated_at' => now()->subDays(91)]);
+
+    $this->artisan('invoice-imports:prune')->assertSuccessful();
+
+    expect(InvoiceImport::orderBy('id')->pluck('id')->all())->toBe([$recent->id, $waiting->id])
+        ->and(Storage::disk('local')->exists($old->storagePath()))->toBeFalse()
+        ->and(Storage::disk('local')->exists($forgotten->storagePath()))->toBeFalse()
+        ->and(Storage::disk('local')->exists($recent->storagePath()))->toBeTrue();
 });
 
 it('leaves an invoice out without recording anything, and clears what is done to start again', function () {

@@ -3,6 +3,7 @@
 namespace App\Actions;
 
 use App\Enums\ExpenseAttribution;
+use App\Enums\ExpenseKind;
 use App\Enums\FiscalDocumentDirection;
 use App\Models\BankTransaction;
 use App\Models\Client;
@@ -10,6 +11,8 @@ use App\Models\Expense;
 use App\Models\FiscalDocument;
 use App\Models\FiscalDocumentLink;
 use App\Models\InvoiceImport;
+use App\Models\Project;
+use App\Models\Retainer;
 use App\Models\Supplier;
 use App\Support\CurrentAccount;
 use App\Support\InvoiceImportDraft;
@@ -24,7 +27,7 @@ use Illuminate\Support\Facades\DB;
  * to say "that's right": the supplier it belongs to, the expense it joins or creates, the bank
  * line that paid it. What the app cannot tell by itself comes back as a question.
  *
- * @phpstan-type Decision array{kind: 'expense'|'sale'|'duplicate', row: ?array<string, mixed>, supplier: ?Supplier, client: ?Client, expense: ?Expense, expense_chosen: bool, similar: ?Expense, adjust: bool, bank: ?BankTransaction, category_id: ?int, is_paid: bool, attribution: string, missing: list<string>, questions: list<string>, split: bool, links: bool}
+ * @phpstan-type Decision array{kind: 'expense'|'sale'|'duplicate', row: ?array<string, mixed>, supplier: ?Supplier, client: ?Client, expense: ?Expense, expense_chosen: bool, similar: ?Expense, adjust: bool, bank: ?BankTransaction, category_id: ?int, kind_of_cost: string, project_id: ?int, retainer_id: ?int, cost_centre: ?string, is_paid: bool, attribution: string, missing: list<string>, questions: list<string>, split: bool, links: bool}
  */
 final class DecideInvoiceImport
 {
@@ -50,6 +53,7 @@ final class DecideInvoiceImport
             'similar' => null, 'adjust' => false, 'bank' => null, 'category_id' => null, 'is_paid' => (bool) ($draft['paid'] ?? false),
             'attribution' => ExpenseAttribution::tryFrom((string) ($choices['attribution'] ?? ''))?->value ?? ExpenseAttribution::Professional->value,
             'missing' => $this->missing($draft), 'questions' => [], 'split' => $split,
+            ...$this->costCentre($choices),
             'links' => ! $split && $rates !== [] && InvoiceImportDraft::rateIsExact($rates[0]),
         ];
 
@@ -94,6 +98,31 @@ final class DecideInvoiceImport
         $decision['category_id'] = $this->category($choices, $expense, $decision['supplier']);
 
         return $decision;
+    }
+
+    /**
+     * "Tipo de custo": a direct cost with the sale or the retainer chosen for it, while that still exists; overhead otherwise.
+     *
+     * @param  array<string, mixed>  $choices
+     * @return array{kind_of_cost: string, project_id: ?int, retainer_id: ?int, cost_centre: ?string}
+     */
+    private function costCentre(array $choices): array
+    {
+        $project = ($choices['kind'] ?? null) === ExpenseKind::Direct->value && isset($choices['project_id'])
+            ? Project::query()->whereKey($choices['project_id'])->value('id') : null;
+        $retainer = ($choices['kind'] ?? null) === ExpenseKind::Direct->value && $project === null && isset($choices['retainer_id'])
+            ? Retainer::query()->whereKey($choices['retainer_id'])->value('id') : null;
+
+        return [
+            'kind_of_cost' => $project !== null || $retainer !== null ? ExpenseKind::Direct->value : ExpenseKind::Overhead->value,
+            'project_id' => $project,
+            'retainer_id' => $retainer,
+            'cost_centre' => match (true) {
+                $project !== null => 'project:'.$project,
+                $retainer !== null => 'retainer:'.$retainer,
+                default => null,
+            },
+        ];
     }
 
     /**

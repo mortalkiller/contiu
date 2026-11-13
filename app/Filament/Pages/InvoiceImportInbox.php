@@ -7,6 +7,7 @@ use App\Actions\DecideInvoiceImport;
 use App\Actions\ReadImportedInvoice;
 use App\Actions\ReceiveInvoiceImport;
 use App\Enums\ExpenseAttribution;
+use App\Enums\ExpenseKind;
 use App\Enums\FiscalDocumentType;
 use App\Enums\InvoiceImportStatus;
 use App\Filament\Resources\Expenses\ExpenseResource;
@@ -14,6 +15,8 @@ use App\Http\Controllers\InvoiceImportFileController;
 use App\Models\Category;
 use App\Models\Expense;
 use App\Models\InvoiceImport;
+use App\Models\Project;
+use App\Models\Retainer;
 use App\Support\CurrentAccount;
 use App\Support\FiscalTerms;
 use App\Support\InvoiceImportDraft;
@@ -25,6 +28,7 @@ use Filament\Pages\Page;
 use Filament\Pages\PageConfiguration;
 use Filament\Panel;
 use Filament\Support\Components\Attributes\Unexposed;
+use Filament\Support\Enums\Width;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -50,6 +54,9 @@ class InvoiceImportInbox extends Page
 
     protected string $view = 'filament.pages.invoice-import-inbox';
 
+    /** The workspace takes the whole screen; the page's own CSS keeps the two cards at the panel's usual width. */
+    protected Width|string|null $maxContentWidth = Width::Full;
+
     /** @var array<int, mixed> */
     public array $files = [];
 
@@ -64,6 +71,12 @@ class InvoiceImportInbox extends Page
 
     /** @var array<string, mixed> the fields of "Corrigir" and of "Preencher à mão" */
     public array $form = [];
+
+    /** @var list<array{description: string, quantity: string, unit_price: string, rate: string}> the rows of "Linhas da fatura" */
+    public array $lines = [];
+
+    /** Where "Linhas da fatura" was opened from, to go back there. */
+    public string $linesFrom = 'confirm';
 
     public string $expenseSearch = '';
 
@@ -127,6 +140,11 @@ class InvoiceImportInbox extends Page
         $decide = app(DecideInvoiceImport::class);
         $decision = $import?->status === InvoiceImportStatus::Read ? $decide->handle($import) : null;
 
+        // Nothing left to confirm or to read: the summary, unless the person opened an invoice that could not be read.
+        $allDone = $imports->contains(fn (InvoiceImport $item): bool => $item->status->isHandled())
+            && $imports->every(fn (InvoiceImport $item): bool => $item->status->isHandled() || $item->status === InvoiceImportStatus::Unreadable)
+            && ($import === null || $import->status->isHandled());
+
         return [
             'imports' => $imports,
             'import' => $import,
@@ -136,12 +154,12 @@ class InvoiceImportInbox extends Page
             ])->all(),
             'handled' => $imports->filter(fn (InvoiceImport $item): bool => $item->status->isHandled())->count(),
             'reading' => $imports->contains(fn (InvoiceImport $item): bool => $item->status->isReading()),
-            // Nothing left to confirm or to read: the summary, unless the person opened an invoice that could not be read.
-            'allDone' => $imports->contains(fn (InvoiceImport $item): bool => $item->status->isHandled())
-                && $imports->every(fn (InvoiceImport $item): bool => $item->status->isHandled() || $item->status === InvoiceImportStatus::Unreadable)
-                && ($import === null || $import->status->isHandled()),
+            'allDone' => $allDone,
+            // The three columns: the list, the invoice and what it will become.
+            'work' => $imports->isNotEmpty() && ! $allDone,
             'categories' => Category::query()->expense()->pluck('name', 'id')->all(),
             'rates' => Money::vatOptions(),
+            'costCentres' => $this->mode === 'correct' ? $this->costCentres() : [],
             'choices' => $this->mode === 'pick' && $import !== null ? $decide->expenseChoices($import, $this->expenseSearch) : collect(),
             'canConfirm' => ConfirmInvoiceImport::canConfirm(),
             'usesAi' => ReadImportedInvoice::usesAi(),
@@ -199,7 +217,7 @@ class InvoiceImportInbox extends Page
     {
         $this->current = InvoiceImport::query()->whereKey($id)->value('id');
         $this->mode = 'confirm';
-        $this->reset('form', 'expenseSearch', 'picked');
+        $this->reset('form', 'lines', 'linesFrom', 'expenseSearch', 'picked');
         $this->resetValidation();
     }
 
@@ -262,23 +280,29 @@ class InvoiceImportInbox extends Page
         $this->choose($answer === 'yes' && $similar !== null ? ['expense' => $similar->id, 'adjust' => true] : ['expense' => 'new']);
     }
 
-    /** "Corrigir ou ver mais detalhes": the same fields, to edit. */
+    /** "Corrigir ou ver mais detalhes": the same fields, to edit. A sale has its client where an expense has its supplier. */
     public function correct(DecideInvoiceImport $decide): void
     {
         $import = $this->waitingImport();
         $draft = $import->data;
         $decision = $decide->handle($import);
+        $isSale = $decision['kind'] === 'sale';
 
         $this->form = [
-            'supplier_name' => $decision['supplier']?->name ?? ($draft['supplier_name'] ?? ''),
-            'supplier_nif' => $draft['supplier_nif'] ?? '',
+            'supplier_name' => $isSale
+                ? ($decision['client']?->name ?? ($draft['customer_name'] ?? ''))
+                : ($decision['supplier']?->name ?? ($draft['supplier_name'] ?? '')),
+            'supplier_nif' => ($isSale ? ($draft['customer_nif'] ?? null) : ($draft['supplier_nif'] ?? null)) ?? '',
             'number' => $draft['number'] ?? '',
             'date' => $draft['date'] ?? '',
+            'due_date' => $draft['due_date'] ?? '',
             'description' => $draft['description'] ?? (count($draft['lines'] ?? []) === 1 ? $draft['lines'][0]['description'] : ''),
             'rates' => array_map(fn (array $rate): array => [
                 'rate' => $rate['rate'], 'net' => $this->euros($rate['net']), 'vat' => $this->euros($rate['vat']),
             ], $draft['rates'] ?: [['rate' => '0.2300', 'net' => 0, 'vat' => 0]]),
             'category_id' => (string) ($decision['category_id'] ?? ''),
+            'kind' => $decision['kind_of_cost'],
+            'cost_centre' => $decision['cost_centre'] ?? '',
             'attribution' => $decision['attribution'],
             'is_paid' => $decision['is_paid'],
             'bank' => $decision['bank'] !== null,
@@ -303,28 +327,36 @@ class InvoiceImportInbox extends Page
     }
 
     /** "Guardar e confirmar": what was corrected replaces what was read, and the invoice is saved. */
-    public function saveCorrection(ConfirmInvoiceImport $confirm, bool $thenConfirm = true): void
+    public function saveCorrection(ConfirmInvoiceImport $confirm, DecideInvoiceImport $decide, bool $thenConfirm = true): void
     {
         $import = $this->waitingImport();
+        $isSale = $decide->handle($import)['kind'] === 'sale';
+        $taxId = fn (string $attribute, mixed $value, \Closure $fail) => FiscalTerms::nif($value) === null ? $fail(__('Enter a valid Portuguese tax ID, or leave it empty.')) : null;
+
         $data = $this->validate([
             'form.supplier_name' => ['required', 'string', 'max:255'],
-            'form.supplier_nif' => ['nullable', 'string', fn (string $attribute, mixed $value, \Closure $fail) => FiscalTerms::nif($value) === null ? $fail(__('Enter a valid Portuguese tax ID, or leave it empty.')) : null],
-            'form.number' => ['nullable', 'string', 'max:100'],
+            'form.supplier_nif' => ['nullable', 'string', $taxId],
+            'form.number' => [$isSale ? 'required' : 'nullable', 'string', 'max:100'],
             'form.date' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
+            'form.due_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:form.date'],
             'form.description' => ['nullable', 'string', 'max:250'],
             'form.rates' => ['required', 'array', 'min:1', 'max:4'],
             'form.rates.*.rate' => ['required', 'distinct', 'in:'.implode(',', array_keys(Money::vatOptions()))],
             'form.rates.*.net' => ['required', 'numeric', 'min:0', 'max:9999999'],
             'form.rates.*.vat' => ['required', 'numeric', 'min:0', 'max:9999999'],
             'form.category_id' => ['nullable'],
+            'form.kind' => ['required', 'in:'.implode(',', array_column(ExpenseKind::cases(), 'value'))],
+            'form.cost_centre' => ['nullable', 'string', 'regex:/\A(project|retainer):[1-9][0-9]{0,17}\z/'],
             'form.attribution' => ['required', 'in:'.implode(',', array_column(ExpenseAttribution::cases(), 'value'))],
             'form.is_paid' => ['boolean'],
             'form.bank' => ['boolean'],
         ], [
-            'form.supplier_name.required' => __('Enter the supplier.'),
+            'form.supplier_name.required' => $isSale ? __('Enter the client.') : __('Enter the supplier.'),
+            'form.number.required' => __('Enter the number of the invoice.'),
             'form.date.required' => __('Enter the date of the invoice.'),
             'form.date.date_format' => __('Enter the date of the invoice.'),
             'form.date.before_or_equal' => __('The date of the invoice cannot be in the future.'),
+            'form.due_date.after_or_equal' => __('The due date cannot be before the date of the invoice.'),
             'form.rates.*.rate.distinct' => __('Each VAT rate can appear only once.'),
             'form.rates.*.net.required' => __('Enter the amount excluding VAT.'),
             'form.rates.*.net.numeric' => __('Enter the amount excluding VAT.'),
@@ -340,33 +372,147 @@ class InvoiceImportInbox extends Page
             throw ValidationException::withMessages(['form.rates' => __('Enter the amounts of the invoice.')]);
         }
 
+        $party = $isSale ? 'customer' : 'supplier';
         $draft = InvoiceImportDraft::corrected($import->data ?? [], [
-            'supplier_name' => trim($data['supplier_name']),
-            'supplier_nif' => FiscalTerms::nif($data['supplier_nif'] ?? null),
+            $party.'_name' => trim($data['supplier_name']),
+            $party.'_nif' => FiscalTerms::nif($data['supplier_nif'] ?? null),
             'number' => filled($data['number'] ?? null) ? trim($data['number']) : null,
             'date' => $data['date'],
             'rates' => $rates,
+            ...($isSale ? ['due_date' => filled($data['due_date'] ?? null) ? $data['due_date'] : null] : []),
         ]);
-        $draft['description'] = filled($data['description'] ?? null) ? trim($data['description']) : null;
-        $draft['paid'] = (bool) $data['is_paid'];
 
-        $import->update([
-            'data' => $draft,
-            'choices' => [
+        if ($isSale) {
+            $import->update(['data' => $draft]);
+        } else {
+            $draft['description'] = filled($data['description'] ?? null) ? trim($data['description']) : null;
+            $draft['paid'] = (bool) $data['is_paid'];
+            $import->update(['data' => $draft, 'choices' => [
                 ...($import->choices ?? []),
                 'category_id' => filled($data['category_id']) && Category::query()->expense()->whereKey($data['category_id'])->exists() ? (int) $data['category_id'] : null,
+                ...$this->costCentre($data['kind'], (string) ($data['cost_centre'] ?? '')),
                 'attribution' => $data['attribution'],
                 'is_paid' => (bool) $data['is_paid'],
                 'bank' => $data['bank'] ? null : 'none',
-            ],
-        ]);
+            ]]);
+        }
 
         $this->mode = 'confirm';
         $this->reset('form');
 
         if ($thenConfirm) {
-            $this->act(fn () => $confirm->expense($import->id));
+            $this->act(fn () => $isSale ? $confirm->sale($import->id) : $confirm->expense($import->id));
         }
+    }
+
+    /**
+     * "Tipo de custo": a direct cost names the sale or the retainer it belongs to, one of the account's own.
+     *
+     * @return array{kind: string, project_id: ?int, retainer_id: ?int}
+     */
+    private function costCentre(string $kind, string $costCentre): array
+    {
+        if ($kind !== ExpenseKind::Direct->value) {
+            return ['kind' => ExpenseKind::Overhead->value, 'project_id' => null, 'retainer_id' => null];
+        }
+
+        [$type, $id] = array_pad(explode(':', $costCentre, 2), 2, '');
+        $exists = match ($type) {
+            'project' => Project::query()->whereKey($id)->exists(),
+            'retainer' => Retainer::query()->whereKey($id)->exists(),
+            default => false,
+        };
+
+        if (! $exists) {
+            throw ValidationException::withMessages(['form.cost_centre' => __('Choose the sale or the retainer this cost belongs to.')]);
+        }
+
+        return ['kind' => $kind, 'project_id' => $type === 'project' ? (int) $id : null, 'retainer_id' => $type === 'retainer' ? (int) $id : null];
+    }
+
+    /** "Linhas da fatura": what was bought, line by line, to read and to edit. */
+    public function editLines(): void
+    {
+        $import = $this->waitingImport();
+        $draft = $import->data;
+        $rate = $draft['rates'][0]['rate'] ?? '0.2300';
+
+        $this->lines = array_map(fn (array $line): array => [
+            'description' => $line['description'],
+            'quantity' => str_replace('.', ',', (string) $line['quantity']),
+            'unit_price' => $line['unit_price'] === null ? '' : $this->euros($line['unit_price']),
+            'rate' => $line['rate'] ?? $rate,
+        ], $draft['lines'] ?? []) ?: [['description' => '', 'quantity' => '1', 'unit_price' => '', 'rate' => $rate]];
+        $this->linesFrom = $this->mode === 'correct' ? 'correct' : 'confirm';
+        $this->mode = 'lines';
+        $this->resetValidation();
+    }
+
+    public function addLine(): void
+    {
+        if (count($this->lines) < InvoiceImportDraft::MAX_LINES) {
+            $this->lines[] = ['description' => '', 'quantity' => '1', 'unit_price' => '', 'rate' => $this->lines[array_key_last($this->lines)]['rate'] ?? '0.2300'];
+        }
+    }
+
+    public function removeLine(int $index): void
+    {
+        unset($this->lines[$index]);
+        $this->lines = array_values($this->lines);
+    }
+
+    /** "Guardar linhas": the lines as typed replace the ones read. The amounts of the invoice stay as they are. */
+    public function saveLines(): void
+    {
+        $import = $this->waitingImport();
+        $rows = $this->validate([
+            'lines' => ['array', 'max:'.InvoiceImportDraft::MAX_LINES],
+            'lines.*.description' => ['required', 'string', 'max:255'],
+            'lines.*.quantity' => ['required', 'numeric', 'gt:0', 'max:999999'],
+            'lines.*.unit_price' => ['required', 'numeric', 'min:0', 'max:9999999'],
+            'lines.*.rate' => ['required', 'in:'.implode(',', array_keys(Money::vatOptions()))],
+        ], [
+            'lines.*.description.required' => __('Describe the line, or remove it.'),
+            'lines.*.quantity.required' => __('Enter the quantity.'),
+            'lines.*.quantity.numeric' => __('Enter the quantity.'),
+            'lines.*.quantity.gt' => __('Enter the quantity.'),
+            'lines.*.unit_price.required' => __('Enter the price excluding VAT.'),
+            'lines.*.unit_price.numeric' => __('Enter the price excluding VAT.'),
+        ])['lines'] ?? [];
+
+        $import->update(['data' => [...$import->data, 'lines' => array_map(fn (array $row): array => InvoiceImportDraft::line(
+            trim($row['description']), $this->number($row['quantity']), (int) Money::toCents($this->number($row['unit_price'])), $row['rate'],
+        ), array_values($rows))]]);
+
+        $this->closeLines();
+    }
+
+    /** "Voltar sem guardar". */
+    public function closeLines(): void
+    {
+        $this->mode = $this->linesFrom === 'correct' && $this->form !== [] ? 'correct' : 'confirm';
+        $this->reset('lines', 'linesFrom');
+        $this->resetValidation();
+    }
+
+    /**
+     * What the lines being typed add up to, and how far that is from the base of the invoice.
+     *
+     * @return array{totals: list<?int>, sum: int, difference: ?int}
+     */
+    public function linesSummary(): array
+    {
+        $totals = array_map(function (array $row): ?int {
+            $quantity = $this->number($row['quantity'] ?? '');
+            $price = Money::toCents($this->number($row['unit_price'] ?? ''));
+
+            return is_numeric($quantity) && (float) $quantity > 0 && $price !== null && $price >= 0
+                ? InvoiceImportDraft::line('', $quantity, $price, null)['total']
+                : null;
+        }, $this->lines);
+        $net = $this->currentImport()?->data['net'] ?? null;
+
+        return ['totals' => $totals, 'sum' => array_sum($totals), 'difference' => $net === null ? null : array_sum($totals) - $net];
     }
 
     /** "Juntar a uma despesa que já existe…": the expenses to pick from. */
@@ -411,7 +557,7 @@ class InvoiceImportInbox extends Page
     }
 
     /** "Guardar despesa": the typed invoice becomes an expense with the file as its supporting document. */
-    public function saveByHand(ConfirmInvoiceImport $confirm): void
+    public function saveByHand(ConfirmInvoiceImport $confirm, DecideInvoiceImport $decide): void
     {
         abort_unless(ConfirmInvoiceImport::canConfirm(), 403);
         $import = $this->currentImport();
@@ -423,7 +569,7 @@ class InvoiceImportInbox extends Page
             'form.number' => ['nullable', 'string', 'max:100'],
             'form.date' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
             'form.total' => ['required', 'numeric', 'gt:0', 'max:9999999'],
-            'form.rate' => ['required', 'in:'.implode(',', array_keys(Money::vatOptions()))],
+            'form.rate' => ['required', 'in:several,'.implode(',', array_keys(Money::vatOptions()))],
             'form.category_id' => ['nullable'],
         ], [
             'form.supplier_name.required' => __('Enter the supplier.'),
@@ -435,7 +581,10 @@ class InvoiceImportInbox extends Page
             'form.total.gt' => __('Enter the total of the invoice, with VAT.'),
         ])['form'];
 
-        $net = Money::netFromGross((int) Money::toCents($this->number($data['total'])), $data['rate']);
+        // "Várias taxas…": the total is split by rate in "Corrigir", one row for each.
+        $several = $data['rate'] === 'several';
+        $rate = $several ? '0.2300' : $data['rate'];
+        $net = Money::netFromGross((int) Money::toCents($this->number($data['total'])), $rate);
         $draft = InvoiceImportDraft::corrected([
             'type' => filled($data['number'] ?? null) ? FiscalDocumentType::Invoice->value : null,
             'due_date' => null, 'atcud' => null, 'customer_name' => null, 'customer_nif' => null, 'lines' => [], 'paid' => true, 'exact' => [],
@@ -444,7 +593,7 @@ class InvoiceImportInbox extends Page
             'supplier_nif' => FiscalTerms::nif($data['supplier_nif'] ?? null),
             'number' => filled($data['number'] ?? null) ? trim($data['number']) : null,
             'date' => $data['date'],
-            'rates' => [['rate' => $data['rate'], 'net' => $net, 'vat' => Money::vat($net, $data['rate'])]],
+            'rates' => [['rate' => $rate, 'net' => $net, 'vat' => Money::vat($net, $rate)]],
         ]);
 
         $import->update([
@@ -456,6 +605,14 @@ class InvoiceImportInbox extends Page
 
         $this->mode = 'confirm';
         $this->reset('form');
+
+        if ($several) {
+            $this->correct($decide);
+            $this->addRate();
+
+            return;
+        }
+
         $this->act(fn () => $confirm->expense($import->id));
     }
 
@@ -480,6 +637,21 @@ class InvoiceImportInbox extends Page
         $vat = Money::vat($net, $rate);
 
         return ['net' => $net, 'vat' => $vat, 'total' => $net + $vat, 'typed' => $total];
+    }
+
+    /**
+     * The sales and the retainers a direct cost can belong to, the newest first.
+     *
+     * @return array<string, array<string, string>>
+     */
+    private function costCentres(): array
+    {
+        $label = fn (Project|Retainer $record): string => implode(' · ', array_filter([$record->code, $record->title]));
+
+        return array_filter([
+            __('Sales') => Project::query()->latest('id')->limit(100)->get()->mapWithKeys(fn (Project $project): array => ['project:'.$project->id => $label($project)])->all(),
+            __('Retainers') => Retainer::query()->latest('id')->limit(100)->get()->mapWithKeys(fn (Retainer $retainer): array => ['retainer:'.$retainer->id => $label($retainer)])->all(),
+        ]);
     }
 
     /** @return Collection<int, InvoiceImport> */
@@ -587,6 +759,12 @@ class InvoiceImportInbox extends Page
         foreach ($attributes['form']['rates'] ?? [] as $index => $rate) {
             foreach (['net', 'vat'] as $field) {
                 $attributes['form']['rates'][$index][$field] = $this->number($rate[$field] ?? '');
+            }
+        }
+
+        foreach ($attributes['lines'] ?? [] as $index => $line) {
+            foreach (['quantity', 'unit_price'] as $field) {
+                $attributes['lines'][$index][$field] = $this->number($line[$field] ?? '');
             }
         }
 

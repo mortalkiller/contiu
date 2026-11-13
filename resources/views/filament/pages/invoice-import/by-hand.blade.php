@@ -37,7 +37,7 @@
     <div>
         <label for="hand-total">{{ __('Total with VAT') }}</label>
         <x-filament::input.wrapper suffix="€" :valid="! $errors->has('form.total')">
-            <x-filament::input id="hand-total" type="text" inputmode="decimal" wire:model.blur="form.total" required />
+            <x-filament::input id="hand-total" type="text" inputmode="decimal" wire:model.live.blur="form.total" required />
         </x-filament::input.wrapper>
         @error('form.total') <p class="contiu-inv-error" role="alert">{{ $message }}</p> @enderror
     </div>
@@ -48,6 +48,7 @@
                 @foreach ($rates as $value => $label)
                     <option value="{{ $value }}">{{ $value === '0.0000' ? __('Exempt') : $label }}</option>
                 @endforeach
+                <option value="several">{{ __('Several rates…') }}</option>
             </x-filament::input.select>
         </x-filament::input.wrapper>
     </div>
@@ -76,7 +77,7 @@
     @endif
 
     <div class="is-wide contiu-inv-act">
-        <x-filament::button size="lg" type="submit" wire:loading.attr="disabled">{{ __('Save expense') }}</x-filament::button>
+        <x-filament::button size="lg" type="submit" wire:loading.attr="disabled">{{ ($form['rate'] ?? '') === 'several' ? __('Go on to the amounts of each rate') : __('Save expense') }}</x-filament::button>
         <div class="contiu-inv-act-row">
             <x-filament::link tag="button" type="button" color="gray" wire:click="back">{{ __('Back') }}</x-filament::link>
             <x-filament::link tag="button" type="button" color="gray" wire:click="dismiss">{{ __('Remove from the list') }}</x-filament::link>

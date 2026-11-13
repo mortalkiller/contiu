@@ -90,3 +90,31 @@ it('drops a tax ID that is not a valid Portuguese one and marks what the QR code
 
     expect($draft)->supplier_nif->toBeNull()->customer_nif->toBe('508025338')->exact->toBe(['number', 'total']);
 });
+
+it('works out what a line comes to from its quantity and its price', function () {
+    expect(InvoiceImportDraft::line('Canetas', '0.5', 700, '0.2300'))
+        ->toBe(['description' => 'Canetas', 'quantity' => '0.5', 'unit_price' => 700, 'rate' => '0.2300', 'total' => 350])
+        ->and(InvoiceImportDraft::line('Papel', '3', 333, null)['total'])->toBe(999)
+        ->and(InvoiceImportDraft::line('Sem preço', '2', null, null)['total'])->toBeNull();
+});
+
+it('gives the fiscal document its lines only when each has a price and a rate and they add up to the base', function (array $lines, int $kept) {
+    expect(InvoiceImportDraft::documentLines(['net' => 1000, 'lines' => $lines]))->toHaveCount($kept);
+})->with([
+    'they add up' => [[
+        ['description' => 'Papel', 'quantity' => '2', 'unit_price' => 325, 'rate' => '0.2300', 'total' => 650],
+        ['description' => 'Canetas', 'quantity' => '0.5', 'unit_price' => 700, 'rate' => '0.0600', 'total' => 350],
+    ], 2],
+    'they do not add up' => [[['description' => 'Papel', 'quantity' => '2', 'unit_price' => 325, 'rate' => '0.2300', 'total' => 650]], 0],
+    'a line has no price' => [[['description' => 'Papel', 'quantity' => '1', 'unit_price' => null, 'rate' => '0.2300', 'total' => 1000]], 0],
+    'a line has no rate' => [[['description' => 'Papel', 'quantity' => '1', 'unit_price' => 1000, 'rate' => null, 'total' => 1000]], 0],
+]);
+
+it('counts a document line in thousandths at its own VAT rate', function () {
+    expect(InvoiceImportDraft::documentLines(['net' => 350, 'lines' => [
+        ['description' => 'Canetas', 'quantity' => '0.5', 'unit_price' => 700, 'rate' => '0.0600', 'total' => 350],
+    ]]))->toBe([[
+        'sort' => 0, 'description' => 'Canetas', 'quantity' => 500, 'unit' => 'un', 'unit_price' => 700,
+        'discount_basis_points' => 0, 'vat_basis_points' => 600, 'net_amount' => 350, 'vat_amount' => 21, 'total_amount' => 371,
+    ]]);
+});

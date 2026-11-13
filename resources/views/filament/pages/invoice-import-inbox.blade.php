@@ -1,5 +1,6 @@
 @use('App\Enums\InvoiceImportStatus')
 @use('App\Filament\Resources\Expenses\ExpenseResource')
+@use('App\Filament\Resources\FiscalDocuments\FiscalDocumentResource')
 @use('App\Support\Money')
 @use('Illuminate\Support\Carbon')
 @php
@@ -21,12 +22,36 @@
 @endphp
 
 <x-filament-panels::page>
-    <div class="contiu-inv"
-        x-data="{ over: false }"
+    {{--
+        The workspace takes the whole width of the screen (is-work); the two cards keep the panel's usual one.
+        The list of invoices folds away like the sidebar and the panel on the right is dragged wider or
+        narrower, between a minimum and a maximum; both are remembered in this browser.
+    --}}
+    <div @class(['contiu-inv', 'is-work' => $work])
+        x-data="{
+            over: false,
+            queue: $persist(true).as('contiu-invoice-inbox-queue'),
+            panel: $persist(404).as('contiu-invoice-inbox-panel'),
+            resizing: false,
+            limits: { min: 352, max: 720 },
+            setPanel(width) { this.panel = Math.round(Math.min(this.limits.max, Math.max(this.limits.min, width))) },
+            resize(event) {
+                const start = event.clientX, from = this.panel
+                const move = (moved) => this.setPanel(from + start - moved.clientX)
+                const stop = () => {
+                    this.resizing = false
+                    window.removeEventListener('pointermove', move)
+                    window.removeEventListener('pointerup', stop)
+                }
+                this.resizing = true
+                window.addEventListener('pointermove', move)
+                window.addEventListener('pointerup', stop)
+            },
+        }"
         x-on:dragover.prevent="over = true"
         x-on:dragleave.prevent="over = false"
         x-on:drop.prevent="over = false; @if ($canConfirm) $wire.uploadMultiple('files', [...$event.dataTransfer.files]) @endif"
-        x-bind:class="{ 'is-over': over }"
+        x-bind:class="{ 'is-over': over, 'is-resizing': resizing }"
         @if ($reading) wire:poll.2s @endif>
 
         {{-- One picker for files and one for the camera: every way in ends in the same list. --}}
@@ -52,7 +77,9 @@
                     </div>
                     <p class="contiu-inv-note" wire:loading wire:target="files">{{ __('Sending the files…') }}</p>
                 @else
-                    <p class="contiu-inv-note">{{ __('This account is read-only: invoices cannot be imported.') }}</p>
+                    <p class="contiu-inv-note">{{ \App\Support\CurrentAccount::readOnly()
+                        ? __('This account is read-only: invoices cannot be imported.')
+                        : __('You do not have permission to import invoices in this account.') }}</p>
                 @endif
             </div>
             <p class="contiu-inv-foot">
@@ -80,6 +107,7 @@
                             <span><b>{{ trans_choice('{1} 1 new expense|[2,*] :count new expenses', $newExpenses) }}</b>
                                 @if ($newSuppliers > 0) <small>{{ trans_choice('{1} 1 new supplier|[2,*] :count new suppliers', $newSuppliers) }}</small> @endif</span>
                             <i>{{ $sum($new) }}</i>
+                            <x-filament::link :href="ExpenseResource::getUrl()">{{ __('See') }}</x-filament::link>
                         </li>
                     @endif
                     @if ($joined = $outcomes->get('joined'))
@@ -87,6 +115,7 @@
                             <span><b>{{ trans_choice('{1} 1 invoice joined to an expense you already had|[2,*] :count invoices joined to expenses you already had', $joined->count()) }}</b>
                                 <small>{{ $joined->map(fn ($item) => $item->outcome['label'] ?? '')->filter()->join(', ') }}</small></span>
                             <i>{{ $sum($joined) }}</i>
+                            <x-filament::link :href="ExpenseResource::getUrl()">{{ __('See') }}</x-filament::link>
                         </li>
                     @endif
                     @if ($sales = $outcomes->get('sale'))
@@ -94,6 +123,7 @@
                             <span><b>{{ trans_choice('{1} 1 sale recorded|[2,*] :count sales recorded', $sales->count()) }}</b>
                                 <small>{{ $sales->map(fn ($item) => $item->outcome['label'] ?? '')->filter()->join(', ') }}</small></span>
                             <i>{{ $sum($sales) }}</i>
+                            <x-filament::link :href="FiscalDocumentResource::getUrl()">{{ __('See') }}</x-filament::link>
                         </li>
                     @endif
                     @if ($duplicates = $outcomes->get('duplicate'))
@@ -137,17 +167,27 @@
             </div>
 
             <div class="contiu-inv-work"
+                x-bind:class="{ 'is-queue-collapsed': ! queue }"
+                x-bind:style="{ '--contiu-inv-panel': panel + 'px' }"
                 x-on:keydown.window="
                     if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'A'].includes($event.target.tagName) || $event.metaKey || $event.ctrlKey || $event.altKey) return;
                     if ($event.key === 'Enter' && $refs.primary && ! $refs.primary.disabled) { $event.preventDefault(); $refs.primary.click(); }
                     if ($event.key === 'ArrowRight' && $refs.later) { $event.preventDefault(); $refs.later.click(); }
                 ">
                 <nav class="contiu-inv-queue" aria-label="{{ __('Invoices') }}">
-                    <div class="contiu-inv-queue-head">{{ __('Invoices') }} <span>{{ $imports->count() }}</span></div>
+                    <div class="contiu-inv-queue-head">
+                        <b>{{ __('Invoices') }} <span>{{ $imports->count() }}</span></b>
+                        <button type="button" class="contiu-inv-collapse" x-on:click="queue = ! queue" x-bind:aria-expanded="queue.toString()"
+                            x-bind:aria-label="queue ? @js(__('Collapse the list of invoices')) : @js(__('Expand the list of invoices'))"
+                            x-bind:title="queue ? @js(__('Collapse the list of invoices')) : @js(__('Expand the list of invoices'))">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+                        </button>
+                    </div>
                     @foreach ($imports as $item)
                         @php $state = $states[$item->id]; $itemDraft = $item->data ?? []; @endphp
                         <button type="button" wire:key="inv-{{ $item->id }}" wire:click="open({{ $item->id }})"
-                            class="contiu-inv-q is-{{ $state['tone'] }}" @if ($item->id === $import?->id) aria-current="true" @endif>
+                            class="contiu-inv-q is-{{ $state['tone'] }}" @if ($item->id === $import?->id) aria-current="true" @endif
+                            title="{{ ($item->status->isReading() ? $item->filename : $state['name']).' · '.$state['label'] }}">
                             <span class="contiu-inv-thumb @if ($item->isPdf()) is-pdf @endif" aria-hidden="true"></span>
                             <b>{{ $item->status->isReading() ? __('Reading…') : $state['name'] }}</b>
                             <i>{{ isset($itemDraft['total']) && ! $item->status->isReading() ? $money($itemDraft['total']) : '' }}</i>
@@ -159,17 +199,35 @@
                 @if ($import === null)
                     <div class="contiu-inv-doc"><p class="contiu-inv-note">{{ __('Choose an invoice from the list.') }}</p></div>
                 @else
-                    <div class="contiu-inv-doc" wire:key="doc-{{ $import->id }}">
+                    {{-- The file itself. A photo can be turned and enlarged to read it; a PDF has the browser's own viewer. --}}
+                    <div class="contiu-inv-doc" wire:key="doc-{{ $import->id }}" x-data="{ zoom: false, turn: 0 }">
                         @if ($import->isPdf())
                             <iframe src="{{ $fileUrl($import) }}#toolbar=0&navpanes=0&view=FitH" title="{{ $import->filename }}" loading="lazy"></iframe>
                         @else
-                            <img src="{{ $fileUrl($import) }}" alt="{{ __('Photo of the invoice :name', ['name' => $import->filename]) }}">
+                            <div class="contiu-inv-photo" x-bind:class="{ 'is-zoomed': zoom }">
+                                <img src="{{ $fileUrl($import) }}" alt="{{ __('Photo of the invoice :name', ['name' => $import->filename]) }}"
+                                    x-bind:style="'transform: rotate(' + turn + 'deg)'" x-on:click="zoom = ! zoom">
+                            </div>
                         @endif
                         <div class="contiu-inv-doc-tools">
                             <span>{{ $import->filename }}</span>
-                            <x-filament::link :href="$fileUrl($import)" target="_blank" rel="noopener">{{ __('Open the file') }}</x-filament::link>
+                            <span class="contiu-inv-doc-links">
+                                @unless ($import->isPdf())
+                                    <x-filament::link tag="button" color="gray" x-on:click="zoom = ! zoom"><span x-show="! zoom">{{ __('Enlarge') }}</span><span x-show="zoom" x-cloak>{{ __('Reduce') }}</span></x-filament::link>
+                                    <x-filament::link tag="button" color="gray" x-on:click="turn = (turn + 90) % 360">{{ __('Rotate') }}</x-filament::link>
+                                @endunless
+                                <x-filament::link :href="$fileUrl($import)" target="_blank" rel="noopener">{{ __('Open the file') }}</x-filament::link>
+                            </span>
                         </div>
                     </div>
+
+                    <div class="contiu-inv-resize" role="separator" aria-orientation="vertical" tabindex="0"
+                        aria-label="{{ __('Width of the panel: drag, or use the arrow keys') }}"
+                        x-bind:aria-valuenow="panel" x-bind:aria-valuemin="limits.min" x-bind:aria-valuemax="limits.max"
+                        x-on:pointerdown.prevent="resize($event)"
+                        x-on:keydown.left.prevent.stop="setPanel(panel + 24)"
+                        x-on:keydown.right.prevent.stop="setPanel(panel - 24)"
+                        x-on:dblclick="setPanel(404)"></div>
 
                     <section class="contiu-inv-panel" wire:key="panel-{{ $import->id }}-{{ $mode }}" aria-live="polite">
                         @error('current') <p class="contiu-inv-error" role="alert">{{ $message }}</p> @enderror
@@ -203,6 +261,8 @@
                             @endif
                         @elseif ($import->status->isHandled())
                             @include('filament.pages.invoice-import.handled')
+                        @elseif ($mode === 'lines')
+                            @include('filament.pages.invoice-import.lines')
                         @elseif ($mode === 'correct')
                             @include('filament.pages.invoice-import.correct')
                         @elseif ($mode === 'pick')

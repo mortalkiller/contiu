@@ -19,3 +19,4 @@ Schedule::command('backup:run')->dailyAt('01:30');
 Schedule::command('backup:monitor')->dailyAt('02:00');
 
 Schedule::command('invoice-benchmark:prune')->everyFifteenMinutes()->withoutOverlapping();
+Schedule::command('invoice-imports:prune')->dailyAt('03:15')->withoutOverlapping();

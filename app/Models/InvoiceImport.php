@@ -26,6 +26,11 @@ class InvoiceImport extends Model
     /** How many files one person can drop at a time, and wait on at once. */
     public const int BATCH = 20;
 
+    /** How long the inbox keeps an invoice already dealt with, and one never confirmed. */
+    public const int KEEP_HANDLED_DAYS = 30;
+
+    public const int KEEP_WAITING_DAYS = 90;
+
     protected $fillable = ['user_id', 'file_id', 'filename', 'mime', 'bytes', 'sha256', 'dimensions', 'status', 'data', 'choices', 'outcome', 'error', 'handled_at'];
 
     protected $hidden = ['file_id', 'sha256'];

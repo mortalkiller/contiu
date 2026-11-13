@@ -13,7 +13,6 @@ use App\Models\Expense;
 use App\Models\FiscalDocument;
 use App\Models\InvoiceImport;
 use App\Models\Supplier;
-use App\Support\AccountantAccess;
 use App\Support\CurrentAccount;
 use App\Support\ExpenseEvidence;
 use App\Support\FiscalDocumentPdfs;
@@ -44,11 +43,9 @@ final class ConfirmInvoiceImport
 
     public static function canConfirm(): bool
     {
-        $account = CurrentAccount::get();
-
-        return $account !== null
+        // As the other imports of received invoices: whoever may write expenses and fiscal documents in this account.
+        return CurrentAccount::get() !== null
             && ! CurrentAccount::readOnly()
-            && AccountantAccess::canManage($account)
             && Gate::allows('create', Expense::class)
             && Gate::allows('update', new Expense)
             && Gate::allows('create', FiscalDocument::class);
@@ -92,6 +89,9 @@ final class ConfirmInvoiceImport
                 }
 
                 $document = $this->recordDocument($decision, $expenses, $pdf);
+                if ($document !== null) {
+                    $this->keepLines($document, $draft);
+                }
                 if ($decision['bank'] !== null && $expenses[0]->bankLink()->doesntExist()) {
                     $this->bank->linkRecords($decision['bank'], $expenses);
                 }
@@ -164,6 +164,7 @@ final class ConfirmInvoiceImport
                 'client_id' => $client?->id,
             ])->save();
 
+            $this->keepLines($document, $draft);
             $this->issue->applyEffects($document);
             $this->keepPdf($document, $this->pdfBytes($import));
 
@@ -286,7 +287,9 @@ final class ConfirmInvoiceImport
             $expenses[] = Expense::create([
                 'supplier_id' => $supplier->id,
                 'category_id' => $decision['category_id'],
-                'kind' => ExpenseKind::Overhead,
+                'kind' => ExpenseKind::from($decision['kind_of_cost']),
+                'project_id' => $decision['project_id'],
+                'retainer_id' => $decision['retainer_id'],
                 'description' => Str::limit($decision['split'] ? $description.' · '.__('VAT at :rate%', ['rate' => (int) round((float) $rate['rate'] * 100)]) : $description, 250, ''),
                 'spent_on' => $draft['date'],
                 'net_amount' => $rate['net'],
@@ -334,6 +337,23 @@ final class ConfirmInvoiceImport
     private function keepPdf(FiscalDocument $document, string $pdf): FiscalDocument
     {
         return FiscalDocumentPdfs::isPdf($pdf) ? $this->pdfs->attach($document, $pdf) : $document;
+    }
+
+    /**
+     * The lines of the invoice on its fiscal document, when they stand for it: each with its price
+     * and rate, adding up to the invoice's base. The document's own amounts stay the invoice's.
+     *
+     * @param  array<string, mixed>  $draft
+     */
+    private function keepLines(FiscalDocument $document, array $draft): void
+    {
+        if ($document->lines()->exists()) {
+            return;
+        }
+
+        foreach (InvoiceImportDraft::documentLines($draft) as $line) {
+            $document->lines()->create($line);
+        }
     }
 
     /** The file as a PDF: itself, or the photo on a page. */

@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Enums\FiscalDocumentType;
+use App\Models\FiscalDocumentLine;
 use App\Modules\InvoiceReader\InvoiceData;
 use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
@@ -18,6 +19,8 @@ use Brick\Math\RoundingMode;
  */
 final class InvoiceImportDraft
 {
+    public const int MAX_LINES = 50;
+
     /** The documents that are a purchase: the others (credit notes, receipts, quotes) are not imported here. */
     private const array TYPES = [
         'FT' => FiscalDocumentType::Invoice,
@@ -88,12 +91,68 @@ final class InvoiceImportDraft
      */
     public static function corrected(array $draft, array $changes): array
     {
-        $draft = [...$draft, ...array_intersect_key($changes, array_flip(['number', 'date', 'supplier_name', 'supplier_nif', 'rates', 'lines', 'type']))];
+        $draft = [...$draft, ...array_intersect_key($changes, array_flip(['number', 'date', 'due_date', 'supplier_name', 'supplier_nif', 'customer_name', 'customer_nif', 'rates', 'lines', 'type']))];
         $draft['net'] = array_sum(array_column($draft['rates'], 'net'));
         $draft['vat'] = array_sum(array_column($draft['rates'], 'vat'));
         $draft['total'] = $draft['net'] + $draft['vat'];
 
         return $draft;
+    }
+
+    /**
+     * One line of the invoice, with what it comes to before VAT (the app's own sum for a document line).
+     *
+     * @param  string  $quantity  a decimal with a dot, as "1.5"
+     * @return DraftLine
+     */
+    public static function line(string $description, string $quantity, ?int $unitPrice, ?string $rate): array
+    {
+        $decimal = InvoiceData::decimal($quantity) ?? BigDecimal::one();
+
+        return [
+            'description' => $description,
+            'quantity' => (string) $decimal->strippedOfTrailingZeros(),
+            'unit_price' => $unitPrice,
+            'rate' => $rate,
+            'total' => $unitPrice === null ? null : FiscalDocumentTotals::line(self::thousandths($decimal), $unitPrice)['net'],
+        ];
+    }
+
+    /** A quantity in the thousandths a document line counts in. */
+    public static function thousandths(BigDecimal|string $quantity): int
+    {
+        $decimal = $quantity instanceof BigDecimal ? $quantity : (InvoiceData::decimal($quantity) ?? BigDecimal::one());
+
+        return max(1, $decimal->multipliedBy(FiscalDocumentLine::QUANTITY_SCALE)->toScale(0, RoundingMode::HalfUp)->toInt());
+    }
+
+    /**
+     * The lines as the fiscal document keeps them, or none when they cannot stand for the invoice:
+     * a line without its price or its rate, or lines that do not add up to the invoice's base.
+     *
+     * @param  array<string, mixed>  $draft
+     * @return list<array<string, int|string>>
+     */
+    public static function documentLines(array $draft): array
+    {
+        $lines = [];
+
+        foreach ($draft['lines'] ?? [] as $index => $line) {
+            if (! isset($line['unit_price'], $line['rate'])) {
+                return [];
+            }
+
+            $quantity = self::thousandths((string) $line['quantity']);
+            $basisPoints = (int) round((float) $line['rate'] * 10000);
+            $amounts = FiscalDocumentTotals::line($quantity, $line['unit_price'], 0, $basisPoints);
+            $lines[] = [
+                'sort' => $index, 'description' => $line['description'], 'quantity' => $quantity, 'unit' => 'un',
+                'unit_price' => $line['unit_price'], 'discount_basis_points' => 0, 'vat_basis_points' => $basisPoints,
+                'net_amount' => $amounts['net'], 'vat_amount' => $amounts['vat'], 'total_amount' => $amounts['total'],
+            ];
+        }
+
+        return array_sum(array_column($lines, 'net_amount')) === ($draft['net'] ?? null) ? $lines : [];
     }
 
     /** Whether the amounts read agree with each other: the base plus the VAT is the total. */
@@ -215,18 +274,17 @@ final class InvoiceImportDraft
     {
         $read = [];
 
-        foreach (is_array($lines) ? array_slice($lines, 0, 100) : [] as $line) {
+        foreach (is_array($lines) ? array_slice($lines, 0, self::MAX_LINES) : [] as $line) {
             $description = self::text($line['description'] ?? null, 255);
             if ($description === null) {
                 continue;
             }
 
+            $price = self::cents($line['unit_price'] ?? null);
             $read[] = [
-                'description' => $description,
-                'quantity' => (string) (InvoiceData::decimal($line['quantity'] ?? null)?->strippedOfTrailingZeros() ?? '1'),
-                'unit_price' => self::cents($line['unit_price'] ?? null),
-                'rate' => self::rate($line['vat_rate'] ?? null),
-                'total' => self::cents($line['line_total'] ?? null),
+                ...self::line($description, (string) ($line['quantity'] ?? '1'), $price !== null && $price >= 0 ? $price : null, self::rate($line['vat_rate'] ?? null)),
+                // What the invoice prints for the line, when it prints it.
+                'total' => self::cents($line['line_total'] ?? null) ?? ($price !== null && $price >= 0 ? self::line('', (string) ($line['quantity'] ?? '1'), $price, null)['total'] : null),
             ];
         }
 
