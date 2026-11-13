@@ -1088,3 +1088,15 @@ body{margin:0}
 
 /* Rodapé: o logótipo encostado à esquerda (sem isto, a coluna em flex esticava a imagem à largura toda e o SVG ficava centrado). */
 .st-foot3-col>.st-logo{align-self:flex-start}
+
+/* Razões · F5 (escolhida a 13/11): o mosaico do D5b com os tons da F1 (cada peça com a sua tinta
+   de vidro) e o contabilista arrumado como na F4 (as duas opções lado a lado).
+   Peças: 1 quanto pôr de parte, 2 contabilista, 3 faturas, 4 prazos. */
+.rz-f5 .rz-bento>.rz-tile:nth-child(2){border-color:rgba(25,245,160,.5);background:linear-gradient(180deg,rgba(25,245,160,.24),rgba(25,245,160,.04))}
+.rz-f5 .rz-bento>.rz-tile:nth-child(3){border-color:rgba(255,255,255,.2);background:linear-gradient(180deg,rgba(255,255,255,.1),rgba(255,255,255,.03))}
+.rz-f5 .rz-bento>.rz-tile:nth-child(4){border-color:rgba(var(--accent-rgb),.6);background:radial-gradient(60% 120% at 100% 100%,rgba(25,245,160,.22),transparent 70%),#0f1226}
+.rz-f5 .rz-acc-opts{display:grid !important;grid-template-columns:1fr 1fr;gap:10px !important}
+.rz-f5 .rz-acc-opts li{flex-direction:column;align-items:flex-start;gap:10px;padding:16px}
+.rz-f5 .rz-acc-opts li b{display:flex;flex-direction:column;gap:2px}
+.rz-f5 .rz-acc-ic{width:42px;height:42px}
+@media (max-width: 900px){.rz-f5 .rz-acc-opts{grid-template-columns:minmax(0,1fr)}}

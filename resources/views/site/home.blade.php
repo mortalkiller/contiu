@@ -18,8 +18,8 @@
 <p class="st-logos-note">Segue as regras da</p><ul class="st-logos st-logos--2"><li><img src="{{ asset('brand/entidades/autoridade-tributaria.png') }}" alt="Autoridade Tributária e Aduaneira"></li><li><img src="{{ asset('brand/entidades/seguranca-social-direta.svg') }}" alt="Segurança Social Direta"></li></ul>
 </div></section>
 
-{{-- «Porque somos a opção certa para ti?»: a proposta D5b do canvas (os valores são exemplos). --}}
-<section class="st-night st-night--glow st-sec rz-d rz-d3 rz-d4 rz-d5" data-site-anim><div class="st-wrap">
+{{-- «Porque somos a opção certa para ti?»: o mosaico D5b do canvas com os tons da F5 (os valores são exemplos). --}}
+<section class="st-night st-night--glow st-sec rz-d rz-d3 rz-d4 rz-d5 rz-f5" data-site-anim><div class="st-wrap">
 <div class="st-head"><h2 class="st-h2">Porque somos a <b>opção certa para ti</b>?</h2><p class="st-lede" style="color: #fff; font-size: 18px; line-height: 28px">Fizemos o Contiu para quem passa recibos verdes e não quer perder tempo, nem dinheiro, com burocracia.</p><p class="rz-law-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Segue a legislação portuguesa · atualizado para 2026</p></div>
 <div class="rz-bento">
 <article class="rz-tile rz-glass rz-glass--pad rz-s7 rz-r2"><h3>Quanto pôr de parte, mês a mês</h3><div class="rz-sum"><b>389,20 €</b><span>a pôr de parte em novembro (exemplo)</span></div><ul class="rz-legend-line"><li><i class="st-dot" style="background: var(--indigo)"></i>IRS</li><li><i class="st-dot" style="background: var(--pink)"></i>IVA</li><li><i class="st-dot" style="background: var(--lav)"></i>Segurança Social</li></ul>
