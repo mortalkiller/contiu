@@ -96,6 +96,41 @@ final class SiteSeo
         ];
     }
 
+    /**
+     * A legal page (Termos e Condições, Política de Privacidade): its own title and description,
+     * kept out of search engines while its text still has points to confirm.
+     *
+     * @return array{title: string, description: string, canonical: string, image: string, image_alt: string, type: string, robots: string, published: ?string, section: ?string, json_ld: array<string, mixed>}
+     */
+    public static function forLegal(string $title, string $description, string $canonical, bool $indexable): array
+    {
+        $home = route('site.home');
+
+        return [
+            'title' => $title.' · Contiu',
+            'description' => $description,
+            'canonical' => $canonical,
+            'image' => asset('site/og/home.png'),
+            'image_alt' => $title,
+            'type' => 'website',
+            'robots' => $indexable ? 'index, follow' : 'noindex, follow',
+            'published' => null,
+            'section' => null,
+            'json_ld' => ['@context' => 'https://schema.org', '@graph' => [
+                ...self::publisher($home),
+                [
+                    '@type' => 'WebPage',
+                    '@id' => $canonical.'#webpage',
+                    'url' => $canonical,
+                    'name' => $title,
+                    'description' => $description,
+                    'inLanguage' => 'pt-PT',
+                    'isPartOf' => ['@id' => $home.'#website'],
+                ],
+            ]],
+        ];
+    }
+
     /** @return array{title: string, description: string, image: string, image_alt: string, type: string} */
     private static function pageMeta(string $page): array
     {

@@ -4,7 +4,7 @@
     and the page stays out of search engines (legal/layout) until there is none left. Prices,
     trial days and company details come from config, so the text follows what is charged.
 --}}
-@extends('legal.layout', ['sections' => [
+@extends('legal.layout', ['document' => 'terms', 'lede' => 'As regras de utilização do Contiu: o serviço, a subscrição, os pagamentos e as responsabilidades de cada parte.', 'sections' => [
     'Quem presta o serviço' => 'legal.terms.01-provider',
     'O serviço' => 'legal.terms.02-service',
     'Serviço de contabilista certificado' => 'legal.terms.03-accountant',

@@ -1207,3 +1207,51 @@ body{margin:0}
 .ha-none a{color:var(--indigo);font-weight:700}
 .ha-related-head{margin:56px 0 16px !important;font-size:26px}
 @media (max-width: 900px){.ha-theme-cols{grid-template-columns:minmax(0,1fr)}}
+
+/* ───── Páginas legais (canvas site-legal.css, quadros «Legal · C»): topo claro com o título, a troca
+   entre os dois textos e as datas, e o texto numa coluna sobre branco. Classes lg-. ───── */
+.lg-switch{display:inline-flex;gap:4px;padding:4px;border:1px solid var(--accent-line);border-radius:999px;background:#fff}
+.lg-switch a{display:inline-flex;align-items:center;min-height:40px;padding:0 18px;border-radius:999px;color:var(--night);font-size:15px;font-weight:600;text-decoration:none}
+.lg-switch a[aria-current="page"]{background:var(--night);color:#fff}
+.lg-switch--dark{border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.08)}
+.lg-switch--dark a{color:#fff}
+.lg-switch--dark a[aria-current="page"]{background:var(--pink);color:var(--night)}
+.lg-meta{display:flex;flex-wrap:wrap;gap:8px}
+.lg-meta span{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:#fff;border:1px solid var(--accent-line);font-size:14px;line-height:20px;font-weight:600;color:var(--night)}
+.lg-meta span i{width:8px;height:8px;border-radius:50%;background:var(--pink)}
+.lg-meta--dark span{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.2);color:#fff}
+.lg-kick{font-size:13px;line-height:18px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--indigo)}
+.lg-body{background:#fff;color:var(--night)}
+.lg-body-in{display:grid;grid-template-columns:260px minmax(0,1fr);gap:64px;align-items:start;padding-top:64px;padding-bottom:96px}
+.lg-text{max-width:760px;font-size:17px;line-height:28px;color:#33364f}
+.lg-text>*+*{margin-top:14px}
+.lg-text h2{margin-top:48px;font-size:26px;line-height:34px;font-weight:800;letter-spacing:-.02em;color:var(--night);scroll-margin-top:100px}
+.lg-text h2:first-child{margin-top:0}
+.lg-text h2 i{margin-right:10px;font-style:normal;color:var(--indigo)}
+.lg-text h3{margin-top:28px;font-size:19px;line-height:26px;font-weight:700;color:var(--night)}
+.lg-text ul{display:flex;flex-direction:column;gap:6px}
+.lg-text ul li{position:relative;padding-left:22px}
+.lg-text ul li::before{content:"";position:absolute;left:4px;top:11px;width:7px;height:7px;border-radius:50%;background:var(--indigo)}
+.lg-text strong{color:var(--night)}
+.lg-text dl{display:grid;grid-template-columns:max-content 1fr;gap:6px 20px;padding:18px 20px;border-radius:16px;background:var(--mist);font-size:15px;line-height:22px}
+.lg-text dt{color:#6b6f8e}
+.lg-text dd{margin:0;font-weight:600;color:var(--night)}
+.lg-text a{color:var(--indigo);font-weight:600}
+.lg-todo{padding:12px 16px;border-left:4px solid #f2c063;border-radius:0 12px 12px 0;background:#fff7e0;color:#7a5200;font-size:15px;line-height:22px;font-weight:600}
+.lg-c{padding:156px 0 64px;background:linear-gradient(180deg,var(--mist),#fff)}
+.lg-c .tp-head{display:flex;flex-direction:column;align-items:center;gap:20px;max-width:820px;margin:0 auto 48px;text-align:center}
+.lg-c--plain{padding-bottom:72px}
+.lg-c--plain .tp-head{margin-bottom:0}
+.lg-body--plain .lg-body-in{display:block;padding-top:16px}
+.lg-body--plain .lg-text{max-width:760px;margin:0 auto}
+.lg-text table{width:100%;border-collapse:collapse;font-size:16px;line-height:24px}
+.lg-text th,.lg-text td{padding:10px 12px;border-bottom:1px solid var(--accent-line);text-align:left;vertical-align:top}
+.lg-text th{font-size:14px;font-weight:600;color:#6b6f8e}
+.lg-text i{font-style:italic}
+.lg-text .placeholder{padding:12px 16px;border-left:4px solid #f2c063;border-radius:0 12px 12px 0;background:#fff7e0;color:#7a5200;font-size:15px;line-height:22px;font-weight:600}
+.lg-text .placeholder-inline{padding:1px 6px;border-radius:6px;background:#fff7e0;color:#7a5200;font-size:15px;font-weight:600}
+/* The site resets the margins of p and ul (.st p): the legal text keeps its own spacing. */
+.lg .lg-text>*+*{margin-top:14px}
+.lg .lg-text>h2{margin-top:48px}
+.lg .lg-text>h2:first-child{margin-top:0}
+.lg .lg-text>h3{margin-top:28px}

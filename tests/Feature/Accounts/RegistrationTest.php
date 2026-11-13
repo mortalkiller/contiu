@@ -590,7 +590,7 @@ it('serves the terms and privacy pages', function (string $path, string $title, 
         ->assertSee($toConfirm)
         ->assertSee('Versão 2026-11-13')
         // While something is still to be written or confirmed: kept out of search engines.
-        ->assertSee('<meta name="robots" content="noindex">', escape: false)
+        ->assertSee('<meta name="robots" content="noindex, follow">', escape: false)
         ->assertSee('brand/contiu/contiu-logo-white.svg', escape: false);
 })->with([
     'terms' => ['/termos', 'Termos e Condições', 'A confirmar:'],

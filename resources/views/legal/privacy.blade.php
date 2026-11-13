@@ -4,7 +4,7 @@
     legal/privacy; what is still to confirm shows highlighted ("A confirmar"), and the page stays
     out of search engines (legal/layout) until there is none left.
 --}}
-@extends('legal.layout', ['sections' => [
+@extends('legal.layout', ['document' => 'privacy', 'lede' => 'Que dados o Contiu trata, para quê, com quem os partilha e como podes exercer os teus direitos.', 'sections' => [
     'Responsável pelo tratamento' => 'legal.privacy.01',
     'Dados que recolhemos' => 'legal.privacy.02',
     'Para que usamos os dados e com que fundamento' => 'legal.privacy.03',

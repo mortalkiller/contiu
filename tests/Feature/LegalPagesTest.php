@@ -50,7 +50,7 @@ it('shows the terms with the prices, trial and version as configured, and what i
         ->assertSee('mailto:ajuda@contiu.pt', escape: false)
         ->assertSee('Estes Termos entram em vigor a 13 de novembro de 2026.')
         ->assertSee('<p class="placeholder">A confirmar:', escape: false)
-        ->assertSee('<meta name="robots" content="noindex">', escape: false);
+        ->assertSee('<meta name="robots" content="noindex, follow">', escape: false);
 })->group('ui');
 
 it('shows the privacy policy with what the code already answers, and what is still to confirm', function () {
@@ -65,3 +65,16 @@ it('shows the privacy policy with what the code already answers, and what is sti
         ->assertSee('<p class="placeholder">A confirmar:', escape: false)
         ->assertDontSee('[A CONFIRMAR');
 })->group('ui');
+
+it('shows the legal pages inside the site, with the switch between both texts', function (string $path, string $current) {
+    $this->get($path)
+        ->assertOk()
+        ->assertSee('data-site-nav', escape: false)
+        ->assertSee('class="st-foot3"', escape: false)
+        ->assertSee('<a href="'.route($current).'"  aria-current="page" >', escape: false)
+        ->assertSee('Em vigor desde 13 de novembro de 2026')
+        ->assertSee('min de leitura');
+})->with([
+    'terms' => ['/termos', 'legal.terms'],
+    'privacy' => ['/privacidade', 'legal.privacy'],
+])->group('ui');
