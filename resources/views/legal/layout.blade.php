@@ -106,6 +106,7 @@
         table { width: 100%; margin-top: 12px; border-collapse: collapse; font-size: 15px; }
         th, td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; }
         th { color: var(--muted); font-weight: 500; }
+        .placeholder-inline { padding: 1px 6px; border-radius: 6px; background: var(--note); color: var(--note-text); font-size: 14px; }
         p + .placeholder, .placeholder + p, ul + .placeholder, table + .placeholder, dl + p { margin-top: 12px; }
         .placeholder {
             padding: 12px 16px;

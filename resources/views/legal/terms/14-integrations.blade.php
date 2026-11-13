@@ -12,7 +12,7 @@
 <p>A extração automática pode ter erros, omissões ou interpretações incorretas. Deves rever e confirmar os valores antes de os guardares. Usar esta funcionalidade não dispensa a conservação dos documentos originais quando a lei a exige.</p>
 <p class="placeholder">A confirmar: localização efetiva de todo o processamento e armazenamento associados à IA, prazos de conservação, eventual uso dos dados para treino de modelos e condições contratuais de proteção de dados do fornecedor.</p>
 <h3>Outros serviços</h3>
-<ul><li><strong>Stripe:</strong> processamento de pagamentos e gestão das subscrições.</li><li><strong>VIES, da Comissão Europeia:</strong> validação de números de IVA na União Europeia.</li></ul>
+<ul><li><strong>Stripe:</strong> processamento de pagamentos e gestão das subscrições.</li><li><strong>VIES, da Comissão Europeia:</strong> validação de números de IVA na União Europeia.</li><li><strong>GEO API PT:</strong> preenchimento de ruas e localidades a partir do código postal.</li></ul>
 <p class="placeholder">A confirmar: fornecedor e região do alojamento, e fornecedor do envio de emails.</p>
 <p>As integrações dependem da disponibilidade técnica e das condições dos respetivos prestadores. Uma falha num serviço externo pode afetar temporariamente algumas funcionalidades do Contiu.</p>
 <p>A {{ config('contiu.company.short_name') }} não controla a infraestrutura desses prestadores, mas mantém as responsabilidades que legal ou contratualmente lhe cabem na escolha, configuração e utilização dos mesmos.</p>

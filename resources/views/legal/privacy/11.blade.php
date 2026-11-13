@@ -1,0 +1,11 @@
+<p>O site e a aplicação Contiu utilizam apenas cookies estritamente necessários ao funcionamento do serviço.</p>
+<p>Estes cookies permitem, nomeadamente:</p>
+<ul><li>Manter a tua sessão autenticada;</li><li>Garantir a segurança das sessões;</li><li>Proteger os formulários contra pedidos falsificados (CSRF).</li></ul>
+<p>Não utilizamos cookies de análise de utilização nem cookies de publicidade ou rastreamento comercial.</p>
+<p>Por esse motivo, e enquanto forem utilizados exclusivamente cookies tecnicamente necessários, não apresentamos um banner para recolher consentimento para cookies.</p>
+<p>A utilização destes cookies necessários não depende de consentimento prévio, nos termos da legislação aplicável, sem prejuízo dos deveres de informação e das regras de proteção de dados.</p>
+<p>Podes configurar o teu navegador para bloquear ou eliminar cookies. No entanto, bloquear cookies essenciais pode impedir o funcionamento de determinadas funcionalidades, incluindo o início de sessão.</p>
+<p>Os cookies e o armazenamento local que usamos:</p>
+<table><thead><tr><th>Nome</th><th>Para quê</th><th>Duração</th></tr></thead><tbody><tr><td>{{ config('session.cookie') }}</td><td>Manter a sessão (site e aplicação)</td><td>{{ config('session.lifetime') }} minutos sem atividade</td></tr><tr><td>XSRF-TOKEN</td><td>Proteger os formulários contra pedidos forjados</td><td>{{ config('session.lifetime') }} minutos sem atividade</td></tr><tr><td>remember_web_…</td><td>Manter a sessão iniciada, só se escolheres «Manter sessão iniciada neste dispositivo»</td><td>Até 400 dias, ou até terminares a sessão</td></tr><tr><td>__stripe_mid, __stripe_sid</td><td>Prevenção de fraude da Stripe, só no passo de pagamento com cartão</td><td>Definida pela Stripe</td></tr><tr><td>Armazenamento local (aplicação)</td><td>Lembrar o modo claro ou escuro e se a barra lateral está recolhida</td><td>Até o apagares no navegador</td></tr></tbody></table>
+<p class="placeholder">A confirmar: antes de acrescentar qualquer ferramenta de análise, publicidade, personalização ou rastreamento, incluindo ferramentas externas que possam introduzir cookies ou tecnologias semelhantes.</p>
+<p>Se forem introduzidas tecnologias que exijam consentimento, atualizaremos esta Política e implementaremos os mecanismos necessários antes da sua utilização.</p>

@@ -594,7 +594,7 @@ it('serves the terms and privacy pages', function (string $path, string $title, 
         ->assertSee('brand/contiu/contiu-logo-white.svg', escape: false);
 })->with([
     'terms' => ['/termos', 'Termos e Condições', 'A confirmar:'],
-    'privacy' => ['/privacidade', 'Política de Privacidade', 'Texto a fornecer pelo Pedro'],
+    'privacy' => ['/privacidade', 'Política de Privacidade', 'A confirmar:'],
 ])->group('ui');
 
 it('keeps the sign-up page logo while moving between steps', function () {

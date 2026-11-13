@@ -15,7 +15,7 @@ it('names the company behind Contiu as provider and data controller', function (
         ->assertSee('https://trekdev.com', escape: false);
 })->with([
     'terms' => ['/termos', 'O Contiu é um serviço disponibilizado pela'],
-    'privacy' => ['/privacidade', 'A responsável pelo tratamento dos dados pessoais da tua conta Contiu é a'],
+    'privacy' => ['/privacidade', 'O Contiu é um serviço disponibilizado pela'],
 ])->group('ui');
 
 it('leaves out the company details that are not configured', function () {
@@ -26,9 +26,9 @@ it('leaves out the company details that are not configured', function () {
     $this->get('/privacidade')
         ->assertOk()
         ->assertSee('TrekDev - Tecnologias de Informação, Lda')
-        ->assertDontSee('NIPC')
-        ->assertDontSee('Sede')
-        ->assertDontSee('mailto:', escape: false);
+        ->assertDontSee('<dt>NIPC', escape: false)
+        ->assertDontSee('<dt>Sede', escape: false)
+        ->assertDontSee('<dt>Email</dt>', escape: false);
 })->group('ui');
 
 it('says the certified accountant service is external and Contiu only an intermediary', function () {
@@ -51,4 +51,17 @@ it('shows the terms with the prices, trial and version as configured, and what i
         ->assertSee('Estes Termos entram em vigor a 13 de novembro de 2026.')
         ->assertSee('<p class="placeholder">A confirmar:', escape: false)
         ->assertSee('<meta name="robots" content="noindex">', escape: false);
+})->group('ui');
+
+it('shows the privacy policy with what the code already answers, and what is still to confirm', function () {
+    $this->get('/privacidade')
+        ->assertOk()
+        ->assertSee('<title>Política de Privacidade · Contiu</title>', escape: false)
+        ->assertSeeInOrder(['Responsável pelo tratamento', 'Cookies', 'Alterações a esta política'])
+        ->assertSeeInOrder([config('session.cookie'), 'XSRF-TOKEN', 'remember_web_'])
+        ->assertSee('uma por ano durante 2 anos')
+        ->assertSee('mailto:ajuda@contiu.pt', escape: false)
+        ->assertSee('Esta Política entra em vigor a 13 de novembro de 2026.')
+        ->assertSee('<p class="placeholder">A confirmar:', escape: false)
+        ->assertDontSee('[A CONFIRMAR');
 })->group('ui');
