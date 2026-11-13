@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Expenses\Pages;
 
 use App\Enums\ExpenseKind;
-use App\Filament\Pages\ExpenseDocumentImport;
+use App\Filament\Pages\InvoiceImportInbox;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\Expenses\Tables\ExpensesTable;
 use App\Filament\Resources\Expenses\Widgets\ExpensesSummary;
@@ -52,8 +52,8 @@ class ListExpenses extends ListRecords
             Action::make('importInvoices')
                 ->label(__('Import invoices'))
                 ->color('gray')
-                ->url(fn (): string => ExpenseDocumentImport::getUrl())
-                ->visible(fn (): bool => ExpenseDocumentImport::canAccess()),
+                ->url(fn (): string => InvoiceImportInbox::getUrl())
+                ->visible(fn (): bool => InvoiceImportInbox::canAccess()),
             CreateAction::make()
                 ->label(__('New expense'))
                 ->icon(Phosphor::Plus),

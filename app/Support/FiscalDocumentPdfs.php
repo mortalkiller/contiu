@@ -108,6 +108,18 @@ final class FiscalDocumentPdfs
         return true;
     }
 
+    /** Keeps a PDF the app already holds (an imported invoice) as the document's own. */
+    public function attach(FiscalDocument $document, string $bytes): FiscalDocument
+    {
+        $this->authorizeWrite($document);
+
+        if (! self::isPdf($bytes)) {
+            throw ValidationException::withMessages(['data.pdf_upload' => __('Select a valid PDF file up to 10 MB.')]);
+        }
+
+        return $this->store($bytes, fn (): FiscalDocument => $document);
+    }
+
     public static function isPdf(string $bytes): bool
     {
         if (strlen($bytes) > self::MAX_BYTES

@@ -27,7 +27,10 @@ class ExpenseDocumentImport extends Page
 {
     use WithFileUploads;
 
-    protected static ?string $slug = 'importar-faturas';
+    /** Reached from "Importar faturas" (InvoiceImportInbox), for the e-Fatura file, a supplier's CSV or a QR code alone. */
+    protected static ?string $slug = 'importar-faturas/ficheiro-csv';
+
+    protected static bool $shouldRegisterNavigation = false;
 
     protected static string|BackedEnum|null $navigationIcon = Phosphor::UploadSimple;
 

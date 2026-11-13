@@ -302,8 +302,8 @@ it('permits read-only previews and refuses confirmation at the action boundary',
 it('registers the expenses import route only for users who can access that tenant', function () {
     $owner = ownerOf($this->account);
     $other = Account::factory()->create();
-    $url = route('filament.admin.pages.importar-faturas', ['tenant' => $this->account->slug]);
-    $otherUrl = route('filament.admin.pages.importar-faturas', ['tenant' => $other->slug]);
+    $url = route('filament.admin.pages.importar-faturas.ficheiro-csv', ['tenant' => $this->account->slug]);
+    $otherUrl = route('filament.admin.pages.importar-faturas.ficheiro-csv', ['tenant' => $other->slug]);
 
     $this->actingAs($owner);
     asAWebRequest();

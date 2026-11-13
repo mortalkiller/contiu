@@ -5,6 +5,7 @@
 @import './partials/signup.css';
 @import './partials/auth.css';
 @import './partials/loader.css';
+@import './partials/invoice-import.css';
 
 @source '../../../../app/Filament/**/*';
 @source '../../../../resources/views/filament/**/*';

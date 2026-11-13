@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Suppliers\Widgets;
 
 use App\Enums\Language;
-use App\Filament\Pages\ExpenseDocumentImport;
+use App\Filament\Pages\InvoiceImportInbox;
 use App\Models\Expense;
 use App\Models\Supplier;
 use App\Support\Money;
@@ -68,7 +68,7 @@ class SupplierSummary extends StatsOverviewWidget
                 ->valueColor($unpaid->isEmpty() ? null : 'warning'),
             Stat::make(__('Without supporting document'), (string) $withoutProof)
                 ->description($withoutProof === 0 ? __('Every expense has one') : __('Import the invoice'))
-                ->url($withoutProof > 0 && ExpenseDocumentImport::canAccess() ? ExpenseDocumentImport::getUrl() : null),
+                ->url($withoutProof > 0 && InvoiceImportInbox::canAccess() ? InvoiceImportInbox::getUrl() : null),
             Stat::make(__('Since the start'), Money::format($total($expenses)))
                 ->description($first === null
                     ? $count(0)

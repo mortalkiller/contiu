@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\Expenses\Pages;
 
-use App\Filament\Pages\ExpenseDocumentImport;
+use App\Filament\Pages\InvoiceImportInbox;
 use App\Filament\Resources\Concerns\HasSaveBar;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\Expenses\Schemas\ExpenseForm;
@@ -52,12 +52,12 @@ class CreateExpense extends CreateRecord
     /** As in the mock: the way to have the fields filled in from the invoice. */
     public function getSubheading(): ?Htmlable
     {
-        if (! ExpenseDocumentImport::canAccess()) {
+        if (! InvoiceImportInbox::canAccess()) {
             return null;
         }
 
         return new HtmlString(__('Have the invoice as a PDF? :link and Contiu fills in these fields.', [
-            'link' => '<a href="'.e(ExpenseDocumentImport::getUrl()).'" class="font-medium text-primary-600 underline underline-offset-2 dark:text-primary-400">'.e(__('Import it')).'</a>',
+            'link' => '<a href="'.e(InvoiceImportInbox::getUrl()).'" class="font-medium text-primary-600 underline underline-offset-2 dark:text-primary-400">'.e(__('Import it')).'</a>',
         ]));
     }
 

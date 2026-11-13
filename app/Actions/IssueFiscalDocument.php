@@ -190,8 +190,11 @@ final class IssueFiscalDocument
         return $remote;
     }
 
-    /** What an issued document changes around it: what is owed, what was received. */
-    private function applyEffects(FiscalDocument $document): void
+    /**
+     * What an issued document changes around it: what is owed, what was received. Also for an
+     * invoice issued elsewhere and recorded here afterwards ("Registar como venda").
+     */
+    public function applyEffects(FiscalDocument $document): void
     {
         $link = $document->links()->firstOrCreate([]);
 

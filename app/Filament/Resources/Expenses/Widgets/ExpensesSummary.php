@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Expenses\Widgets;
 
 use App\Enums\ExpenseKind;
-use App\Filament\Pages\ExpenseDocumentImport;
+use App\Filament\Pages\InvoiceImportInbox;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Support\ProportionBar;
 use App\Models\Expense;
@@ -66,7 +66,7 @@ class ExpensesSummary extends StatsOverviewWidget
                 ->bars($paidByMonth, 'clay', label: __('Last 6 months'), labels: $monthLabels, formatValueUsing: fn (int $cents): string => Money::format($cents, locale: app()->getLocale())),
             Stat::make(__('Missing supporting document'), (string) $withoutProof)
                 ->description($withoutProof === 0 ? __('All documented') : __('Attach them in Import invoices'))
-                ->url($withoutProof === 0 || ! ExpenseDocumentImport::canAccess() ? null : ExpenseDocumentImport::getUrl()),
+                ->url($withoutProof === 0 || ! InvoiceImportInbox::canAccess() ? null : InvoiceImportInbox::getUrl()),
             Stat::make(__('In :year', ['year' => today()->year]), Money::format($byKind(ExpenseKind::Overhead) + $byKind(ExpenseKind::Direct), locale: app()->getLocale()))
                 ->description(ProportionBar::render([
                     ['label' => __('Overhead'), 'cents' => $byKind(ExpenseKind::Overhead), 'tone' => 'clay'],
