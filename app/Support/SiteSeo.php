@@ -31,6 +31,71 @@ final class SiteSeo
         ];
     }
 
+    /**
+     * A page of the help centre under /ajuda (a theme, the search or an article): its own title,
+     * description and address, the help's image, a breadcrumb under «Ajuda» and, for an article,
+     * the article itself. The search is not indexed.
+     *
+     * @param  'theme'|'search'|'article'  $kind
+     * @param  list<array{0: string, 1: ?string}>  $trail  Under «Ajuda»: label and address (null for this page).
+     * @param  array<string, mixed>|null  $article  The help article (App\Support\HelpArticles), for its page.
+     * @return array{title: string, description: string, canonical: string, image: string, image_alt: string, type: string, robots: string, published: ?string, section: ?string, json_ld: array<string, mixed>}
+     */
+    public static function forHelp(string $kind, string $title, string $description, string $canonical, array $trail, ?array $article = null): array
+    {
+        $meta = [
+            'title' => $title.' · Ajuda Contiu',
+            'description' => $description,
+            'image' => asset('site/og/help.png'),
+            'image_alt' => $title,
+            'type' => $kind === 'article' ? 'article' : 'website',
+        ];
+        $home = route('site.home');
+        $crumbs = [['Início', $home], ['Ajuda', route('site.help')], ...array_map(fn (array $crumb): array => [$crumb[0], $crumb[1] ?? $canonical], $trail)];
+
+        $graph = [
+            ...self::publisher($home),
+            [
+                '@type' => $kind === 'theme' ? 'CollectionPage' : 'WebPage',
+                '@id' => $canonical.'#webpage',
+                'url' => $canonical,
+                'name' => $meta['title'],
+                'description' => $description,
+                'inLanguage' => 'pt-PT',
+                'isPartOf' => ['@id' => $home.'#website'],
+                'breadcrumb' => ['@id' => $canonical.'#breadcrumb'],
+            ],
+            [
+                '@type' => 'BreadcrumbList',
+                '@id' => $canonical.'#breadcrumb',
+                'itemListElement' => array_map(fn (array $crumb, int $index): array => ['@type' => 'ListItem', 'position' => $index + 1, 'name' => $crumb[0], 'item' => $crumb[1]], $crumbs, array_keys($crumbs)),
+            ],
+        ];
+
+        if ($article !== null) {
+            $graph[] = [
+                '@type' => 'Article',
+                '@id' => $canonical.'#article',
+                'mainEntityOfPage' => ['@id' => $canonical.'#webpage'],
+                'headline' => $article['question'],
+                'description' => $article['answer'],
+                'articleSection' => $article['theme'],
+                'inLanguage' => 'pt-PT',
+                'author' => ['@id' => $home.'#organization'],
+                'publisher' => ['@id' => $home.'#organization'],
+            ];
+        }
+
+        return [
+            ...$meta,
+            'canonical' => $canonical,
+            'robots' => $kind === 'search' ? 'noindex, follow' : 'index, follow, max-image-preview:large',
+            'published' => null,
+            'section' => $article['theme'] ?? null,
+            'json_ld' => ['@context' => 'https://schema.org', '@graph' => $graph],
+        ];
+    }
+
     /** @return array{title: string, description: string, image: string, image_alt: string, type: string} */
     private static function pageMeta(string $page): array
     {
@@ -95,29 +160,10 @@ final class SiteSeo
         $application = ['@id' => $home.'#software'];
 
         $graph = [
-            [
-                '@type' => 'Organization',
-                '@id' => $organization['@id'],
-                'name' => 'Contiu',
-                'url' => $home,
-                'logo' => asset('favicons/android-chrome-512x512.png'),
-                'email' => $company['email'],
-                'legalName' => $company['name'],
-                'vatID' => 'PT'.$company['vat_number'],
-                'address' => ['@type' => 'PostalAddress', 'streetAddress' => $company['address'], 'addressCountry' => 'PT'],
-            ],
-            [
-                '@type' => 'WebSite',
-                '@id' => $website['@id'],
-                'name' => 'Contiu',
-                'url' => $home,
-                'inLanguage' => 'pt-PT',
-                'publisher' => $organization,
-            ],
+            ...self::publisher($home),
             array_filter([
                 '@type' => match ($page) {
-                    'blog' => 'CollectionPage',
-                    'help' => 'FAQPage',
+                    'blog', 'help' => 'CollectionPage',
                     default => 'WebPage',
                 },
                 '@id' => $canonical.'#webpage',
@@ -129,7 +175,7 @@ final class SiteSeo
                 'primaryImageOfPage' => ['@type' => 'ImageObject', 'url' => $meta['image'], 'width' => 1200, 'height' => 630],
                 'breadcrumb' => $page === 'home' ? null : ['@id' => $canonical.'#breadcrumb'],
                 'about' => in_array($page, ['home', 'features', 'pricing'], true) ? $application : null,
-                'mainEntity' => $page === 'help' ? self::questions('help') : null,
+                'hasPart' => $page === 'help' ? HelpArticles::all()->map(fn (array $article): array => ['@type' => 'Article', 'headline' => $article['question'], 'url' => $article['url']])->all() : null,
             ]),
         ];
 
@@ -299,5 +345,39 @@ final class SiteSeo
             'name' => $item['question'],
             'acceptedAnswer' => ['@type' => 'Answer', 'text' => $item['answer']],
         ], SiteFaq::for($page));
+    }
+
+    /**
+     * Who publishes the site: the Organization and the WebSite nodes every page's graph starts with.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private static function publisher(string $home): array
+    {
+        $company = config('contiu.company');
+        $organization = ['@id' => $home.'#organization'];
+        $website = ['@id' => $home.'#website'];
+
+        return [
+            [
+                '@type' => 'Organization',
+                '@id' => $organization['@id'],
+                'name' => 'Contiu',
+                'url' => $home,
+                'logo' => asset('favicons/android-chrome-512x512.png'),
+                'email' => $company['email'],
+                'legalName' => $company['name'],
+                'vatID' => 'PT'.$company['vat_number'],
+                'address' => ['@type' => 'PostalAddress', 'streetAddress' => $company['address'], 'addressCountry' => 'PT'],
+            ],
+            [
+                '@type' => 'WebSite',
+                '@id' => $website['@id'],
+                'name' => 'Contiu',
+                'url' => $home,
+                'inLanguage' => 'pt-PT',
+                'publisher' => $organization,
+            ],
+        ];
     }
 }

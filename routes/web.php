@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\BlogController;
+use App\Http\Controllers\HelpController;
 use App\Http\Controllers\SetGuestLanguageController;
 use App\Support\PanelLocation;
 use Illuminate\Http\Request;
@@ -17,7 +18,10 @@ Route::domain(PanelLocation::siteDomain())->name('site.')->group(function (): vo
     Route::view('contabilista', 'site.accountant')->name('accountant');
     Route::get('blogue', [BlogController::class, 'index'])->name('blog');
     Route::get('blogue/{slug}', [BlogController::class, 'show'])->name('blog.post');
-    Route::view('ajuda', 'site.help')->name('help');
+    Route::get('ajuda', [HelpController::class, 'index'])->name('help');
+    Route::get('ajuda/pesquisa', [HelpController::class, 'search'])->name('help.search');
+    Route::get('ajuda/{theme}', [HelpController::class, 'theme'])->name('help.theme');
+    Route::get('ajuda/{theme}/{article}', [HelpController::class, 'article'])->name('help.article');
     Route::get('sitemap.xml', fn () => response()->view('site.sitemap')->header('Content-Type', 'application/xml'))->name('sitemap');
 });
 

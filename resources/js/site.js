@@ -125,44 +125,6 @@ document.querySelectorAll('[data-site-share]').forEach((share) => {
     });
 });
 
-// Ajuda: the search hides the questions without every word typed (accents and case ignored),
-// and a link to a question (#id, from «Mais procuradas») opens it.
-const helpSearch = document.querySelector('[data-site-faq-search]');
-const helpList = document.querySelector('[data-site-faq-list]');
-
-if (helpSearch && helpList) {
-    const input = helpSearch.querySelector('input');
-    const empty = helpList.querySelector('[data-site-faq-empty]');
-    const plain = (text) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-
-    const filter = () => {
-        const words = plain(input.value).split(/\s+/).filter(Boolean);
-        let shown = 0;
-
-        helpList.querySelectorAll('[data-site-faq-group]').forEach((group) => {
-            let inGroup = 0;
-
-            group.querySelectorAll('details').forEach((item) => {
-                const text = plain(item.textContent);
-                item.hidden = !words.every((word) => text.includes(word));
-                inGroup += item.hidden ? 0 : 1;
-            });
-
-            group.hidden = inGroup === 0;
-            shown += inGroup;
-        });
-
-        empty.hidden = shown > 0;
-    };
-
-    input.addEventListener('input', filter);
-    helpSearch.addEventListener('submit', (event) => {
-        event.preventDefault();
-        filter();
-        helpList.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-}
-
 const openLinkedQuestion = () => {
     const target = window.location.hash ? document.getElementById(decodeURIComponent(window.location.hash.slice(1))) : null;
 

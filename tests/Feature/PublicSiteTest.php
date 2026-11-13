@@ -2,9 +2,9 @@
 
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Support\Blog;
+use App\Support\HelpArticles;
 use App\Support\PanelLocation;
 use App\Support\PublicSite;
-use App\Support\SiteFaq;
 use Illuminate\Testing\TestResponse;
 
 pest()->group('ui');
@@ -41,7 +41,7 @@ it('serves each page of the site with its own title, description, canonical addr
     'pricing' => ['site.pricing', 'Preços · Contiu', 'SoftwareApplication'],
     'accountant' => ['site.accountant', 'Contabilista certificado · Contiu', 'Service'],
     'blog' => ['site.blog', 'Blogue · Contiu', 'Blog'],
-    'help' => ['site.help', 'Ajuda · Contiu', 'FAQPage'],
+    'help' => ['site.help', 'Ajuda · Contiu', 'CollectionPage'],
 ]);
 
 it('keeps the site at the root and the panel at /app, on its own domain when one is set', function () {
@@ -90,18 +90,23 @@ it('shows the plan on the home page with VAT, monthly first, with or without the
         ->assertSee('data-only-plan="contab" hidden', escape: false);
 });
 
-it('gives search engines the same questions the page shows', function () {
+it('lists every help article on the help centre, by theme, as search engines read it', function () {
     $response = $this->get(route('site.help'));
-    $questions = collect(SiteFaq::for('help'))->pluck('question');
+    $articles = HelpArticles::all();
 
-    $response->assertSeeInOrder($questions->all());
-    expect(collect(siteJsonLd($response)['FAQPage']['mainEntity'])->pluck('name'))->toEqual($questions);
+    $response->assertSeeInOrder(HelpArticles::themes()->pluck('name')->all());
+
+    foreach ($articles as $article) {
+        $response->assertSee('href="'.$article['url'].'"', escape: false);
+    }
+
+    expect(collect(siteJsonLd($response)['CollectionPage']['hasPart'])->pluck('headline'))->toEqual($articles->pluck('question'));
 });
 
-it('links the most asked questions of the help page to the questions on the page', function () {
-    $popular = SiteFaq::popular();
+it('opens the most asked articles from the help centre', function () {
+    $popular = HelpArticles::popular();
 
-    expect(collect($popular)->pluck('question')->all())->toBe([
+    expect($popular->pluck('question')->all())->toBe([
         'O Contiu é para mim?',
         'Os valores são oficiais?',
         'Posso emitir faturas pelo Contiu?',
@@ -109,11 +114,70 @@ it('links the most asked questions of the help page to the questions on the page
         'Posso cancelar quando quiser?',
     ]);
 
-    $response = $this->get(route('site.help'))->assertSee('data-site-faq-search', escape: false);
+    $response = $this->get(route('site.help'));
 
-    foreach ($popular as $item) {
-        $response->assertSeeInOrder(['href="#'.$item['id'].'"', '<details id="'.$item['id'].'"'], escape: false);
+    foreach ($popular as $article) {
+        $response->assertSeeInOrder(['Mais procuradas', 'href="'.$article['url'].'"', 'Perguntas <b>mais frequentes</b>', 'href="'.$article['url'].'"'], escape: false);
     }
+});
+
+it('shows a theme of the help centre with its articles, and no theme that does not exist', function () {
+    $theme = HelpArticles::theme('impostos');
+
+    $response = $this->get(route('site.help.theme', 'impostos'))->assertOk()
+        ->assertSee('<title>Impostos · Ajuda Contiu</title>', escape: false)
+        ->assertSee('<link rel="canonical" href="'.route('site.help.theme', 'impostos').'">', escape: false);
+
+    $response->assertSeeInOrder($theme['articles']->pluck('question')->all());
+
+    $this->get(route('site.help.theme', 'nao-existe'))->assertNotFound();
+});
+
+it('shows a help article with its answer, its longer text when it has one, and related articles', function () {
+    $article = HelpArticles::find('faturacao', 'posso-emitir-faturas-pelo-contiu');
+
+    $response = $this->get($article['url'])->assertOk()
+        ->assertSee('<title>Posso emitir faturas pelo Contiu? · Ajuda Contiu</title>', escape: false)
+        ->assertSeeInOrder(['Faturação', 'Posso emitir faturas pelo Contiu?', $article['answer'], 'Ligar o InvoiceXpress', 'Artigos <b>relacionados</b>', 'E se eu não tiver programa de faturação?'], escape: false);
+
+    $jsonLd = siteJsonLd($response);
+    expect($jsonLd['Article']['headline'])->toBe('Posso emitir faturas pelo Contiu?')
+        ->and(collect($jsonLd['BreadcrumbList']['itemListElement'])->pluck('name')->all())->toBe(['Início', 'Ajuda', 'Faturação', 'Posso emitir faturas pelo Contiu?']);
+
+    $this->get(HelpArticles::find('impostos', 'os-valores-sao-oficiais')['url'])->assertOk()
+        ->assertSee('O valor oficial é sempre o da Autoridade Tributária')
+        ->assertDontSee('class="st-prose"', escape: false);
+
+    $this->get(route('site.help.article', ['faturacao', 'nao-existe']))->assertNotFound();
+    $this->get(route('site.help.article', ['impostos', 'posso-emitir-faturas-pelo-contiu']))->assertNotFound();
+});
+
+it('searches the help articles with every word, accents and case ignored, out of search engines', function () {
+    $this->get(route('site.help.search', ['q' => 'FATURACAO programa']))->assertOk()
+        ->assertSee('<meta name="robots" content="noindex, follow">', escape: false)
+        ->assertSee('1 artigo')
+        ->assertSee('E se eu não tiver <mark>programa</mark> de faturação?', escape: false)
+        ->assertDontSee('Posso cancelar quando quiser?</b>', escape: false);
+
+    $this->get(route('site.help.search', ['q' => '<script>alert(1)</script>']))->assertOk()
+        ->assertDontSee('<script>alert(1)</script>', escape: false)
+        ->assertSee('Não encontrámos nenhum artigo');
+});
+
+it('lists the help themes and articles in the sitemap', function () {
+    $response = $this->get(route('site.sitemap'))->assertOk();
+
+    foreach (HelpArticles::themes() as $theme) {
+        $response->assertSee('<loc>'.$theme['url'].'</loc>', escape: false);
+    }
+
+    $response->assertSee('<loc>'.HelpArticles::find('faturacao', 'posso-emitir-faturas-pelo-contiu')['url'].'</loc>', escape: false);
+});
+
+it('points the help page to the help email, without the free trial band', function () {
+    $this->get(route('site.help'))
+        ->assertSee('href="mailto:ajuda@contiu.pt"', escape: false)
+        ->assertDontSee('st-band', escape: false);
 });
 
 it('links the sign-in and the free trial to the panel', function () {

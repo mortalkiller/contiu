@@ -1,0 +1,2 @@
+{{-- Ajuda › … : $trail is a list of [label, url or null for the current page]. --}}
+<nav class="ha-crumbs" aria-label="Caminho"><a href="{{ route('site.help') }}">Ajuda</a>@foreach ($trail as [$label, $url])<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>@if ($url)<a href="{{ $url }}">{{ $label }}</a>@else<span aria-current="page">{{ $label }}</span>@endif @endforeach</nav>

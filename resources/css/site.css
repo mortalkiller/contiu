@@ -1100,3 +1100,108 @@ body{margin:0}
 .rz-f5 .rz-acc-opts li b{display:flex;flex-direction:column;gap:2px}
 .rz-f5 .rz-acc-ic{width:42px;height:42px}
 @media (max-width: 900px){.rz-f5 .rz-acc-opts{grid-template-columns:minmax(0,1fr)}}
+
+/* ───── Centro de ajuda (canvas site-ajuda.css, quadros SiteAjuda*: início, tema, pesquisa e artigo) ───── */
+.ha .c-ic{width:20px;height:20px}
+.ha-crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px !important;font-size:16px;line-height:24px;color:var(--night)}
+.ha-crumbs a{color:var(--indigo);text-decoration:none}
+.ha-crumbs svg{width:14px;height:14px;color:#6b6f8e}
+.ha-h{font-size:clamp(30px,3.4vw,40px);line-height:1.15;font-weight:400;letter-spacing:-.02em;color:var(--night)}
+.ha-h b{font-weight:800}
+.ha-h mark{background:none;color:var(--indigo);font-weight:800}
+
+/* Topo curto das páginas interiores: só a pesquisa e os temas, no branco da página Ajuda */
+.ha-mtop{padding:132px 0 40px;background:linear-gradient(180deg,var(--mist),#fff)}
+.ha-mtop .tp-search{max-width:none;margin-top:0}
+.ha-mtop .tp-links{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:16px !important;font-size:15px;line-height:22px;color:#5b5f7e}
+.ha-mtop .tp-links a{color:var(--indigo);font-weight:600;text-decoration:none}
+.ha-clear{display:grid;place-items:center;flex:none;width:40px;height:40px;border:0;border-radius:50%;background:transparent;color:#6b6f8e;cursor:pointer}
+.ha-clear:hover{background:var(--mist);color:var(--night)}
+
+/* Perguntas mais frequentes: cartões com o título em cor e «Ler artigo» */
+.ha-cards{display:flex;flex-direction:column;gap:14px}
+.ha-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 32px;align-items:center;padding:22px 28px;border:1px solid var(--accent-line);border-radius:20px;background:#fff;color:var(--night);text-decoration:none;transition:box-shadow .15s,border-color .15s}
+.ha-card:hover{border-color:var(--indigo);box-shadow:0 14px 34px rgba(var(--accent-rgb),.12)}
+.ha-card b{font-size:21px;line-height:28px;font-weight:800;color:var(--indigo)}
+.ha-card span{grid-column:1;font-size:16px;line-height:24px;color:#4b4f6e}
+.ha-card em{grid-row:1/span 2;grid-column:2;display:inline-flex;align-items:center;gap:8px;font-style:normal;font-size:16px;font-weight:700;color:var(--indigo);white-space:nowrap}
+
+/* Listas de artigos: título e resumo, separados por uma linha */
+.ha-rows{display:flex;flex-direction:column}
+.ha-row{display:flex;flex-direction:column;gap:4px;padding:18px 16px;border-bottom:1px solid var(--accent-line);color:var(--night);text-decoration:none}
+.ha-row:hover{background:var(--mist)}
+.ha-row b{font-size:18px;line-height:26px;font-weight:700}
+.ha-row:hover b{color:var(--indigo)}
+.ha-row span{font-size:15px;line-height:22px;color:#5b5f7e}
+.ha-row small{font-size:13px;line-height:18px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--indigo)}
+.ha-row mark{padding:0 2px;border-radius:4px;background:#c9ffe8;color:inherit}
+
+/* Procurar por tema: árvore dos temas à esquerda, artigos à direita */
+.ha-browse{display:grid;grid-template-columns:280px minmax(0,1fr);gap:32px;align-items:start;margin-top:28px}
+.ha-tree{display:flex;flex-direction:column;gap:2px}
+.ha-tree>a,.ha-tree>div>a:first-child{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:12px;color:var(--night);font-size:16px;line-height:22px;font-weight:600;text-decoration:none}
+.ha-tree>a:hover{background:var(--mist)}
+.ha-tree svg{width:16px;height:16px;color:#6b6f8e}
+.ha-tree-open>a:first-child{background:var(--action-soft);color:var(--indigo)}
+.ha-tree-open>a:first-child svg{color:var(--indigo);transform:rotate(180deg)}
+.ha-tree-open nav{display:flex;flex-direction:column;padding:6px 0 8px 14px}
+.ha-tree-open nav a{padding:8px 12px;border-left:2px solid var(--accent-line);font-size:15px;line-height:22px;color:#4b4f6e;text-decoration:none}
+.ha-tree-open nav a[aria-current="page"]{border-left-color:var(--indigo);color:var(--indigo);font-weight:700}
+.ha-tree em{font-style:normal;font-size:13px;font-weight:600;color:#6b6f8e}
+.ha-browse .ha-rows{border-top:1px solid var(--accent-line)}
+
+/* Paginação dos resultados */
+.ha-pager{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-top:28px}
+.ha-pager a,.ha-pager span{display:grid;place-items:center;min-width:40px;height:40px;padding:0 6px;border-radius:999px;color:var(--night);font-size:15px;font-weight:600;text-decoration:none}
+.ha-pager a[aria-current="page"]{background:var(--indigo);color:#fff}
+.ha-pager span{color:#b8bbd6}
+
+/* Artigo: uma coluna, como no Moloni ON */
+.ha-art{max-width:960px}
+.ha-art-title{font-size:clamp(36px,4.6vw,56px);line-height:1.08;font-weight:800;letter-spacing:-.035em;color:var(--night)}
+.ha-art-lede{margin-top:14px !important;font-size:21px;line-height:32px;color:#4b4f6e}
+.ha-art-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-top:22px !important;padding-bottom:28px;border-bottom:1px solid var(--accent-line)}
+.ha-art-bar button{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 16px;border:1px solid var(--accent-line);border-radius:999px;background:#fff;font:inherit;font-size:15px;font-weight:600;color:var(--night);cursor:pointer}
+.ha-art-bar button:hover{border-color:var(--indigo);color:var(--indigo)}
+.ha-art-bar span{margin-left:auto;font-size:14px;line-height:20px;color:#6b6f8e}
+.ha .st-prose{max-width:none;margin-top:32px;font-size:18px;line-height:30px}
+.ha .st-prose h2{font-size:28px;line-height:36px;font-weight:800;color:var(--night)}
+.ha .st-prose ol{padding-left:0;list-style:none;counter-reset:ha}
+.ha .st-prose ol li{position:relative;padding-left:44px}
+.ha .st-prose ol li+li{margin-top:14px}
+.ha .st-prose ol li::before{counter-increment:ha;content:counter(ha);position:absolute;left:0;top:1px;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--night);color:#fff;font-size:14px;font-weight:800}
+.ha-path{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px;padding:1px 10px;border-radius:8px;background:var(--mist);font-size:16px;line-height:26px;font-weight:600;color:var(--night)}
+.ha-path i{font-style:normal;color:var(--indigo)}
+.ha-shot{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;aspect-ratio:16/8;border:2px dashed var(--lav);border-radius:18px;background:var(--mist);color:var(--indigo);font-size:15px;line-height:22px;text-align:center}
+.ha-shot b{font-family:var(--font-mono);font-weight:500}
+.ha .st-callout b{display:block}
+.ha-example{padding:18px 22px;border-left:4px solid var(--pink);border-radius:0 16px 16px 0;background:#effff8;font-size:17px;line-height:28px}
+.ha-example b{display:block;font-size:13px;line-height:20px;letter-spacing:.06em;text-transform:uppercase;color:#0b7a50}
+.ha-useful{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;margin-top:48px !important;padding:22px 26px;border-radius:20px;background:var(--mist);font-size:17px;line-height:24px;font-weight:700}
+.ha-useful div{display:flex;gap:10px}
+.ha-useful button{min-height:44px;padding:0 20px;border:1px solid var(--accent-line);border-radius:999px;background:#fff;font:inherit;font-size:15px;font-weight:600;color:var(--night);cursor:pointer}
+.ha-useful button:hover{border-color:var(--indigo);color:var(--indigo)}
+
+@media (max-width: 900px){
+.ha-browse{grid-template-columns:minmax(0,1fr)}
+.ha-card{grid-template-columns:minmax(0,1fr)}
+.ha-card em{grid-row:auto;grid-column:1}
+.ha-art-bar span{margin-left:0;flex-basis:100%}
+.ha-mtop{padding-top:110px}
+}
+.tp-search button.ha-clear{min-height:40px;width:40px;padding:0;background:transparent;color:#6b6f8e}
+.tp-search button.ha-clear:hover{background:var(--mist);color:var(--night)}
+.ha-theme-cols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px}
+.ha-row--head{padding-left:0;border-bottom:2px solid var(--night)}
+.ha-row--head:hover{background:none}
+.ha-row--compact{padding-left:0}
+.ha-row--compact b{font-size:16px;line-height:24px;font-weight:600}
+.ha-row--compact:hover{background:none}
+.ha-tree-count{display:inline-flex;align-items:center;gap:10px}
+.ha-rows--ruled{border-top:1px solid var(--accent-line)}
+.ha-count{margin:6px 0 24px !important;font-size:16px;line-height:24px;color:#5b5f7e}
+.ha-none{display:flex;flex-direction:column;gap:8px;padding:28px;border:2px dashed var(--accent-line);border-radius:24px;font-size:16px;line-height:24px;color:#5b5f7e}
+.ha-none b{font-size:18px;color:var(--night)}
+.ha-none a{color:var(--indigo);font-weight:700}
+.ha-related-head{margin:56px 0 16px !important;font-size:26px}
+@media (max-width: 900px){.ha-theme-cols{grid-template-columns:minmax(0,1fr)}}

@@ -5,7 +5,9 @@
 --}}
 @php
     $current ??= null;
-    $seo = \App\Support\SiteSeo::for($current ?? 'home', $seoPost ?? null);
+    // A page family's own styles hang from a class on the root (help: "ha", resources/css/site.css).
+    // A help page under /ajuda passes its own $seo (SiteSeo::forHelp()).
+    $seo ??= \App\Support\SiteSeo::for($current ?? 'home', $seoPost ?? null);
 @endphp
 <!DOCTYPE html>
 <html lang="pt-PT">
@@ -19,7 +21,7 @@
     @vite(['resources/css/site.css', 'resources/js/site.js'])
 </head>
 <body>
-<div class="c-root st" data-theme="light">
+<div @class(['c-root st', $rootClass ?? null]) data-theme="light">
 @include('site.partials.nav')
 @yield('content')
 @include('site.partials.footer')

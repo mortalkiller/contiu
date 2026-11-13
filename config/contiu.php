@@ -14,8 +14,9 @@ return [
 
     'invoice_email_inbox_enabled' => (bool) env('CONTIU_INVOICE_EMAIL_INBOX_ENABLED', false),
 
-    // Where "Precisas de ajuda? Fala connosco" points (e.g. on "Conta criada"). Hidden when empty.
-    'support_email' => env('CONTIU_SUPPORT_EMAIL'),
+    // The help email: the site's help page and "Precisas de ajuda? Fala connosco" (e.g. on "Conta
+    // criada"), which is hidden when empty.
+    'support_email' => env('CONTIU_SUPPORT_EMAIL', 'ajuda@contiu.pt'),
 
     // Days a new account can use everything before it has to subscribe.
     'trial_days' => 14,
