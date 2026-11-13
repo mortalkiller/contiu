@@ -504,7 +504,7 @@ it('asks for Contiu’s certified accountant without a Stripe price, tells the s
 
     Livewire::test(AccountSubscription::class)
         ->assertSee('Contabilista certificado')
-        ->assertSee(Money::format(3000).' por mês, IVA incluído')
+        ->assertSee(Money::format(9225).' por mês, IVA incluído')
         ->assertActionHidden('subscribeAccountant')
         ->callAction('requestAccountant')
         ->assertNotified('Pedido enviado');
@@ -529,7 +529,7 @@ it('charges the organised accounting price and offers to pay a request once the 
     openAccountAs($this->account, plainOwnerOf($this->account));
 
     Livewire::test(AccountSubscription::class)
-        ->assertSee(Money::format(5000).' por mês, IVA incluído');
+        ->assertSee(Money::format(24600).' por mês, IVA incluído');
 
     $this->account->forceFill(['accountant_service' => 'organised', 'accountant_service_requested_at' => now()])->save();
 
@@ -551,7 +551,7 @@ it('shows the accountant subscription apart from the plan', function () {
     ]);
 
     Livewire::test(AccountSubscription::class)
-        ->assertSee('Ativo: '.Money::format(3000).' por mês.')
+        ->assertSee('Ativo: '.Money::format(9225).' por mês.')
         ->assertActionHidden('requestAccountant')
         ->assertActionVisible('cancelAccountant')
         // The plan is still to choose: the accountant's subscription is not the account's.
@@ -561,8 +561,8 @@ it('shows the accountant subscription apart from the plan', function () {
 })->group('ui');
 
 it('prices the accountant with VAT, by accounting regime', function () {
-    expect(AccountantService::priceWithVat('simplified'))->toBe(3000)
-        ->and(AccountantService::priceWithVat('organised'))->toBe(5000)
+    expect(AccountantService::priceWithVat('simplified'))->toBe(9225)
+        ->and(AccountantService::priceWithVat('organised'))->toBe(24600)
         ->and(AccountantService::planFor('organised'))->toBe('organised')
         ->and(AccountantService::planFor('simplified'))->toBe('simplified')
         ->and(AccountantService::planFor(null))->toBe('simplified');

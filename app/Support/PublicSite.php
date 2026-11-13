@@ -71,7 +71,7 @@ final class PublicSite
         return self::euros(Money::round(AccountSubscription::priceWithVat('yearly') / 12));
     }
 
-    /** The certified-accountant service a month, VAT included ("30 €"). */
+    /** The certified-accountant service a month, VAT included ("92,25 €"). */
     public static function accountantPrice(string $plan): string
     {
         return self::euros(AccountantService::priceWithVat($plan));

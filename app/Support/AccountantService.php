@@ -25,10 +25,14 @@ final class AccountantService
     /** The Cashier subscription type of the service. */
     public const TYPE = 'accountant';
 
-    /** Amounts as charged by the Stripe prices in config('contiu.accountant_prices'): cents, no VAT. */
+    /**
+     * Amounts as charged by the Stripe prices in config('contiu.accountant_prices'): cents a month,
+     * no VAT. The accountant's own reference values (13/11/2026): 75 € in the simplified regime and
+     * 200 € with organised accounting, the same for ENI and TI.
+     */
     public const PLANS = [
-        'simplified' => ['amount' => 2439],
-        'organised' => ['amount' => 4065],
+        'simplified' => ['amount' => 7500],
+        'organised' => ['amount' => 20000],
     ];
 
     /** The service for an accounting regime: organised accounting has its own price. */

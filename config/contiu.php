@@ -64,9 +64,9 @@ return [
     ],
 
     /*
-     * The certified-accountant service (App\Support\AccountantService), monthly: 30 € with VAT in
-     * the simplified regime, 50 € with organised accounting. The Stripe prices are without VAT
-     * (24,39 € and 40,65 €), the stripe_tax_rate adding it as for the plans.
+     * The certified-accountant service (App\Support\AccountantService), monthly: 75 € + VAT in the
+     * simplified regime (92,25 €), 200 € + VAT with organised accounting (246,00 €). The Stripe
+     * prices are without VAT, the stripe_tax_rate adding it as for the plans.
      */
     'accountant_prices' => [
         'simplified' => env('STRIPE_PRICE_ACCOUNTANT_SIMPLIFIED'),

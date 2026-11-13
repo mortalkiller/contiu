@@ -64,12 +64,12 @@ it('shows the prices with VAT everywhere on the site', function () {
     $this->get(route('site.pricing'))
         ->assertSeeInOrder(['<h1 class="st-h1"', 'O <b>preço</b> que um independente merece.', 'data-billing="monthly"'], escape: false)
         ->assertSeeInOrder(['<b data-price>7 €</b>', '* Valores com IVA incluído.', 'o plano é pago de uma vez: 75,60 €'], escape: false)
-        ->assertSeeInOrder(['data-regime="simplified"', '+30 €', 'data-regime="organised"', '+50 €'], escape: false)
+        ->assertSeeInOrder(['data-regime="simplified"', '+92,25 €', 'data-regime="organised"', '+246 €'], escape: false)
         ->assertDontSee('+ IVA');
 
     $this->get(route('site.help'))->assertSee('7 € por mês ou 75,60 € por ano, IVA incluído', escape: false);
 
-    $this->get(route('site.accountant'))->assertSeeInOrder(['Regime simplificado', '30 €', 'Contabilidade organizada', '50 €'], escape: false);
+    $this->get(route('site.accountant'))->assertSeeInOrder(['Regime simplificado', '92,25 €', 'Contabilidade organizada', '246 €'], escape: false);
 
     $offers = collect(siteJsonLd($this->get(route('site.pricing')))['SoftwareApplication']['offers']);
     expect($offers->pluck('price')->all())->toBe(['7.00', '75.60'])
@@ -78,15 +78,15 @@ it('shows the prices with VAT everywhere on the site', function () {
 
 it('shows the plan on the home page with VAT, monthly first, with or without the accountant', function () {
     expect(PublicSite::pricesWithVat())->toBe([
-        'monthly' => ['contiu' => '7 €', 'simplified' => '37 €', 'organised' => '57 €'],
-        'yearly' => ['contiu' => '6,30 €', 'simplified' => '36,30 €', 'organised' => '56,30 €'],
+        'monthly' => ['contiu' => '7 €', 'simplified' => '99,25 €', 'organised' => '253 €'],
+        'yearly' => ['contiu' => '6,30 €', 'simplified' => '98,55 €', 'organised' => '252,30 €'],
         'yearly_total' => '75,60 €',
     ]);
 
     $this->get(route('site.home'))
         ->assertSeeInOrder(['data-billing="monthly"', 'data-billing="yearly"'], escape: false)
         ->assertSeeInOrder(['<b data-price>7 €</b>', '* Valores com IVA incluído.', 'o plano é pago de uma vez: 75,60 €'], escape: false)
-        ->assertSeeInOrder(['data-regime="simplified"', '+30 €', 'data-regime="organised"', '+50 €'], escape: false)
+        ->assertSeeInOrder(['data-regime="simplified"', '+92,25 €', 'data-regime="organised"', '+246 €'], escape: false)
         ->assertSee('data-only-plan="contab" hidden', escape: false);
 });
 

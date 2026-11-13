@@ -760,9 +760,9 @@ it('asks about Contiu’s certified accountant on every path, Yes by default, an
         ->and($account->accountant_service_requested_at)->not->toBeNull();
     Mail::assertQueued(AccountantServiceRequested::class, fn (AccountantServiceRequested $mail): bool => $mail->hasTo($admin->email));
 })->with([
-    'simplified regime' => ['simplified', 'Queres que um contabilista certificado trate das tuas declarações?', 'simplified', 3000],
-    'activity not opened yet' => ['waiting', 'Ajuda a abrir a atividade nas Finanças', 'simplified', 3000],
-    'organised accounting' => ['organised', 'Com contabilidade organizada, precisas de um contabilista certificado', 'organised', 5000],
+    'simplified regime' => ['simplified', 'Queres que um contabilista certificado trate das tuas declarações?', 'simplified', 9225],
+    'activity not opened yet' => ['waiting', 'Ajuda a abrir a atividade nas Finanças', 'simplified', 9225],
+    'organised accounting' => ['organised', 'Com contabilidade organizada, precisas de um contabilista certificado', 'organised', 24600],
 ])->group('integration');
 
 it('records no accountant when the user handles it or already has one', function (array $answers) {
@@ -791,9 +791,9 @@ it('adds the accountant to what will be charged on the payment step', function (
     registrationWizard()
         ->goToWizardStep(7)
         ->assertSee('O que vais pagar')
-        // The yearly plan (75,60 €) and the accountant (30,00 €) on the first charge.
-        ->assertSee(Money::format(10560))
-        ->assertSee('mais '.Money::format(3000).' por mês pelo contabilista');
+        // The yearly plan (75,60 €) and the accountant (92,25 €) on the first charge.
+        ->assertSee(Money::format(16785))
+        ->assertSee('mais '.Money::format(9225).' por mês pelo contabilista');
 })->group('ui');
 
 it('opens on “Conta criada” with the tax card and what is agreed, right after signing up', function () {

@@ -46,7 +46,7 @@ it('shows the terms with the prices, trial and version as configured, and what i
         ->assertSee('Disposições finais')
         ->assertSee('14 dias, com acesso a todas as funcionalidades')
         ->assertSeeInOrder(['Mensal', '5,69', '7,00', 'Anual', '61,46', '75,60'])
-        ->assertSeeInOrder(['Regime simplificado', '30,00', 'Contabilidade organizada', '50,00'])
+        ->assertSeeInOrder(['Regime simplificado', '92,25', 'Contabilidade organizada', '246,00'])
         ->assertSee('mailto:ajuda@contiu.pt', escape: false)
         ->assertSee('Estes Termos entram em vigor a 13 de novembro de 2026.')
         ->assertSee('<p class="placeholder">A confirmar:', escape: false)
