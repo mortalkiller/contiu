@@ -2,10 +2,15 @@
 
 namespace App\Support;
 
+use Closure;
+use DomainException;
 use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Reader\IReadFilter;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
+use ZipArchive;
 
 /**
  * Reads bank statement exports — CSV, or the .xlsx/.xls some banks offer instead (Portuguese banks
@@ -16,6 +21,30 @@ use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
  */
 final class BankCsvParser
 {
+    public const int MAX_KILOBYTES = 5120;
+
+    private const int MAX_ROWS = 20000;
+
+    private const int MAX_COLUMNS = 64;
+
+    private const int MAX_CELLS = 100000;
+
+    private const int MAX_SHEETS = 8;
+
+    private const int MAX_ZIP_ENTRIES = 256;
+
+    private const int MAX_EXPANDED_BYTES = 12 * 1024 * 1024;
+
+    private const int MAX_TEXT_BYTES = 6 * 1024 * 1024;
+
+    private const int MAX_CELL_BYTES = 16384;
+
+    public const string LIMIT_ERROR = 'The statement is too large or complex. Export a shorter period and try again.';
+
+    public const string READ_ERROR = 'The statement could not be opened. Try exporting it again.';
+
+    public const string FORMULA_ERROR = 'The statement contains formulas. Export it as CSV or save the spreadsheet with values only.';
+
     private const DATE_HEADERS = ['data mov', 'data movimento', 'data de movimento', 'data lancamento', 'data lanc', 'data operacao', 'data', 'date', 'data valor'];
 
     private const DESCRIPTION_HEADERS = ['descricao', 'descritivo', 'descricao do movimento', 'movimento', 'designacao', 'description', 'detalhe'];
@@ -35,10 +64,28 @@ final class BankCsvParser
      */
     public static function parse(string $contents, ?array $mapping = null): BankCsvResult
     {
+        self::checkFileSize($contents);
         $contents = self::toUtf8($contents);
-        $lines = preg_split('/\r\n|\r|\n/', $contents) ?: [];
+        $lines = preg_split('/\r\n|\r|\n/', $contents, self::MAX_ROWS + 2) ?: [];
+        if (count($lines) > self::MAX_ROWS + 1 || (count($lines) > self::MAX_ROWS && end($lines) !== '')) {
+            throw new DomainException(self::LIMIT_ERROR);
+        }
+
         $delimiter = self::detectDelimiter($lines);
-        $table = array_map(fn (string $line) => array_map(fn (?string $cell) => trim((string) $cell), str_getcsv($line, $delimiter, '"', '')), $lines);
+        $table = [];
+        $cellCount = 0;
+        foreach ($lines as $line) {
+            if (strlen($line) > self::MAX_CELL_BYTES) {
+                throw new DomainException(self::LIMIT_ERROR);
+            }
+
+            $cells = str_getcsv($line, $delimiter, '"', '');
+            $cellCount += count($cells);
+            if (count($cells) > self::MAX_COLUMNS || $cellCount > self::MAX_CELLS) {
+                throw new DomainException(self::LIMIT_ERROR);
+            }
+            $table[] = array_map(fn (?string $cell) => trim((string) $cell), $cells);
+        }
 
         return self::parseTable($table, $mapping, $delimiter);
     }
@@ -51,36 +98,158 @@ final class BankCsvParser
      */
     public static function parseSpreadsheet(string $contents, ?array $mapping = null): BankCsvResult
     {
+        self::checkFileSize($contents);
         $path = tempnam(sys_get_temp_dir(), 'bank-statement');
-        file_put_contents($path, $contents);
+        if ($path === false) {
+            throw new DomainException(self::READ_ERROR);
+        }
 
         try {
-            $sheet = IOFactory::load($path, 0, [IOFactory::READER_XLSX, IOFactory::READER_XLS])->getActiveSheet();
+            if (file_put_contents($path, $contents) !== strlen($contents)) {
+                throw new DomainException(self::READ_ERROR);
+            }
+
+            return self::readWorkbook($path, str_starts_with($contents, "PK\x03\x04"), $mapping);
         } finally {
             unlink($path);
         }
+    }
 
-        $table = [];
-        $lastColumn = Coordinate::columnIndexFromString($sheet->getHighestDataColumn());
+    /** @param array<string, int>|null $mapping */
+    public static function parseFile(string $path, ?array $mapping = null): BankCsvResult
+    {
+        $size = filesize($path);
+        if ($size === false) {
+            throw new DomainException(self::READ_ERROR);
+        }
+        if ($size > self::MAX_KILOBYTES * 1024) {
+            throw new DomainException(self::LIMIT_ERROR);
+        }
 
-        for ($row = 1, $lastRow = $sheet->getHighestDataRow(); $row <= $lastRow; $row++) {
-            $cells = [];
+        $signature = file_get_contents($path, length: 8);
+        if ($signature === false) {
+            throw new DomainException(self::READ_ERROR);
+        }
+        if (str_starts_with($signature, "PK\x03\x04")) {
+            return self::readWorkbook($path, true, $mapping);
+        }
+        if ($signature === "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1") {
+            return self::readWorkbook($path, false, $mapping);
+        }
 
-            for ($column = 1; $column <= $lastColumn; $column++) {
-                $cell = $sheet->getCell([$column, $row]);
-                $value = $cell->getCalculatedValue();
+        $contents = file_get_contents($path, length: self::MAX_KILOBYTES * 1024 + 1);
 
-                $cells[] = match (true) {
-                    is_numeric($value) && ! is_string($value) && ExcelDate::isDateTime($cell) => ExcelDate::excelToDateTimeObject((float) $value)->format('Y-m-d'),
+        return self::parse($contents === false ? throw new DomainException(self::READ_ERROR) : $contents, $mapping);
+    }
+
+    private static function readWorkbook(string $path, bool $isXlsx, ?array $mapping): BankCsvResult
+    {
+        if ($isXlsx) {
+            self::checkArchive($path);
+        }
+
+        $reader = IOFactory::createReader($isXlsx ? IOFactory::READER_XLSX : IOFactory::READER_XLS);
+        $reader->setReadEmptyCells(false);
+        $reader->setReadFilter(new class(self::checkCellBudget(...)) implements IReadFilter
+        {
+            private int $cells = 0;
+
+            public function __construct(private readonly Closure $checkBudget) {}
+
+            public function readCell(string $columnAddress, int $row, string $worksheetName = ''): bool
+            {
+                ($this->checkBudget)($row, Coordinate::columnIndexFromString($columnAddress), ++$this->cells);
+
+                return true;
+            }
+        });
+
+        $calendar = ExcelDate::getExcelCalendar();
+        try {
+            $sheets = $reader->listWorksheetInfo($path);
+            if ($sheets === [] || count($sheets) > self::MAX_SHEETS) {
+                throw new DomainException(self::LIMIT_ERROR);
+            }
+            foreach ($sheets as $sheetInfo) {
+                self::checkCellBudget($sheetInfo['totalRows'], $sheetInfo['totalColumns'], 0);
+            }
+
+            $book = $reader->load($path);
+            $sheet = $book->getActiveSheet();
+            ExcelDate::setExcelCalendar($book->getExcelCalendar());
+            $table = [];
+            $count = 0;
+            $textBytes = 0;
+
+            foreach ($sheet->getCoordinates() as $coordinate) {
+                [$column, $row] = Coordinate::indexesFromString($coordinate);
+                self::checkCellBudget($row, $column, ++$count);
+                $cell = $sheet->getCell($coordinate);
+                // Older XLS readers may expose a previously saved result as a scalar.
+                if ($cell->getDataType() === DataType::TYPE_FORMULA) {
+                    throw new DomainException(self::FORMULA_ERROR);
+                }
+
+                $value = $cell->getValue();
+                $text = match (true) {
+                    (is_int($value) || is_float($value)) && ExcelDate::isDateTime($cell, $value) => ExcelDate::excelToDateTimeObject((float) $value)->format('Y-m-d'),
                     is_int($value) || is_float($value) => (string) round((float) $value, 2),
                     default => trim((string) $value),
                 };
+                $bytes = strlen($text);
+                $textBytes += $bytes;
+                if ($bytes > self::MAX_CELL_BYTES || $textBytes > self::MAX_TEXT_BYTES) {
+                    throw new DomainException(self::LIMIT_ERROR);
+                }
+                $table[$row][$column - 1] = $text;
             }
 
-            $table[] = $cells;
+            return self::parseTable($table, $mapping, delimiter: '');
+        } finally {
+            if (isset($book)) {
+                $book->disconnectWorksheets();
+            }
+            ExcelDate::setExcelCalendar($calendar);
+        }
+    }
+
+    private static function checkCellBudget(int $row, int $column, int $count): void
+    {
+        if ($row > self::MAX_ROWS || $column > self::MAX_COLUMNS || $count > self::MAX_CELLS) {
+            throw new DomainException(self::LIMIT_ERROR);
+        }
+    }
+
+    private static function checkArchive(string $path): void
+    {
+        $archive = new ZipArchive;
+        if ($archive->open($path, ZipArchive::RDONLY) !== true) {
+            throw new DomainException(self::READ_ERROR);
         }
 
-        return self::parseTable($table, $mapping, delimiter: '');
+        try {
+            if ($archive->numFiles > self::MAX_ZIP_ENTRIES) {
+                throw new DomainException(self::LIMIT_ERROR);
+            }
+
+            $expandedBytes = 0;
+            for ($index = 0; $index < $archive->numFiles; $index++) {
+                $entry = $archive->statIndex($index);
+                if ($entry === false || $entry['size'] > self::MAX_EXPANDED_BYTES - $expandedBytes) {
+                    throw new DomainException(self::LIMIT_ERROR);
+                }
+                $expandedBytes += $entry['size'];
+            }
+        } finally {
+            $archive->close();
+        }
+    }
+
+    private static function checkFileSize(string $contents): void
+    {
+        if (strlen($contents) > self::MAX_KILOBYTES * 1024) {
+            throw new DomainException(self::LIMIT_ERROR);
+        }
     }
 
     /**
@@ -284,8 +453,8 @@ final class BankCsvParser
     private static function firstHeaderLike(array $table): array
     {
         foreach ($table as $cells) {
-            if (count($cells) >= 2) {
-                return $cells;
+            if ($cells !== [] && max(array_keys($cells)) >= 1) {
+                return array_replace(array_fill(0, max(array_keys($cells)) + 1, ''), $cells);
             }
         }
 

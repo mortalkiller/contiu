@@ -22,7 +22,9 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
+use Spatie\Permission\Models\Role;
 
 pest()->group('tenancy');
 
@@ -499,6 +501,32 @@ it('seeds a local admin whose email is already verified', function () {
     $this->seed(DatabaseSeeder::class);
 
     expect(User::firstWhere('email', 'admin@pressiumize.test')->hasVerifiedEmail())->toBeTrue();
+})->group('integration');
+
+it('blocks the demo seeder before writing anything outside local and testing', function (string $environment) {
+    $counts = [User::count(), Account::count(), Role::count()];
+    $previous = app()->environment();
+    app()->instance('env', $environment);
+
+    try {
+        expect(fn () => app(DatabaseSeeder::class)->setContainer(app())())
+            ->toThrow(LogicException::class, 'The demo administrator can only be seeded in local or testing.');
+    } finally {
+        app()->instance('env', $previous);
+    }
+
+    expect([User::count(), Account::count(), Role::count()])->toBe($counts);
+})->with(['production', 'staging'])->group('integration');
+
+it('uses the configured local password for new demo administrators without resetting it on reseed', function () {
+    $password = Str::password(32);
+    config(['contiu.demo_admin_password' => $password]);
+    $this->seed(DatabaseSeeder::class);
+
+    config(['contiu.demo_admin_password' => Str::password(32)]);
+    $this->seed(DatabaseSeeder::class);
+
+    expect(Hash::check($password, User::firstWhere('email', 'admin@pressiumize.test')->password))->toBeTrue();
 })->group('integration');
 
 it('seeds an example account owned by the local admin, without billing', function () {

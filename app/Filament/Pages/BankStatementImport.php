@@ -28,6 +28,7 @@ use App\Models\Supplier;
 use App\Support\BankCandidate;
 use App\Support\BankCsvParser;
 use App\Support\BankCsvResult;
+use App\Support\BankStatementReader;
 use App\Support\BankSuggestion;
 use App\Support\CurrentAccount;
 use App\Support\FinanceSettings;
@@ -62,6 +63,7 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -432,6 +434,7 @@ class BankStatementImport extends Page implements HasTable
                     ->directory(fn (): string => $this->uploadDirectory())
                     // A path in the field's state comes from the browser: never one it names itself.
                     ->preventFilePathTampering()
+                    ->maxSize(BankCsvParser::MAX_KILOBYTES)
                     ->acceptedFileTypes([
                         'text/csv',
                         'text/plain',
@@ -443,17 +446,13 @@ class BankStatementImport extends Page implements HasTable
             ])
             ->action(function (array $data): void {
                 $path = is_array($data['file']) ? reset($data['file']) : $data['file'];
-                $result = $this->readStatement($path);
+                $result = $this->importStatement($path);
 
-                if ($result->needsMapping()) {
+                if ($result?->needsMapping()) {
                     $this->mappingFile = $path;
                     $this->mappingHeaders = $result->headers;
                     $this->replaceMountedAction('mapColumns');
-
-                    return;
                 }
-
-                $this->storeRows($result->rows, $path);
             });
     }
 
@@ -471,6 +470,7 @@ class BankStatementImport extends Page implements HasTable
 
         return Action::make('mapColumns')
             ->label(__('Map columns'))
+            ->disabled(fn () => CurrentAccount::readOnly())
             ->modalHeading(__('The file columns could not be identified'))
             ->modalDescription(__('Choose the column for each field. Use “Amount” for a single signed column, or “Debit” and “Credit” if they are separate.'))
             ->modalSubmitActionLabel(__('Read statement'))
@@ -491,29 +491,52 @@ class BankStatementImport extends Page implements HasTable
                 }
 
                 $path = $this->mappingFile ?? abort(404);
-                $result = $this->readStatement($path, $mapping);
-                $this->storeRows($result->rows, $path);
+                $result = $this->importStatement($path, $mapping);
+                if ($result === null && Storage::disk('local')->exists($path)) {
+                    $action->halt();
+                }
                 $this->mappingFile = null;
                 $this->mappingHeaders = [];
             });
     }
 
     /**
-     * Excel exports are recognised by their content (a zip or OLE file), not the name, so a
-     * renamed file still reads.
-     *
      * @param  array<string, int>|null  $mapping
      */
-    private function readStatement(string $path, ?array $mapping = null): BankCsvResult
+    private function importStatement(string $path, ?array $mapping = null): ?BankCsvResult
     {
+        abort_if(CurrentAccount::readOnly(), 403);
         $this->ensureOwnUpload($path);
 
-        $contents = (string) Storage::disk('local')->get($path);
-        $isSpreadsheet = str_starts_with($contents, "PK\x03\x04") || str_starts_with($contents, "\xD0\xCF\x11\xE0");
+        $disk = Storage::disk('local');
+        try {
+            $result = Cache::lock('bank-statement-import:'.CurrentAccount::id(), 120)
+                ->get(function () use ($disk, $path, $mapping): BankCsvResult {
+                    $result = app(BankStatementReader::class)->read($disk->path($path), $mapping);
 
-        return $isSpreadsheet
-            ? BankCsvParser::parseSpreadsheet($contents, $mapping)
-            : BankCsvParser::parse($contents, $mapping);
+                    if (! $result->needsMapping()) {
+                        $this->storeRows($result->rows, $path);
+                    }
+
+                    return $result;
+                });
+        } catch (DomainException $exception) {
+            $disk->delete($path);
+            Notification::make()->title(__($exception->getMessage()))->danger()->send();
+
+            return null;
+        }
+
+        if ($result === false) {
+            if ($mapping === null) {
+                $disk->delete($path);
+            }
+            Notification::make()->title(__('A statement is already being read for this account. Try again shortly.'))->warning()->send();
+
+            return null;
+        }
+
+        return $result;
     }
 
     /** Uploads go to a folder of their own per account, on the disk all accounts share. */
@@ -540,15 +563,15 @@ class BankStatementImport extends Page implements HasTable
     {
         $this->ensureOwnUpload($path);
 
-        Storage::disk('local')->delete($path);
-
         if ($rows === []) {
+            Storage::disk('local')->delete($path);
             Notification::make()->title(__('No transactions found in the file'))->warning()->send();
 
             return;
         }
 
         ['created' => $created, 'skipped' => $skipped] = app(ImportBankStatement::class)->store($rows);
+        Storage::disk('local')->delete($path);
 
         Notification::make()
             ->title(trans_choice('{1} :count new statement line|[0,*] :count new statement lines', $created))

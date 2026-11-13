@@ -12,8 +12,10 @@ use App\Support\ClientStatement;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Livewire\Livewire;
+use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 beforeEach(function () {
@@ -32,8 +34,36 @@ function readXlsx(string $binary): array
     $path = tempnam(sys_get_temp_dir(), 'xlsx');
     file_put_contents($path, $binary);
 
-    return IOFactory::load($path)->getActiveSheet()->toArray(null, true, false);
+    try {
+        return IOFactory::load($path)->getActiveSheet()->toArray(null, false, false);
+    } finally {
+        unlink($path);
+    }
 }
+
+it('preserves literal text and identifiers without converting numeric amounts to text', function () {
+    $export = new class implements FromArray
+    {
+        public function array(): array
+        {
+            return [['=1+1', '123456789', '0001234567890123456789', 12.50]];
+        }
+    };
+    $path = tempnam(sys_get_temp_dir(), 'xlsx');
+    try {
+        file_put_contents($path, Excel::raw($export, ExcelWriter::XLSX));
+        $sheet = IOFactory::load($path)->getActiveSheet();
+
+        expect($sheet->getCell('A1')->getDataType())->toBe(DataType::TYPE_STRING)
+            ->and($sheet->getCell('A1')->getValue())->toBe('=1+1')
+            ->and($sheet->getCell('B1')->getDataType())->toBe(DataType::TYPE_STRING)
+            ->and($sheet->getCell('C1')->getValue())->toBe('0001234567890123456789')
+            ->and($sheet->getCell('D1')->getDataType())->toBe(DataType::TYPE_NUMERIC)
+            ->and($sheet->getCell('D1')->getValue())->toBe(12.5);
+    } finally {
+        unlink($path);
+    }
+})->group('integration');
 
 it('exports the statement rows with money as numbers', function () {
     $rows = readXlsx(Excel::raw(new ClientStatementExport(new ClientStatement($this->client)), ExcelWriter::XLSX));

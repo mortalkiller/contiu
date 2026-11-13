@@ -2,6 +2,8 @@
 
 return [
 
+    'demo_admin_password' => env('CONTIU_DEMO_ADMIN_PASSWORD'),
+
     // Public sign-up (/register and the login page's link). Off until going live is ready.
     'registration_open' => (bool) env('CONTIU_REGISTRATION_OPEN', false),
 

@@ -6,6 +6,8 @@ use App\Actions\SeedAccountDefaults;
 use App\Models\Account;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
+use LogicException;
 use Spatie\Permission\Models\Role;
 
 /**
@@ -19,17 +21,20 @@ class DatabaseSeeder extends Seeder
      */
     public function run(SeedAccountDefaults $seedDefaults): void
     {
+        if (! app()->environment('local', 'testing')) {
+            throw new LogicException('The demo administrator can only be seeded in local or testing.');
+        }
+
         $superAdminRole = Role::firstOrCreate([
             'name' => config('filament-shield.super_admin.name', 'super_admin'),
             'guard_name' => 'web',
         ]);
 
-        // Local development admin (password: "password").
         $admin = User::firstOrCreate(
             ['email' => 'admin@pressiumize.test'],
             [
                 'name' => 'Admin',
-                'password' => 'password',
+                'password' => config('contiu.demo_admin_password') ?: Str::password(32),
                 'email_verified_at' => now(),
             ],
         );

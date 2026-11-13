@@ -1,6 +1,9 @@
 <?php
 
 use App\Support\BankCsvParser;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 pest()->group('banking');
 
@@ -81,6 +84,14 @@ it('reads Windows-1252 files with Portuguese headers', function () {
         ->and($rows[0]['description'])->toBe('Pagamento serviço');
 });
 
+it('accepts an ordinary CSV at the row limit and rejects a longer statement', function () {
+    $csv = "Date;Description;Amount\n".str_repeat("2026-10-10;Bank transfer;5.00\n", 19999);
+
+    expect(BankCsvParser::parse($csv)->rows)->toHaveCount(19999)
+        ->and(fn () => BankCsvParser::parse($csv."2026-10-11;Bank transfer;5.00\n"))
+        ->toThrow(DomainException::class, BankCsvParser::LIMIT_ERROR);
+});
+
 it('uses the booking date when the export also has a value date', function () {
     $csv = "Data Lanc.;Data Valor;Descrição;Valor;Saldo\n10/07/2026;09/07/2026;TRF DE GONCALO TEIXEIRA;1,500.00;1,500.00\n";
 
@@ -109,6 +120,24 @@ it('reads real date and number cells from a spreadsheet', function () {
 
 it('reads an old .xls export too', function () {
     expect(BankCsvParser::parseSpreadsheet(bankStatementWorkbook(format: 'xls'))->rows)->toHaveCount(2);
+});
+
+it('asks for values only when a workbook contains a spreadsheet formula', function () {
+    $workbook = new Spreadsheet;
+    $sheet = $workbook->getActiveSheet();
+    $sheet->fromArray([['Date', 'Description', 'Amount'], ['2026-10-01', 'Transfer', null]]);
+    $sheet->setCellValueExplicit('C2', '=1+1', DataType::TYPE_FORMULA);
+    $path = tempnam(sys_get_temp_dir(), 'bank');
+
+    try {
+        (new Xlsx($workbook))->setPreCalculateFormulas(false)->save($path);
+
+        expect(fn () => BankCsvParser::parseFile($path))
+            ->toThrow(DomainException::class, BankCsvParser::FORMULA_ERROR);
+    } finally {
+        unlink($path);
+        $workbook->disconnectWorksheets();
+    }
 });
 
 it('parses a spreadsheet with a manual mapping', function () {

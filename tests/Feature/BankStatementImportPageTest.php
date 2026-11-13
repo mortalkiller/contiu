@@ -15,6 +15,7 @@ use App\Models\Receivable;
 use App\Models\Supplier;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
@@ -199,13 +200,42 @@ it('puts a treated line back to pending', function () {
     expect($line->fresh()->status)->toBe(BankTransactionStatus::Pending);
 });
 
-it('uploads an Excel statement exported from the bank', function () {
+it('uploads an Excel statement exported from the bank', function (string $format) {
     Livewire::test(BankStatementImport::class)->loadTable()
-        ->callAction('upload', data: ['file' => UploadedFile::fake()->createWithContent('movimentos.xlsx', bankStatementWorkbook())])
+        ->callAction('upload', data: ['file' => UploadedFile::fake()->createWithContent("movimentos.{$format}", bankStatementWorkbook(format: $format))])
         ->assertHasNoActionErrors()
         ->assertNotified('2 linhas novas do extrato');
 
     expect(BankTransaction::orderBy('booked_on')->pluck('amount')->all())->toBe([150000, -15100]);
+})->with(['xlsx', 'xls']);
+
+it('rejects a statement with too many columns and removes the upload without importing rows', function () {
+    $contents = bankStatementWorkbook([
+        ['10/07/2026', '09/07/2026', 'PAYMENT', '100.00', '100.00', 64 => 'extra column'],
+    ]);
+
+    Livewire::test(BankStatementImport::class)->loadTable()
+        ->callAction('upload', data: ['file' => UploadedFile::fake()->createWithContent('movimentos.xlsx', $contents)])
+        ->assertNotified('O extrato é demasiado grande ou complexo. Exporta um período mais curto e tenta novamente.');
+
+    expect(BankTransaction::count())->toBe(0)
+        ->and(Storage::disk('local')->allFiles('bank-statements'))->toBe([]);
+});
+
+it('does not start a second statement reader for the same account', function () {
+    $lock = Cache::lock('bank-statement-import:'.$this->account->id, 120);
+    expect($lock->get())->toBeTrue();
+
+    try {
+        Livewire::test(BankStatementImport::class)->loadTable()
+            ->callAction('upload', data: ['file' => UploadedFile::fake()->createWithContent('extrato.csv', statementCsv())])
+            ->assertNotified('Já está a ser lido um extrato para esta conta. Tenta novamente daqui a pouco.');
+
+        expect(BankTransaction::count())->toBe(0)
+            ->and(Storage::disk('local')->allFiles('bank-statements'))->toBe([]);
+    } finally {
+        $lock->release();
+    }
 });
 
 it('asks for the columns when it cannot recognise the file', function () {

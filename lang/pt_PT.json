@@ -4363,5 +4363,9 @@
     ":count simulation|:count simulations": ":count simulação|:count simulações",
     ":count analysis|:count analyses": ":count análise|:count análises",
     ":count successful analysis|:count successful analyses": ":count análise concluída|:count análises concluídas",
-    ":count failed analysis|:count failed analyses": ":count análise falhada|:count análises falhadas"
+    ":count failed analysis|:count failed analyses": ":count análise falhada|:count análises falhadas",
+    "The statement is too large or complex. Export a shorter period and try again.": "O extrato é demasiado grande ou complexo. Exporta um período mais curto e tenta novamente.",
+    "The statement could not be opened. Try exporting it again.": "Não foi possível abrir o extrato. Volta a exportá-lo e tenta novamente.",
+    "The statement contains formulas. Export it as CSV or save the spreadsheet with values only.": "O extrato contém fórmulas. Exporta-o em CSV ou guarda a folha de cálculo apenas com os valores.",
+    "A statement is already being read for this account. Try again shortly.": "Já está a ser lido um extrato para esta conta. Tenta novamente daqui a pouco."
 }
